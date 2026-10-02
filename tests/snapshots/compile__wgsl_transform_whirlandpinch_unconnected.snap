@@ -1,0 +1,73 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_control_whirlandpinch1_centerX: f32,
+    u_control_whirlandpinch1_centerY: f32,
+    u_control_whirlandpinch1_pinch: f32,
+    u_control_whirlandpinch1_radius: f32,
+    u_control_whirlandpinch1_whirl: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn whirlandpinch1_output(uv: vec2f) -> vec4f {
+    let center = vec2f(u.u_control_whirlandpinch1_centerX, u.u_control_whirlandpinch1_centerY);
+    let cuv = uv - center;
+    let dist = length(cuv);
+    let radius = max(u.u_control_whirlandpinch1_radius, 1e-6);
+    let mask = 1.0 - smoothstep(0.0, radius, dist);
+    let angle = atan2(cuv.y, cuv.x) + (u.u_control_whirlandpinch1_whirl) * 2.0 * PI * mask;
+    let pinched = dist + (u.u_control_whirlandpinch1_pinch) * mask;
+    let whirledUV = vec2f(cos(angle), sin(angle)) * pinched + center;
+    return defaultUvMap(whirledUV);
+}
+
+fn whirlandpinch1_mask(uv: vec2f) -> f32 {
+    let center = vec2f(u.u_control_whirlandpinch1_centerX, u.u_control_whirlandpinch1_centerY);
+    let cuv = uv - center;
+    let dist = length(cuv);
+    let radius = max(u.u_control_whirlandpinch1_radius, 1e-6);
+    let mask = 1.0 - smoothstep(0.0, radius, dist);
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(whirlandpinch1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = whirlandpinch1_output(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

@@ -1,0 +1,88 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_erode1_intensity: f32,
+    u_control_erode1_radius: f32,
+    u_control_erode1_threshold: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn erode1_color(uv: vec2f) -> vec4f {
+    let radius = u.u_control_erode1_radius;
+    var offset = vec2f(0.0);
+    let original = defaultUvMap(uv + offset);
+    var winner = original;
+    var best = dot(original.rgb, vec3f(0.299, 0.587, 0.114));
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            if (abs(f32(x)) + abs(f32(y)) > 1.0) { continue; }
+            offset = vec2f(f32(x), f32(y)) * radius;
+            let sampled = defaultUvMap(uv + offset);
+            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            if (brightness < best) { best = brightness; winner = sampled; }
+        }
+    }
+    let moved = dot(original.rgb, vec3f(0.299, 0.587, 0.114)) - best;
+    let take = step(u.u_control_erode1_threshold, moved) * clamp(u.u_control_erode1_intensity, 0.0, 1.0);
+    return mix(original, winner, take);
+}
+
+fn erode1_value(uv: vec2f) -> f32 {
+    let radius = u.u_control_erode1_radius;
+    var offset = vec2f(0.0);
+    let original = defaultUvMap(uv + offset);
+    var winner = original;
+    var best = dot(original.rgb, vec3f(0.299, 0.587, 0.114));
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            if (abs(f32(x)) + abs(f32(y)) > 1.0) { continue; }
+            offset = vec2f(f32(x), f32(y)) * radius;
+            let sampled = defaultUvMap(uv + offset);
+            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            if (brightness < best) { best = brightness; winner = sampled; }
+        }
+    }
+    return clamp(best, 0.0, 1.0);
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(erode1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = erode1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

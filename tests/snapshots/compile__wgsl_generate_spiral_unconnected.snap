@@ -1,0 +1,130 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_spiral1_background: vec4f,
+    u_control_spiral1_centerX: f32,
+    u_control_spiral1_centerY: f32,
+    u_control_spiral1_foreground: vec4f,
+    u_control_spiral1_innerRadius: f32,
+    u_control_spiral1_outerRadius: f32,
+    u_control_spiral1_rotation: f32,
+    u_control_spiral1_thickness: f32,
+    u_control_spiral1_turns: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn spiral1_color(uv: vec2f) -> vec4f {
+    let turns = max(u.u_control_spiral1_turns, 0.1);
+    let thickness = max(u.u_control_spiral1_thickness, 1e-4);
+    let innerRadius = u.u_control_spiral1_innerRadius;
+    let outerRadius = u.u_control_spiral1_outerRadius;
+    let rotation = (u.u_control_spiral1_rotation) * 2.0 * PI;
+    let cuv = uv - vec2f(u.u_control_spiral1_centerX, u.u_control_spiral1_centerY);
+    let cs = cos(rotation);
+    let sn = sin(rotation);
+    let p = vec2f(cuv.x * cs - cuv.y * sn, cuv.x * sn + cuv.y * cs);
+    let angle = (atan2(p.y, p.x) + PI) / (2.0 * PI);
+    let dist = length(p);
+    var mask = 0.0;
+    let b = (outerRadius - innerRadius) / (turns * 2.0 * PI);
+    for (var w = 0; w < 20; w++) {
+        if (f32(w) >= turns) { break; }
+        let theta = (angle + f32(w)) * 2.0 * PI;
+        let arm = innerRadius + b * theta;
+        if (arm >= innerRadius && arm <= outerRadius) {
+            mask = max(mask, 1.0 - smoothstep(0.0, thickness, abs(dist - arm)));
+        }
+    }
+    return mix(u.u_control_spiral1_background, u.u_control_spiral1_foreground, mask);
+}
+
+fn spiral1_mask(uv: vec2f) -> f32 {
+    let turns = max(u.u_control_spiral1_turns, 0.1);
+    let thickness = max(u.u_control_spiral1_thickness, 1e-4);
+    let innerRadius = u.u_control_spiral1_innerRadius;
+    let outerRadius = u.u_control_spiral1_outerRadius;
+    let rotation = (u.u_control_spiral1_rotation) * 2.0 * PI;
+    let cuv = uv - vec2f(u.u_control_spiral1_centerX, u.u_control_spiral1_centerY);
+    let cs = cos(rotation);
+    let sn = sin(rotation);
+    let p = vec2f(cuv.x * cs - cuv.y * sn, cuv.x * sn + cuv.y * cs);
+    let angle = (atan2(p.y, p.x) + PI) / (2.0 * PI);
+    let dist = length(p);
+    var mask = 0.0;
+    let b = (outerRadius - innerRadius) / (turns * 2.0 * PI);
+    for (var w = 0; w < 20; w++) {
+        if (f32(w) >= turns) { break; }
+        let theta = (angle + f32(w)) * 2.0 * PI;
+        let arm = innerRadius + b * theta;
+        if (arm >= innerRadius && arm <= outerRadius) {
+            mask = max(mask, 1.0 - smoothstep(0.0, thickness, abs(dist - arm)));
+        }
+    }
+    return mask;
+}
+
+fn spiral1_angle(uv: vec2f) -> f32 {
+    let turns = max(u.u_control_spiral1_turns, 0.1);
+    let thickness = max(u.u_control_spiral1_thickness, 1e-4);
+    let innerRadius = u.u_control_spiral1_innerRadius;
+    let outerRadius = u.u_control_spiral1_outerRadius;
+    let rotation = (u.u_control_spiral1_rotation) * 2.0 * PI;
+    let cuv = uv - vec2f(u.u_control_spiral1_centerX, u.u_control_spiral1_centerY);
+    let cs = cos(rotation);
+    let sn = sin(rotation);
+    let p = vec2f(cuv.x * cs - cuv.y * sn, cuv.x * sn + cuv.y * cs);
+    let angle = (atan2(p.y, p.x) + PI) / (2.0 * PI);
+    let dist = length(p);
+    var mask = 0.0;
+    let b = (outerRadius - innerRadius) / (turns * 2.0 * PI);
+    for (var w = 0; w < 20; w++) {
+        if (f32(w) >= turns) { break; }
+        let theta = (angle + f32(w)) * 2.0 * PI;
+        let arm = innerRadius + b * theta;
+        if (arm >= innerRadius && arm <= outerRadius) {
+            mask = max(mask, 1.0 - smoothstep(0.0, thickness, abs(dist - arm)));
+        }
+    }
+    return angle;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(spiral1_mask(uv), spiral1_angle(uv), u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = spiral1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

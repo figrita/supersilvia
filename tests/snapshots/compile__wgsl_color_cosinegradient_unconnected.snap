@@ -1,0 +1,43 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_cosinegradient1_ampB: f32,
+    u_control_cosinegradient1_ampG: f32,
+    u_control_cosinegradient1_ampR: f32,
+    u_control_cosinegradient1_biasB: f32,
+    u_control_cosinegradient1_biasG: f32,
+    u_control_cosinegradient1_biasR: f32,
+    u_control_cosinegradient1_freqB: f32,
+    u_control_cosinegradient1_freqG: f32,
+    u_control_cosinegradient1_freqR: f32,
+    u_control_cosinegradient1_phaseB: f32,
+    u_control_cosinegradient1_phaseG: f32,
+    u_control_cosinegradient1_phaseOffset: f32,
+    u_control_cosinegradient1_phaseR: f32,
+    u_control_cosinegradient1_t: f32,
+    u_count_cosinegradient1_clock: vec2f,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn cosinegradient1_output(uv: vec2f) -> vec4f {
+    let t = u.u_control_cosinegradient1_t;
+    let bias = vec3f(u.u_control_cosinegradient1_biasR, u.u_control_cosinegradient1_biasG, u.u_control_cosinegradient1_biasB);
+    let amp = vec3f(u.u_control_cosinegradient1_ampR, u.u_control_cosinegradient1_ampG, u.u_control_cosinegradient1_ampB);
+    let freq = vec3f(u.u_control_cosinegradient1_freqR, u.u_control_cosinegradient1_freqG, u.u_control_cosinegradient1_freqB);
+    let phase = vec3f(u.u_control_cosinegradient1_phaseR, u.u_control_cosinegradient1_phaseG, u.u_control_cosinegradient1_phaseB) + (u.u_count_cosinegradient1_clock.y + u.u_control_cosinegradient1_phaseOffset);
+    let rgb = bias + amp * cos(2.0 * PI * (freq * t + phase));
+    return vec4f(clamp(rgb, vec3f(0.0), vec3f(1.0)), 1.0);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return cosinegradient1_output(uv);
+}

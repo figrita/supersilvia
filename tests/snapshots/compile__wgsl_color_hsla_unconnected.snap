@@ -1,0 +1,47 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_hsla1_a: f32,
+    u_control_hsla1_h: f32,
+    u_control_hsla1_l: f32,
+    u_control_hsla1_s: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn hsl2rgb_channel(p: f32, q: f32, t0: f32) -> f32 {
+    var t = t0;
+    if (t < 0.0) { t += 1.0; }
+    if (t > 1.0) { t -= 1.0; }
+    if (t < 1.0 / 6.0) { return p + (q - p) * 6.0 * t; }
+    if (t < 1.0 / 2.0) { return q; }
+    if (t < 2.0 / 3.0) { return p + (q - p) * (2.0 / 3.0 - t) * 6.0; }
+    return p;
+}
+
+fn hsl2rgb(h: f32, s: f32, l: f32) -> vec3f {
+    if (s == 0.0) { return vec3f(l); }
+    let q = select(l + s - l * s, l * (1.0 + s), l < 0.5);
+    let p = 2.0 * l - q;
+    return vec3f(
+        hsl2rgb_channel(p, q, h + 1.0 / 3.0),
+        hsl2rgb_channel(p, q, h),
+        hsl2rgb_channel(p, q, h - 1.0 / 3.0)
+    );
+}
+
+fn hsla1_output(uv: vec2f) -> vec4f {
+    return vec4f(hsl2rgb(u.u_control_hsla1_h, u.u_control_hsla1_s, u.u_control_hsla1_l), u.u_control_hsla1_a);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return hsla1_output(uv);
+}

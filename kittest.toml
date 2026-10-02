@@ -1,0 +1,8 @@
+# egui_kittest's image snapshots (tests/ui.rs), read by kittest from the crate root.
+#
+# The PNGs in tests/snapshots/ are an Intel iGPU's pixels (Mesa, on Linux), compared there at
+# kittest's defaults: a per-pixel threshold of 0.6 and no failing pixel. Apple's GPU draws
+# the same editor with single edge pixels of text and curves off by up to 1.5, so macOS is
+# compared at 2.0 against the same PNGs. See docs/testing.md.
+[mac]
+threshold = 2.0

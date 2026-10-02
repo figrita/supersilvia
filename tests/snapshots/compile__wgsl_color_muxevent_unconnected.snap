@@ -1,0 +1,29 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_muxevent1_input0: vec4f,
+    u_control_muxevent1_input1: vec4f,
+    u_control_muxevent1_input2: vec4f,
+    u_control_muxevent1_input3: vec4f,
+    u_float_muxevent1_index: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn muxevent1_output(uv: vec2f) -> vec4f {
+    var colors = array<vec4f, 4>(u.u_control_muxevent1_input0, u.u_control_muxevent1_input1, u.u_control_muxevent1_input2, u.u_control_muxevent1_input3);
+    let channel = i32(floor_mod(floor(u.u_float_muxevent1_index) - 1.0, 4.0));
+    return colors[channel];
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return muxevent1_output(uv);
+}

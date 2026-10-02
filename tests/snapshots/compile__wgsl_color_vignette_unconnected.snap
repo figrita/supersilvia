@@ -1,0 +1,65 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_control_vignette1_radius: f32,
+    u_control_vignette1_softness: f32,
+    u_control_vignette1_strength: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn vignette1_color(uv: vec2f) -> vec4f {
+    let radius = u.u_control_vignette1_radius;
+    let softness = max(u.u_control_vignette1_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    let color = defaultUvMap(uv);
+    return vec4f(color.rgb * (1.0 - (1.0 - mask) * (u.u_control_vignette1_strength)), color.a);
+}
+
+fn vignette1_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette1_radius;
+    let softness = max(u.u_control_vignette1_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(vignette1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = vignette1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

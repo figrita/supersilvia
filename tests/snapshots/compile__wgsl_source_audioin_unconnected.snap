@@ -1,0 +1,29 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+@group(0) @binding(2) var sampler_mirror_linear: sampler;
+@group(0) @binding(3) var sampler_mirror_nearest: sampler;
+@group(0) @binding(4) var sampler_repeat_linear: sampler;
+@group(0) @binding(5) var sampler_repeat_nearest: sampler;
+@group(0) @binding(6) var u_texture_audioin1_oscilloscope: texture_2d<f32>;
+
+fn audioin1_oscilloscope(uv: vec2f) -> vec4f {
+    let wave = textureSampleLevel(u_texture_audioin1_oscilloscope, sampler_mirror_linear, vec2f((uv.x + 1.0) * 0.5, 0.5), 0.0).r;
+    let line = (wave - 0.5) * 2.0 * 0.95;
+    return select(vec4f(0.0), vec4f(1.0), abs(uv.y - line) < 0.02);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return audioin1_oscilloscope(uv);
+}

@@ -1,0 +1,143 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_checkerboard7_color1: vec4f,
+    u_control_checkerboard7_color2: vec4f,
+    u_control_checkerboard7_frequency: f32,
+    u_control_mix10_amount: f32,
+    u_control_rgba9_a: f32,
+    u_control_rgba9_b: f32,
+    u_control_rgba9_g: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_opt_mix10_curve: i32,
+    u_opt_mix10_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn mosaicJitter(cell: vec2f) -> vec2f {
+    return vec2f(
+        fract(sin(dot(cell, vec2f(12.9898, 78.233))) * 43758.5453),
+        fract(sin(dot(cell, vec2f(269.5, 183.3))) * 43758.5453));
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn checkerboard7_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard7_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard7_color1;
+    let c2 = u.u_control_checkerboard7_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn mosaic1_color(uv: vec2f) -> vec4f {
+    let cellSize = max(vignette4_mask(uv), 1e-3);
+    let randomness = clamp(vignette5_mask(uv), 0.0, 1.0);
+    let borderWidth = vignette6_mask(uv);
+    let smoothing = max(vignette8_mask(uv), 1e-4);
+    let p = uv * cellSize;
+    let cell = floor(p);
+    let f = fract(p);
+    let cellCenter = (cell + 0.5 + (mosaicJitter(cell) - 0.5) * randomness) / cellSize;
+    let edge = min(min(f.x, f.y), min(1.0 - f.x, 1.0 - f.y));
+    let mask = smoothstep(borderWidth - smoothing * 0.5, borderWidth + smoothing * 0.5, edge);
+    return mix(checkerboard7_output(uv), checkerboard3_output(cellCenter), mask);
+}
+
+fn mosaic1_mask(uv: vec2f) -> f32 {
+    let cellSize = max(vignette4_mask(uv), 1e-3);
+    let randomness = clamp(vignette5_mask(uv), 0.0, 1.0);
+    let borderWidth = vignette6_mask(uv);
+    let smoothing = max(vignette8_mask(uv), 1e-4);
+    let p = uv * cellSize;
+    let cell = floor(p);
+    let f = fract(p);
+    let cellCenter = (cell + 0.5 + (mosaicJitter(cell) - 0.5) * randomness) / cellSize;
+    let edge = min(min(f.x, f.y), min(1.0 - f.x, 1.0 - f.y));
+    let mask = smoothstep(borderWidth - smoothing * 0.5, borderWidth + smoothing * 0.5, edge);
+    return mask;
+}
+
+fn rgba9_output(uv: vec2f) -> vec4f {
+    return vec4f(mosaic1_mask(uv), u.u_control_rgba9_g, u.u_control_rgba9_b, u.u_control_rgba9_a);
+}
+
+fn mix10_output(uv: vec2f) -> vec4f {
+    let a = mosaic1_color(uv);
+    let b = rgba9_output(uv);
+    let amt = clamp(u.u_control_mix10_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix10_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix10_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix10_output(uv);
+}

@@ -1,0 +1,87 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn chromaticaberration1_output(uv: vec2f) -> vec4f {
+    let offset = vignette4_mask(uv);
+    let angle = (vignette5_mask(uv)) * 2.0 * PI;
+    let center = vec2f(vignette6_mask(uv), vignette7_mask(uv));
+    let toCenter = uv - center;
+    let dist = length(toCenter);
+    let dir = select(toCenter / dist, vec2f(1.0, 0.0), dist < 0.001);
+    let cs = cos(angle);
+    let sn = sin(angle);
+    let rotated = vec2f(dir.x * cs - dir.y * sn, dir.x * sn + dir.y * cs);
+    let push = rotated * offset * dist;
+    let uvR = uv - push;
+    let uvG = uv;
+    let uvB = uv + push;
+    let r = (checkerboard3_output(uvR)).r;
+    let g = checkerboard3_output(uvG);
+    let b = (checkerboard3_output(uvB)).b;
+    return vec4f(r, g.g, b, g.a);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return chromaticaberration1_output(uv);
+}

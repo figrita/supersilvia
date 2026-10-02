@@ -1,0 +1,184 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
+    u_control_vignette10_radius: f32,
+    u_control_vignette10_softness: f32,
+    u_control_vignette11_radius: f32,
+    u_control_vignette11_softness: f32,
+    u_control_vignette12_radius: f32,
+    u_control_vignette12_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn hashBits(x0: u32) -> u32 {
+    var x = x0;
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+fn hashBits2(v: vec2u) -> u32 { return hashBits(v.x ^ hashBits(v.y)); }
+
+fn hashRandom(v: vec2f) -> f32 {
+    var m = hashBits2(bitcast<vec2u>(v));
+    m &= 0x007FFFFFu;
+    m |= 0x3F800000u;
+    return bitcast<f32>(m) - 1.0;
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette10_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette10_radius;
+    let softness = max(u.u_control_vignette10_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette11_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette11_radius;
+    let softness = max(u.u_control_vignette11_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette12_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette12_radius;
+    let softness = max(u.u_control_vignette12_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn scatter1_output(uv: vec2f) -> vec4f {
+    let baseSize = 2.0 / max(vignette5_mask(uv), 1.0);
+    let seed = vignette12_mask(uv);
+    let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
+    let presence = vignette6_mask(uv);
+    let jitter = vignette7_mask(uv);
+    let rotation = vignette8_mask(uv);
+    let scale = vignette9_mask(uv);
+    let scaleVariation = vignette10_mask(uv);
+    let flipChance = vignette11_mask(uv);
+    var result = checkerboard4_output(uv);
+    var layerScale = array<f32, 3>(4.0, 2.0, 1.0);
+    var layerChance = array<f32, 3>(0.12, 0.20, 0.35);
+    var layerOffset = array<f32, 3>(0.0, 10000.0, 20000.0);
+
+    for (var layer = 0; layer < 3; layer++) {
+        let cellSize = baseSize * layerScale[layer];
+        let baseCell = floor(uv / cellSize);
+        for (var dy = 0; dy <= 0; dy++) {
+        for (var dx = 0; dx <= 0; dx++) {
+            let neighbor = vec2f(f32(dx), f32(dy));
+            let key = baseCell + neighbor + layerOffset[layer] + seedOffset;
+            let h1 = hashRandom(key);
+            let h2 = hashRandom(key + 1.0);
+            let h3 = hashRandom(key + 2.0);
+            let h4 = hashRandom(key + 3.0);
+            let h5 = hashRandom(key + 4.0);
+            let h6 = hashRandom(key + 5.0);
+            if (h6 > presence * layerChance[layer]) { continue; }
+
+            let copyCenter = (baseCell + neighbor + 0.5) * cellSize
+                + (vec2f(h1, h2) - 0.5) * cellSize * jitter;
+            let halfExtent = 0.2 * max(scale * (1.0 - scaleVariation + scaleVariation * h5 * 2.0), 0.01);
+
+            let angle = (h3 - 0.5) * rotation * 2.0 * PI;
+            let cv = cos(-angle);
+            let sv = sin(-angle);
+            var scatterUV = mat2x2f(cv, -sv, sv, cv) * (uv - copyCenter) / halfExtent;
+            if (h4 < flipChance) { scatterUV.x = -scatterUV.x; }
+            if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) { continue; }
+
+            let sampled = checkerboard3_output(scatterUV);
+            result = mix(result, sampled, sampled.a);
+        }
+        }
+    }
+    return result;
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return scatter1_output(uv);
+}

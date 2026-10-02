@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The app's entitlements, read by build-app.sh when it signs supersilvia.app. They matter
+     under the hardened runtime, which a Developer ID signature turns on; an ad-hoc build
+     carries them and is not held to them. Why each one is here: README.md, "Signing". -->
+<plist version="1.0">
+<dict>
+  <!-- A camera through AVFoundation (avfvideosrc), the iPhone's included. -->
+  <key>com.apple.security.device.camera</key>
+  <true/>
+  <!-- A microphone through Core Audio (osxaudiosrc and cpal), and the process tap that is
+       System audio. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <!-- ORC, which GStreamer's videoconvert, videoscale and audioconvert compile their inner
+       loops with at run time. Without it ORC's mapping fails and every loop falls back to
+       plain C: correct, and several times slower on a camera's frames. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <!-- The NDI runtime, libndi.dylib, installed by the user from ndi.video and opened at run
+       time by the ndi elements. It is signed by NDI's team, not ours, and library validation
+       refuses to load such a library into a hardened process. NDI's SDK documentation asks
+       for this for the same reason. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>

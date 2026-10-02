@@ -1,0 +1,129 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
+    u_control_checkerboard5_color1: vec4f,
+    u_control_checkerboard5_color2: vec4f,
+    u_control_checkerboard5_frequency: f32,
+    u_control_mix8_amount: f32,
+    u_control_rgba7_a: f32,
+    u_control_rgba7_b: f32,
+    u_control_rgba7_g: f32,
+    u_control_vignette3_radius: f32,
+    u_control_vignette3_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_opt_mix8_curve: i32,
+    u_opt_mix8_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn vignette3_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette3_radius;
+    let softness = max(u.u_control_vignette3_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
+fn checkerboard5_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard5_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard5_color1;
+    let c2 = u.u_control_checkerboard5_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn dither1_color(uv: vec2f) -> vec4f {
+    let scale = max(floor(vignette6_mask(uv)), 1.0);
+    let pixel = uv * (720.0 * 0.5);
+    let cellPixel = floor(pixel / scale);
+    let quv = (cellPixel * scale + scale * 0.5) / (720.0 * 0.5);
+    let ditherUV = quv;
+    let colorUV = quv;
+    let bx = i32(floor_mod(cellPixel.x, 4.0));
+    let by = i32(floor_mod(cellPixel.y, 4.0));
+    var val = 0;
+    val |= ((bx ^ by) & 1) << 3u;
+    val |= (by & 1) << 2u;
+    val |= (((bx ^ by) & 2) >> 1u) << 1u;
+    val |= (by & 2) >> 1u;
+    let threshold = (f32(val) + 0.5) / 16.0;
+    let mask = step(threshold, clamp(vignette3_mask(ditherUV), 0.0, 1.0));
+    return mix(checkerboard5_output(colorUV), checkerboard4_output(colorUV), mask);
+}
+
+fn dither1_mask(uv: vec2f) -> f32 {
+    let scale = max(floor(vignette6_mask(uv)), 1.0);
+    let pixel = uv * (720.0 * 0.5);
+    let cellPixel = floor(pixel / scale);
+    let quv = (cellPixel * scale + scale * 0.5) / (720.0 * 0.5);
+    let ditherUV = quv;
+    let colorUV = quv;
+    let bx = i32(floor_mod(cellPixel.x, 4.0));
+    let by = i32(floor_mod(cellPixel.y, 4.0));
+    var val = 0;
+    val |= ((bx ^ by) & 1) << 3u;
+    val |= (by & 1) << 2u;
+    val |= (((bx ^ by) & 2) >> 1u) << 1u;
+    val |= (by & 2) >> 1u;
+    let threshold = (f32(val) + 0.5) / 16.0;
+    let mask = step(threshold, clamp(vignette3_mask(ditherUV), 0.0, 1.0));
+    return mask;
+}
+
+fn rgba7_output(uv: vec2f) -> vec4f {
+    return vec4f(dither1_mask(uv), u.u_control_rgba7_g, u.u_control_rgba7_b, u.u_control_rgba7_a);
+}
+
+fn mix8_output(uv: vec2f) -> vec4f {
+    let a = dither1_color(uv);
+    let b = rgba7_output(uv);
+    let amt = clamp(u.u_control_mix8_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix8_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix8_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix8_output(uv);
+}

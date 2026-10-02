@@ -1,0 +1,87 @@
+# A Flathub submission is this file, in a repo of its own named after the app id, plus a
+# generated `cargo-sources.json`. It is a skeleton: it says what supersilvia needs and where
+# each piece comes from, and the two TODOs are what has to be true before a build runs.
+#
+#   python3 flatpak-builder-tools/cargo/flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+#   flatpak-builder --user --install --force-clean build io.github.figrita.supersilvia.yml
+app-id: io.github.figrita.supersilvia
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: supersilvia
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/supersilvia/cargo
+
+finish-args:
+  # The picture windows are Wayland surfaces of their own; X11 is the fallback.
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # cpal talks to PipeWire's PulseAudio side for the microphone and the monitors.
+  - --socket=pulseaudio
+  # ALSA sequencer, which `src/midi/` uses directly.
+  - --device=all
+  # Screen capture is a portal conversation already (`src/video/screen.rs`), and the file
+  # dialogs are xdg-portal, so no blanket filesystem hole is needed for either.
+  - --talk-name=org.freedesktop.portal.ScreenCast
+  # The projects folder: supersilvia in the documents folder, read from the host's
+  # user-dirs.dirs, which Flatpak hands the sandbox (`src/platform/linux/dirs.rs`). That one
+  # folder and nothing else of Documents, made if it is not there. A projects folder chosen
+  # elsewhere in Preferences, and anything opened or saved through a dialog, comes through
+  # the document portal.
+  - --filesystem=xdg-documents/supersilvia:create
+  - --filesystem=xdg-videos
+  - --filesystem=xdg-music
+  - --filesystem=xdg-pictures
+
+modules:
+  # GStreamer's bad/ugly plugins and the hardware codecs are not all in the runtime; add
+  # what a transcode turns out to need, measured rather than guessed.
+  # TODO: pin the release tag and its sha256 once there is a tag.
+  - name: supersilvia
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --profile dist --verbose
+      - install -Dm755 target/dist/supersilvia /app/bin/supersilvia
+      # One source of truth: the same files packaging/linux/install.sh lays down, renamed to
+      # the app id, which is what Flathub requires of the desktop entry and the icons.
+      - install -Dm644 packaging/linux/supersilvia.desktop
+        /app/share/applications/io.github.figrita.supersilvia.desktop
+      - desktop-file-edit --set-icon=io.github.figrita.supersilvia
+        /app/share/applications/io.github.figrita.supersilvia.desktop
+      # The picture windows' entries. Their app ids are not prefixed with the Flatpak id,
+      # which Flathub asks for and a sandboxed KWin may insist on — if the marks come out
+      # blank in a Flatpak, that is the reason, and both this and `app_id` in
+      # `src/render/picture/thread.rs` have to take the long name together.
+      - for kind in popout fullscreen; do install -Dm644
+        "packaging/linux/supersilvia-$kind.desktop"
+        "/app/share/applications/supersilvia-$kind.desktop"; for size in 16 24 32 48 64 128
+        256; do install -Dm644 "assets/icon/supersilvia-$kind-$size.png"
+        "/app/share/icons/hicolor/${size}x${size}/apps/supersilvia-$kind.png"; done; done
+      - install -Dm644 packaging/linux/io.github.figrita.supersilvia.metainfo.xml
+        /app/share/metainfo/io.github.figrita.supersilvia.metainfo.xml
+      - for size in 16 24 32 48 64 128 256 512; do install -Dm644
+        "assets/icon/supersilvia-$size.png"
+        "/app/share/icons/hicolor/${size}x${size}/apps/io.github.figrita.supersilvia.png"; done
+      - install -Dm644 assets/icon/supersilvia.svg
+        /app/share/icons/hicolor/scalable/apps/io.github.figrita.supersilvia.svg
+      # The licence and the third-party notices, laid out as install.sh lays them out, under
+      # the app id where Flathub looks. The binary carries the same text for Help > Licences.
+      - install -Dm644 LICENSE /app/share/licenses/io.github.figrita.supersilvia/LICENSE
+      - install -Dm644 packaging/linux/rust-crates.txt
+        /app/share/licenses/io.github.figrita.supersilvia/rust-crates.txt
+      - for notice in licenses/*.txt; do install -Dm644 "$notice"
+        "/app/share/licenses/io.github.figrita.supersilvia/assets/$(basename "$notice")"; done
+    sources:
+      - type: git
+        url: https://github.com/figrita/supersilvia.git
+        branch: main
+      # TODO: generate this beside the manifest; it is every crate in Cargo.lock as a source.
+      - cargo-sources.json

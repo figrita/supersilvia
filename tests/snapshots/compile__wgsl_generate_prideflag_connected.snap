@@ -1,0 +1,28 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn prideflag1_output(uv: vec2f) -> vec4f {
+    let y = 1.0 - fract((uv.y + 1.0) * 0.5);
+    if (y < 1.0/6.0) { return vec4f(1.0, 0.0, 0.0, 1.0); }
+    if (y < 2.0/6.0) { return vec4f(1.0, 0.600, 0.0, 1.0); }
+    if (y < 3.0/6.0) { return vec4f(1.0, 0.996, 0.075, 1.0); }
+    if (y < 4.0/6.0) { return vec4f(0.024, 0.624, 0.176, 1.0); }
+    if (y < 5.0/6.0) { return vec4f(0.004, 0.310, 0.910, 1.0); }
+    return vec4f(0.569, 0.004, 0.631, 1.0);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return prideflag1_output(uv);
+}

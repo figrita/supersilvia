@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata: what a software centre and Flathub read. The id is the reverse-DNS
+     name of the GitHub project, and it is also the Flatpak application id. Validate with
+     `appstreamcli validate` before submitting anything; the two TODOs below are what a
+     Flathub submission will fail on until they are filled in. -->
+<component type="desktop-application">
+  <id>io.github.figrita.supersilvia</id>
+  <launchable type="desktop-id">io.github.figrita.supersilvia.desktop</launchable>
+  <name>supersilvia</name>
+  <summary>Modular video synthesizer for live performance</summary>
+  <developer id="io.github.figrita">
+    <name>figrita</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+  <description>
+    <p>
+      supersilvia is a modular video synthesizer: a canvas of nodes wired into pictures that
+      are compiled to a single shader and drawn live. It is the native successor to silvia.
+    </p>
+    <p>
+      Generators, filters and mixers connect by cable; a node's output is a field, not a
+      frame, so the graph stays resolution-free until an Output draws it. Cameras, clips,
+      screen capture, microphones and MIDI drive the graph, two decks and a crossfade put a
+      set on air, and picture windows put the show on a projector.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/figrita/supersilvia</url>
+  <url type="bugtracker">https://github.com/figrita/supersilvia/issues</url>
+  <url type="vcs-browser">https://github.com/figrita/supersilvia</url>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Video</category>
+    <category>Graphics</category>
+  </categories>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <branding>
+    <color type="primary" scheme_preference="light">#f2f2f2</color>
+    <color type="primary" scheme_preference="dark">#000000</color>
+  </branding>
+  <content_rating type="oars-1.1"/>
+  <!-- TODO: screenshots. Flathub requires at least one, 16:9-ish, hosted in the repo or
+       linked by raw URL. None is committed yet: the block below names the path one goes to,
+       packaging/screenshots/. `scripts/node-shots` and tests/snapshots are not screenshots of
+       the app; take these from a real session.
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/figrita/supersilvia/main/packaging/screenshots/canvas.png</image>
+      <caption>A graph on the canvas, with the mix behind it</caption>
+    </screenshot>
+  </screenshots>
+  -->
+  <!-- TODO: a release per tag. Keep the newest first; Flathub shows the top one. -->
+  <releases>
+    <release version="0.9.0-alpha.1" type="development" date="2026-10-01">
+      <description>
+        <p>The first alpha, for testers.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,95 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_scatter1_bgColor: vec4f,
+    u_control_scatter1_density: f32,
+    u_control_scatter1_flipChance: f32,
+    u_control_scatter1_jitter: f32,
+    u_control_scatter1_presence: f32,
+    u_control_scatter1_rotation: f32,
+    u_control_scatter1_scale: f32,
+    u_control_scatter1_scaleVariation: f32,
+    u_control_scatter1_seed: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn hashBits(x0: u32) -> u32 {
+    var x = x0;
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+fn hashBits2(v: vec2u) -> u32 { return hashBits(v.x ^ hashBits(v.y)); }
+
+fn hashRandom(v: vec2f) -> f32 {
+    var m = hashBits2(bitcast<vec2u>(v));
+    m &= 0x007FFFFFu;
+    m |= 0x3F800000u;
+    return bitcast<f32>(m) - 1.0;
+}
+
+fn scatter1_output(uv: vec2f) -> vec4f {
+    let baseSize = 2.0 / max(u.u_control_scatter1_density, 1.0);
+    let seed = u.u_control_scatter1_seed;
+    let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
+    let presence = u.u_control_scatter1_presence;
+    let jitter = u.u_control_scatter1_jitter;
+    let rotation = u.u_control_scatter1_rotation;
+    let scale = u.u_control_scatter1_scale;
+    let scaleVariation = u.u_control_scatter1_scaleVariation;
+    let flipChance = u.u_control_scatter1_flipChance;
+    var result = u.u_control_scatter1_bgColor;
+    var layerScale = array<f32, 3>(4.0, 2.0, 1.0);
+    var layerChance = array<f32, 3>(0.12, 0.20, 0.35);
+    var layerOffset = array<f32, 3>(0.0, 10000.0, 20000.0);
+
+    for (var layer = 0; layer < 3; layer++) {
+        let cellSize = baseSize * layerScale[layer];
+        let baseCell = floor(uv / cellSize);
+        for (var dy = 0; dy <= 0; dy++) {
+        for (var dx = 0; dx <= 0; dx++) {
+            let neighbor = vec2f(f32(dx), f32(dy));
+            let key = baseCell + neighbor + layerOffset[layer] + seedOffset;
+            let h1 = hashRandom(key);
+            let h2 = hashRandom(key + 1.0);
+            let h3 = hashRandom(key + 2.0);
+            let h4 = hashRandom(key + 3.0);
+            let h5 = hashRandom(key + 4.0);
+            let h6 = hashRandom(key + 5.0);
+            if (h6 > presence * layerChance[layer]) { continue; }
+
+            let copyCenter = (baseCell + neighbor + 0.5) * cellSize
+                + (vec2f(h1, h2) - 0.5) * cellSize * jitter;
+            let halfExtent = 0.2 * max(scale * (1.0 - scaleVariation + scaleVariation * h5 * 2.0), 0.01);
+
+            let angle = (h3 - 0.5) * rotation * 2.0 * PI;
+            let cv = cos(-angle);
+            let sv = sin(-angle);
+            var scatterUV = mat2x2f(cv, -sv, sv, cv) * (uv - copyCenter) / halfExtent;
+            if (h4 < flipChance) { scatterUV.x = -scatterUV.x; }
+            if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) { continue; }
+
+            let sampled = defaultUvMap(scatterUV);
+            result = mix(result, sampled, sampled.a);
+        }
+        }
+    }
+    return result;
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return scatter1_output(uv);
+}

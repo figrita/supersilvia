@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=supersilvia picture
+Comment=A picture in a window of its own
+Icon=supersilvia-popout
+# Never launched, and never shown in a menu. This entry exists for one reason: a Wayland
+# desktop finds a window's icon by matching its app id against the desktop files it knows,
+# and the picture windows in `src/render/picture/thread.rs` set this one. Deleting it does
+# not break anything — the window falls back to the desktop's unknown-window icon.
+Exec=supersilvia
+NoDisplay=true
+Terminal=false
+Categories=AudioVideo;Video;
+StartupWMClass=supersilvia-popout

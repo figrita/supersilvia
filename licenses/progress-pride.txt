@@ -1,0 +1,6 @@
+Progress Pride flag chevron
+
+Used in src/nodes/patterns.rs (the `prideflag` node's Progress Pride chevron):
+
+- jtad (Godot Shaders community) - CC0
+  https://godotshaders.com/author/jtad/

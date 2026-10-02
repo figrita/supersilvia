@@ -1,0 +1,179 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
+    u_control_mix10_amount: f32,
+    u_control_rgba9_a: f32,
+    u_control_rgba9_b: f32,
+    u_control_rgba9_g: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_opt_mix10_curve: i32,
+    u_opt_mix10_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn worley1_color(uv: vec2f) -> vec4f {
+    let noiseScale = vignette5_mask(uv);
+    let randomness = clamp(vignette6_mask(uv), 0.0, 1.0);
+    let metric = max(vignette7_mask(uv), 0.1);
+    let contrast = vignette8_mask(uv);
+    let p = uv * noiseScale;
+    let cellIndex = floor(p);
+    let cellFract = fract(p);
+    var nearest = 10.0;
+    var second = 10.0;
+    var nearestPoint = vec2f(0.0);
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            let neighbor = vec2f(f32(x), f32(y));
+            let cell = cellIndex + neighbor;
+            let jitter = vec2f(
+                fract(sin(dot(cell, vec2f(12.9898, 78.233))) * 43758.5453),
+                fract(sin(dot(cell, vec2f(269.5, 183.3))) * 43758.5453));
+            let point = neighbor + mix(vec2f(0.5), jitter, randomness);
+            let diff = point - cellFract;
+            let dist = pow(pow(abs(diff.x), metric) + pow(abs(diff.y), metric), 1.0 / metric);
+            if (dist < nearest) {
+                second = nearest;
+                nearest = dist;
+                nearestPoint = cell + jitter;
+            } else if (dist < second) {
+                second = dist;
+            }
+        }
+    }
+    let raw = 1.0 - nearest;
+    let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
+    return mix(checkerboard4_output(uv), checkerboard3_output(uv), value);
+}
+
+fn worley1_value(uv: vec2f) -> f32 {
+    let noiseScale = vignette5_mask(uv);
+    let randomness = clamp(vignette6_mask(uv), 0.0, 1.0);
+    let metric = max(vignette7_mask(uv), 0.1);
+    let contrast = vignette8_mask(uv);
+    let p = uv * noiseScale;
+    let cellIndex = floor(p);
+    let cellFract = fract(p);
+    var nearest = 10.0;
+    var second = 10.0;
+    var nearestPoint = vec2f(0.0);
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            let neighbor = vec2f(f32(x), f32(y));
+            let cell = cellIndex + neighbor;
+            let jitter = vec2f(
+                fract(sin(dot(cell, vec2f(12.9898, 78.233))) * 43758.5453),
+                fract(sin(dot(cell, vec2f(269.5, 183.3))) * 43758.5453));
+            let point = neighbor + mix(vec2f(0.5), jitter, randomness);
+            let diff = point - cellFract;
+            let dist = pow(pow(abs(diff.x), metric) + pow(abs(diff.y), metric), 1.0 / metric);
+            if (dist < nearest) {
+                second = nearest;
+                nearest = dist;
+                nearestPoint = cell + jitter;
+            } else if (dist < second) {
+                second = dist;
+            }
+        }
+    }
+    let raw = 1.0 - nearest;
+    let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
+    return value;
+}
+
+fn rgba9_output(uv: vec2f) -> vec4f {
+    return vec4f(worley1_value(uv), u.u_control_rgba9_g, u.u_control_rgba9_b, u.u_control_rgba9_a);
+}
+
+fn mix10_output(uv: vec2f) -> vec4f {
+    let a = worley1_color(uv);
+    let b = rgba9_output(uv);
+    let amt = clamp(u.u_control_mix10_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix10_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix10_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix10_output(uv);
+}

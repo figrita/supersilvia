@@ -1,0 +1,110 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_control_wallpaper1_coeff1: f32,
+    u_control_wallpaper1_coeff2: f32,
+    u_control_wallpaper1_coeff3: f32,
+    u_control_wallpaper1_scale: f32,
+    u_control_wallpaper1_texScale: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn cexp_i(angle: f32) -> vec2f { return vec2f(cos(angle), sin(angle)); }
+fn getXY_square(z: vec2f) -> vec2f { return z; }
+fn getXY_hex(z: vec2f) -> vec2f { return vec2f(z.x + z.y / sqrt(3.0), 2.0 * z.y / sqrt(3.0)); }
+fn getXY_rect(z: vec2f, L: f32) -> vec2f { return vec2f(z.x, z.y / max(0.001, L)); }
+fn getXY_rhombic(z: vec2f, b: f32) -> vec2f {
+    let b_safe = max(0.001, b);
+    return vec2f(z.x + z.y / (2.0 * b_safe), z.x - z.y / (2.0 * b_safe));
+}
+fn getXY_generic(z: vec2f, L: f32) -> vec2f {
+    let omega = vec2f(0.5, L);
+    let eta = max(0.001, omega.y);
+    return vec2f(z.x - (omega.x / eta) * z.y, z.y / eta);
+}
+fn E_nm(nm: vec2f, XY: vec2f) -> vec2f { return cexp_i(2.0 * PI * dot(nm, XY)); }
+fn T_nm(nm: vec2f, XY: vec2f) -> vec2f { return (E_nm(nm, XY) + E_nm(-nm, XY)) * 0.5; }
+fn S_nm(nm: vec2f, XY: vec2f) -> vec2f {
+    let nm2 = vec2f(nm.y, -nm.x);
+    let nm3 = vec2f(-nm.x, -nm.y);
+    let nm4 = vec2f(-nm.y, nm.x);
+    return (E_nm(nm, XY) + E_nm(nm2, XY) + E_nm(nm3, XY) + E_nm(nm4, XY)) / 4.0;
+}
+fn W_nm(nm: vec2f, XY: vec2f) -> vec2f {
+    let nm2 = vec2f(nm.y, -nm.x - nm.y);
+    let nm3 = vec2f(-nm.x - nm.y, nm.x);
+    return (E_nm(nm, XY) + E_nm(nm2, XY) + E_nm(nm3, XY)) / 3.0;
+}
+
+fn wallpaper1_output(uv: vec2f) -> vec4f {
+    let z = uv * (u.u_control_wallpaper1_scale);
+    const nm1 = vec2f(1.0, 0.0);
+    const nm2 = vec2f(0.0, 1.0);
+    const nm3 = vec2f(1.0, 1.0);
+    const nm4 = vec2f(1.0, -1.0);
+    const nm5 = vec2f(2.0, 1.0);
+    const nm6 = vec2f(1.0, 2.0);
+    let XY = getXY_hex(z);
+    let f = (u.u_control_wallpaper1_coeff1) * W_nm(nm1, XY)
+           + (u.u_control_wallpaper1_coeff2) * W_nm(nm3, XY)
+           + (u.u_control_wallpaper1_coeff3) * (W_nm(nm5, XY) + W_nm(nm6, XY));
+    let finalUV = f * (u.u_control_wallpaper1_texScale) + 0.5;
+    return defaultUvMap(finalUV);
+}
+
+fn wallpaper1_angle(uv: vec2f) -> f32 {
+    let z = uv * (u.u_control_wallpaper1_scale);
+    const nm1 = vec2f(1.0, 0.0);
+    const nm2 = vec2f(0.0, 1.0);
+    const nm3 = vec2f(1.0, 1.0);
+    const nm4 = vec2f(1.0, -1.0);
+    const nm5 = vec2f(2.0, 1.0);
+    const nm6 = vec2f(1.0, 2.0);
+    let XY = getXY_hex(z);
+    let f = (u.u_control_wallpaper1_coeff1) * W_nm(nm1, XY)
+           + (u.u_control_wallpaper1_coeff2) * W_nm(nm3, XY)
+           + (u.u_control_wallpaper1_coeff3) * (W_nm(nm5, XY) + W_nm(nm6, XY));
+    return atan2(f.y, f.x) / (2.0 * PI) + 0.5;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(wallpaper1_angle(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = wallpaper1_output(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

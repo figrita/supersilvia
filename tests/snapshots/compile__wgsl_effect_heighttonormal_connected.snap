@@ -1,0 +1,103 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_mix6_amount: f32,
+    u_control_rgba5_a: f32,
+    u_control_rgba5_b: f32,
+    u_control_rgba5_g: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_opt_mix6_curve: i32,
+    u_opt_mix6_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn heighttonormal1_color(uv: vec2f) -> vec4f {
+    let texel = vec2f(1.0) / 720.0;
+    var h: array<f32, 9>;
+    var offset = vec2f(0.0);
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            offset = vec2f(f32(x), f32(y)) * texel;
+            h[(y + 1) * 3 + (x + 1)] = dot((checkerboard3_output(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
+        }
+    }
+    let strength = vignette4_mask(uv);
+    let dx = (h[8] + 2.0 * h[5] + h[2]) - (h[6] + 2.0 * h[3] + h[0]);
+    let dy = (h[0] + 2.0 * h[1] + h[2]) - (h[6] + 2.0 * h[7] + h[8]);
+    let normal = normalize(vec3f(-dx * strength, dy * strength, 1.0));
+    return vec4f(normal * 0.5 + 0.5, 1.0);
+}
+
+fn heighttonormal1_value(uv: vec2f) -> f32 {
+    let texel = vec2f(1.0) / 720.0;
+    var h: array<f32, 9>;
+    var offset = vec2f(0.0);
+    for (var y = -1; y <= 1; y++) {
+        for (var x = -1; x <= 1; x++) {
+            offset = vec2f(f32(x), f32(y)) * texel;
+            h[(y + 1) * 3 + (x + 1)] = dot((checkerboard3_output(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
+        }
+    }
+    let strength = vignette4_mask(uv);
+    let dx = (h[8] + 2.0 * h[5] + h[2]) - (h[6] + 2.0 * h[3] + h[0]);
+    let dy = (h[0] + 2.0 * h[1] + h[2]) - (h[6] + 2.0 * h[7] + h[8]);
+    let normal = normalize(vec3f(-dx * strength, dy * strength, 1.0));
+    return clamp(h[4], 0.0, 1.0);
+}
+
+fn rgba5_output(uv: vec2f) -> vec4f {
+    return vec4f(heighttonormal1_value(uv), u.u_control_rgba5_g, u.u_control_rgba5_b, u.u_control_rgba5_a);
+}
+
+fn mix6_output(uv: vec2f) -> vec4f {
+    let a = heighttonormal1_color(uv);
+    let b = rgba5_output(uv);
+    let amt = clamp(u.u_control_mix6_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix6_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix6_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix6_output(uv);
+}

@@ -1,0 +1,7 @@
+{
+  "remoteUser": "<you>",
+  "workspaceFolder": "<repo>",
+  "remoteEnv": {
+    "HOME": "<home>"
+  }
+}

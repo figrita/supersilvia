@@ -1,0 +1,184 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_pixelsort1_seed: f32,
+    u_control_pixelsort1_threshold: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn hashBits(x0: u32) -> u32 {
+    var x = x0;
+    x += (x << 10u);
+    x ^= (x >> 6u);
+    x += (x << 3u);
+    x ^= (x >> 11u);
+    x += (x << 15u);
+    return x;
+}
+
+fn hashBits2(v: vec2u) -> u32 { return hashBits(v.x ^ hashBits(v.y)); }
+
+fn hashRandom(v: vec2f) -> f32 {
+    var m = hashBits2(bitcast<vec2u>(v));
+    m &= 0x007FFFFFu;
+    m |= 0x3F800000u;
+    return bitcast<f32>(m) - 1.0;
+}
+
+fn pixelSortLuma(c: vec3f) -> f32 {
+    return dot(c, vec3f(0.299, 0.587, 0.114));
+}
+
+fn pixelSortHue(c: vec3f) -> f32 {
+    let maxc = max(max(c.r, c.g), c.b);
+    let minc = min(min(c.r, c.g), c.b);
+    let delta = maxc - minc;
+    if (delta <= 0.0) {
+        return 0.0;
+    }
+    var sector: f32;
+    if (maxc == c.r) {
+        sector = (c.g - c.b) / delta;
+    } else if (maxc == c.g) {
+        sector = (c.b - c.r) / delta + 2.0;
+    } else {
+        sector = (c.r - c.g) / delta + 4.0;
+    }
+    return fract(sector / 6.0);
+}
+
+fn pixelsort1_color(uv: vec2f) -> vec4f {
+    let thresh = u.u_control_pixelsort1_threshold;
+    let salt = hashBits(bitcast<u32>(u.u_control_pixelsort1_seed));
+    let pixel = uv * (720.0 * 0.5);
+    let psStep = 2.0 / 720.0;
+    let dir = vec2f(psStep, 0.0);
+    let scanIdx = i32(floor(pixel.x)) + 16384;
+    let runIdx = i32(floor(pixel.y)) + 16384;
+
+    let runHash = hashBits(u32(runIdx) ^ salt);
+    let shifted = scanIdx + i32(runHash % 32u);
+    let superIdx = shifted / 32;
+    let posInSuper = shifted - superIdx * 32;
+
+    let splitAt = i32(hashBits(u32(superIdx) ^ runHash) % 32u);
+    let subStart = select(splitAt, 0, posInSuper < splitAt);
+    let subLen = select(32 - splitAt, splitAt, posInSuper < splitAt);
+    let myPos = posInSuper - subStart;
+    let chunkStart = uv - dir * f32(myPos);
+
+    var keys: array<f32, 32>;
+    var order: array<i32, 32>;
+    var minKey = 1.0;
+    var maxKey = 0.0;
+    var psUV = uv;
+    for (var i = 0; i < 32; i++) {
+        if (i >= subLen) { break; }
+        psUV = chunkStart + dir * f32(i);
+        let k = pixelSortLuma((defaultUvMap(psUV)).rgb);
+        keys[i] = k;
+        order[i] = i;
+        minKey = min(minKey, k);
+        maxKey = max(maxKey, k);
+    }
+    let mask = select(0.0, 1.0, subLen > 1 && thresh < 1.0 && maxKey - minKey >= thresh);
+    psUV = uv;
+    if (mask == 0.0) { return defaultUvMap(psUV); }
+    for (var i = 1; i < 32; i++) {
+        if (i >= subLen) { break; }
+        let k = keys[i];
+        let idx = order[i];
+        var insertAt = i;
+        for (var j = i - 1; j >= 0; j--) {
+            if (!(keys[j] > k)) { break; }
+            keys[j + 1] = keys[j];
+            order[j + 1] = order[j];
+            insertAt = j;
+        }
+        keys[insertAt] = k;
+        order[insertAt] = idx;
+    }
+    psUV = chunkStart + dir * f32(order[myPos]);
+    return defaultUvMap(psUV);
+}
+
+fn pixelsort1_mask(uv: vec2f) -> f32 {
+    let thresh = u.u_control_pixelsort1_threshold;
+    let salt = hashBits(bitcast<u32>(u.u_control_pixelsort1_seed));
+    let pixel = uv * (720.0 * 0.5);
+    let psStep = 2.0 / 720.0;
+    let dir = vec2f(psStep, 0.0);
+    let scanIdx = i32(floor(pixel.x)) + 16384;
+    let runIdx = i32(floor(pixel.y)) + 16384;
+
+    let runHash = hashBits(u32(runIdx) ^ salt);
+    let shifted = scanIdx + i32(runHash % 32u);
+    let superIdx = shifted / 32;
+    let posInSuper = shifted - superIdx * 32;
+
+    let splitAt = i32(hashBits(u32(superIdx) ^ runHash) % 32u);
+    let subStart = select(splitAt, 0, posInSuper < splitAt);
+    let subLen = select(32 - splitAt, splitAt, posInSuper < splitAt);
+    let myPos = posInSuper - subStart;
+    let chunkStart = uv - dir * f32(myPos);
+
+    var keys: array<f32, 32>;
+    var order: array<i32, 32>;
+    var minKey = 1.0;
+    var maxKey = 0.0;
+    var psUV = uv;
+    for (var i = 0; i < 32; i++) {
+        if (i >= subLen) { break; }
+        psUV = chunkStart + dir * f32(i);
+        let k = pixelSortLuma((defaultUvMap(psUV)).rgb);
+        keys[i] = k;
+        order[i] = i;
+        minKey = min(minKey, k);
+        maxKey = max(maxKey, k);
+    }
+    let mask = select(0.0, 1.0, subLen > 1 && thresh < 1.0 && maxKey - minKey >= thresh);
+    psUV = uv;
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(pixelsort1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = pixelsort1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The icon a popped-out picture window carries: the pop-out mark itself, white on black.
+     The geometry is `popout_mark` in `src/ui/node_widget.rs`, its 0..1 box placed at 18..82
+     of a 100 square and its stroke the same 0.12 of that box — so the icon in the taskbar is
+     the mark that was clicked to get the window, at a different size. Change one, change
+     both. Rendered by `scripts/make-icons.py`. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100px" height="100px">
+  <rect x="0" y="0" width="100" height="100" fill="black"/>
+  <path fill="none" stroke="white" stroke-width="7.68" d="
+    M 57.68 26.96 L 26.96 26.96 L 26.96 73.04 L 73.04 73.04 L 73.04 44.88
+    M 47.44 52.56 L 78.16 21.84
+    M 57.68 21.84 L 78.16 21.84 L 78.16 42.32"/>
+</svg>

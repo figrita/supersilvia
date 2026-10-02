@@ -1,0 +1,8 @@
+---
+source: tests/command_bus.rs
+expression: describe(app.graph())
+---
+nodes: 3
+  checkerboard1 @ (0, 0)
+  output2 @ (240, 0)
+  checkerboard3 @ (0, 160)

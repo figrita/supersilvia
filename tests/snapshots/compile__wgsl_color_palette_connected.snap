@@ -1,0 +1,364 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_mix10_amount: f32,
+    u_control_mix11_amount: f32,
+    u_control_mix12_amount: f32,
+    u_control_mix13_amount: f32,
+    u_control_mix14_amount: f32,
+    u_control_mix15_amount: f32,
+    u_control_mix9_amount: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_opt_mix10_curve: i32,
+    u_opt_mix10_method: i32,
+    u_opt_mix11_curve: i32,
+    u_opt_mix11_method: i32,
+    u_opt_mix12_curve: i32,
+    u_opt_mix12_method: i32,
+    u_opt_mix13_curve: i32,
+    u_opt_mix13_method: i32,
+    u_opt_mix14_curve: i32,
+    u_opt_mix14_method: i32,
+    u_opt_mix15_curve: i32,
+    u_opt_mix15_method: i32,
+    u_opt_mix9_curve: i32,
+    u_opt_mix9_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn srgb2oklab(c: vec3f) -> vec3f {
+    let lin = pow(max(c, vec3f(0.0)), vec3f(2.2));
+    var l = 0.4122214708 * lin.r + 0.5363325363 * lin.g + 0.0514459929 * lin.b;
+    var m = 0.2119034982 * lin.r + 0.6806995451 * lin.g + 0.1073969566 * lin.b;
+    var s = 0.0883024619 * lin.r + 0.2817188376 * lin.g + 0.6299787005 * lin.b;
+    l = pow(max(l, 0.0), 1.0 / 3.0);
+    m = pow(max(m, 0.0), 1.0 / 3.0);
+    s = pow(max(s, 0.0), 1.0 / 3.0);
+    return vec3f(
+        0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
+        1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
+        0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+    );
+}
+
+fn oklab2srgb(lab: vec3f) -> vec3f {
+    var l = lab.x + 0.3963377774 * lab.y + 0.2158037573 * lab.z;
+    var m = lab.x - 0.1055613458 * lab.y - 0.0638541728 * lab.z;
+    var s = lab.x - 0.0894841775 * lab.y - 1.2914855480 * lab.z;
+    l = l * l * l;
+    m = m * m * m;
+    s = s * s * s;
+    let lin = vec3f(
+        4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+        -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+        -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s
+    );
+    return pow(clamp(lin, vec3f(0.0), vec3f(1.0)), vec3f(1.0 / 2.2));
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn palette1_a(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.000000, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (-1.000000) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (-1.000000) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn palette1_b(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.142857, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (-0.714286) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (-0.714286) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix9_output(uv: vec2f) -> vec4f {
+    let a = palette1_a(uv);
+    let b = palette1_b(uv);
+    let amt = clamp(u.u_control_mix9_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix9_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix9_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_c(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.285714, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (-0.428571) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (-0.428571) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix10_output(uv: vec2f) -> vec4f {
+    let a = mix9_output(uv);
+    let b = palette1_c(uv);
+    let amt = clamp(u.u_control_mix10_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix10_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix10_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_d(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.428571, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (-0.142857) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (-0.142857) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix11_output(uv: vec2f) -> vec4f {
+    let a = mix10_output(uv);
+    let b = palette1_d(uv);
+    let amt = clamp(u.u_control_mix11_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix11_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix11_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_e(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.571429, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (0.142857) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (0.142857) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix12_output(uv: vec2f) -> vec4f {
+    let a = mix11_output(uv);
+    let b = palette1_e(uv);
+    let amt = clamp(u.u_control_mix12_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix12_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix12_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_f(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.714286, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (0.428571) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (0.428571) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix13_output(uv: vec2f) -> vec4f {
+    let a = mix12_output(uv);
+    let b = palette1_f(uv);
+    let amt = clamp(u.u_control_mix13_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix13_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix13_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_g(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(0.857143, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (0.714286) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (0.714286) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix14_output(uv: vec2f) -> vec4f {
+    let a = mix13_output(uv);
+    let b = palette1_g(uv);
+    let amt = clamp(u.u_control_mix14_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix14_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix14_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn palette1_h(uv: vec2f) -> vec4f {
+    let src = checkerboard3_output(uv);
+    var lab = srgb2oklab(src.rgb);
+    var C = length(lab.yz);
+    var H = atan2(lab.z, lab.y);
+    let shaped = pow(1.000000, max(vignette6_mask(uv), 0.01));
+    H += (vignette5_mask(uv)) * 6.28318530718 + (shaped - 0.5) * (vignette4_mask(uv)) * 6.28318530718;
+    lab.x = clamp(lab.x + (1.000000) * (vignette7_mask(uv)) * 0.5, 0.0, 1.0);
+    C = max(C + (1.000000) * (vignette8_mask(uv)) * 0.2, 0.0);
+    lab = vec3f(lab.x, C * cos(H), C * sin(H));
+    return vec4f(oklab2srgb(lab), src.a);
+}
+
+fn mix15_output(uv: vec2f) -> vec4f {
+    let a = mix14_output(uv);
+    let b = palette1_h(uv);
+    let amt = clamp(u.u_control_mix15_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix15_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix15_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix15_output(uv);
+}

@@ -1,0 +1,6 @@
+# The oldest macOS supersilvia opens on, which `packaging/macos/Info.plist`'s
+# `LSMinimumSystemVersion` repeats: 14.2, the first with Core Audio's process taps, which the
+# loopback calls (`platform/macos/audio.rs`). rustc and every C build read it from here; Linux
+# ignores it.
+[env]
+MACOSX_DEPLOYMENT_TARGET = "14.2"

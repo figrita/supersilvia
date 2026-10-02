@@ -1,0 +1,96 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_control_star1_background: vec4f,
+    u_control_star1_centerX: f32,
+    u_control_star1_centerY: f32,
+    u_control_star1_foreground: vec4f,
+    u_control_star1_innerRadius: f32,
+    u_control_star1_points: f32,
+    u_control_star1_rotation: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn star1_color(uv: vec2f) -> vec4f {
+    let points = clamp(u.u_control_star1_points, 3.0, 12.0);
+    let innerRadius = u.u_control_star1_innerRadius;
+    let rotation = (u.u_control_star1_rotation) * 2.0 * PI;
+    let cuv = uv - vec2f(u.u_control_star1_centerX, u.u_control_star1_centerY);
+    let cs = cos(rotation);
+    let sn = sin(rotation);
+    let p = vec2f(cuv.x * cs - cuv.y * sn, cuv.x * sn + cuv.y * cs);
+    let sweep = PI * 2.0 / points;
+    var acc = 0.0;
+    var a = 0.0;
+    for (var i = 0; i < 12; i++) {
+        if (f32(i) >= points) { break; }
+        let dir = vec2f(sin(a), cos(a));
+        acc += select(0.0, 0.5, dot(dir, p - dir * innerRadius) > 0.0);
+        a += sweep;
+    }
+    let mask = step(acc, 0.9999);
+    return mix(u.u_control_star1_background, u.u_control_star1_foreground, mask);
+}
+
+fn star1_mask(uv: vec2f) -> f32 {
+    let points = clamp(u.u_control_star1_points, 3.0, 12.0);
+    let innerRadius = u.u_control_star1_innerRadius;
+    let rotation = (u.u_control_star1_rotation) * 2.0 * PI;
+    let cuv = uv - vec2f(u.u_control_star1_centerX, u.u_control_star1_centerY);
+    let cs = cos(rotation);
+    let sn = sin(rotation);
+    let p = vec2f(cuv.x * cs - cuv.y * sn, cuv.x * sn + cuv.y * cs);
+    let sweep = PI * 2.0 / points;
+    var acc = 0.0;
+    var a = 0.0;
+    for (var i = 0; i < 12; i++) {
+        if (f32(i) >= points) { break; }
+        let dir = vec2f(sin(a), cos(a));
+        acc += select(0.0, 0.5, dot(dir, p - dir * innerRadius) > 0.0);
+        a += sweep;
+    }
+    let mask = step(acc, 0.9999);
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(star1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = star1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

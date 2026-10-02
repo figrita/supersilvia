@@ -1,0 +1,32 @@
+{
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  "[rust]": {
+    "editor.defaultFormatter": "rust-lang.rust-analyzer",
+    "editor.formatOnSave": true
+  },
+
+  // check.sh gates on clippy, so surface the same lints while typing.
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.check.allTargets": true,
+  "rust-analyzer.imports.granularity.group": "module",
+
+  // Deliberately NOT "all": the `inspection` feature must never be on by default.
+  // Run it explicitly with EGUI_INSPECTION=1 cargo run --features inspection.
+  "rust-analyzer.cargo.features": [],
+
+  "files.watcherExclude": {
+    "**/target/**": true,
+    "**/dist/**": true
+  },
+  "search.exclude": {
+    "**/target": true,
+    "**/dist": true
+  },
+
+  "[shellscript]": {
+    "editor.formatOnSave": false
+  }
+}

@@ -1,0 +1,269 @@
+---
+source: src/ui/status.rs
+expression: text
+---
+=== default at 62
+┌ STATUS ─────────────────────────────────────  17 Hz of 100 ┐
+----------------------------------------------AAAAAAAAAAAAAAA-
+│ held back by   GPU  ██████████████████████    56 ms / 10   │
+--tttttttttttttttHHHHHBBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA----
+│                CPU  █▎░░░░░░░░░░░░░░░░░░░░   3.0 ms / 10   │
+--tttttttttttttttmmmmmBB....................tttttttttttttt----
+│ pacing         even   · p99   68 ms · 0 dropped            │
+--ttttttttttttttttttttttttttttttttttttttttttttttt-------------
+│                GPU waits   0% of ticks · by cause: none    │
+--tttttttttttttttmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm-----
+├ ▾ GPU per tick ────────────────────────────────── 55.5 ms ─┤
+--HHHHHHHHHHHHHH-----------------------------------HHHHHHHHH--
+│   uploads                            0.2                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   sims                               0.0                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   outputs         ██████████████▊   51.3  (42 drawn of 3)  │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBttttttmmmmmmmmmmmmmmmmm---
+│   thumbnails                         0.2                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   probes          ▉                  3.0                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   mix             ▎                  0.8                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   between                            0.0                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   whole process    97 % of the render engine               │
+--ttttttttttttttttttAAAAAAAAAAAAAAAAAAAAAAAAAA----------------
+├ ▾ CPU per tick ────────────────────────────────── 60.5 ms ─┤
+--HHHHHHHHHHHHHH-----------------------------------HHHHHHHHH--
+│   waiting on GPU  ███████████████▎  57.5                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   editor messages ▏                  0.3                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   MIDI                               0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   CPU nodes       ▏                  0.5                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│                   —                                        │
+--ttttttttttttttttttm-----------------------------------------
+│                   —                                        │
+--ttttttttttttttttttm-----------------------------------------
+│                   —                                        │
+--ttttttttttttttttttm-----------------------------------------
+│                   —                                        │
+--ttttttttttttttttttm-----------------------------------------
+│                   —                                        │
+--ttttttttttttttttttm-----------------------------------------
+│   frame job                          0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   draw submission ▍                  1.6                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   publishing                         0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   tap readbacks                      0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   snapshot                           0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   everything else                    0.1                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+│   idle                               0.0                   │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt--------------------
+├ ▸ Editor  11 ms · 90 fps ──────────────────────────────────┤
+--HHHHHHHHmmmmmmmmmmmmmmmm------------------------------------
+├ ▾ Costliest Outputs ─────────────────────────────────── 3 ─┤
+--HHHHHHHHHHHHHHHHHHH------------------------------------HHH--
+│   Kuwahara        Effect kernels    12.8 ms  ▸ go          │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL-----------
+│   Wavefold        Effect manglers    6.4 ms  ▸ go          │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL-----------
+│   Mandelbrot      Sources            4.3 ms  ▸ go          │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL-----------
+│                                                            │
+--------------------------------------------------------------
+│                                                            │
+--------------------------------------------------------------
+│                                                            │
+--------------------------------------------------------------
+│                                                            │
+--------------------------------------------------------------
+│                                                            │
+--------------------------------------------------------------
+│   3 Outputs, 23.5 ms                                       │
+--mmmmmmmmmmmmmmmmmmmm----------------------------------------
+├ ▸ Project  212 nodes · up 4:07 ────────────────────────────┤
+--HHHHHHHHHmmmmmmmmmmmmmmmmmmmmm------------------------------
+├ ▸ Nodes  (2 reporting) ────────────────────────────────────┤
+--HHHHHHHmmmmmmmmmmmmmmm--------------------------------------
+└─────────────────────────────────────────────── ◰ copy ─────┘
+-------------------------------------------------LLLLLL-------
+hovers:
+  3 "The last 600 ticks since the box opened: a median of 60 ms. 0 dropped since the run began, 0 a second on the worst Output in the last second."
+  4 "Ticks in the last second whose draw found the tick two before it still on the GPU and waited for it: the two-tick bound on the GPU's queue. The renderer's throttle, which submits only once at most one earlier submission is still running, usually holds a tick back before it gets there, so this can read 0% while the tick waits; waiting on GPU, under CPU per tick, is the whole of the wait. 12 since the run began. A frame drops only where a viewer holds every target of an Output's ring (held) or a render's wait for a frame ran out (capture)."
+  5 "The synth's draw on the GPU, first command to last, by part: a mean over the last second. The whole process is the render engine this process used over the last second, from the kernel's own counters: the editor's painting and every picture window with it."
+ 14 "The synth's tick from the top of one to the top of the next, split by the thread's own CPU clock: time off the CPU inside a phase is waiting on the GPU, the rest is work, and the sleep to the deadline is idle. The rows add up to the tick."
+ 31 "The editor's own redraw, off egui's clock: only how often the canvas is painted. A minimized or covered window moves these and nothing else. GPU per frame is the editor's painting on the GPU, every panel, window and picture blit, from two timestamps on its own context read a few frames later."
+ 32 "Every Output by the GPU's own time for the last frame it drew: the drawing ones costliest first, then the idle ones, which are not drawn and keep a muted figure. A name goes to its node."
+ 33 "output100 on Effect kernels, 1280×720, showing Kuwahara. The GPU's own time for the last frame it drew: 12.8 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 34 "output101 on Effect manglers, 1280×720, showing Wavefold. The GPU's own time for the last frame it drew: 6.4 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 35 "output102 on Sources, 1280×720, showing Mandelbrot. The GPU's own time for the last frame it drew: 4.3 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 42 "The graph, the undo history, the run and the last file action."
+ 43 "Each CPU node's own line, grouped by kind. A name goes to its node."
+clicks:
+  5 Fold(Gpu) "GPU per tick section"
+ 14 Fold(Cpu) "CPU per tick section"
+ 31 Fold(Editor) "Editor section"
+ 32 Fold(Outputs) "Costliest Outputs section"
+ 33 Go(NodeId(100)) "Kuwahara"
+ 33 Go(NodeId(100)) "go to output100"
+ 34 Go(NodeId(101)) "Wavefold"
+ 34 Go(NodeId(101)) "go to output101"
+ 35 Go(NodeId(102)) "Mandelbrot"
+ 35 Go(NodeId(102)) "go to output102"
+ 42 Fold(Project) "Project section"
+ 43 Fold(Nodes) "Nodes section"
+ 44 Copy "copy the Status box"
+=== unfolded at 90
+┌ STATUS ─────────────────────────────────────────────────────────────────  17 Hz of 100 ┐
+--------------------------------------------------------------------------AAAAAAAAAAAAAAA-
+│ held back by   GPU  ██████████████████████    56 ms / 10                               │
+--tttttttttttttttHHHHHBBBBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA--------------------------------
+│                CPU  █▎░░░░░░░░░░░░░░░░░░░░   3.0 ms / 10                               │
+--tttttttttttttttmmmmmBB....................tttttttttttttt--------------------------------
+│ pacing         even   · p99   68 ms · 0 dropped                                        │
+--ttttttttttttttttttttttttttttttttttttttttttttttt-----------------------------------------
+│                GPU waits   0% of ticks · by cause: none                                │
+--tttttttttttttttmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm---------------------------------
+├ ▾ GPU per tick ────────────────────────────────────────────────────────────── 55.5 ms ─┤
+--HHHHHHHHHHHHHH---------------------------------------------------------------HHHHHHHHH--
+│   uploads                            0.2                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   sims                               0.0                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   outputs         ██████████████▊   51.3  (42 drawn of 3)                              │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBttttttmmmmmmmmmmmmmmmmm-------------------------------
+│   thumbnails                         0.2                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   probes          ▉                  3.0                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   mix             ▎                  0.8                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   between                            0.0                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   whole process    97 % of the render engine                                           │
+--ttttttttttttttttttAAAAAAAAAAAAAAAAAAAAAAAAAA--------------------------------------------
+├ ▾ CPU per tick ────────────────────────────────────────────────────────────── 60.5 ms ─┤
+--HHHHHHHHHHHHHH---------------------------------------------------------------HHHHHHHHH--
+│   waiting on GPU  ███████████████▎  57.5                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   editor messages ▏                  0.3                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   MIDI                               0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   CPU nodes       ▏                  0.5                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│                   —                                                                    │
+--ttttttttttttttttttm---------------------------------------------------------------------
+│                   —                                                                    │
+--ttttttttttttttttttm---------------------------------------------------------------------
+│                   —                                                                    │
+--ttttttttttttttttttm---------------------------------------------------------------------
+│                   —                                                                    │
+--ttttttttttttttttttm---------------------------------------------------------------------
+│                   —                                                                    │
+--ttttttttttttttttttm---------------------------------------------------------------------
+│   frame job                          0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   draw submission ▍                  1.6                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   publishing                         0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   tap readbacks                      0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   snapshot                           0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   everything else                    0.1                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+│   idle                               0.0                                               │
+--ttttttttttttttttttBBBBBBBBBBBBBBBBtttttt------------------------------------------------
+├ ▾ Editor ───────────────────────────────────────────────────────────────────── 90 fps ─┤
+--HHHHHHHH----------------------------------------------------------------------HHHHHHHH--
+│   frame             11.0 ms now ·   11.1 avg ·   14.2 worst                            │
+--ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt-----------------------------
+│   CPU per frame      2.1 ms now ·    2.0 avg                                           │
+--tttttttttttttttttttttttttttttttttttttttttttt--------------------------------------------
+│   GPU per frame      3.4 ms now ·    3.1 avg ·    5.2 worst                            │
+--ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt-----------------------------
+├ ▾ Costliest Outputs ─────────────────────────────────────────────────────────────── 3 ─┤
+--HHHHHHHHHHHHHHHHHHH----------------------------------------------------------------HHH--
+│   Kuwahara        Effect kernels    12.8 ms  ▸ go                                      │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL---------------------------------------
+│   Wavefold        Effect manglers    6.4 ms  ▸ go                                      │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL---------------------------------------
+│   Mandelbrot      Sources            4.3 ms  ▸ go                                      │
+--ttLLLLLLLLLLLLLLLLmmmmmmmmmmmmmmmmtttttttttttLLLL---------------------------------------
+│                                                                                        │
+------------------------------------------------------------------------------------------
+│                                                                                        │
+------------------------------------------------------------------------------------------
+│                                                                                        │
+------------------------------------------------------------------------------------------
+│                                                                                        │
+------------------------------------------------------------------------------------------
+│                                                                                        │
+------------------------------------------------------------------------------------------
+│   3 Outputs, 23.5 ms                                                                   │
+--mmmmmmmmmmmmmmmmmmmm--------------------------------------------------------------------
+├ ▾ Project ─────────────────────────────────────────────────────────────────────────────┤
+--HHHHHHHHH-------------------------------------------------------------------------------
+│   nodes           212 · 18 drawn                                                       │
+--tttttttttttttttttttttttttttttttt--------------------------------------------------------
+│   shaders         43 · 1203 uniforms                                                   │
+--tttttttttttttttttttttttttttttttttttt----------------------------------------------------
+│   undo            12/100 · redo 0                                                      │
+--ttttttttttttttttttttttttttttttttt-------------------------------------------------------
+│   ticks           5120                                                                 │
+--tttttttttttttttttttttt------------------------------------------------------------------
+│   up              4:07                                                                 │
+--tttttttttttttttttttttt------------------------------------------------------------------
+│   file            saved 21 September                                                   │
+--tttttttttttttttttttttttttttttttttttt----------------------------------------------------
+├ ▾ Nodes ───────────────────────────────────────────────────────────────── 2 reporting ─┤
+--HHHHHHH------------------------------------------------------------------HHHHHHHHHHHHH--
+│   Audio In ×1                                                                          │
+--HHHHHHHHHHHHH---------------------------------------------------------------------------
+│     audioin9      no device: the microphone is not open, so every band reads zero unt… │
+--ttttLLLLLLLLLLLLLLtttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt--
+│   Phase ×1                                                                             │
+--HHHHHHHHHH------------------------------------------------------------------------------
+│     phase7        0.42 cycles                                                          │
+--ttttLLLLLLLLLLLLLLttttttttttt-----------------------------------------------------------
+└─────────────────────────────────────────────────────────────────────────── ◰ copy ─────┘
+-----------------------------------------------------------------------------LLLLLL-------
+hovers:
+  3 "The last 600 ticks since the box opened: a median of 60 ms. 0 dropped since the run began, 0 a second on the worst Output in the last second."
+  4 "Ticks in the last second whose draw found the tick two before it still on the GPU and waited for it: the two-tick bound on the GPU's queue. The renderer's throttle, which submits only once at most one earlier submission is still running, usually holds a tick back before it gets there, so this can read 0% while the tick waits; waiting on GPU, under CPU per tick, is the whole of the wait. 12 since the run began. A frame drops only where a viewer holds every target of an Output's ring (held) or a render's wait for a frame ran out (capture)."
+  5 "The synth's draw on the GPU, first command to last, by part: a mean over the last second. The whole process is the render engine this process used over the last second, from the kernel's own counters: the editor's painting and every picture window with it."
+ 14 "The synth's tick from the top of one to the top of the next, split by the thread's own CPU clock: time off the CPU inside a phase is waiting on the GPU, the rest is work, and the sleep to the deadline is idle. The rows add up to the tick."
+ 31 "The editor's own redraw, off egui's clock: only how often the canvas is painted. A minimized or covered window moves these and nothing else. GPU per frame is the editor's painting on the GPU, every panel, window and picture blit, from two timestamps on its own context read a few frames later."
+ 32 "The display the editor is on: 100 Hz, 10.00 ms a frame."
+ 35 "Every Output by the GPU's own time for the last frame it drew: the drawing ones costliest first, then the idle ones, which are not drawn and keep a muted figure. A name goes to its node."
+ 36 "output100 on Effect kernels, 1280×720, showing Kuwahara. The GPU's own time for the last frame it drew: 12.8 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 37 "output101 on Effect manglers, 1280×720, showing Wavefold. The GPU's own time for the last frame it drew: 6.4 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 38 "output102 on Sources, 1280×720, showing Mandelbrot. The GPU's own time for the last frame it drew: 4.3 ms, and 14.0 the worst of two seconds. Drawn every tick: on the workspace being looked at."
+ 45 "The graph, the undo history, the run and the last file action."
+ 52 "Each CPU node's own line, grouped by kind. A name goes to its node."
+ 54 "audioin9: no device: the microphone is not open, so every band reads zero until one is chosen in the Main Input panel"
+ 56 "phase7: 0.42 cycles"
+clicks:
+  5 Fold(Gpu) "GPU per tick section"
+ 14 Fold(Cpu) "CPU per tick section"
+ 31 Fold(Editor) "Editor section"
+ 35 Fold(Outputs) "Costliest Outputs section"
+ 36 Go(NodeId(100)) "Kuwahara"
+ 36 Go(NodeId(100)) "go to output100"
+ 37 Go(NodeId(101)) "Wavefold"
+ 37 Go(NodeId(101)) "go to output101"
+ 38 Go(NodeId(102)) "Mandelbrot"
+ 38 Go(NodeId(102)) "go to output102"
+ 45 Fold(Project) "Project section"
+ 52 Fold(Nodes) "Nodes section"
+ 54 Go(NodeId(9)) "go to audioin9"
+ 56 Go(NodeId(7)) "go to phase7"
+ 57 Copy "copy the Status box"

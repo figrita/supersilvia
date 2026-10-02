@@ -1,0 +1,37 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_tile1_height: f32,
+    u_control_tile1_offsetX: f32,
+    u_control_tile1_offsetY: f32,
+    u_control_tile1_slide: f32,
+    u_control_tile1_span: f32,
+    u_control_tile1_width: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn tile1_output(uv: vec2f) -> vec4f {
+    let tileWidth = max(u.u_control_tile1_width, 1e-3);
+    let tileHeight = max(u.u_control_tile1_height, 1e-3);
+    let halfWidth = tileWidth * 0.5;
+    let halfHeight = tileHeight * 0.5;
+    var scaledUV = uv * (u.u_control_tile1_span) + vec2f(u.u_control_tile1_offsetX, u.u_control_tile1_offsetY);
+    scaledUV.x += (u.u_control_tile1_slide) * tileWidth * floor((scaledUV.y + halfHeight) / tileHeight);
+    let tiledUV = vec2f(
+        floor_mod(scaledUV.x + halfWidth, tileWidth) - halfWidth,
+        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight);
+    return defaultUvMap(tiledUV);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return tile1_output(uv);
+}

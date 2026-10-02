@@ -1,0 +1,104 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_rotozoom1_turns: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
+    u_count_rotozoom1_clock: vec2f,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn rotozoom1_output(uv: vec2f) -> vec4f {
+    let cycle = u.u_count_rotozoom1_clock.y + vignette4_mask(uv);
+    let wave = fract(cycle) * 20.0 * PI;
+    var angle = fract(cycle * round(u.u_control_rotozoom1_turns)) * 2.0 * PI;
+    angle += sin(wave) * (vignette5_mask(uv)) * 0.5;
+    angle += cos(wave * 0.7) * (vignette6_mask(uv)) * 0.3;
+    var zoom = vignette7_mask(uv);
+    zoom += sin(wave * 0.8) * (vignette5_mask(uv)) * 0.3;
+    zoom += cos(wave * 1.2) * (vignette6_mask(uv)) * 0.2;
+    zoom = max(0.1, zoom);
+    let c = cos(angle);
+    let s = sin(angle);
+    let center = vec2f(vignette8_mask(uv), vignette9_mask(uv));
+    let rotozoomedUV = mat2x2f(c, -s, s, c) * (uv - center) * zoom + center;
+    return checkerboard3_output(rotozoomedUV);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return rotozoom1_output(uv);
+}

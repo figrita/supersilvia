@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=supersilvia
+GenericName=Video Synthesizer
+Comment=Modular video synthesizer for live performance
+# The icon is looked up by name in the hicolor theme, not by path, so the same line works
+# installed, in a Flatpak and inside an AppImage.
+Icon=supersilvia
+Exec=supersilvia %f
+Terminal=false
+Categories=AudioVideo;Video;Graphics;
+Keywords=video;synth;vj;live;modular;shader;
+MimeType=application/x-supersilvia-workspace;inode/directory;
+# What a Wayland compositor matches the window against: `src/main.rs` and the picture
+# windows in `src/render/picture/thread.rs` both set this app id. Keep the three the same.
+StartupWMClass=supersilvia
+StartupNotify=true

@@ -1,0 +1,130 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
+    u_count_tunnel3d1_clock: vec2f,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn tunnelPathSine(z: f32, tw: f32) -> vec2f {
+    return vec2f(sin(z * 0.29452431 + 1.7) * tw, cos(z * 0.49087385 + 2.3) * tw * 0.7);
+}
+
+fn tunnelPathHelix(z: f32, tw: f32) -> vec2f {
+    return vec2f(cos(z * 0.39269908) * tw, sin(z * 0.39269908) * tw);
+}
+
+fn tunnelPathLissajous(z: f32, tw: f32) -> vec2f {
+    return vec2f(sin(z * 0.29452431) * tw, sin(z * 0.49087385 + 1.5708) * tw);
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn tunnel3d1_output(uv: vec2f) -> vec4f {
+    let p = uv - vec2f(vignette8_mask(uv), vignette9_mask(uv));
+    let twist = vignette5_mask(uv);
+    let tubeRadius = max(vignette6_mask(uv), 1e-3);
+    let flight = whole_mod(u.u_count_tunnel3d1_clock.x, 64.0) + u.u_count_tunnel3d1_clock.y + vignette4_mask(uv);
+    let camZ = flight - 64.0 * floor(flight / 64.0);
+    let origin = vec3f(tunnelPathSine(camZ, twist), camZ);
+    let lookZ = camZ + 0.5;
+    let lookAt = vec3f(tunnelPathSine(lookZ, twist), lookZ);
+    let forward = normalize(lookAt - origin);
+    let right = normalize(cross(vec3f(0.0, 1.0, 0.0), forward));
+    let up = cross(forward, right);
+    let ray = normalize(p.x * right + p.y * up + (vignette7_mask(uv)) * forward);
+
+    var marched = 0.0;
+    for (var i = 0; i < 32; i++) {
+        let probe = origin + ray * marched;
+        let toWall = tubeRadius - length(probe.xy - tunnelPathSine(probe.z, twist));
+        if (toWall < 0.001 || marched > 30.0) { break; }
+        marched += toWall * 0.7;
+    }
+
+    let hit = origin + ray * marched;
+    let axis = tunnelPathSine(hit.z, twist);
+    let wallAngle = atan2(hit.x - axis.x, hit.y - axis.y);
+    var depth = hit.z * 0.5;
+    depth = abs(floor_mod(depth + 1.0, 4.0) - 2.0) - 1.0;
+    let tunnelUV = vec2f(wallAngle / PI, depth);
+    var wall = checkerboard3_output(tunnelUV);
+    return wall;
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return tunnel3d1_output(uv);
+}

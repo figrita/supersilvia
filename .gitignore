@@ -1,0 +1,8 @@
+/target
+/dist
+*.new.png
+*.diff.png
+.DS_Store
+*.svs.bak
+/.dirac-cache
+*.old.png

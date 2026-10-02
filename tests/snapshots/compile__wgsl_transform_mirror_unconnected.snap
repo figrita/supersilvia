@@ -1,0 +1,29 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mirror1_centerX: f32,
+    u_control_mirror1_centerY: f32,
+    u_control_mirror1_mix: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn mirror1_output(uv: vec2f) -> vec4f {
+    let center = vec2f(u.u_control_mirror1_centerX, u.u_control_mirror1_centerY);
+    var folded = uv - center;
+    folded.x = abs(folded.x);
+    let finalUV = mix(uv, folded + center, u.u_control_mirror1_mix);
+    return defaultUvMap(finalUV);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mirror1_output(uv);
+}

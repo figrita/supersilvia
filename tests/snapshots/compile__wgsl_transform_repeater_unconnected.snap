@@ -1,0 +1,99 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_repeater1_bgColor: vec4f,
+    u_control_repeater1_columns: f32,
+    u_control_repeater1_rows: f32,
+    u_control_repeater1_sourceHeight: f32,
+    u_control_repeater1_sourceWidth: f32,
+    u_control_repeater1_sourceX: f32,
+    u_control_repeater1_sourceY: f32,
+    u_control_repeater1_spacing: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn repeater1_output(uv: vec2f) -> vec4f {
+    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
+    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
+    let rows = max(floor(u.u_control_repeater1_rows), 1.0);
+    let columns = max(floor(u.u_control_repeater1_columns), 1.0);
+    let spacing = max(u.u_control_repeater1_spacing, 0.0);
+    let cellWidth = sourceWidth + spacing;
+    let cellHeight = sourceHeight + spacing;
+    let totalWidth = columns * cellWidth - spacing;
+    let totalHeight = rows * cellHeight - spacing;
+    let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
+    let gridUV = uv - gridOffset;
+    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
+    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
+    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
+        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
+        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
+        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
+    let sourceUV = vec2f(u.u_control_repeater1_sourceX, u.u_control_repeater1_sourceY) + cellUV
+        - vec2f(sourceWidth, sourceHeight) * 0.5;
+    return mix(u.u_control_repeater1_bgColor, defaultUvMap(sourceUV), mask);
+}
+
+fn repeater1_mask(uv: vec2f) -> f32 {
+    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
+    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
+    let rows = max(floor(u.u_control_repeater1_rows), 1.0);
+    let columns = max(floor(u.u_control_repeater1_columns), 1.0);
+    let spacing = max(u.u_control_repeater1_spacing, 0.0);
+    let cellWidth = sourceWidth + spacing;
+    let cellHeight = sourceHeight + spacing;
+    let totalWidth = columns * cellWidth - spacing;
+    let totalHeight = rows * cellHeight - spacing;
+    let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
+    let gridUV = uv - gridOffset;
+    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
+    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
+    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
+        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
+        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
+        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(repeater1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = repeater1_output(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

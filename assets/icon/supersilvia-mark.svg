@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The mark alone, no field, for anywhere that brings its own background: Steam's library
+     logo, a dark README, a title screen. The app icon is `supersilvia.svg`. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="3.213 36.147 140.695 142.914" width="140.695px" height="142.914px">
+  <path d="M 101.932 129.157 C 117.95 141.713 126.453 160.548 122.366 179.061 L 3.213 152.762 C 7.315 134.202 23.037 120.676 42.928 116.06 L 55.34 60.465 C 46.76 53.992 39.598 45.686 34.193 36.147 L 143.908 60.449 C 134.945 66.838 124.9 71.349 114.343 73.589 L 101.932 129.157 Z" style="fill: rgb(255, 255, 255); stroke-width: 0.505;"/>
+</svg>

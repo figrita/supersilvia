@@ -1,0 +1,34 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_houndstooth1_colorA: vec4f,
+    u_control_houndstooth1_colorB: vec4f,
+    u_control_houndstooth1_offsetX: f32,
+    u_control_houndstooth1_offsetY: f32,
+    u_control_houndstooth1_scale: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn houndstooth1_output(uv: vec2f) -> vec4f {
+    let a = u.u_control_houndstooth1_colorA;
+    let b = u.u_control_houndstooth1_colorB;
+    let tile = fract((uv + vec2f(u.u_control_houndstooth1_offsetX, u.u_control_houndstooth1_offsetY)) * (u.u_control_houndstooth1_scale));
+    if (tile.x < 0.5 && tile.y > 0.5) { return a; }
+    if (tile.x > 0.5 && tile.y < 0.5) { return b; }
+    let stripe = step(0.5, fract((tile.x + tile.y) * 2.0));
+    if (tile.x < 0.5 && tile.y < 0.5) { return mix(a, b, stripe); }
+    return mix(b, a, stripe);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return houndstooth1_output(uv);
+}

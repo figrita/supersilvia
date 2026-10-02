@@ -1,0 +1,353 @@
+<title>Timeline Tabs</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f7f4f6; --bg2:#eee9ec; --ink:#1f1a1e; --ink2:#5d5460; --line:#cfc6cc; --panel:#ffffff;
+  --pink:#d8229f; --green:#0f9a6d; --orange:#d9860a; --purple:#7a4fe0;
+  --pink-soft:rgba(216,34,159,.12); --green-soft:rgba(15,154,109,.14); --orange-soft:rgba(217,134,10,.16); --purple-soft:rgba(122,79,224,.14);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17141a; --bg2:#211c25; --ink:#efe8ec; --ink2:#a99fa7; --line:#3d3541; --panel:#1e1a22;
+    --pink:#f52fbc; --green:#22c58d; --orange:#f5a524; --purple:#9d7cf0;
+    --pink-soft:rgba(245,47,188,.16); --green-soft:rgba(34,197,141,.16); --orange-soft:rgba(245,165,36,.18); --purple-soft:rgba(157,124,240,.18);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17141a; --bg2:#211c25; --ink:#efe8ec; --ink2:#a99fa7; --line:#3d3541; --panel:#1e1a22;
+  --pink:#f52fbc; --green:#22c58d; --orange:#f5a524; --purple:#9d7cf0;
+  --pink-soft:rgba(245,47,188,.16); --green-soft:rgba(34,197,141,.16); --orange-soft:rgba(245,165,36,.18); --purple-soft:rgba(157,124,240,.18);
+}
+body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:16px;line-height:1.55;margin:0}
+main{max-width:980px;margin:0 auto;padding:40px 24px 80px}
+h1,h2{font-family:"Bricolage Grotesque","IBM Plex Sans",sans-serif;text-wrap:balance;line-height:1.1;margin:0}
+h1{font-size:40px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:24px;font-weight:700;margin-top:56px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-bottom:10px}
+p,li{max-width:66ch}
+.lede{font-size:18px;color:var(--ink2);margin-top:14px}
+figure{margin:28px 0 0;padding:0}
+figure svg{width:100%;height:auto;display:block;background:var(--panel);border:1px solid var(--line);border-radius:4px}
+figcaption{font-size:14px;color:var(--ink2);margin-top:10px;max-width:72ch}
+.wide{overflow-x:auto}
+.key{display:flex;gap:18px;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink2);margin-top:14px}
+.key span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+table{border-collapse:collapse;font-size:14px;margin-top:16px;width:100%;max-width:760px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);font-weight:500}
+td code,p code,li code{font-family:"IBM Plex Mono",monospace;font-size:.92em;background:var(--bg2);padding:1px 5px;border-radius:3px}
+.q{border-left:3px solid var(--pink);padding:2px 0 2px 14px;margin-top:18px}
+svg text{font-family:"IBM Plex Mono",monospace;font-size:12px;fill:currentColor}
+svg .t11{font-size:11px}
+svg .t13{font-size:13px;font-weight:500}
+svg .dim{fill:var(--ink2)}
+svg .box{fill:var(--bg2);stroke:currentColor;stroke-width:1}
+svg .panel{fill:var(--panel);stroke:var(--line);stroke-width:1}
+svg .wire{fill:none;stroke:currentColor;stroke-width:1.2}
+svg .pink{stroke:var(--pink)} svg .green{stroke:var(--green)} svg .orange{stroke:var(--orange)} svg .purple{stroke:var(--purple)}
+svg .fpink{fill:var(--pink)} svg .fgreen{fill:var(--green)} svg .forange{fill:var(--orange)} svg .fpurple{fill:var(--purple)}
+svg .spink{fill:var(--pink-soft)} svg .sgreen{fill:var(--green-soft)} svg .sorange{fill:var(--orange-soft)} svg .spurple{fill:var(--purple-soft)}
+</style>
+
+<main>
+<div class="eyebrow">supersilvia · meditation companion</div>
+<h1>Timeline Tabs</h1>
+<p class="lede">A timeline is a third kind of tab beside video and audio workspaces. It holds no nodes. It references nodes from any workspace: an Output to composite, any other node to automate. Drawn to be argued with, not to be built from.</p>
+
+<h2>1. What has what</h2>
+<p>silvia's audio branch already gives a workspace a type, and the type picks the compiler and which nodes the menu offers. A <strong>timeline</strong> is a tab whose type owns no nodes and no compiler. It owns references into the one graph, a transport, a viewport, and a compositor. Two rules are the spine. Yours: <strong>a lane owns exactly the address it drives, and nothing else is timeline-controlled.</strong> And: <strong>an Output on a timeline is a clip.</strong> Nothing nests. Nothing is used twice, except that the same node may be referenced by more than one timeline, and that is the one new fork.</p>
+
+<figure>
+<svg viewBox="0 0 960 500" role="img" aria-label="Object model: a timeline tab references nodes across all workspaces and owns tracks, a transport, a viewport and a compositor. Outputs on the timeline are clips composited in z order by a render pass over their textures. Any node can open a track group of lanes; each lane writes one address; a media clip on a color lane binds a file to that input for its extent.">
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+</defs>
+<rect x="380" y="20" width="200" height="56" rx="3" class="box spink" style="stroke:var(--pink)"/>
+<text x="480" y="44" text-anchor="middle" class="t13">Timeline tab</text>
+<text x="480" y="62" text-anchor="middle" class="t11 dim">references nodes in any workspace</text>
+
+<rect x="60" y="116" width="150" height="44" rx="3" class="box"/><text x="135" y="136" text-anchor="middle">Tracks</text><text x="135" y="152" text-anchor="middle" class="t11 dim">two regions</text>
+<rect x="240" y="116" width="150" height="44" rx="3" class="box"/><text x="315" y="143" text-anchor="middle">Transport</text>
+<rect x="570" y="116" width="150" height="44" rx="3" class="box"/><text x="645" y="143" text-anchor="middle">Viewport</text>
+<rect x="750" y="116" width="170" height="44" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="835" y="136" text-anchor="middle">Compositor</text><text x="835" y="152" text-anchor="middle" class="t11 dim">a render pass, not a node</text>
+<path d="M420 76 L135 116" class="wire" marker-end="url(#a)"/>
+<path d="M455 76 L315 116" class="wire" marker-end="url(#a)"/>
+<path d="M520 76 L645 116" class="wire" marker-end="url(#a)"/>
+<path d="M645 160 L645 190 L835 190 L835 160" class="wire" marker-end="url(#a)"/>
+<text x="700" y="184" class="t11 dim">shows</text>
+
+<!-- two regions of the timeline -->
+<rect x="40" y="220" width="400" height="110" rx="3" class="panel"/>
+<text x="56" y="240" class="t13">compositing region</text>
+<text x="56" y="256" class="t11 dim">Output clips, vertical order is z</text>
+<rect x="56" y="268" width="180" height="22" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/><text x="146" y="283" text-anchor="middle" class="t11">Output clip · in→out</text>
+<rect x="56" y="296" width="180" height="22" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/><text x="146" y="311" text-anchor="middle" class="t11">Output clip · in→out</text>
+<text x="250" y="283" class="t11 dim">x y rot scale opacity blend</text>
+<text x="250" y="297" class="t11 dim">live on the clip: addresses</text>
+<text x="250" y="311" class="t11 dim">the timeline owns, not the node</text>
+<path d="M135 160 L135 220" class="wire" marker-end="url(#a)"/>
+<text x="142" y="196" class="t11 dim"> </text>
+
+<rect x="40" y="350" width="400" height="130" rx="3" class="panel"/>
+<text x="56" y="370" class="t13">node-lane region</text>
+<text x="56" y="386" class="t11 dim">a track group per node that has any lane</text>
+<text x="56" y="410" class="t11">▾ colorshift3</text>
+<rect x="72" y="418" width="10" height="10" class="fgreen"/><text x="90" y="427" class="t11">hue · automation lane</text>
+<rect x="72" y="436" width="10" height="10" class="forange"/><text x="90" y="445" class="t11">tint · color-picker clips</text>
+<text x="56" y="466" class="t11">▾ edgedetect1</text>
+<rect x="72" y="472" width="10" height="10" class="forange"/><text x="90" y="481" class="t11">input ← free track "gumbasia" (2 bindings)</text>
+<path d="M135 330 L135 350" class="wire" marker-end="url(#a)"/>
+
+<!-- graph side -->
+<rect x="520" y="220" width="400" height="260" rx="3" class="panel"/>
+<text x="536" y="240" class="t13">the graph, across all workspaces</text>
+<rect x="540" y="256" width="150" height="40" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="615" y="274" text-anchor="middle">Output</text><text x="615" y="288" text-anchor="middle" class="t11 dim">in Workspace 2</text>
+<rect x="740" y="256" width="150" height="40" rx="3" class="box"/><text x="815" y="274" text-anchor="middle">Output</text><text x="815" y="288" text-anchor="middle" class="t11 dim">on no timeline: a buffer</text>
+<rect x="540" y="330" width="150" height="40" rx="3" class="box"/><text x="615" y="348" text-anchor="middle">colorshift3</text><text x="615" y="362" text-anchor="middle" class="t11 dim">hue, tint are addresses</text>
+<rect x="540" y="400" width="150" height="40" rx="3" class="box"/><text x="615" y="418" text-anchor="middle">edgedetect1</text><text x="615" y="432" text-anchor="middle" class="t11 dim">input is an address</text>
+<rect x="740" y="400" width="150" height="40" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="815" y="418" text-anchor="middle">free media track</text><text x="815" y="432" text-anchor="middle" class="t11 dim">bound here and elsewhere</text>
+<path d="M615 370 L615 330" class="wire" style="opacity:0"/>
+<path d="M615 330 L615 296" class="wire" marker-end="url(#a)"/>
+<path d="M615 400 L615 370" class="wire" marker-end="url(#a)"/>
+<path d="M740 420 L690 420" class="wire orange" marker-end="url(#a)"/>
+<path d="M815 400 L815 380 L690 380 L690 350" class="wire orange" style="stroke-dasharray:3 3"/>
+
+<!-- lanes write addresses -->
+<path d="M440 424 C 480 424, 500 350, 540 350" class="wire green" marker-end="url(#a)"/>
+<path d="M440 476 C 480 476, 500 420, 740 420" class="wire orange" style="opacity:0"/>
+<path d="M440 476 C 470 476, 700 476, 740 430" class="wire orange" marker-end="url(#a)"/>
+<text x="452" y="416" class="t11 dim">writes</text>
+<text x="452" y="470" class="t11 dim">binds: the tag names the track</text>
+<path d="M236 279 C 400 279, 480 279, 540 279" class="wire orange" marker-end="url(#a)"/>
+<text x="330" y="272" class="t11 dim" style="opacity:0">is</text>
+<path d="M690 276 L750 160" class="wire orange" style="stroke-dasharray:3 3" marker-end="url(#a)"/>
+<text x="700" y="215" class="t11 dim">sampled, one frame late</text>
+</svg>
+<figcaption>One graph, many workspaces, and a timeline tab that points into it. An Output placed on a timeline is a clip: its transform, blend and extent live on the clip, so two timelines can place one Output differently, and the compositor samples its texture in z order. Any node can open a track group; each lane in it writes one address. A track is the source and an input binds to it; a free track has no owning node and can be bound to inputs on several nodes at once. The tag on a bound input names the track.</figcaption>
+</figure>
+
+<p>What this settles that the meditation had open, and what it leaves:</p>
+<ul>
+<li><strong>The layer is the Output.</strong> No layer node, and the "which Output is the layer" question is gone: every Output on the timeline is one.</li>
+<li><strong>Nothing nests.</strong> One graph, silvia's shape. Two clips with one look are two Outputs. The instancing question never arises. The price is that a patch is not a reusable unit; a node that is a whole patch could be added later and would fit this as an ordinary node with an Output.</li>
+<li><strong>Extent is render on and off.</strong> An Output outside its clip does not render. Cost scales with what is on stage now, not with the whole show.</li>
+<li><strong>A lane at a gap is the port unplugged.</strong> The lane is a fourth writer, present or absent, not a replacement. Outside a media clip the input shows its picker or the hue wheel.</li>
+<li><strong>Time warps only where a lane sits.</strong> A media clip's speed on its lane, or an automation lane on a node's <code>time</code> port. No subtree retime. That is push, settled by the product.</li>
+<li><strong>A timeline is saved with the session</strong>, referencing nodes by id, the way a workspace's visibility set does. A node deleted from its workspace leaves a dead reference the timeline reports rather than hides.</li>
+<li><strong>The cross-workspace tags carry over unchanged.</strong> A node on a timeline shows a pill in its workspace saying which timeline and which lane; the lane header shows the node and its workspace. Click either to go there.</li>
+<li><strong>The transform is on the clip.</strong> Two timelines can place one Output differently. The cost is a second owner of addresses: the graph owns node controls, a timeline owns clip controls, and lanes, MIDI and gizmos write both through one address space. silvia's mixer made the same call, channel assignment being mixer state.</li>
+</ul>
+
+<h2>2. The timeline tab</h2>
+<p>The overview. The viewport is the composite; the timeline has two regions the way Final Cut stacks different kinds of lane vertically. Above the divider, Output clips, and their vertical order is z. Below it, node track groups, one per node that has any lane, each holding parameter lanes. Double-clicking a clip or a group opens the graph at that node. Any node from any workspace can be dragged onto it: an Output lands in the compositing region, anything else opens a track group. Dragging a file onto the viewport makes a video node and an Output clip in the active workspace; dragging it onto a color input's lane makes a media track there, owned by that node; a track dropped in the free region can be bound to any number of inputs.</p>
+
+<figure class="wide">
+<svg viewBox="0 0 960 700" role="img" aria-label="Mockup of a timeline tab beside workspace tabs: a full-width viewport, then a timeline with a compositing region of Output clips ordered by z and a separate node-lane region of track groups with parameter lanes, plus audio and cue tracks.">
+<defs>
+<pattern id="wave" x="0" y="0" width="6" height="30" patternUnits="userSpaceOnUse"><rect x="2" y="9" width="2" height="12" class="fgreen"/></pattern>
+</defs>
+<rect x="0" y="0" width="960" height="700" class="panel" style="stroke:none"/>
+<rect x="0" y="0" width="960" height="26" fill="var(--bg2)"/>
+<text x="12" y="17" class="t11">File   Edit   Nodes   View</text>
+<text x="948" y="17" text-anchor="end" class="t11 dim">session</text>
+<rect x="16" y="30" width="96" height="18" rx="2" fill="none" stroke="var(--line)"/><text x="64" y="43" text-anchor="middle" class="t11 dim">Workspace 1</text>
+<rect x="116" y="30" width="96" height="18" rx="2" fill="none" stroke="var(--line)"/><text x="164" y="43" text-anchor="middle" class="t11 dim">Workspace 2</text>
+<rect x="216" y="30" width="96" height="18" rx="2" fill="none" stroke="var(--line)"/><text x="264" y="43" text-anchor="middle" class="t11 dim">♪ bass synth</text>
+<rect x="316" y="30" width="96" height="18" rx="2" fill="var(--pink-soft)" stroke="var(--pink)"/><text x="364" y="43" text-anchor="middle" class="t11" style="fill:var(--pink)">⏱ friday</text>
+<rect x="416" y="30" width="18" height="18" rx="2" fill="none" stroke="var(--line)"/><text x="425" y="43" text-anchor="middle" class="t11 dim">+</text>
+<text x="948" y="43" text-anchor="end" class="t11 dim">+ menu: video · audio · timeline</text>
+
+<rect x="16" y="56" width="928" height="244" style="fill:#0b090c;stroke:var(--line)"/>
+<rect x="16" y="56" width="928" height="244" fill="var(--purple-soft)"/>
+<text x="24" y="72" class="t11" style="fill:#8b8390">viewport 1920×1080 · composite of this timeline's Output clips</text>
+<circle cx="480" cy="170" r="110" fill="none" stroke="var(--purple)" stroke-opacity=".5"/>
+<circle cx="480" cy="170" r="72" fill="none" stroke="var(--purple)" stroke-opacity=".5"/>
+<circle cx="480" cy="170" r="36" fill="none" stroke="var(--purple)" stroke-opacity=".5"/>
+<g transform="rotate(-8 640 180)">
+<rect x="550" y="120" width="180" height="120" fill="var(--orange-soft)" stroke="var(--orange)"/>
+<text x="640" y="185" text-anchor="middle" class="t11" style="fill:var(--orange)">Output: gumby</text>
+<rect x="548" y="118" width="184" height="124" fill="none" stroke="var(--pink)" stroke-dasharray="4 3"/>
+<rect x="544" y="114" width="8" height="8" class="fpink"/><rect x="728" y="114" width="8" height="8" class="fpink"/>
+<rect x="544" y="238" width="8" height="8" class="fpink"/><rect x="728" y="238" width="8" height="8" class="fpink"/>
+<line x1="640" y1="118" x2="640" y2="92" stroke="var(--pink)"/><circle cx="640" cy="88" r="5" fill="none" stroke="var(--pink)"/>
+</g>
+<text x="24" y="290" class="t11" style="fill:#8b8390">gizmo drag → SetControl on this clip's x y rot scale opacity</text>
+<text x="936" y="290" text-anchor="end" class="t11" style="fill:#8b8390">double-click: jump to that Output in its workspace</text>
+
+<rect x="16" y="316" width="928" height="30" fill="var(--bg2)"/>
+<text x="28" y="335" class="t13" style="fill:var(--pink)">▶</text>
+<text x="52" y="335" class="t13">00:01:12.400</text>
+<text x="170" y="335" class="t11 dim">bar 37 · 128 bpm from audio track</text>
+<rect x="700" y="321" width="110" height="20" rx="10" fill="var(--pink-soft)" stroke="var(--pink)"/>
+<text x="755" y="335" text-anchor="middle" class="t11" style="fill:var(--pink)">LIVE · carry</text>
+<rect x="820" y="321" width="110" height="20" rx="10" fill="none" stroke="var(--line)"/>
+<text x="875" y="335" text-anchor="middle" class="t11 dim">RENDER · replay</text>
+
+<!-- timeline frame -->
+<rect x="16" y="352" width="928" height="332" class="panel"/>
+<rect x="16" y="352" width="240" height="332" fill="var(--bg2)" opacity=".5"/>
+<rect x="256" y="352" width="688" height="20" fill="var(--bg2)"/>
+<g class="t11 dim"><text x="260" y="366">0:00</text><text x="430" y="366">0:30</text><text x="600" y="366">1:00</text><text x="770" y="366">1:30</text></g>
+<line x1="256" y1="372" x2="944" y2="372" stroke="var(--line)"/>
+<line x1="668" y1="352" x2="668" y2="684" stroke="var(--pink)" stroke-width="1.5"/>
+<polygon points="662,352 674,352 668,360" class="fpink"/>
+
+<!-- compositing region -->
+<text x="24" y="388" class="t11" style="fill:var(--orange)">OUTPUT CLIPS · top is front</text>
+<rect x="16" y="394" width="928" height="30" fill="var(--pink-soft)"/>
+<text x="24" y="413" class="t11 dim">≡</text><text x="38" y="413" class="t13">Output: gumby</text>
+<text x="150" y="413" class="t11 dim">normal · 0.80</text>
+<rect x="370" y="398" width="380" height="22" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/>
+<text x="380" y="413" class="t11" style="fill:var(--orange)">0:20 → 1:12</text>
+<line x1="16" y1="424" x2="944" y2="424" stroke="var(--line)"/>
+
+<rect x="16" y="424" width="928" height="30" fill="none"/>
+<text x="24" y="443" class="t11 dim">≡</text><text x="38" y="443" class="t13">Output: tunnel</text>
+<text x="150" y="443" class="t11 dim">screen · 1.0</text>
+<rect x="256" y="428" width="688" height="22" rx="2" fill="var(--purple-soft)" stroke="var(--purple)" stroke-opacity=".6"/>
+<text x="264" y="443" class="t11" style="fill:var(--purple)">whole show</text>
+<line x1="16" y1="454" x2="944" y2="454" stroke="var(--line)"/>
+
+<text x="24" y="473" class="t11 dim">≡</text><text x="38" y="473" class="t13">Output: cam</text>
+<text x="150" y="473" class="t11 dim">multiply · 0.35</text>
+<rect x="540" y="458" width="404" height="22" rx="2" fill="var(--bg2)" stroke="var(--ink2)"/>
+<text x="548" y="473" class="t11 dim">0:50 → end · live camera inside</text>
+<line x1="16" y1="484" x2="944" y2="484" stroke="var(--line)"/>
+<text x="38" y="500" class="t11 dim">Output: fbk-buffer is not here: it renders as a buffer, off stage</text>
+
+<!-- divider -->
+<rect x="16" y="508" width="928" height="6" fill="var(--bg2)"/>
+<text x="24" y="530" class="t11" style="fill:var(--green)">NODE LANES · a group per node with a lane</text>
+
+<!-- group: colorshift3 -->
+<text x="24" y="550" class="t11 dim">▾</text><text x="38" y="550" class="t13">colorshift3</text>
+<text x="150" y="550" class="t11 dim">Workspace 1 → Output: tunnel</text>
+<text x="52" y="566" class="t11 dim">hue</text>
+<path d="M256 572 C 380 556, 500 582, 640 562 S 880 578, 944 566" class="wire green"/>
+<text x="52" y="584" class="t11 dim">tint</text>
+<rect x="256" y="577" width="180" height="12" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/><rect x="436" y="577" width="220" height="12" rx="2" fill="var(--purple-soft)" stroke="var(--purple)"/><rect x="656" y="577" width="288" height="12" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/>
+<text x="900" y="587" text-anchor="end" class="t11 dim">color picker clips</text>
+<line x1="16" y1="594" x2="944" y2="594" stroke="var(--line)"/>
+
+<!-- group: edgedetect1 -->
+<text x="24" y="612" class="t11 dim">▾</text><text x="38" y="612" class="t13">edgedetect1</text>
+<text x="150" y="612" class="t11 dim">Workspace 2 → Output: gumby</text>
+<text x="52" y="628" class="t11 dim">input</text>
+<rect x="370" y="620" width="380" height="14" rx="2" fill="var(--orange-soft)" stroke="var(--orange)"/>
+<text x="378" y="631" class="t11" style="fill:var(--orange)">gumbasia.webm · speed 0.5 · reverse</text>
+<text x="760" y="631" class="t11 dim">outside: the hue wheel</text>
+<line x1="16" y1="638" x2="944" y2="638" stroke="var(--line)"/>
+
+<!-- audio + cues -->
+<text x="38" y="656" class="t13">audio</text><text x="150" y="656" class="t11 dim">song.flac · master</text>
+<rect x="256" y="642" width="688" height="20" fill="url(#wave)" opacity=".8"/>
+<line x1="16" y1="664" x2="944" y2="664" stroke="var(--line)"/>
+<text x="38" y="680" class="t13">cues</text>
+<g class="fpurple"><polygon points="256,670 262,680 250,680"/><polygon points="540,670 546,680 534,680"/><polygon points="800,670 806,680 794,680"/></g>
+<text x="266" y="680" class="t11 dim">intro</text><text x="550" y="680" class="t11 dim">drop → cam clip starts</text><text x="810" y="680" class="t11 dim">outro → jump 0:00</text>
+</svg>
+<figcaption>The tab bar holds video workspaces, an audio workspace and a timeline. Two regions. Above the divider, Output clips: vertical order is z, the header carries blend and opacity, and an Output not placed here renders as a buffer off stage. Below it, one track group per node that has a lane, with a tag saying which workspace it lives in and which Output it reaches. The edge detector's color input is bound to a media track; outside its clips that input is the hue wheel.</figcaption>
+</figure>
+<div class="key"><span style="--c:var(--green)">number lane, writes a scalar</span><span style="--c:var(--orange)">Output clip or media clip, a picture with extent</span><span style="--c:var(--purple)">cue, an event</span><span style="--c:var(--pink)">transport and selection</span></div>
+
+<h2>3. What a jump does</h2>
+<p>Your rule, drawn. A cue jumps the transport from 1:12 back to 0:20. Lane-driven values are functions of time, so they take the value the lane holds at 0:20. Everything else is state and keeps going: the feedback trail decays from where it was, the slew slides from where it was, the camera is the camera. Render mode is the one exception, and it is a mode, not a different show.</p>
+
+<figure>
+<svg viewBox="0 0 960 330" role="img" aria-label="Two strips of time. In live mode a jump snaps lane-driven values to the lane and carries all other state across. In render mode the same jump resets state and runs forward from a warm-up point.">
+<defs><marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+<!-- LIVE -->
+<text x="20" y="28" class="t13" style="fill:var(--pink)">LIVE · carry</text>
+<line x1="180" y1="40" x2="940" y2="40" stroke="var(--line)"/>
+<text x="180" y="34" class="t11 dim">1:10</text><text x="560" y="34" class="t11 dim">1:12 · cue fires</text><text x="900" y="34" class="t11 dim">0:22</text>
+<line x1="560" y1="40" x2="560" y2="150" stroke="var(--pink)" stroke-dasharray="4 3"/>
+<path d="M560 46 C 600 20, 640 20, 680 46" class="wire pink" marker-end="url(#c)"/>
+<text x="690" y="44" class="t11" style="fill:var(--pink)">jump → 0:20</text>
+
+<text x="20" y="74" class="t11">opacity ← lane</text>
+<polyline points="180,84 560,70" class="wire green"/>
+<polyline points="560,70 560,90 940,78" class="wire green"/>
+<text x="570" y="104" class="t11 dim">snaps to lane value at 0:20</text>
+
+<text x="20" y="122" class="t11">feedback trail</text>
+<path d="M180 118 C 300 130, 420 126, 560 132 C 700 138, 820 134, 940 140" class="wire orange"/>
+<text x="570" y="152" class="t11 dim">continuous: decays from where it was</text>
+
+<text x="20" y="170" class="t11">slew ← lane · slewed</text>
+<polyline points="180,178 560,166" class="wire green"/>
+<path d="M560 166 C 600 166, 620 186, 700 186 L 940 182" class="wire green"/>
+<text x="570" y="204" class="t11 dim">target snaps, value slides: the lane owns the target, the node owns the slide</text>
+
+<!-- RENDER -->
+<line x1="20" y1="222" x2="940" y2="222" stroke="var(--line)"/>
+<text x="20" y="250" class="t13" style="fill:var(--ink2)">RENDER · replay</text>
+<line x1="180" y1="262" x2="940" y2="262" stroke="var(--line)"/>
+<text x="180" y="256" class="t11 dim">0:00</text><text x="330" y="256" class="t11 dim">warm-up</text><text x="560" y="256" class="t11 dim">0:20</text><text x="900" y="256" class="t11 dim">…</text>
+<text x="20" y="292" class="t11">feedback trail</text>
+<path d="M180 300 L 340 300" class="wire" style="stroke-dasharray:3 3"/>
+<path d="M340 300 C 400 280, 480 290, 560 286 C 700 284, 820 290, 940 288" class="wire orange"/>
+<text x="180" y="318" class="t11 dim">reset, then run forward from the last marker before the frame, so the same frame renders the same twice</text>
+</svg>
+<figcaption>Live: the lane owns the target, the node owns whatever integrates toward it. Render: state is reset and replayed from a warm-up, which is silvia's offline warm-up and the only way two renders of frame 1200 agree.</figcaption>
+</figure>
+
+<h2>4. Today's practice, mapped</h2>
+<p>Right now people open many workspaces and live-mix them on the A/B main mixer. Nothing here removes that. It becomes a timeline tab with two Output clips on stage, and the crossfader becomes an address a lane or a MIDI fader can drive. The workspaces stay exactly where they are.</p>
+
+<figure class="wide">
+<svg viewBox="0 0 960 300" role="img" aria-label="Left: today's silvia flow, workspaces to Output A and B to the main mixer to the projector. Right: the same show as a stack with two layers, a crossfade lane, and the show output feeding the projector. Arrows show what each thing becomes.">
+<defs><marker id="d" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker></defs>
+<text x="20" y="28" class="t13 dim">silvia today</text>
+<rect x="20" y="44" width="130" height="40" rx="3" class="box"/><text x="85" y="68" text-anchor="middle">workspace 1</text>
+<rect x="20" y="100" width="130" height="40" rx="3" class="box"/><text x="85" y="124" text-anchor="middle">workspace 2</text>
+<rect x="20" y="156" width="130" height="40" rx="3" class="box"/><text x="85" y="180" text-anchor="middle">workspace 3</text>
+<rect x="190" y="72" width="100" height="40" rx="3" class="box"/><text x="240" y="96" text-anchor="middle">Output A</text>
+<rect x="190" y="128" width="100" height="40" rx="3" class="box"/><text x="240" y="152" text-anchor="middle">Output B</text>
+<path d="M150 64 L190 88" class="wire" marker-end="url(#d)"/>
+<path d="M150 120 L190 148" class="wire" marker-end="url(#d)"/>
+<path d="M150 176 L190 152" class="wire" marker-end="url(#d)" style="stroke-dasharray:3 3"/>
+<text x="150" y="204" class="t11 dim">"show on A" is a click</text>
+<rect x="320" y="100" width="110" height="40" rx="3" class="box"/><text x="375" y="118" text-anchor="middle">main mixer</text><text x="375" y="132" text-anchor="middle" class="t11 dim">A/B + 8 wipes</text>
+<path d="M290 92 L320 112" class="wire" marker-end="url(#d)"/>
+<path d="M290 148 L320 128" class="wire" marker-end="url(#d)"/>
+<rect x="320" y="200" width="110" height="34" rx="3" class="box"/><text x="375" y="221" text-anchor="middle">projector</text>
+<path d="M375 140 L375 200" class="wire" marker-end="url(#d)"/>
+
+<line x1="470" y1="20" x2="470" y2="280" stroke="var(--line)" stroke-dasharray="4 4"/>
+<text x="500" y="28" class="t13" style="fill:var(--pink)">the same thing as a timeline tab</text>
+
+<rect x="500" y="44" width="130" height="40" rx="3" class="box"/><text x="565" y="68" text-anchor="middle">patch 1</text>
+<rect x="500" y="100" width="130" height="40" rx="3" class="box"/><text x="565" y="124" text-anchor="middle">patch 2</text>
+<rect x="500" y="156" width="130" height="40" rx="3" class="box"/><text x="565" y="180" text-anchor="middle">patch 3</text>
+<rect x="670" y="72" width="110" height="40" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="725" y="96" text-anchor="middle">Output A clip</text>
+<rect x="670" y="128" width="110" height="40" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="725" y="152" text-anchor="middle">Output B clip</text>
+<path d="M630 64 L670 88" class="wire" marker-end="url(#d)"/>
+<path d="M630 120 L670 148" class="wire" marker-end="url(#d)"/>
+<path d="M630 176 L670 152" class="wire purple" marker-end="url(#d)"/>
+<text x="600" y="206" class="t11" style="fill:var(--purple)">cue: start patch 3's clip</text>
+<rect x="820" y="100" width="120" height="40" rx="3" class="box sorange" style="stroke:var(--orange)"/><text x="880" y="118" text-anchor="middle">compositor</text><text x="880" y="132" text-anchor="middle" class="t11 dim">wipe as blend mode</text>
+<path d="M780 92 L820 112" class="wire" marker-end="url(#d)"/>
+<path d="M780 148 L820 128" class="wire" marker-end="url(#d)"/>
+<rect x="820" y="200" width="120" height="34" rx="3" class="box"/><text x="880" y="221" text-anchor="middle">composite</text>
+<path d="M880 140 L880 200" class="wire" marker-end="url(#d)"/>
+<path d="M700 246 C 760 246, 800 246, 850 236" class="wire green" marker-end="url(#d)"/>
+<text x="500" y="250" class="t11" style="fill:var(--green)">crossfade lane, or a MIDI fader</text>
+<text x="500" y="266" class="t11 dim">both write clip A.opacity and clip B.opacity</text>
+<text x="820" y="266" class="t11 dim">→ projector</text>
+</svg>
+<figcaption>The Outputs you already have become clips; the A/B mixer becomes the compositor with two clips on stage and a wipe as a blend mode; "show on A" becomes a cue that starts a clip. The crossfader is now an address, so a lane and a MIDI fader can both drive it.</figcaption>
+</figure>
+
+<h2>5. What each of your three goals needs from this</h2>
+<table>
+<thead><tr><th>Goal</th><th>Needs first</th><th>Fork it forces</th></tr></thead>
+<tbody>
+<tr><td>Music videos, offline</td><td>Transport as clock source; audio lane analyzed at virtual time; frame writer; warm-up for integrators</td><td>Render mode is replay. Settled by the goal itself.</td></tr>
+<tr><td>Composition, drag and gizmos</td><td>Clip with transform, blend and extent as timeline-owned addresses; a compositor pass over Output textures; media clips on color lanes; the viewport as a second editor</td><td>None of the hard ones. The order is the timeline; nothing nests.</td></tr>
+<tr><td>Orchestrated live performance</td><td>Cues, actions, MIDI; live mode carries state; track groups on the nodes you play</td><td>Cost is bounded by what is on stage. Cues are events, so the event layer comes first.</td></tr>
+</tbody>
+</table>
+
+<div class="q"><p><strong>Out of scope here.</strong> Which timeline the projector shows, and whether an Output whose clip has ended keeps rendering warm off stage, both belong to the mixer and projector work, which has not started. A timeline tab can be built and used on the preview panel before either is answered.</p></div>
+
+</main>

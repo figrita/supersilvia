@@ -1,0 +1,134 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_lyapunov1_amplitude: f32,
+    u_control_lyapunov1_background: vec4f,
+    u_control_lyapunov1_centerA: f32,
+    u_control_lyapunov1_centerB: f32,
+    u_control_lyapunov1_contrast: f32,
+    u_control_lyapunov1_depth: f32,
+    u_control_lyapunov1_foreground: vec4f,
+    u_control_lyapunov1_scale: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn lyapunov1_color(uv: vec2f) -> vec4f {
+    var seq = array<i32, 12>(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+    let scale = u.u_control_lyapunov1_scale;
+    let amp = u.u_control_lyapunov1_amplitude;
+    let contrast = u.u_control_lyapunov1_contrast;
+    let depth = u.u_control_lyapunov1_depth;
+    let a = u.u_control_lyapunov1_centerA + length(uv) * scale;
+    let b = u.u_control_lyapunov1_centerB + sin(atan2(uv.y, uv.x)) * scale;
+    var h = 0.0;
+    {
+        var x = 0.0;
+        var sum = 0.0;
+        for (var n = 0; n < 10; n++) {
+            let r = select(b, a, seq[n % 12] == 0);
+            let s = sin(x + r);
+            x = amp * s * s;
+            sum += log(max(abs(amp * sin(2.0 * (x + r))), 1e-12));
+        }
+        h = sum / f32(10);
+    }
+    let t = clamp(0.5 + 0.5 * tanh(h * contrast), 0.0, 1.0);
+    let base = mix(u.u_control_lyapunov1_foreground, u.u_control_lyapunov1_background, t);
+    if (depth <= 0.001) { return base; }
+    let eps = 0.005 / max(scale, 1e-4);
+    var hx = 0.0;
+    var hy = 0.0;
+    {
+        var x = 0.0;
+        var sum = 0.0;
+        for (var n = 0; n < 10; n++) {
+            let r = select(b, a + eps, seq[n % 12] == 0);
+            let s = sin(x + r);
+            x = amp * s * s;
+            sum += log(max(abs(amp * sin(2.0 * (x + r))), 1e-12));
+        }
+        hx = sum / f32(10);
+    }
+    {
+        var x = 0.0;
+        var sum = 0.0;
+        for (var n = 0; n < 10; n++) {
+            let r = select(b + eps, a, seq[n % 12] == 0);
+            let s = sin(x + r);
+            x = amp * s * s;
+            sum += log(max(abs(amp * sin(2.0 * (x + r))), 1e-12));
+        }
+        hy = sum / f32(10);
+    }
+    let normal = normalize(vec3f((h - hx) * depth, (h - hy) * depth, eps));
+    let light = normalize(vec3f(0.4, 0.4, 1.0));
+    let diffuse = max(dot(normal, light), 0.0);
+    let specular = pow(max(reflect(-light, normal).z, 0.0), 20.0);
+    return vec4f(base.rgb * (0.12 + 0.88 * diffuse) + specular * 0.25, base.a);
+}
+
+fn lyapunov1_mask(uv: vec2f) -> f32 {
+    var seq = array<i32, 12>(0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1);
+    let scale = u.u_control_lyapunov1_scale;
+    let amp = u.u_control_lyapunov1_amplitude;
+    let contrast = u.u_control_lyapunov1_contrast;
+    let depth = u.u_control_lyapunov1_depth;
+    let a = u.u_control_lyapunov1_centerA + length(uv) * scale;
+    let b = u.u_control_lyapunov1_centerB + sin(atan2(uv.y, uv.x)) * scale;
+    var h = 0.0;
+    {
+        var x = 0.0;
+        var sum = 0.0;
+        for (var n = 0; n < 10; n++) {
+            let r = select(b, a, seq[n % 12] == 0);
+            let s = sin(x + r);
+            x = amp * s * s;
+            sum += log(max(abs(amp * sin(2.0 * (x + r))), 1e-12));
+        }
+        h = sum / f32(10);
+    }
+    let t = clamp(0.5 + 0.5 * tanh(h * contrast), 0.0, 1.0);
+    return 1.0 - t;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(lyapunov1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = lyapunov1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

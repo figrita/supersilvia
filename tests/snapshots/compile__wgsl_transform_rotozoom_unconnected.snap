@@ -1,0 +1,43 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_rotozoom1_baseZoom: f32,
+    u_control_rotozoom1_centerX: f32,
+    u_control_rotozoom1_centerY: f32,
+    u_control_rotozoom1_cosCoeff: f32,
+    u_control_rotozoom1_phaseOffset: f32,
+    u_control_rotozoom1_sinCoeff: f32,
+    u_control_rotozoom1_turns: f32,
+    u_count_rotozoom1_clock: vec2f,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn rotozoom1_output(uv: vec2f) -> vec4f {
+    let cycle = u.u_count_rotozoom1_clock.y + u.u_control_rotozoom1_phaseOffset;
+    let wave = fract(cycle) * 20.0 * PI;
+    var angle = fract(cycle * round(u.u_control_rotozoom1_turns)) * 2.0 * PI;
+    angle += sin(wave) * (u.u_control_rotozoom1_sinCoeff) * 0.5;
+    angle += cos(wave * 0.7) * (u.u_control_rotozoom1_cosCoeff) * 0.3;
+    var zoom = u.u_control_rotozoom1_baseZoom;
+    zoom += sin(wave * 0.8) * (u.u_control_rotozoom1_sinCoeff) * 0.3;
+    zoom += cos(wave * 1.2) * (u.u_control_rotozoom1_cosCoeff) * 0.2;
+    zoom = max(0.1, zoom);
+    let c = cos(angle);
+    let s = sin(angle);
+    let center = vec2f(u.u_control_rotozoom1_centerX, u.u_control_rotozoom1_centerY);
+    let rotozoomedUV = mat2x2f(c, -s, s, c) * (uv - center) * zoom + center;
+    return defaultUvMap(rotozoomedUV);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return rotozoom1_output(uv);
+}

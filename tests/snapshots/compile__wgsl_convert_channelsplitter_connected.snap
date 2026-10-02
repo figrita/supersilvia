@@ -1,0 +1,67 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn channelsplitter1_r(uv: vec2f) -> f32 {
+    let color = checkerboard3_output(uv);
+    let maxc = max(max(color.r, color.g), color.b);
+    let minc = min(min(color.r, color.g), color.b);
+    let delta = maxc - minc;
+    return color.r;
+}
+
+fn channelsplitter1_g(uv: vec2f) -> f32 {
+    let color = checkerboard3_output(uv);
+    let maxc = max(max(color.r, color.g), color.b);
+    let minc = min(min(color.r, color.g), color.b);
+    let delta = maxc - minc;
+    return color.g;
+}
+
+fn channelsplitter1_b(uv: vec2f) -> f32 {
+    let color = checkerboard3_output(uv);
+    let maxc = max(max(color.r, color.g), color.b);
+    let minc = min(min(color.r, color.g), color.b);
+    let delta = maxc - minc;
+    return color.b;
+}
+
+fn channelsplitter1_a(uv: vec2f) -> f32 {
+    let color = checkerboard3_output(uv);
+    let maxc = max(max(color.r, color.g), color.b);
+    let minc = min(min(color.r, color.g), color.b);
+    let delta = maxc - minc;
+    return color.a;
+}
+
+fn rgba4_output(uv: vec2f) -> vec4f {
+    return vec4f(channelsplitter1_r(uv), channelsplitter1_g(uv), channelsplitter1_b(uv), channelsplitter1_a(uv));
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return rgba4_output(uv);
+}

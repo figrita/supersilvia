@@ -1,0 +1,31 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_colorize1_amount: f32,
+    u_control_colorize1_preserveLuminance: f32,
+    u_control_colorize1_tint: vec4f,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn colorize1_output(uv: vec2f) -> vec4f {
+    let color = defaultUvMap(uv);
+    let originalLum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
+    let tinted = vec3f(originalLum) * (u.u_control_colorize1_tint).rgb;
+    var result = mix(color.rgb, tinted, u.u_control_colorize1_amount);
+    let newLum = dot(result, vec3f(0.2126, 0.7152, 0.0722));
+    result = mix(result, result * (originalLum / max(newLum, 0.001)), u.u_control_colorize1_preserveLuminance);
+    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return colorize1_output(uv);
+}

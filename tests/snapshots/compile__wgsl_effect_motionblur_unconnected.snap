@@ -1,0 +1,32 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_motionblur1_amount: f32,
+    u_control_motionblur1_angle: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn motionblur1_output(uv: vec2f) -> vec4f {
+    let angle = (u.u_control_motionblur1_angle) * 2.0 * PI;
+    let line = vec2f(cos(angle), sin(angle)) * (u.u_control_motionblur1_amount) / 720.0;
+    var sum = vec4f(0.0);
+    var offset = vec2f(0.0);
+    for (var i = 0; i < 16; i++) {
+        offset = line * (f32(i) / 15.0 - 0.5);
+        sum += defaultUvMap(uv + offset);
+    }
+    return sum / 16.0;
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return motionblur1_output(uv);
+}

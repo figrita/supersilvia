@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The workspace file type, so a `.ssw` gets the logo in a file manager and opens here.
+     Installed with `xdg-mime install`, or into $PREFIX/share/mime/packages by install.sh. -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-supersilvia-workspace">
+    <comment>supersilvia workspace</comment>
+    <glob pattern="*.ssw"/>
+    <icon name="supersilvia"/>
+    <generic-icon name="video-x-generic"/>
+  </mime-type>
+</mime-info>

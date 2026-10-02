@@ -1,0 +1,175 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
+    u_control_mix12_amount: f32,
+    u_control_rgba11_a: f32,
+    u_control_rgba11_b: f32,
+    u_control_rgba11_g: f32,
+    u_control_vignette10_radius: f32,
+    u_control_vignette10_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
+    u_count_geissflow1_clock: vec2f,
+    u_opt_mix12_curve: i32,
+    u_opt_mix12_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette10_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette10_radius;
+    let softness = max(u.u_control_vignette10_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn geissflow1_output(uv: vec2f) -> vec4f {
+    let flowCoord = uv * vignette6_mask(uv);
+    let t = fract(u.u_count_geissflow1_clock.y + vignette5_mask(uv)) * 20.0 * PI;
+    let swirl = vignette10_mask(uv);
+    let noise1 = sin(flowCoord.x * 2.0 + t) * cos(flowCoord.y * 1.5 + t * 0.7);
+    let noise2 = cos(flowCoord.x * 1.3 + t * 0.8) * sin(flowCoord.y * 2.2 + t * 0.5);
+    let swirl1 = sin(length(flowCoord) * 3.0 + t) * swirl;
+    let swirl2 = cos(length(flowCoord * 0.7) * 2.0 - t * 1.2) * swirl * 0.7;
+    let around = atan2(flowCoord.y, flowCoord.x);
+    var flowVector = vec2f(
+        noise1 + swirl1 * cos(around + t),
+        noise2 + swirl2 * sin(around + t)
+    );
+    let fromCenter = length(uv);
+    let radialFlow = vec2f(uv.y, -uv.x) * (1.0 / (fromCenter + 0.1)) * swirl * 0.3;
+    flowVector += radialFlow;
+    let flowLength = length(flowVector);
+    let flowDir = select(vec2f(0.0), flowVector / flowLength, flowLength > 1e-6);
+    let flowed = uv + flowDir * (vignette7_mask(uv) * 2.0);
+    let feedback = vignette8_mask(uv);
+    let older = checkerboard4_output(flowed) * vignette9_mask(uv);
+    let live = checkerboard3_output(uv);
+    let result = mix(older, live, 1.0 - feedback);
+    return max(result, live * (1.0 - feedback));
+}
+
+fn geissflow1_angle(uv: vec2f) -> f32 {
+    let flowCoord = uv * vignette6_mask(uv);
+    let t = fract(u.u_count_geissflow1_clock.y + vignette5_mask(uv)) * 20.0 * PI;
+    let swirl = vignette10_mask(uv);
+    let noise1 = sin(flowCoord.x * 2.0 + t) * cos(flowCoord.y * 1.5 + t * 0.7);
+    let noise2 = cos(flowCoord.x * 1.3 + t * 0.8) * sin(flowCoord.y * 2.2 + t * 0.5);
+    let swirl1 = sin(length(flowCoord) * 3.0 + t) * swirl;
+    let swirl2 = cos(length(flowCoord * 0.7) * 2.0 - t * 1.2) * swirl * 0.7;
+    let around = atan2(flowCoord.y, flowCoord.x);
+    var flowVector = vec2f(
+        noise1 + swirl1 * cos(around + t),
+        noise2 + swirl2 * sin(around + t)
+    );
+    let fromCenter = length(uv);
+    let radialFlow = vec2f(uv.y, -uv.x) * (1.0 / (fromCenter + 0.1)) * swirl * 0.3;
+    flowVector += radialFlow;
+    let flowLength = length(flowVector);
+    let flowDir = select(vec2f(0.0), flowVector / flowLength, flowLength > 1e-6);
+    return fract(atan2(flowDir.y, flowDir.x) / (2.0 * PI) + 0.5);
+}
+
+fn rgba11_output(uv: vec2f) -> vec4f {
+    return vec4f(geissflow1_angle(uv), u.u_control_rgba11_g, u.u_control_rgba11_b, u.u_control_rgba11_a);
+}
+
+fn mix12_output(uv: vec2f) -> vec4f {
+    let a = geissflow1_output(uv);
+    let b = rgba11_output(uv);
+    let amt = clamp(u.u_control_mix12_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix12_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix12_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix12_output(uv);
+}

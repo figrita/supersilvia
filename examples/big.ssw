@@ -1,0 +1,563 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Big",
+  "kind": "video",
+  "layout": "canvas",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 60.0,
+        "y": 80.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 2,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 60.0,
+        "y": 300.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 22,
+      "slug": "ratiogear",
+      "pos": {
+        "x": -180.0,
+        "y": 520.0
+      },
+      "controls": {
+        "ratio": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "oscillator",
+      "pos": {
+        "x": 60.0,
+        "y": 520.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "mix",
+      "pos": {
+        "x": 360.0,
+        "y": 80.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "zoom",
+      "pos": {
+        "x": 660.0,
+        "y": 80.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "rotate",
+      "pos": {
+        "x": 360.0,
+        "y": 320.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "sine",
+      "pos": {
+        "x": 360.0,
+        "y": 560.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "fisheye",
+      "pos": {
+        "x": 960.0,
+        "y": 80.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "edgedetection",
+      "pos": {
+        "x": 660.0,
+        "y": 320.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "multiply",
+      "pos": {
+        "x": 660.0,
+        "y": 560.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "luminosity",
+      "pos": {
+        "x": 1260.0,
+        "y": 80.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "hue",
+      "pos": {
+        "x": 1260.0,
+        "y": 240.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "saturation",
+      "pos": {
+        "x": 1260.0,
+        "y": 400.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "mix",
+      "pos": {
+        "x": 960.0,
+        "y": 400.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "add",
+      "pos": {
+        "x": 1560.0,
+        "y": 80.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 16,
+      "slug": "rgba",
+      "pos": {
+        "x": 1560.0,
+        "y": 260.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 17,
+      "slug": "hsla",
+      "pos": {
+        "x": 1560.0,
+        "y": 500.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 18,
+      "slug": "mix",
+      "pos": {
+        "x": 1860.0,
+        "y": 140.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 19,
+      "slug": "mix",
+      "pos": {
+        "x": 1860.0,
+        "y": 380.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 20,
+      "slug": "output",
+      "pos": {
+        "x": 2160.0,
+        "y": 100.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 21,
+      "slug": "output",
+      "pos": {
+        "x": 2160.0,
+        "y": 420.0
+      },
+      "controls": {},
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 1,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "zoom"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "r"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "g"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 17,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 17,
+        "key": "l"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "output"
+      },
+      "to": {
+        "node": 18,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 17,
+        "key": "output"
+      },
+      "to": {
+        "node": 18,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "output"
+      },
+      "to": {
+        "node": 18,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 19,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 18,
+        "key": "output"
+      },
+      "to": {
+        "node": 19,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 19,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 19,
+        "key": "output"
+      },
+      "to": {
+        "node": 20,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 21,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 20,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 22,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    }
+  ]
+}

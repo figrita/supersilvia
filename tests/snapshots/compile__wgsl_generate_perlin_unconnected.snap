@@ -1,0 +1,201 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_mix4_amount: f32,
+    u_control_perlin1_background: vec4f,
+    u_control_perlin1_contrast: f32,
+    u_control_perlin1_foreground: vec4f,
+    u_control_perlin1_phaseOffset: f32,
+    u_control_perlin1_scale: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_count_perlin1_clock: vec2f,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn perlinMod289_3(x: vec3f) -> vec3f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+fn perlinMod289_4(x: vec4f) -> vec4f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+fn perlinPermute(x: vec4f) -> vec4f { return perlinMod289_4(((x * 34.0) + 1.0) * x); }
+fn perlinTaylorInvSqrt(r: vec4f) -> vec4f { return 1.79284291400159 - 0.85373472090914 * r; }
+
+fn cnoise3(P: vec3f) -> f32 {
+    let Pi0 = perlinMod289_3(floor(P));
+    let Pi1 = perlinMod289_3(floor(P) + vec3f(1.0));
+    let Pf0 = fract(P);
+    let Pf1 = Pf0 - vec3f(1.0);
+    let ix = vec4f(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+    let iy = vec4f(Pi0.yy, Pi1.yy);
+    let iz0 = Pi0.zzzz;
+    let iz1 = Pi1.zzzz;
+    let ixy = perlinPermute(perlinPermute(ix) + iy);
+    let ixy0 = perlinPermute(ixy + iz0);
+    let ixy1 = perlinPermute(ixy + iz1);
+    var gx0 = ixy0 * (1.0 / 7.0);
+    var gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+    gx0 = fract(gx0);
+    let gz0 = vec4f(0.5) - abs(gx0) - abs(gy0);
+    let sz0 = step(gz0, vec4f(0.0));
+    gx0 -= sz0 * (step(vec4f(0.0), gx0) - 0.5);
+    gy0 -= sz0 * (step(vec4f(0.0), gy0) - 0.5);
+    var gx1 = ixy1 * (1.0 / 7.0);
+    var gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+    gx1 = fract(gx1);
+    let gz1 = vec4f(0.5) - abs(gx1) - abs(gy1);
+    let sz1 = step(gz1, vec4f(0.0));
+    gx1 -= sz1 * (step(vec4f(0.0), gx1) - 0.5);
+    gy1 -= sz1 * (step(vec4f(0.0), gy1) - 0.5);
+    var g000 = vec3f(gx0.x, gy0.x, gz0.x);
+    var g100 = vec3f(gx0.y, gy0.y, gz0.y);
+    var g010 = vec3f(gx0.z, gy0.z, gz0.z);
+    var g110 = vec3f(gx0.w, gy0.w, gz0.w);
+    var g001 = vec3f(gx1.x, gy1.x, gz1.x);
+    var g101 = vec3f(gx1.y, gy1.y, gz1.y);
+    var g011 = vec3f(gx1.z, gy1.z, gz1.z);
+    var g111 = vec3f(gx1.w, gy1.w, gz1.w);
+    let norm0 = perlinTaylorInvSqrt(vec4f(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+    g000 *= norm0.x; g010 *= norm0.y; g100 *= norm0.z; g110 *= norm0.w;
+    let norm1 = perlinTaylorInvSqrt(vec4f(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+    g001 *= norm1.x; g011 *= norm1.y; g101 *= norm1.z; g111 *= norm1.w;
+    let n000 = dot(g000, Pf0);
+    let n100 = dot(g100, vec3f(Pf1.x, Pf0.yz));
+    let n010 = dot(g010, vec3f(Pf0.x, Pf1.y, Pf0.z));
+    let n110 = dot(g110, vec3f(Pf1.xy, Pf0.z));
+    let n001 = dot(g001, vec3f(Pf0.xy, Pf1.z));
+    let n101 = dot(g101, vec3f(Pf1.x, Pf0.y, Pf1.z));
+    let n011 = dot(g011, vec3f(Pf0.x, Pf1.yz));
+    let n111 = dot(g111, Pf1);
+    let fade = Pf0 * Pf0 * Pf0 * (Pf0 * (Pf0 * 6.0 - 15.0) + 10.0);
+    let n_z = mix(vec4f(n000, n100, n010, n110), vec4f(n001, n101, n011, n111), fade.z);
+    let n_yz = mix(n_z.xy, n_z.zw, fade.y);
+    return 2.2 * mix(n_yz.x, n_yz.y, fade.x);
+}
+
+fn perlinFade4(t: vec4f) -> vec4f { return t * t * t * (t * (t * 6.0 - 15.0) + 10.0); }
+
+fn perlinGrad4(ixy: vec4f) -> array<vec4f, 4> {
+    var gx = ixy * (1.0 / 7.0);
+    var gy = floor(gx) * (1.0 / 7.0);
+    var gz = floor(gy) * (1.0 / 6.0);
+    gx = fract(gx) - 0.5;
+    gy = fract(gy) - 0.5;
+    gz = fract(gz) - 0.5;
+    let gw = vec4f(0.75) - abs(gx) - abs(gy) - abs(gz);
+    let sw = step(gw, vec4f(0.0));
+    gx -= sw * (step(vec4f(0.0), gx) - 0.5);
+    gy -= sw * (step(vec4f(0.0), gy) - 0.5);
+    var g = array<vec4f, 4>(
+        vec4f(gx.x, gy.x, gz.x, gw.x),
+        vec4f(gx.y, gy.y, gz.y, gw.y),
+        vec4f(gx.z, gy.z, gz.z, gw.z),
+        vec4f(gx.w, gy.w, gz.w, gw.w));
+    let norm = perlinTaylorInvSqrt(vec4f(dot(g[0], g[0]), dot(g[1], g[1]), dot(g[2], g[2]), dot(g[3], g[3])));
+    g[0] *= norm.x;
+    g[1] *= norm.y;
+    g[2] *= norm.z;
+    g[3] *= norm.w;
+    return g;
+}
+
+fn cnoise4(P: vec4f) -> f32 {
+    let Pi0 = perlinMod289_4(floor(P));
+    let Pi1 = perlinMod289_4(floor(P) + vec4f(1.0));
+    let Pf0 = fract(P);
+    let Pf1 = Pf0 - vec4f(1.0);
+    let ix = vec4f(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+    let iy = vec4f(Pi0.yy, Pi1.yy);
+    let ixy = perlinPermute(perlinPermute(ix) + iy);
+    let ixy0 = perlinPermute(ixy + Pi0.zzzz);
+    let ixy1 = perlinPermute(ixy + Pi1.zzzz);
+    // Each corner group: x and y across the four lanes, z and w fixed. The lanes run
+    // (x0 y0), (x1 y0), (x0 y1), (x1 y1).
+    let g00 = perlinGrad4(perlinPermute(ixy0 + Pi0.wwww));
+    let g01 = perlinGrad4(perlinPermute(ixy0 + Pi1.wwww));
+    let g10 = perlinGrad4(perlinPermute(ixy1 + Pi0.wwww));
+    let g11 = perlinGrad4(perlinPermute(ixy1 + Pi1.wwww));
+    let n00 = vec4f(
+        dot(g00[0], Pf0),
+        dot(g00[1], vec4f(Pf1.x, Pf0.yzw)),
+        dot(g00[2], vec4f(Pf0.x, Pf1.y, Pf0.zw)),
+        dot(g00[3], vec4f(Pf1.xy, Pf0.zw)));
+    let n10 = vec4f(
+        dot(g10[0], vec4f(Pf0.xy, Pf1.z, Pf0.w)),
+        dot(g10[1], vec4f(Pf1.x, Pf0.y, Pf1.z, Pf0.w)),
+        dot(g10[2], vec4f(Pf0.x, Pf1.yz, Pf0.w)),
+        dot(g10[3], vec4f(Pf1.xyz, Pf0.w)));
+    let n01 = vec4f(
+        dot(g01[0], vec4f(Pf0.xyz, Pf1.w)),
+        dot(g01[1], vec4f(Pf1.x, Pf0.yz, Pf1.w)),
+        dot(g01[2], vec4f(Pf0.x, Pf1.y, Pf0.z, Pf1.w)),
+        dot(g01[3], vec4f(Pf1.xy, Pf0.z, Pf1.w)));
+    let n11 = vec4f(
+        dot(g11[0], vec4f(Pf0.xy, Pf1.zw)),
+        dot(g11[1], vec4f(Pf1.x, Pf0.y, Pf1.zw)),
+        dot(g11[2], vec4f(Pf0.x, Pf1.yzw)),
+        dot(g11[3], Pf1));
+    let fade = perlinFade4(Pf0);
+    let n_0w = mix(n00, n01, fade.w);
+    let n_1w = mix(n10, n11, fade.w);
+    let n_zw = mix(n_0w, n_1w, fade.z);
+    let n_yzw = mix(n_zw.xy, n_zw.zw, fade.y);
+    return 2.2 * mix(n_yzw.x, n_yzw.y, fade.x);
+}
+
+fn loopCircle(turn: f32, reach: f32) -> vec2f {
+    let angle = 2.0 * PI * turn;
+    return reach / (2.0 * PI) * vec2f(cos(angle), sin(angle));
+}
+
+fn perlin1_color(uv: vec2f) -> vec4f {
+    let noiseScale = u.u_control_perlin1_scale;
+    let contrast = u.u_control_perlin1_contrast;
+    let raw = cnoise3(vec3f(uv * noiseScale, (u.u_count_perlin1_clock.x + u.u_count_perlin1_clock.y + u.u_control_perlin1_phaseOffset)));
+    let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
+    return mix(u.u_control_perlin1_background, u.u_control_perlin1_foreground, value);
+}
+
+fn perlin1_value(uv: vec2f) -> f32 {
+    let noiseScale = u.u_control_perlin1_scale;
+    let contrast = u.u_control_perlin1_contrast;
+    let raw = cnoise3(vec3f(uv * noiseScale, (u.u_count_perlin1_clock.x + u.u_count_perlin1_clock.y + u.u_control_perlin1_phaseOffset)));
+    let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
+    return value;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(perlin1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = perlin1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

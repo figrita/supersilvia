@@ -1,0 +1,84 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_halftone1_angle: f32,
+    u_control_halftone1_dotSize: f32,
+    u_control_halftone1_smoothness: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn halftoneDot(pixel: vec2f, a: f32, dotSize: f32, amount: f32, smoothness: f32) -> f32 {
+    let cs = cos(a);
+    let sn = sin(a);
+    let rot = vec2f(pixel.x * cs - pixel.y * sn, pixel.x * sn + pixel.y * cs);
+    let cell = floor(rot / dotSize) * dotSize;
+    let dist = length(rot - (cell + dotSize * 0.5)) / dotSize;
+    let radius = sqrt(clamp(amount, 0.0, 1.0)) * 0.7;
+    return 1.0 - smoothstep(radius - smoothness, radius + smoothness, dist);
+}
+
+fn halftone1_color(uv: vec2f) -> vec4f {
+    let color = defaultUvMap(uv);
+    let dotSize = max(u.u_control_halftone1_dotSize, 1.0);
+    let angle = (u.u_control_halftone1_angle) * 2.0 * PI;
+    let smoothness = max(u.u_control_halftone1_smoothness, 1e-3);
+    let pixel = uv * (720.0 * 0.5);
+    let gray = dot(color.rgb, vec3f(0.299, 0.587, 0.114));
+    let mask = halftoneDot(pixel, angle, dotSize, gray, smoothness);
+    let ink = vec3f(mask);
+    return vec4f(ink, color.a);
+}
+
+fn halftone1_mask(uv: vec2f) -> f32 {
+    let color = defaultUvMap(uv);
+    let dotSize = max(u.u_control_halftone1_dotSize, 1.0);
+    let angle = (u.u_control_halftone1_angle) * 2.0 * PI;
+    let smoothness = max(u.u_control_halftone1_smoothness, 1e-3);
+    let pixel = uv * (720.0 * 0.5);
+    let gray = dot(color.rgb, vec3f(0.299, 0.587, 0.114));
+    let mask = halftoneDot(pixel, angle, dotSize, gray, smoothness);
+    let ink = vec3f(mask);
+    return mask;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return vec4f(halftone1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = halftone1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

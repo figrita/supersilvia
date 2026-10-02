@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key>                  <string>supersilvia</string>
+  <key>CFBundleDisplayName</key>           <string>supersilvia</string>
+  <key>CFBundleIdentifier</key>            <string>io.github.figrita.supersilvia</string>
+  <key>CFBundleExecutable</key>            <string>supersilvia</string>
+  <!-- Resources/supersilvia.icns, named without the extension, as the format wants. -->
+  <key>CFBundleIconFile</key>              <string>supersilvia</string>
+  <key>CFBundlePackageType</key>           <string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key> <string>6.0</string>
+  <key>CFBundleDevelopmentRegion</key>     <string>en</string>
+  <!-- Both are Cargo.toml's version without its pre-release part, which macOS takes as
+       numbers only: build-app.sh writes it into the bundle's copy. -->
+  <key>CFBundleShortVersionString</key>    <string>0.9.0</string>
+  <key>CFBundleVersion</key>               <string>0.9.0</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>Free software under the GNU AGPL, version 3 or later.</string>
+  <key>LSApplicationCategoryType</key>     <string>public.app-category.video</string>
+  <!-- The first macOS with Core Audio's process taps, which the loopback is; the build's
+       deployment target is the same, in .cargo/config.toml. -->
+  <key>LSMinimumSystemVersion</key>        <string>14.2</string>
+  <key>LSArchitecturePriority</key>        <array><string>arm64</string></array>
+  <key>NSHighResolutionCapable</key>       <true/>
+
+  <!-- Every capability macOS asks the person about needs its sentence here, or macOS ends the
+       app the moment it reaches for the capability instead of asking. -->
+  <key>NSCameraUsageDescription</key>
+  <string>supersilvia can use a camera as a live video source in your patches.</string>
+  <!-- Continuity Camera: an iPhone offered as a camera, listed with the others. -->
+  <key>NSCameraUseContinuityCameraDeviceType</key>
+  <true/>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>supersilvia listens to a microphone or audio interface so sound can drive your visuals.</string>
+  <!-- System audio: the Core Audio process tap the loopback opens. -->
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>supersilvia listens to what your Mac is playing so the music can drive your visuals.</string>
+  <!-- Screen capture goes through ScreenCaptureKit's own picker, which should need no Screen
+       Recording grant; the sentence is here for any macOS that asks regardless. -->
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>supersilvia can use a screen or window you pick as a live video source.</string>
+  <!-- Projects live in ~/Documents/supersilvia (src/platform/macos/dirs.rs), and macOS asks
+       before an app first reads or writes in Documents; this is the sentence the question
+       carries. -->
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>supersilvia keeps your projects in Documents ▸ supersilvia.</string>
+  <!-- NDI finds and sends video over the local network, discovered through Bonjour as
+       _ndi._tcp (NDI SDK documentation, "Platform Considerations":
+       https://docs.ndi.video/all/developing-with-ndi/sdk/platform-considerations). macOS 15
+       refuses local network traffic to an app whose Info.plist lacks either key. -->
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>supersilvia uses your local network to find and share NDI video with other apps and computers.</string>
+  <key>NSBonjourServices</key>
+  <array>
+    <string>_ndi._tcp</string>
+  </array>
+  <!-- Where NDI's installers put libndi.dylib. Launched from Finder the app has no
+       NDI_RUNTIME_DIR_V6 of its own, and a hardened build's library search may not reach
+       /usr/local/lib for a bare name, so gst-plugin-ndi is given the folder and opens the
+       full path. Only DYLD_ variables are stripped by the hardened runtime. -->
+  <key>LSEnvironment</key>
+  <dict>
+    <key>NDI_RUNTIME_DIR_V6</key>        <string>/usr/local/lib</string>
+  </dict>
+</dict>
+</plist>

@@ -1,0 +1,370 @@
+[package]
+name = "supersilvia"
+version = "0.9.0-alpha.1"
+edition = "2024"
+license = "AGPL-3.0-or-later"
+description = "Modular video synthesizer for live performance. Native successor to silvia."
+repository = "https://github.com/figrita/supersilvia"
+
+[features]
+default = []
+# Exposes egui's inspection protocol on 127.0.0.1:5719 for egui_mcp. Never on in release.
+inspection = ["eframe/inspection"]
+
+[dependencies]
+# eframe paints through wgpu, on the one device `main.rs` makes and hands it
+# (`render::Gpu`, `proposals/wgpu.md` section 3). `wgpu_no_default_features` rather than
+# `wgpu`, whose `egui-wgpu/default` would put wgpu's GLES and DX12 backends in the binary.
+# `persistence` is off: `preferences.json` is the one settings store, and no `app.ron` is
+# written or read (docs/decisions.md, *One preferences store*).
+eframe = { version = "0.36.2", default-features = false, features = [
+    "wgpu_no_default_features",
+    "default_fonts",
+    "accesskit",
+    "wayland",
+    "x11",
+    "links",
+] }
+egui = "0.36.2"
+emath = { version = "0.36", features = ["serde"] }
+# The renderer: Vulkan on Linux and Metal on macOS (`proposals/wgpu.md`), on the adapter
+# `render::adapter` picks; the version is the one egui-wgpu puts in the lock.
+wgpu = { version = "30", default-features = false, features = ["std", "vulkan", "metal", "wgsl"] }
+# The editor's pictures are blitted inside egui's own render pass by paint callbacks
+# (`render::viewer`), which are `egui_wgpu::CallbackTrait`s. Its default features are
+# **off**: they are `wgpu/default` and `wgpu/webgl`, which would put the GLES backend in the
+# binary beside Vulkan and Metal. The version is the one eframe's own wgpu backend takes.
+egui-wgpu = { version = "0.36.2", default-features = false }
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+# The audio thread: cpal owns the device callback, realfft runs inside it, and triple_buffer
+# is the lock-free handoff that lets `tick` read the newest analysis without waiting.
+cpal = "0.18"
+# A game controller. Pure Rust on Linux over evdev, with its own hotplug watch, wrapped by
+# a device thread in `gamepad/` like every other device here. `proposals/gamepad.md` is the
+# ask that settled it; on Fedora it links `libudev`, which `systemd-devel` provides.
+gilrs = "0.11"
+realfft = "3"
+triple_buffer = "9"
+# Cameras and files. Frames arrive on GStreamer's threads through an appsink; the only GPU
+# work is the upload in `render/`.
+gstreamer = "0.25"
+gstreamer-app = { version = "0.25", features = ["v1_24"] }
+gstreamer-video = { version = "0.25", features = ["v1_24"] }
+# Discovering a clip's size, rate and length before transcoding or playing it.
+gstreamer-pbutils = "0.25"
+# NDI®: `ndisrc`, `ndisrcdemux`, `ndisink` and the device provider that lists the network's
+# sources, compiled into the binary and registered statically by `video/ndi.rs` alone, so no
+# system's GStreamer has to carry the plugin. MPL-2.0, at our `gstreamer` 0.25. It opens the
+# proprietary NDI runtime, `libndi`, with `libloading` only when an element starts, so building
+# needs no NDI SDK and nothing proprietary is linked; the user installs the runtime from
+# ndi.video. `advanced-sdk` (NDI|HX, the paid SDK) stays off. `proposals/ndi.md`.
+gst-plugin-ndi = { version = "0.15", default-features = false, features = ["sink", "static"] }
+# eframe's own display handle, which the picture windows read: on Linux, the `wl_display` they
+# borrow so they are windows of the client that holds focus. Already in the tree under eframe
+# and winit, at this version.
+raw-window-handle = "0.6"
+
+# Still images and an animated GIF's frames, for `imagegif`. PNG in and out stays GStreamer's
+# (`video/png.rs`); this is here for the one thing GStreamer cannot do on a machine with no
+# gif loader, which is every machine this has been run on: `decodebin` refuses `image/gif`.
+# It is also the dev-dependency `examples/node_shots` and the fixtures in `tests/` use, so
+# the version is kittest's own and the lock does not move.
+image = "0.25"
+# The synth thread's own CPU clock, `CLOCK_THREAD_CPUTIME_ID`, for the Status box's line
+# between work and waiting on the GPU (`synth/meter.rs`). **Already in the tree** under
+# winit and zbus, at this version and with `time` on, so declaring it moves nothing in the
+# lock; what it buys over a call of our own is that the call is safe outside `render/`. The
+# clock is macOS's too.
+rustix = { version = "1", default-features = false, features = ["time"] }
+
+# Linux's alone: what `platform/linux/` names, and nothing else does (see `src/platform/`),
+# then the Wayland crates `render/picture/`'s Linux half draws its windows with.
+[target.'cfg(target_os = "linux")'.dependencies]
+# xdg-portal, not the gtk3 backend: on KDE/Wayland it uses the desktop's own dialog, matches
+# the user's theme, and keeps GTK out of the process.
+rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
+# The descriptor behind a DMA-BUF frame. The type that reads it is Linux's alone in the crate.
+gstreamer-allocators = "0.25"
+# Screen capture on Wayland is a conversation with xdg-desktop-portal, not a device: the
+# desktop puts up its own picker and hands back a PipeWire remote. ashpd is already in the
+# tree underneath rfd's file dialogs, so declaring it directly costs no new weight, and
+# tokio is the runtime it and rfd already pull in. See `platform/linux/screen.rs`.
+ashpd = { version = "0.11", default-features = false, features = ["tokio"] }
+tokio = { version = "1", default-features = false, features = [
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "net",
+    "time",
+] }
+# MIDI in, through the ALSA sequencer. **Already in the tree**: cpal links `alsa` 0.11 for the
+# audio device, and `alsa-sys` carries `links = "alsa"`, so only one version of it may exist
+# in the binary. `midir` — the portable wrapper, and the obvious choice — pins `alsa` 0.9
+# through 0.10, which is that conflict; 0.11 accepts 0.11. On Linux `midir` is a thin shell
+# over `alsa::seq` anyway, which is what `platform/linux/midi.rs` uses directly. Declared here
+# rather than leaned on transitively, since this crate names it. On macOS `midir` is CoreMIDI.
+alsa = "0.11"
+# The Text node's Font menu: the families this machine has, as fontconfig lists them. The
+# letters are still pango's, through GStreamer's `textoverlay`, and pango finds a family
+# through the same fontconfig — so a name on this list is one it will draw. It links the
+# `libfontconfig` pango already loads; `fontconfig-devel` provides the headers on Fedora.
+fontconfig = "0.11"
+# The NDI® runtime opened by its path ahead of the plugin, where `ld.so` would not find it by
+# name (`platform/linux/ndi.rs`). **Already in the lock** at this version under
+# `gst-plugin-ndi`, which opens the runtime with it, so declaring it moves nothing there.
+libloading = "0.9"
+
+# The picture windows' own Wayland surfaces, named by `render/picture/wayland.rs` and
+# `thread.rs` alone. **All four are already in the binary** on Linux, transitively through
+# winit, at exactly these versions — declaring them directly moves nothing in the lock.
+# `smithay-client-toolkit` is pinned to 0.19 because that is what winit resolves to: 0.20 is
+# also in the tree, under smithay-clipboard, and taking it would duplicate sctk, calloop,
+# rustix and thiserror rather than reuse them. What it buys over bare `wayland-client` is
+# xdg-shell as a window with `move_`, `resize`, fullscreen and decoration mode already written,
+# and a seat. Its `xkbcommon` feature is **off**, which is how winit takes it too: turning it
+# on would add the `xkbcommon` crate and a second `memmap2`, and the two keys a picture window
+# reads are read from evdev keycodes instead. See `proposals/picture-windows.md` and
+# `render/picture/`.
+wayland-client = "0.31"
+wayland-backend = { version = "0.3", features = ["client_system"] }
+smithay-client-toolkit = { version = "0.19", default-features = false, features = ["calloop"] }
+# The pictures thread waits on two things — the Wayland socket and the editor's asks — so it
+# waits on one event loop over both fds rather than polling either. sctk's own loop, and
+# winit's: both versions are what the lock already holds.
+calloop = "0.13"
+calloop-wayland-source = "0.3"
+
+# macOS's alone: what `platform/macos/` names, and nothing else does (see `src/platform/`),
+# then what `render/picture/`'s macOS half names.
+[target.'cfg(target_os = "macos")'.dependencies]
+# File dialogs, `NSOpenPanel`, named by `platform/macos/files.rs` alone. The default features
+# are Linux's portal backend and async-std; the macOS backend needs none. **Already in the
+# lock** with its macOS dependencies (objc2, objc2-app-kit, dispatch2, block2), so declaring
+# it moves nothing there.
+rfd = { version = "0.15", default-features = false }
+# Core Audio: the audio inputs listed by their properties, and the loopback's process tap,
+# aggregate device and IO proc, named by `platform/macos/audio.rs` alone. **Already
+# compiled** under cpal, so declaring them moves nothing in the lock but the manifest's own
+# entry (`proposals/macos-media.md`, "New dependencies"). `objc2` allocates the tap's
+# description and `objc2-foundation` holds its process list and UUID; both are declared once,
+# below, with the features `platform/macos/screen.rs`, `platform/macos/pixels.rs` and
+# `platform/macos/fonts.rs` add unioned in.
+objc2-core-audio = { version = "0.3", default-features = false, features = [
+    "std",
+    "AudioHardware",
+    "objc2",
+    "objc2-foundation",
+    "objc2-core-audio-types",
+] }
+objc2-core-audio-types = { version = "0.3", default-features = false, features = [
+    "std",
+    "CoreAudioBaseTypes",
+] }
+# MIDI in through CoreMIDI, named by `platform/macos/midi.rs` alone. Its default features are
+# none, which is CoreMIDI on macOS; it brings `coremidi` and its bindings into the lock. Linux
+# reads the ALSA sequencer directly (see `alsa` above).
+midir = "0.11"
+# The Text node's Font menu: AppKit's font collection, named by `platform/macos/fonts.rs`;
+# and the menu bar, `platform/macos/menu.rs`, which is AppKit's own on the Mac. **Already in
+# the lock** through `rfd`, at these versions; the features are the font classes, the menu,
+# its items and the application that holds them, the pasteboard a native Paste reads, and the
+# Foundation types they hand back, and add no package.
+objc2-app-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSApplication",
+    "NSCell",
+    "NSEvent",
+    "NSFontCollection",
+    "NSFontDescriptor",
+    "NSMenu",
+    "NSMenuItem",
+    "NSPasteboard",
+    "NSResponder",
+] }
+
+# The picture windows are winit windows made inside eframe's own event loop, which
+# `render::picture::run` starts through `eframe::create_native` and wraps: the event loop, the
+# window, its events and `KeyCode` are winit's names, and eframe does not re-export them.
+# **Already in the binary** under eframe, at this version and with `rwh_06` already on, so
+# declaring it moves nothing in the lock. See `proposals/macos-windows.md`.
+winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
+
+# Screen capture: ScreenCaptureKit's own picker and stream (`platform/macos/screen.rs`), and a
+# `CVPixelBuffer` read as a frame (`platform/macos/pixels.rs`). Named in `platform/macos/`
+# alone. `objc2-core-video`, `objc2-core-media` and `objc2-screen-capture-kit` are new to the
+# lock; the rest are **already in it** under rfd and winit, at these versions. ScreenCaptureKit's
+# default features would pull AVFoundation; the ones named here are the picker, the stream, and
+# the optional crates its methods take (a sample buffer, a queue, a completion block, a rect).
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "NSArray",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSError",
+    "NSString",
+    "NSUUID",
+    "NSValue",
+] }
+objc2-core-foundation = { version = "0.3", default-features = false, features = [
+    "std",
+    "CFArray",
+    "CFBase",
+    "CFCGTypes",
+    "CFDictionary",
+    "CFNumber",
+    "CFRunLoop",
+    "CFString",
+] }
+objc2-core-video = { version = "0.3", default-features = false, features = [
+    "std",
+    "CVBase",
+    "CVBuffer",
+    "CVImageBuffer",
+    "CVPixelBuffer",
+    "CVPixelBufferIOSurface",
+    "CVReturn",
+    "objc2-io-surface",
+] }
+objc2-core-media = { version = "0.3", default-features = false, features = [
+    "std",
+    "CMBase",
+    "CMSampleBuffer",
+    "objc2-core-video",
+] }
+objc2-screen-capture-kit = { version = "0.3", default-features = false, features = [
+    "std",
+    "SCContentSharingPicker",
+    "SCShareableContent",
+    "SCStream",
+    "block2",
+    "dispatch2",
+    "objc2-core-foundation",
+    "objc2-core-media",
+] }
+dispatch2 = { version = "0.3", default-features = false, features = ["std"] }
+
+# A frame without a copy: the `IOSurface` behind a decoder's `CVPixelBuffer` made a Metal
+# texture per plane (`render/dmabuf.rs`), and read off the buffer (`platform/macos/pixels.rs`).
+# Both **already in the lock**; wgpu-hal compiles `objc2-metal` without `objc2-io-surface`,
+# which gates `newTextureWithDescriptor:iosurface:plane:`, and that feature is the one change.
+objc2-metal = { version = "0.3", default-features = false, features = [
+    "std",
+    "MTLAllocation",
+    "MTLDevice",
+    "MTLPixelFormat",
+    "MTLResource",
+    "MTLTexture",
+    "objc2-io-surface",
+] }
+objc2-io-surface = { version = "0.3", default-features = false, features = [
+    "std",
+    "IOSurfaceRef",
+    "IOSurfaceTypes",
+    "objc2-core-foundation",
+] }
+
+# Syphon (`platform/macos/syphon.rs`): the vendored `Syphon.framework`, which `build.rs` links,
+# bound through `objc2`'s own class and method macros. `block2` is the one new name, for the
+# block a client is handed its frames through; it is **already in the lock** at this version,
+# under objc2-app-kit, rfd and the ScreenCaptureKit binding, so declaring it moves nothing
+# there. `NSDictionary` above is a server's description, `CFRunLoop` the run loop a test
+# pumps for the directory, and `IOSurfaceTypes` the lock a received frame's bytes are read
+# under; none of the three adds a package.
+block2 = { version = "0.6", default-features = false, features = ["std"] }
+
+# The whole GPU's busy share for the Status box (`platform/macos/gpu.rs`): the IORegistry's
+# `IOAccelerator` service and its `PerformanceStatistics`. **Already in the lock** under gilrs,
+# at this version and with `libc` on, which gates the registry calls; declaring it moves
+# nothing there but the manifest's own entry.
+objc2-io-kit = { version = "0.3.2", default-features = false, features = ["std", "libc"] }
+
+[dev-dependencies]
+egui_kittest = { version = "0.36", features = ["eframe", "wgpu", "snapshot"] }
+insta = "1"
+# The WGSL gate, `tests/shader_targets.rs`: naga at the version wgpu 30 puts in the lock,
+# reading WGSL and writing what wgpu hands Metal and Vulkan. See `proposals/shader-path.md`.
+naga = { version = "30", features = ["wgsl-in", "msl-out", "spv-out"] }
+# The device's own object counts, `Device::get_internal_counters`, for the tests that hold a
+# freed target freed and churn flat (`tests/gpu_ring.rs`). Tests and examples only.
+wgpu = { version = "30", default-features = false, features = ["counters"] }
+
+# Syphon's loopback: a server and a client in one process, and the directory in between,
+# which hears servers on the main thread's run loop — so the test is the process's `main`,
+# pumping that loop, rather than a function libtest runs on a thread of its own.
+[[test]]
+name = "syphon"
+harness = false
+
+# Line tables and symbols, and no more debug information than that, so a panic's backtrace
+# and a core dump's both read as file:line — a crash that cannot be read cannot be fixed. Full
+# debug information would add types and locals nobody reads from a crash report. `dist`
+# inherits both. Everything that costs build time lives in `dist` instead, because
+# `cargo run --release` is the performance-measurement loop and a 20x slower build in it is a
+# worse trade than a larger binary.
+[profile.release]
+debug = false
+strip = "debuginfo"
+
+# The shipping build. `cargo build --profile dist`.
+[profile.dist]
+inherits = "release"
+lto = "fat"
+codegen-units = 1
+
+# Clippy above the default set. The default `-D warnings` in check.sh catches what is
+# uncontroversially wrong; `pedantic` catches idiom, and idiom is the band a reviewer who
+# does not write Rust cannot check by reading. Enabling the group rather than a list means a
+# category added by a future toolchain arrives as a build failure instead of never arriving.
+#
+# The allows below are each a decision, not a snooze. A lint is allowed here only when it
+# fires on something this codebase does deliberately and everywhere; anything that fires in
+# one place is fixed or carries a local `#[allow]` with a reason.
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+
+# CONTRIBUTING.md requires a `// SAFETY:` line on every `unsafe` block. This is that rule, checked.
+# `src/` was already clean when it went in, so it costs nothing to keep clean.
+undocumented_unsafe_blocks = "warn"
+
+# A video synth converts between f32, u32 and i32 at every GL and pixel boundary. 247 sites,
+# all intentional, and denying them would mean 247 `#[allow]`s that stop being read.
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_precision_loss = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+
+# This is a binary, not a library: `#[must_use]` on 246 internal getters buys nothing, and
+# the doc lints are asking for rustdoc prose that `docs/` already holds better.
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+too_long_first_doc_paragraph = "allow"
+doc_markdown = "allow"
+module_name_repetitions = "allow"
+
+# Two deliberate uses, both of which an epsilon would break. Tests assert on deterministic
+# synth math, where `assert_eq!(dt, 0.5)` is the honest assertion. UI code compares a value
+# against its previous value to detect a change, and a margin there swallows a slow drag.
+# A near-zero *guard* is a different thing and must not use `==`; there are none.
+float_cmp = "allow"
+
+# `f32::mul_add` is a readability loss in shader-adjacent math and is not measurably faster
+# here; measure with `graph_bench` before reaching for it anywhere it might matter.
+suboptimal_flops = "allow"
+
+# An egui draw function is a long straight-line list of paint calls with no branch to factor
+# out. Splitting one to satisfy a line count makes it harder to read, not easier.
+too_many_lines = "allow"
+many_single_char_names = "allow"
+similar_names = "allow"
+
+# wgpu-core 30.0.1 with one match arm changed, so a surface configures while the synth thread
+# submits: `vendor/README.md` says what it is and when to delete it.
+[patch.crates-io]
+wgpu-core = { path = "vendor/wgpu-core" }

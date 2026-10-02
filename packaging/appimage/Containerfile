@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Where the AppImage's binary is built: Ubuntu 24.04, the oldest mainstream distribution with
+# GStreamer 1.24, which the binary needs. A binary links the glibc it was built against as its
+# floor, so one built here runs on glibc 2.39 and every later one — Ubuntu 24.04, Debian 13,
+# current Fedora and Arch — where one built on a newer box would refuse to start on the older.
+# build.sh builds this image and runs cargo in it; nothing here is installed on the host.
+FROM docker.io/library/ubuntu:24.04
+
+# The -dev packages of what the binary links: GStreamer and its base libraries (app, audio,
+# video, pbutils, allocators), glib, ALSA, udev and fontconfig. Wayland, xkbcommon, X11 and
+# Vulkan are opened at run time and need nothing at build time.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates curl build-essential pkg-config \
+      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+      libasound2-dev libudev-dev libfontconfig-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+# rust-toolchain.toml asks for stable with rustfmt and clippy; the stable installed here is
+# whichever is current when the image is built.
+ENV RUSTUP_HOME=/usr/local/rustup PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+      | CARGO_HOME=/usr/local/cargo sh -s -- -y --profile minimal --no-modify-path \
+ && rustup component add rustfmt clippy \
+ && chmod -R a+rX /usr/local/rustup /usr/local/cargo

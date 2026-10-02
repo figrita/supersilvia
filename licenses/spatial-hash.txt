@@ -1,0 +1,13 @@
+Random noise hash for GLSL
+
+Used in src/nodes/distort.rs: hashBits, hashBits2 and hashRandom, ported from silvia's
+shaderUtils.HASH_RANDOM.
+
+From the Stack Overflow answer by Spatial (2013) to "Random / noise functions for GLSL":
+https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+
+The hash itself is Bob Jenkins' one-at-a-time hash. The answer pairs it with building a float
+in [0, 1) from the hash's bits.
+
+Stack Overflow contributions of that time are licensed under the Creative Commons
+Attribution-ShareAlike 3.0 licence, https://creativecommons.org/licenses/by-sa/3.0/

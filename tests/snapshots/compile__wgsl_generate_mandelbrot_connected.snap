@@ -1,0 +1,242 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_checkerboard3_color1: vec4f,
+    u_control_checkerboard3_color2: vec4f,
+    u_control_checkerboard3_frequency: f32,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
+    u_control_checkerboard5_color1: vec4f,
+    u_control_checkerboard5_color2: vec4f,
+    u_control_checkerboard5_frequency: f32,
+    u_control_mix13_amount: f32,
+    u_control_mix14_amount: f32,
+    u_control_rgba12_a: f32,
+    u_control_rgba12_b: f32,
+    u_control_vignette10_radius: f32,
+    u_control_vignette10_softness: f32,
+    u_control_vignette11_radius: f32,
+    u_control_vignette11_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
+    u_count_mandelbrot1_clock: vec2f,
+    u_opt_mix13_curve: i32,
+    u_opt_mix13_method: i32,
+    u_opt_mix14_curve: i32,
+    u_opt_mix14_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
+fn checkerboard5_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard5_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard5_color1;
+    let c2 = u.u_control_checkerboard5_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn mandelbrot1_color(uv: vec2f) -> vec4f {
+    let c = vec2f(vignette6_mask(uv), vignette7_mask(uv)) + uv / max(abs(vignette8_mask(uv)), 1e-6);
+    var z = vec2f(0.0);
+    let maxIter = i32(clamp(vignette9_mask(uv), 1.0, 500.0));
+    var i = 0;
+    for (; i < maxIter; i++) {
+        z = vec2f(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > 10000.0) { break; }
+    }
+    let inside = select(0.0, 1.0, i >= maxIter);
+    var smoothT = 0.0;
+    if (i < maxIter) {
+        let nu = log(log(dot(z, z)) * 0.5 / log(2.0)) / log(2.0);
+        smoothT = clamp((f32(i) + 1.0 - nu) / f32(maxIter), 0.0, 1.0);
+    }
+    return mix(checkerboard5_output(uv), checkerboard4_output(uv), smoothT);
+}
+
+fn checkerboard3_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard3_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard3_color1;
+    let c2 = u.u_control_checkerboard3_color2;
+    return mix(c1, c2, checker);
+}
+
+fn vignette10_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette10_radius;
+    let softness = max(u.u_control_vignette10_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn vignette11_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette11_radius;
+    let softness = max(u.u_control_vignette11_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn mandelbrot1_map(uv: vec2f) -> vec4f {
+    let c = vec2f(vignette6_mask(uv), vignette7_mask(uv)) + uv / max(abs(vignette8_mask(uv)), 1e-6);
+    var z = vec2f(0.0);
+    let maxIter = i32(clamp(vignette9_mask(uv), 1.0, 500.0));
+    var i = 0;
+    for (; i < maxIter; i++) {
+        z = vec2f(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > 10000.0) { break; }
+    }
+    let inside = select(0.0, 1.0, i >= maxIter);
+    var smoothT = 0.0;
+    if (i < maxIter) {
+        let nu = log(log(dot(z, z)) * 0.5 / log(2.0)) / log(2.0);
+        smoothT = clamp((f32(i) + 1.0 - nu) / f32(maxIter), 0.0, 1.0);
+    }
+    var finalUV: vec2f;
+    if (i < maxIter) {
+        let tu = floor_mod(atan2(z.y, z.x) / (2.0 * PI) + (u.u_count_mandelbrot1_clock.y + vignette11_mask(uv)), 1.0);
+        let tv = log2(log(dot(z, z)) / log(10000.0));
+        finalUV = vec2f(tu, mix(tv, 1.0 - tv, floor_mod(f32(i), 2.0)));
+    } else {
+        finalUV = uv + z * (vignette10_mask(uv));
+    }
+    return checkerboard3_output(finalUV);
+}
+
+fn mix13_output(uv: vec2f) -> vec4f {
+    let a = mandelbrot1_color(uv);
+    let b = mandelbrot1_map(uv);
+    let amt = clamp(u.u_control_mix13_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix13_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix13_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+fn mandelbrot1_smooth(uv: vec2f) -> f32 {
+    let c = vec2f(vignette6_mask(uv), vignette7_mask(uv)) + uv / max(abs(vignette8_mask(uv)), 1e-6);
+    var z = vec2f(0.0);
+    let maxIter = i32(clamp(vignette9_mask(uv), 1.0, 500.0));
+    var i = 0;
+    for (; i < maxIter; i++) {
+        z = vec2f(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > 10000.0) { break; }
+    }
+    let inside = select(0.0, 1.0, i >= maxIter);
+    var smoothT = 0.0;
+    if (i < maxIter) {
+        let nu = log(log(dot(z, z)) * 0.5 / log(2.0)) / log(2.0);
+        smoothT = clamp((f32(i) + 1.0 - nu) / f32(maxIter), 0.0, 1.0);
+    }
+    return smoothT;
+}
+
+fn mandelbrot1_mask(uv: vec2f) -> f32 {
+    let c = vec2f(vignette6_mask(uv), vignette7_mask(uv)) + uv / max(abs(vignette8_mask(uv)), 1e-6);
+    var z = vec2f(0.0);
+    let maxIter = i32(clamp(vignette9_mask(uv), 1.0, 500.0));
+    var i = 0;
+    for (; i < maxIter; i++) {
+        z = vec2f(z.x * z.x - z.y * z.y, 2.0 * z.x * z.y) + c;
+        if (dot(z, z) > 10000.0) { break; }
+    }
+    let inside = select(0.0, 1.0, i >= maxIter);
+    var smoothT = 0.0;
+    if (i < maxIter) {
+        let nu = log(log(dot(z, z)) * 0.5 / log(2.0)) / log(2.0);
+        smoothT = clamp((f32(i) + 1.0 - nu) / f32(maxIter), 0.0, 1.0);
+    }
+    return inside;
+}
+
+fn rgba12_output(uv: vec2f) -> vec4f {
+    return vec4f(mandelbrot1_smooth(uv), mandelbrot1_mask(uv), u.u_control_rgba12_b, u.u_control_rgba12_a);
+}
+
+fn mix14_output(uv: vec2f) -> vec4f {
+    let a = mix13_output(uv);
+    let b = rgba12_output(uv);
+    let amt = clamp(u.u_control_mix14_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix14_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix14_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix14_output(uv);
+}

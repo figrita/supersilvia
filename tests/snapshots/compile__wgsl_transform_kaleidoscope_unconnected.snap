@@ -1,0 +1,46 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_kaleidoscope1_centerX: f32,
+    u_control_kaleidoscope1_centerY: f32,
+    u_control_kaleidoscope1_offset: f32,
+    u_control_kaleidoscope1_segments: f32,
+    u_control_kaleidoscope1_sourceSegment: f32,
+    u_control_kaleidoscope1_twist: f32,
+    u_control_kaleidoscope1_zoom: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn kaleidoscope1_output(uv: vec2f) -> vec4f {
+    let segments = max(u.u_control_kaleidoscope1_segments, 2.0);
+    let offset = u.u_control_kaleidoscope1_offset;
+    let twist = u.u_control_kaleidoscope1_twist;
+    var zoom = u.u_control_kaleidoscope1_zoom;
+    if (abs(zoom) < 1e-6) { zoom = select(1e-6, -1e-6, zoom < 0.0); }
+    let center = vec2f(u.u_control_kaleidoscope1_centerX, u.u_control_kaleidoscope1_centerY);
+    let p = uv - center;
+    let r = length(p);
+    let a = atan2(p.y, p.x) + r * twist;
+    let segmentAngle = 2.0 * PI / segments;
+    let sourceIndex = floor(clamp(u.u_control_kaleidoscope1_sourceSegment, 1.0, segments) - 1.0);
+    var scaled = r / zoom;
+    var localAngle = floor_mod(a, segmentAngle);
+    if (floor_mod(floor(a / segmentAngle), 2.0) == 1.0) { localAngle = segmentAngle - localAngle; }
+    localAngle += sourceIndex * segmentAngle;
+    scaled += offset;
+    let sampleUV = vec2f(scaled * cos(localAngle), scaled * sin(localAngle) * 0.5) + center;
+    return defaultUvMap(sampleUV);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return kaleidoscope1_output(uv);
+}
