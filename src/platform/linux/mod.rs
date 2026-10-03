@@ -6,14 +6,17 @@
 //! one tokio runtime every xdg-desktop-portal conversation happens on, which `files` and
 //! `screen` share.
 //!
-//! **`unsafe` is allowed in one file**, `ndi`, where it is declared below: opening the NDI®
-//! runtime by its path runs the library's initialisers, which `libloading` marks `unsafe`. Its
-//! one block carries a `// SAFETY:` line. The crate root denies it everywhere else.
+//! **`unsafe` is allowed in two files**, where each is declared below: `ndi`, since opening
+//! the NDI® runtime by its path runs the library's initialisers, which `libloading` marks
+//! `unsafe`, and `filedrop`, which borrows eframe's `wl_display` for a Wayland queue of its
+//! own. Each block carries a `// SAFETY:` line. The crate root denies it everywhere else.
 
 pub mod alert;
 pub mod audio;
 pub mod check;
 pub mod dirs;
+#[allow(unsafe_code)]
+pub mod filedrop;
 pub mod files;
 pub mod fonts;
 pub mod gpu;

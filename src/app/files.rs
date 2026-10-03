@@ -387,9 +387,9 @@ impl App {
     /// **Which node is the file's own answer**, [`node_for_drop`]: a picture, still or an
     /// animated GIF, makes an `imagegif` and everything else makes a `video`. **Where is the
     /// pointer's**: on the workspace showing, with the node's corner under the pointer — or at
-    /// the view's centre where the window was given no pointer, which on Wayland is a drag from
-    /// another app, or the pointer is over a panel rather than the canvas. A second file lands a
-    /// step down and across from the first.
+    /// the view's centre where the pointer is over a panel rather than the canvas. On Wayland
+    /// the drop arrives through [`Self::feed_file_drags`], with the drag's position as the
+    /// pointer's. A second file lands a step down and across from the first.
     ///
     /// **On the project tab a file is an asset and nothing else**: there is no canvas there
     /// to put a node on, and the Assets list is what it joins.
@@ -467,6 +467,58 @@ impl App {
             .filter(|p| canvas.contains(*p));
         self.canvas_transform()
             .to_world(origin, pointer.unwrap_or_else(|| canvas.center()))
+    }
+
+    /// The drags winit does not hear — Wayland's, from [`crate::platform::filedrop`] — put
+    /// into egui's input as its own hovered and dropped files, so
+    /// [`Self::take_dropped_files`] and [`Self::show_drop_hint`] read one input wherever the
+    /// drag came from. **Its position goes in as the pointer's**: a drag holds the pointer,
+    /// so egui has no other word of where it is, and the drop lands under it.
+    ///
+    /// Run before each frame, from `raw_input_hook`. The files held are set again every
+    /// frame until the drag leaves or lands, as winit's are.
+    pub(super) fn feed_file_drags(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        use crate::platform::filedrop::Drag;
+        // The surface's logical pixels are egui's points before the person's zoom.
+        let zoom = ctx.zoom_factor();
+        let point = |(x, y): (f32, f32)| egui::pos2(x / zoom, y / zoom);
+        for drag in self.filedrop.take() {
+            match drag {
+                Drag::Entered { files, at } => {
+                    self.held = Some(files);
+                    raw.events.push(egui::Event::PointerMoved(point(at)));
+                }
+                Drag::Moved(at) => raw.events.push(egui::Event::PointerMoved(point(at))),
+                Drag::Left => {
+                    self.held = None;
+                    raw.events.push(egui::Event::PointerGone);
+                }
+                Drag::Dropped { files, at } => {
+                    self.held = None;
+                    raw.events.push(egui::Event::PointerMoved(point(at)));
+                    raw.dropped_files.extend(
+                        files
+                            .into_iter()
+                            .map(|path| std::sync::Arc::new(DroppedPath(path)) as _),
+                    );
+                }
+            }
+        }
+        if let Some(files) = &self.held {
+            // A source that would not say which files still holds something: one with no
+            // path, which the hint reads as a file it does not know.
+            raw.hovered_files = if files.is_empty() {
+                vec![egui::HoveredFile::default()]
+            } else {
+                files
+                    .iter()
+                    .map(|path| egui::HoveredFile {
+                        path: Some(path.clone()),
+                        ..Default::default()
+                    })
+                    .collect()
+            };
+        }
     }
 
     /// While files are held over the window: an outline round where they would land, and one
@@ -1136,5 +1188,19 @@ mod snap_tests {
         assert_eq!(at(951_827_696), "20000229-123456");
         // 2100-03-01T00:00:00Z, the day after a February that has no 29th.
         assert_eq!(at(4_107_542_400), "21000301-000000");
+    }
+}
+
+/// A file dropped where winit did not hear it, as egui holds one.
+#[derive(Debug)]
+struct DroppedPath(std::path::PathBuf);
+
+impl egui::DroppedFile for DroppedPath {
+    fn path(&self) -> &std::path::Path {
+        &self.0
+    }
+
+    fn bytes(&self) -> Result<Vec<u8>, String> {
+        std::fs::read(&self.0).map_err(|err| err.to_string())
     }
 }

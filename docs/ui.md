@@ -241,9 +241,13 @@ the card, and on the Workspace menu, because it acts on one thing and that is wh
 
 **A dropped file lands where it is pointed.** With a workspace showing, media makes a node on
 that workspace — a `video`, or an `imagegif` for a picture — with its corner under the pointer,
-and a second file a step down and across from the first. Where the window was given no pointer,
-which on Wayland is a drag from another app, or the pointer is over a panel or the bar rather
-than the canvas, it lands at the centre of the view. With the project tab showing there is no
+and a second file a step down and across from the first. Where the pointer is over a panel or
+the bar rather than the canvas, it lands at the centre of the view. **On Wayland winit hears no
+drag at all**, so `platform::filedrop` does: a `wl_data_device` of its own on eframe's display,
+on a thread, which takes only a `text/uri-list` over the editor's own surface and reads it as
+the drag enters. `App::feed_file_drags` puts what it hears into egui's input before each frame,
+as hovered and dropped files and, since a drag holds the pointer, as the pointer's position — so
+a drop from Dolphin lands under the hand as one on X11, Windows or the Mac does. With the project tab showing there is no
 canvas, so media is an asset and nothing else, and the Assets list is what it joins. A `.ssw` is
 imported as a workspace on either. **While a file is held over the window** an outline in `primary`,
 as a tab offered a node is lit, rings where it would land — the canvas, or the page — and one line at its top says what

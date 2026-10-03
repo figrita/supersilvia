@@ -403,6 +403,19 @@ pub mod notices {
     pub use crate::platform::macos::notices::{GSTREAMER, RUST_CRATES};
 }
 
+/// Files dragged onto the editor's window from another app, where winit does not hear them:
+/// on Linux, a `wl_data_device` of its own on eframe's Wayland display, on a thread, whose
+/// `FileDrop::take` hands the frame each [`filedrop::Drag`]. On macOS and Windows winit hears
+/// drops itself, and `FileDrop` is there and says nothing.
+pub mod filedrop {
+    #[cfg(target_os = "linux")]
+    pub use crate::platform::linux::filedrop::{Drag, FileDrop};
+    #[cfg(target_os = "macos")]
+    pub use crate::platform::macos::filedrop::{Drag, FileDrop};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::filedrop::{Drag, FileDrop};
+}
+
 /// What `--check` asks of the machine ([`crate::check`]): the GStreamer elements the app makes,
 /// in `GROUPS` by what each serves and the plugin set it ships in, and `machine`, the report's
 /// lines about everything past GStreamer and the GPU — on Linux the session, the libraries

@@ -204,10 +204,11 @@ fn the_os_crates_are_named_only_in_their_backends() {
 /// is added to the list, and to CONTRIBUTING.md's and docs/invariants.md's.
 #[test]
 fn unsafe_is_allowed_only_where_the_rule_names() {
-    const ALLOWED: [&str; 10] = [
+    const ALLOWED: [&str; 11] = [
         "src/render/mod.rs: dmabuf",
         "src/render/picture/mod.rs: thread",
         "src/render/picture/mod.rs: wayland",
+        "src/platform/linux/mod.rs: filedrop",
         "src/platform/linux/mod.rs: ndi",
         "src/platform/macos/mod.rs: audio",
         "src/platform/macos/mod.rs: gpu",

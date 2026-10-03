@@ -91,6 +91,8 @@ comment. These modules are allowed it, each where its parent module declares it:
 - `render::dmabuf` — the DMA-BUF import through wgpu-hal
 - `render::picture`, its Linux half: `thread` and `wayland` — the picture windows' borrowed
   `wl_display` and the raw surface handle made on it
+- `platform::linux::filedrop` — file drops on Wayland, on a queue of its own on eframe's
+  borrowed `wl_display`
 - `platform::linux::ndi` — the NDI® runtime opened by its path through `libloading`
 - `platform::macos::audio` — Core Audio's property reads, and the loopback's process tap
 - `platform::macos::screen` — ScreenCaptureKit, and the classes it calls back into

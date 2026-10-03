@@ -2313,9 +2313,10 @@ on the copy as well**, which would make a knob turned on the copy move the origi
 
 **Chosen: a dropped file lands on the workspace showing, under the pointer.** **Rejected: the
 first workspace in project order at a staggered corner**, which can be a closed workspace and is
-never where the hand is. Where the window is given no pointer — on Wayland a drag from
-another app reaches the window as a data offer, not as pointer motion — it lands at the centre
-of the view. **On the project tab it is an asset and nothing else**, since there is no canvas
+never where the hand is. On Wayland a drag from another app reaches the window as a data
+offer, not as pointer motion, and winit hears neither: `platform::filedrop` listens for the
+offer itself and gives its position to egui as the pointer's, so it lands under the hand there
+too. Off the canvas it lands at the centre of the view. **On the project tab it is an asset and nothing else**, since there is no canvas
 there to put a node on. **A held file says what it will make**, in one line over an outline,
 because a drop that lands somewhere unexpected is a node to find and delete.
 

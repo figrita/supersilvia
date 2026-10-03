@@ -262,12 +262,19 @@ impl eframe::App for App {
         // this order is a use-after-free. On macOS nothing is borrowed: this lets go of the
         // loop, which closes the windows itself once eframe has exited.
         self.pictures.stop();
+        // The file drops' thread borrows the same display, so it goes while that is alive.
+        self.filedrop.stop();
         // Then the publisher, which lets go of each Syphon server once its last frame is drawn.
         self.sending.publisher.stop();
         // Then the synth, whose renderer goes with its thread.
         self.link.host_mut().stop();
         self.viewer = None;
         self.paint_timer = None;
+    }
+
+    /// What winit does not hear, put into the frame's input before egui reads it.
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        self.feed_file_drags(ctx, raw_input);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {

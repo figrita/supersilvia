@@ -217,6 +217,10 @@ pub struct App {
     /// The pictures thread, which owns the windows themselves. See
     /// [`crate::render::picture`].
     pictures: crate::render::picture::Host,
+    /// Files dragged onto the window where winit does not hear them, on Wayland, and the
+    /// files held over it now. See [`App::feed_file_drags`].
+    filedrop: crate::platform::filedrop::FileDrop,
+    held: Option<Vec<std::path::PathBuf>>,
     /// Syphon and NDI, from the editor's side.
     sending: Sending,
     /// Which of the Main Input panel's two pickers is up: the clip's or the sound's.
@@ -295,6 +299,14 @@ impl App {
             synth.live(),
             synth.pointer(),
         );
+        // Wayland's file drops, which winit does not hear, on eframe's display too. Not under
+        // a harness, which has no window to drag onto.
+        let filedrop = if cc.wgpu_render_state.is_some() {
+            let ctx = cc.egui_ctx.clone();
+            crate::platform::filedrop::FileDrop::for_window(cc, move || ctx.request_repaint())
+        } else {
+            crate::platform::filedrop::FileDrop::none()
+        };
         // The publisher reads the same `Live` on a thread of its own, started the first time
         // anything is sent out, over Syphon or NDI.
         let publisher = crate::render::publish::Publisher::new(gpu.as_ref(), synth.live());
@@ -341,6 +353,8 @@ impl App {
             has_gpu: gpu.is_some() && drawing,
             link: SynthLink::new(synth),
             pictures,
+            filedrop,
+            held: None,
             sending: Sending {
                 publisher,
                 mix: MixOut::default(),
@@ -426,6 +440,8 @@ impl App {
             mix_canvas: None,
             wall: crate::render::picture::Wall::default(),
             pictures: crate::render::picture::Host::detached(),
+            filedrop: crate::platform::filedrop::FileDrop::none(),
+            held: None,
             sending: Sending {
                 publisher: crate::render::publish::Publisher::detached(),
                 mix: MixOut::default(),

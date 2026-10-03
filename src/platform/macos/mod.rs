@@ -30,6 +30,7 @@ pub mod alert;
 pub mod audio;
 pub mod check;
 pub mod dirs;
+pub mod filedrop;
 pub mod files;
 pub mod fonts;
 #[allow(unsafe_code)]
