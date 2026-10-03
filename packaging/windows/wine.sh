@@ -15,6 +15,10 @@
 # is put in the prefix as a native library — the same file without the mark that makes Wine
 # load DXVK's by its name — and preferred, and wined3d under it lists the GPU through Vulkan,
 # which VK_DRIVER_FILES holds to the driver it names and which needs no window.
+#
+# Wine draws through X11, by way of Xwayland on a Wayland desktop, which the prefix's Graphics
+# driver setting says: its Wayland driver takes the session whenever a compositor answers,
+# and has no drag and drop, so a file dragged from the desktop would never reach the window.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +31,7 @@ export WINEPREFIX=$cache/wine WINEDEBUG=${WINEDEBUG:--all}
 # Nothing from this machine's own GStreamer reaches the carried one.
 unset GST_PLUGIN_PATH GST_PLUGIN_PATH_1_0 GST_PLUGIN_SYSTEM_PATH GST_PLUGIN_SYSTEM_PATH_1_0 \
       GST_PLUGIN_SCANNER GST_PLUGIN_SCANNER_1_0 GST_REGISTRY GST_REGISTRY_1_0
+wine reg add 'HKCU\Software\Wine\Drivers' /v Graphics /d x11 /f >/dev/null 2>&1
 wine_dxgi=$(find /usr/lib64 /usr/lib -path '*/x86_64-windows/wine-dxgi.dll' -print -quit \
   2>/dev/null || true)
 if [[ -n $wine_dxgi ]]; then
