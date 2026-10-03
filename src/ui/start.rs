@@ -270,8 +270,7 @@ pub fn show(
                     ui.spacing_mut().item_spacing.y = 0.0;
                     for (index, (category, members)) in cats.iter().enumerate() {
                         let leaf = leaf(members);
-                        let (rect, clicked) =
-                            category_row(ui, *category, leaf, index, menu, theme);
+                        let (rect, clicked) = category_row(ui, *category, leaf, index, menu, theme);
                         rows.push(rect);
                         if clicked && let Some(def) = leaf {
                             chosen = Some(def.slug);

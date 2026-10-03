@@ -43,11 +43,17 @@ const READ_DEADLINE: Duration = Duration::from_secs(2);
 #[derive(Debug, Clone, PartialEq)]
 pub enum Drag {
     /// Files came over the window. `files` is empty where the source would not say which.
-    Entered { files: Vec<PathBuf>, at: (f32, f32) },
+    Entered {
+        files: Vec<PathBuf>,
+        at: (f32, f32),
+    },
     Moved((f32, f32)),
     /// They left, or the drag was cancelled.
     Left,
-    Dropped { files: Vec<PathBuf>, at: (f32, f32) },
+    Dropped {
+        files: Vec<PathBuf>,
+        at: (f32, f32),
+    },
 }
 
 /// The drop thread, from the editor's side. `None` behind everything where there is none: not
@@ -410,7 +416,11 @@ fn parse_uri_list(bytes: &[u8]) -> Vec<PathBuf> {
 
 /// `%2F` and its kind back to their bytes. A `%` not followed by two hex digits is itself.
 fn percent_decode(text: &[u8]) -> Vec<u8> {
-    let hex = |b: u8| char::from(b).to_digit(16).and_then(|d| u8::try_from(d).ok());
+    let hex = |b: u8| {
+        char::from(b)
+            .to_digit(16)
+            .and_then(|d| u8::try_from(d).ok())
+    };
     let mut out = Vec::with_capacity(text.len());
     let mut i = 0;
     while i < text.len() {
