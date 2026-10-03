@@ -8,7 +8,7 @@
 //! state; a gear cabled into Time replaces the ambient reading; Repeat and the tunnel's depth
 //! wrap bring the reading round at the picture's own period; and Repeat is a rebuild. The
 //! pictures themselves are `tests/gpu_nodes.rs`' and `tests/gpu_app.rs`'. See
-//! `proposals/time.md` and `docs/nodes.md#time-and-offset`.
+//! `proposals/time.md` and `docs/nodes.md#timing`.
 
 use emath::Pos2;
 use supersilvia::graph::{NodeId, PortRef};
@@ -53,7 +53,7 @@ fn read_as_the_shader_does(app: &App, node: NodeId, count: f64) -> f64 {
     let n = app.graph().get(node).unwrap();
     let [whole, fraction] = nodes::phasor::split(count);
     let (whole, fraction) = (f64::from(whole), f64::from(fraction));
-    match (n.def.ambient.unwrap().period)(n) {
+    match (n.def.timing.unwrap().period)(n) {
         Some(period) => whole.rem_euclid(period) + fraction,
         None => whole + fraction,
     }
@@ -63,7 +63,7 @@ fn read_as_the_shader_does(app: &App, node: NodeId, count: f64) -> f64 {
 fn ambient_slugs() -> Vec<&'static str> {
     nodes::REGISTRY
         .iter()
-        .filter(|d| d.ambient.is_some() && d.cpu.is_none())
+        .filter(|d| d.timing.is_some() && d.cpu.is_none())
         .map(|d| d.slug)
         .collect()
 }
@@ -82,7 +82,7 @@ fn unplugged_time_is_the_playhead_at_the_nodes_rate() {
     let playhead = app.transport_state().playhead;
     for (id, slug) in ids {
         let def = nodes::find(slug).unwrap();
-        let ambient = def.ambient.unwrap();
+        let ambient = def.timing.unwrap();
         let node = app.graph().get(id).unwrap();
         let expected = match (ambient.period)(node) {
             Some(period) => (playhead * ambient.rate).rem_euclid(period),
@@ -150,6 +150,132 @@ fn a_pause_holds_time() {
     assert_eq!(time(&app, perlin), held);
 }
 
+fn speed(app: &mut App, node: NodeId, value: f32) {
+    app.apply(Command::SetControl {
+        node,
+        key: "speed",
+        value: supersilvia::graph::ControlValue::Float(value),
+    })
+    .unwrap();
+}
+
+/// The count a node's Time is published as, unwrapped.
+fn count(app: &App, node: NodeId) -> f64 {
+    app.count(PortRef::new(node, TIME)).unwrap()
+}
+
+/// **Running free, a node moves at its Speed times its pace**, integrated against the
+/// transport: Perlin at Speed 1 walks half a cell a second; at 2, twice that, gliding there
+/// rather than jumping; at 0 it stands; paused it holds whatever its Speed; and a seek moves it
+/// by its Speed times the jump — backwards for a negative Speed.
+#[test]
+fn a_free_node_runs_at_its_speed_times_its_pace() {
+    let mut app = App::headless();
+    let perlin = add(&mut app, "perlin");
+    app.transport(Transport::Seek(0.0));
+    app.tick_at(0.0);
+    let mut t = 0.0;
+    let run = |app: &mut App, t: &mut f64, seconds: f64| {
+        for _ in 0..(seconds * 60.0).round() as u32 {
+            *t += 1.0 / 60.0;
+            app.tick_at(*t);
+        }
+    };
+    run(&mut app, &mut t, 1.0);
+    assert!(
+        (count(&app, perlin) - 0.5).abs() < 1e-9,
+        "{}",
+        count(&app, perlin)
+    );
+
+    speed(&mut app, perlin, 2.0);
+    let before = count(&app, perlin);
+    run(&mut app, &mut t, 1.0);
+    let moved = count(&app, perlin) - before;
+    assert!(
+        moved < 1.0 && moved > 0.95,
+        "it bends to the new pace: {moved}"
+    );
+
+    speed(&mut app, perlin, 0.0);
+    run(&mut app, &mut t, 1.0);
+    let still = count(&app, perlin);
+    run(&mut app, &mut t, 1.0);
+    assert!((count(&app, perlin) - still).abs() < 1e-9, "at 0 it stands");
+
+    speed(&mut app, perlin, 1.0);
+    run(&mut app, &mut t, 1.0);
+    app.transport(Transport::Pause);
+    app.tick_at(t);
+    let held = count(&app, perlin);
+    for _ in 0..60 {
+        app.tick_at(t);
+    }
+    assert_eq!(count(&app, perlin), held, "paused, it holds");
+    app.transport(Transport::Play);
+
+    speed(&mut app, perlin, -1.0);
+    run(&mut app, &mut t, 1.0);
+    let before = count(&app, perlin);
+    t += 10.0;
+    app.transport(Transport::Seek(t));
+    app.tick_at(t);
+    let jumped = count(&app, perlin) - before;
+    assert!(
+        (jumped + 5.0).abs() < 1e-6,
+        "a seek of 10 s at Speed −1 is −5 cells: {jumped}"
+    );
+}
+
+/// **A stepped Speed lands on the same place at any frame rate**: the glide is integrated in
+/// closed form, so Speed stepped from 1 to 3 at one second reads the same three seconds in
+/// at 30 and at 144 frames a second.
+#[test]
+fn a_stepped_speed_lands_on_the_same_place_at_30_and_144_fps() {
+    let at = |fps: f64| {
+        let mut app = App::headless();
+        let fractal = add(&mut app, "mandelbrot");
+        app.transport(Transport::Seek(0.0));
+        app.tick_at(0.0);
+        let frames = (3.0 * fps).round() as u32;
+        for i in 1..=frames {
+            if i == fps as u32 + 1 {
+                speed(&mut app, fractal, 3.0);
+            }
+            app.tick_at(f64::from(i) / fps);
+        }
+        count(&app, fractal)
+    };
+    let (slow, fast) = (at(30.0), at(144.0));
+    assert!((slow - fast).abs() < 1e-9, "{slow} and {fast}");
+    assert!(slow > 0.5 + 2.0 && slow < 0.5 + 3.0, "{slow}");
+}
+
+/// **A Speed knob turned while a node loops does nothing, and Loop reads ambient time**:
+/// switched to Loop, Mandelbrot is where the playhead at its rate puts it, whatever its Speed
+/// did before; switched back, it is born there again.
+#[test]
+fn loop_mode_reads_ambient_time_whatever_the_speed_did() {
+    let mut app = App::headless();
+    let fractal = add(&mut app, "mandelbrot");
+    app.transport(Transport::Seek(0.0));
+    app.tick_at(0.0);
+    speed(&mut app, fractal, 4.0);
+    for i in 1..=120 {
+        app.tick_at(f64::from(i) / 60.0);
+    }
+    assert!(count(&app, fractal) > 3.5, "it ran at four times its pace");
+    option(&mut app, fractal, "clockMode", "loop");
+    app.tick_at(121.0 / 60.0);
+    assert!((count(&app, fractal) - 0.5 * 121.0 / 60.0).abs() < 1e-9);
+    option(&mut app, fractal, "clockMode", "free");
+    app.tick_at(122.0 / 60.0);
+    assert!(
+        (count(&app, fractal) - 4.0 * 0.5 * 122.0 / 60.0).abs() < 1e-9,
+        "born again where the playhead puts it, at its Speed"
+    );
+}
+
 /// **A gear in Time replaces the ambient reading**: the shader reads the gear's Cycles, and
 /// no ambient reading at all.
 #[test]
@@ -159,6 +285,12 @@ fn a_gear_in_time_replaces_the_ambient_reading() {
     app.tick(FRAME);
     assert!(app.count(PortRef::new(perlin, TIME)).is_some());
     let gear = add(&mut app, "ratiogear");
+    app.apply(Command::SetOption {
+        node: perlin,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(gear, "cycles"),
         to: PortRef::new(perlin, TIME),
@@ -216,6 +348,12 @@ fn shaky_cam_has_a_time_per_axis() {
     }
 
     let gear = add(&mut app, "ratiogear");
+    app.apply(Command::SetOption {
+        node: shaky,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(gear, "cycles"),
         to: PortRef::new(shaky, nodes::TIME_Y),
@@ -241,7 +379,7 @@ fn shaky_cam_has_a_time_per_axis() {
         "Y reads the gear, not ambient time"
     );
     let def = nodes::find("shakycam").unwrap();
-    for key in [nodes::phasor::OFFSET, nodes::phasor::OFFSET_Y] {
+    for key in [nodes::timing::OFFSET, nodes::timing::OFFSET_Y] {
         assert!(def.input(key).is_some(), "an Offset per axis: {key}");
     }
 }
@@ -286,11 +424,11 @@ fn repeat_rebuilds_a_noise_on_its_circle() {
             .body
     };
     let line = body(&app);
-    assert!(line.contains("cnoise3(vec3f(") && !line.contains("loopCircle(("));
+    assert!(line.contains("cnoise3(vec3f(") && !line.contains("loopCircle(time_repeat("));
     option(&mut app, perlin, "repeat", "8");
     let circle = body(&app);
     assert!(
-        circle.contains("cnoise4(vec4f(") && circle.contains("loopCircle(("),
+        circle.contains("cnoise4(vec4f(") && circle.contains("loopCircle(time_repeat("),
         "{circle}"
     );
 }

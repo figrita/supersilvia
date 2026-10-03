@@ -4,12 +4,12 @@
 //! one number per frame, so it is a `UniformNumber` — and a uniform number feeds a
 //! `VaryingNumber` for free, so it still reaches a shader with no plumbing of its own.
 //!
-//! **It reads Time and Offset, in waves, and keeps nothing.** Unplugged, Time is ambient time
-//! at one wave a second, silvia's default Frequency of 1 Hz; a gear cabled in replaces it, and
-//! is where a frequency is set, turned, stopped or restarted — silvia's Frequency, Start/Stop
-//! and Reset are a Ratio Gear's Ratio, Hold and Reset now. Offset is added, in waves: a slow
-//! wave on it modulates the phase of this one. A one-shot is `animation`'s. The value is a
-//! function of `Time + Offset`, so it is the same wherever the show was sought or played to.
+//! **It reads where it is in waves, and keeps nothing** (`TickContext::cycle`,
+//! `nodes::timing`). At Speed 1, or in Loop mode unplugged, that is one wave a second, silvia's
+//! default Frequency of 1 Hz, so silvia's Frequency is its Speed; in Loop mode a gear cabled
+//! into Time replaces it, and silvia's Start/Stop and Reset are the gear's Hold and Reset.
+//! Offset is added, in waves: a slow wave on it modulates the phase of this one. A one-shot is
+//! `animation`'s. The value is a function of where the node is, its Offset added.
 //!
 //! **The waveform formulas are silvia's**, not the ones the field version emitted: a triangle
 //! starts at −1, a sawtooth starts at 0 rising, a square is a comparison against π rather
@@ -24,8 +24,8 @@ use crate::graph::NodeId;
 use crate::graph::PortType::UniformNumber;
 use crate::nodes::cpu::TraceRing;
 use crate::nodes::{
-    Ambient, Category, Control, CpuDef, CpuNode, InputDef, NodeDef, OptionDef, OptionKind,
-    OutputDef, OutputKind, TickContext, phasor, rng::Rng,
+    Category, Control, CpuDef, CpuNode, InputDef, NodeDef, OptionDef, OptionKind, OutputDef,
+    OutputKind, TickContext, Timing, phasor, rng::Rng,
 };
 use std::f32::consts::{PI, TAU};
 
@@ -34,28 +34,15 @@ pub static DEF: NodeDef = NodeDef {
     category: Category::Control,
     icon: "👋",
     label: "Oscillator",
-    tooltip: "A waveform, a wave a second or as a gear in Time turns it, with a trace of what \
-              it published. Offset shifts it along, in waves; Level lifts it.",
+    tooltip: "A waveform, a wave a second times its Speed, or as a gear in Time turns it, with \
+              a trace of what it published. Offset shifts it along, in waves; Level lifts it.",
     // The waveform is the thing being edited; see docs/decisions.md#a-trace-is-a-picture-of-
     // the-shape-a-node-is-editing. 300 is `canvas::SCOPE_NODE_WIDTH`, which `nodes/` cannot
     // name — it is a graphical dependency this crate does not take.
     regions: &[crate::nodes::Region::Trace],
-    ambient: Some(Ambient::periodic(1.0)),
-    inputs: &[
-        InputDef {
-            key: crate::nodes::TIME,
-            label: "Time",
-            ty: UniformNumber,
-            // No knob: unplugged, Time is ambient time at a wave a second.
-            control: Control::None,
-        },
-        InputDef {
-            key: phasor::OFFSET,
-            label: "Offset",
-            ty: UniformNumber,
-            // In waves, added to Time: zero is silvia's wave.
-            control: phasor::offset_control(),
-        },
+    timing: Some(TIMING),
+    inputs: crate::nodes::timing::inputs![
+        TIMING;
         InputDef {
             key: "amplitude",
             label: "Amplitude",
@@ -76,7 +63,7 @@ pub static DEF: NodeDef = NodeDef {
         kind: OutputKind::Uniform,
         ..OutputDef::EMPTY
     }],
-    options: &[
+    options: crate::nodes::timing::options![
         OptionDef {
             key: "waveform",
             label: "Waveform",
@@ -96,9 +83,8 @@ pub static DEF: NodeDef = NodeDef {
             ..OptionDef::EMPTY
         },
         crate::nodes::SHOW_TRACE,
-        crate::nodes::SHOW_TIME,
     ],
-    row_headings: &[crate::nodes::SHOW_TIME.key],
+    row_headings: crate::nodes::timing::ROW_HEADINGS,
     cpu: Some(CpuDef {
         create: || Box::new(Oscillator::default()),
         // The trace is a ring of every frame before this one.
@@ -107,6 +93,9 @@ pub static DEF: NodeDef = NodeDef {
     }),
     ..NodeDef::EMPTY
 };
+
+/// A wave a second, at rest and at a Speed of 1.
+const TIMING: Timing = Timing::periodic(1.0);
 
 /// How many seconds the trace holds: silvia's `historySize` of 300 for the same picture, at
 /// the 60 Hz it was drawn at. Seconds rather than samples, since the band draws by time.
@@ -177,7 +166,7 @@ impl CpuNode for Oscillator {
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
         let amplitude = ctx.input(id, "amplitude");
         let level = ctx.input(id, "offset");
-        let t = ctx.clock(id) + f64::from(ctx.input(id, phasor::OFFSET));
+        let t = ctx.cycle(id);
         self.value = wave(ctx.option(id, "waveform"), t, id) * amplitude + level;
         ctx.publish(id, "output", self.value);
         self.history.push(ctx.elapsed, self.value);

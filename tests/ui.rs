@@ -9615,12 +9615,13 @@ fn a_trace_folds_under_its_heading() {
     }
 }
 
-/// **Time and Offset fold under a Time heading that starts closed**, on every node that moves
-/// with time. Closed, neither row is drawn and the heading says they are there; open, both
-/// are. A cable into a folded Time still lands somewhere: its port gathers on the heading's
+/// **The time rows fold under a Timing heading that starts closed**, on every node that
+/// moves with time, with its mode on the bar. Closed, no time row is drawn and the heading
+/// says they are there; open, Speed and Offset are, and Time is not, since a new node runs
+/// free. A cable into a folded Time still lands somewhere: its port gathers on the heading's
 /// left edge, where the rows would be, so the cable is drawn into the heading.
 #[test]
-fn time_and_offset_fold_under_a_closed_time_heading() {
+fn the_time_rows_fold_under_a_closed_timing_heading() {
     let mut h = tall_harness();
     let workspace = h.state().graph().default_workspace();
     for slug in ["time", "perlin"] {
@@ -9640,9 +9641,15 @@ fn time_and_offset_fold_under_a_closed_time_heading() {
     h.run_steps(3);
     let ids: Vec<_> = h.state().graph().iter().map(|(id, _)| id).collect();
     let (seconds, perlin) = (ids[0], ids[1]);
-    let heading = format!("perlin{perlin}.time");
+    let heading = format!("perlin{perlin}.timing");
     let offset = format!("perlin{perlin}.phaseOffset");
-    assert!(h.query_by_label(&heading).is_some(), "a Time heading");
+    let speed = format!("perlin{perlin}.speed");
+    assert!(h.query_by_label(&heading).is_some(), "a Timing heading");
+    assert!(
+        h.query_by_label(&format!("perlin{perlin}.clockMode.free"))
+            .is_some(),
+        "its mode on the bar, closed as it is"
+    );
     assert!(
         h.query_all_by_label_contains(&offset).next().is_none(),
         "closed on a new node: no Offset row"
@@ -9660,11 +9667,18 @@ fn time_and_offset_fold_under_a_closed_time_heading() {
     assert!(
         !rows_of(&h)
             .iter()
-            .any(|r| matches!(r, supersilvia::ui::canvas::Row::Input(i) if *i == 3 || *i == 4)),
-        "neither Time nor Offset has a row"
+            .any(|r| matches!(r, supersilvia::ui::canvas::Row::Input(3..=5))),
+        "no time row has a row"
     );
 
-    // A cable into the folded Time is drawn into the heading.
+    // A clock cabled into the folded Time, in Loop mode, is drawn into the heading.
+    h.state_mut()
+        .apply(Command::SetOption {
+            node: perlin,
+            key: "clockMode",
+            value: "loop".to_string(),
+        })
+        .unwrap();
     h.state_mut()
         .apply(Command::Connect {
             from: supersilvia::graph::PortRef::new(seconds, "seconds"),
@@ -9675,7 +9689,7 @@ fn time_and_offset_fold_under_a_closed_time_heading() {
     let laid = laid_out(&h, perlin);
     let node = laid.find(perlin).unwrap();
     let bar = node
-        .block(supersilvia::ui::canvas::Row::TimeHeading)
+        .block(supersilvia::ui::canvas::Row::TimingHeading)
         .expect("the heading has a row");
     let slot = node
         .ports
@@ -9700,7 +9714,7 @@ fn time_and_offset_fold_under_a_closed_time_heading() {
             .get(perlin)
             .unwrap()
             .options
-            .get("time")
+            .get("timing")
             .map(String::as_str),
         Some("on")
     );
@@ -9709,10 +9723,50 @@ fn time_and_offset_fold_under_a_closed_time_heading() {
         "open, the Offset row is there"
     );
     assert!(
-        node_height(&h, perlin) > closed,
-        "and the node grew by both rows"
+        h.query_all_by_label_contains(&speed).next().is_none(),
+        "and in Loop mode Speed is not"
     );
+    let looping = node_height(&h, perlin);
+    assert!(looping > closed, "and the node grew by the rows");
     assert!(h.query_by_label(&heading).is_some(), "the heading stays");
+
+    // Free on the bar: the Time's cable goes, Speed stands where Time stood, and the node
+    // keeps its height.
+    h.get_by_label(&format!("perlin{perlin}.clockMode.free"))
+        .click();
+    h.run_steps(2);
+    let node = h.state().graph().get(perlin).unwrap();
+    assert_eq!(
+        node.options.get("clockMode").map(String::as_str),
+        Some("free")
+    );
+    assert!(
+        h.state()
+            .graph()
+            .source_of(supersilvia::graph::PortRef::new(perlin, "clock"))
+            .is_none(),
+        "the switch dropped the Time's cable"
+    );
+    assert!(
+        h.query_all_by_label_contains(&speed).next().is_some(),
+        "Speed is drawn"
+    );
+    assert_eq!(
+        node_height(&h, perlin),
+        looping,
+        "in place, at the same height"
+    );
+    assert_eq!(
+        h.state()
+            .graph()
+            .get(perlin)
+            .unwrap()
+            .options
+            .get("timing")
+            .map(String::as_str),
+        Some("on"),
+        "a click on the mode is not a click on the fold"
+    );
 }
 
 /// The trace nodes widen for the trace on their body, the same 300 the audio scope already
@@ -11790,7 +11844,7 @@ fn the_cosine_palette_draws_itself_over_a_grid_of_its_own_twelve() {
     // What is left takes a cable: what goes through the palette, its Time and its Offset.
     assert_eq!(
         node.inputs.iter().map(|p| p.key).collect::<Vec<_>>(),
-        ["t", "clock", "phaseOffset"],
+        ["t", "clock", "speed", "phaseOffset"],
         "the rows that are left are the ones a patch drives"
     );
     assert_eq!(
@@ -11872,7 +11926,7 @@ fn a_euclidean_rhythm_draws_its_four_lanes_over_its_own_numbers() {
     }
     assert_eq!(
         node.inputs.iter().map(|p| p.key).collect::<Vec<_>>(),
-        ["clock", "phaseOffset", "step", "gateLength"],
+        ["clock", "speed", "phaseOffset", "step", "gateLength"],
         "the rows that are left are the ones a patch drives"
     );
 
@@ -11948,8 +12002,8 @@ fn a_step_sequencers_cells_light_one_click_at_a_time() {
     let node = only_node(&h);
     assert_eq!(
         node.inputs.iter().map(|p| p.key).collect::<Vec<_>>(),
-        ["clock", "phaseOffset", "step", "gateLength"],
-        "the Time, Offset and Step Euclidean Rhythm has"
+        ["clock", "speed", "phaseOffset", "step", "gateLength"],
+        "the time rows and Step Euclidean Rhythm has"
     );
     assert_eq!(
         supersilvia::ui::canvas::node_width(&node),

@@ -144,7 +144,7 @@ fn simplex1_color(uv: vec2f) -> vec4f {
     let noiseScale = u.u_control_simplex1_scale;
     let contrast = u.u_control_simplex1_contrast;
     let p = (uv + vec2f(u.u_control_simplex1_offsetX, u.u_control_simplex1_offsetY)) * noiseScale;
-    let raw = snoise3(vec3f(p, (u.u_count_simplex1_clock.x + u.u_count_simplex1_clock.y + u.u_control_simplex1_phaseOffset)));
+    let raw = snoise3(vec3f(p, time_unbounded(u.u_count_simplex1_clock, u.u_control_simplex1_phaseOffset)));
     let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
     return mix(u.u_control_simplex1_background, u.u_control_simplex1_foreground, value);
 }
@@ -153,7 +153,7 @@ fn simplex1_value(uv: vec2f) -> f32 {
     let noiseScale = u.u_control_simplex1_scale;
     let contrast = u.u_control_simplex1_contrast;
     let p = (uv + vec2f(u.u_control_simplex1_offsetX, u.u_control_simplex1_offsetY)) * noiseScale;
-    let raw = snoise3(vec3f(p, (u.u_count_simplex1_clock.x + u.u_count_simplex1_clock.y + u.u_control_simplex1_phaseOffset)));
+    let raw = snoise3(vec3f(p, time_unbounded(u.u_count_simplex1_clock, u.u_control_simplex1_phaseOffset)));
     let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
     return value;
 }

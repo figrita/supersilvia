@@ -24,11 +24,12 @@
 //! color and the mask share a `wgsl_common` block; silvia writes the whole grid test twice, once
 //! per generator.
 //!
-//! **Time and Offset, and no speed.** silvia's `domainwarp` reads `u_time * timeSpeed`, and
-//! its `tunnel3d` drives the camera from a CPU phase accumulator with a Start/Stop button on
-//! the node. Here each reads **Time**, ambient or a gear's, with **Offset** added: the warp in
-//! lattice cells, still at rest as silvia's is, with a Repeat like the noises'; the tunnel in
-//! units of camera depth, at silvia's half a unit a second. **The tunnel's path is retuned so
+//! **Time and Offset, through `nodes::timing`.** silvia's `domainwarp` reads `u_time *
+//! timeSpeed`, and its `tunnel3d` drives the camera from a CPU phase accumulator with a
+//! Start/Stop button on the node. Here each reads **Time** — its Speed integrated, ambient time
+//! or a gear's — with **Offset** added: the warp in lattice cells, still on a new node as
+//! silvia's is, with a Repeat like the noises'; the tunnel in units of camera depth, at
+//! silvia's half a unit a second. **The tunnel's path is retuned so
 //! the flight repeats**: every path frequency is silvia's times 5π/16, so Sine and Lissajous
 //! come back every 64 units and the Helix every 16 — each a whole number of both depth wraps,
 //! so the whole flight comes back every 64 under Mirror or Repeat. Depth Wrap None never does.
@@ -36,14 +37,14 @@
 //! **`domainwarp` publishes `value`, not `mask`.** The length of its warp vector is the raw
 //! quantity the picture was made from, not coverage, and `mask` means coverage.
 
-use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
+use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::noise::{
     FBM_LOOP_WGSL, FBM_WGSL, LOOP_CIRCLE_WGSL, SIMPLEX3D_WGSL, SIMPLEX4D_WGSL, fbm_time,
-    noise_ambient,
+    noise_timing,
 };
 use crate::nodes::{
-    Ambient, Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind,
+    Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
 };
 
 // ------------------------------------------------------------------------------ shader helpers
@@ -112,9 +113,9 @@ fn tunnel_period(node: &crate::graph::Node) -> Option<f64> {
 /// bit, and a long flight keeps the precision of a short one.
 fn tunnel_flight_wgsl(wrap: &str) -> &'static str {
     if wrap == "none" {
-        "    let camZ = {clock}.x + {clock}.y + {phaseOffset};\n"
+        "    let camZ = time_unbounded({clock}, {phaseOffset});\n"
     } else {
-        "    let flight = whole_mod({clock}.x, 64.0) + {clock}.y + {phaseOffset};\n    let camZ = flight - 64.0 * floor(flight / 64.0);\n"
+        "    let flight = time_repeat({clock}, 64.0, {phaseOffset});\n    let camZ = flight - 64.0 * floor(flight / 64.0);\n"
     }
 }
 
@@ -547,11 +548,11 @@ node! {
               the coordinate the last one moved, which is what makes the distortion organic \
               rather than wavy. Value is how far the coordinate moved: the length of the \
               displacement, and the only field this node has beside its picture.",
-    ambient: noise_ambient(0.0),
+    timing: noise_timing(0.0, 0.5),
     inputs: [
         VaryingColor "input" "Input" at "warpedUV" = Control::None,
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "amplitude" "Amplitude" = Control::num(0.5, 0.0, 2.0, 0.01, "⬓"),
         VaryingNumber "frequency" "Frequency" = Control::num_log(3.0, 0.1, 20.0, 0.1, "/⬓"),
         VaryingNumber "octaves" "Octaves" = Control::num(4.0, 1.0, 8.0, 1.0, ""),
@@ -769,17 +770,14 @@ node! {
     label: "Tunnel",
     category: Transform,
     tooltip: "Flies a camera down a curving tube with the input wrapped around its inside, \
-              half a unit a second, or as a gear cabled into Time flies it; Offset moves it \
-              along. The flight comes back every 64 units while the depth wraps. Twist is how \
-              far the tube wanders and zoom is the lens.",
-    ambient: Ambient {
-        rate: 0.5,
-        period: tunnel_period,
-    },
+              half a unit a second times its Speed, or as a gear cabled into Time flies it; \
+              Offset moves it along. The flight comes back every 64 units while the depth \
+              wraps. Twist is how far the tube wanders and zoom is the lens.",
+    timing: Timing::repeating(0.5, tunnel_period),
     inputs: [
         VaryingColor "input" "Texture" at "tunnelUV" = Control::None,
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "twist" "Twist" = Control::num(1.5, 0.0, 4.0, 0.01, ""),
         VaryingNumber "radius" "Radius" = Control::num(1.0, 0.3, 3.0, 0.01, "⬓"),
         VaryingNumber "zoom" "Zoom" = Control::num(1.5, 0.3, 4.0, 0.01, "x"),

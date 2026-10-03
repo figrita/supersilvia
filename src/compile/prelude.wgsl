@@ -23,6 +23,20 @@ fn whole_mod(whole: f32, n: f32) -> f32 {
     return f32(((i32(whole) % m) + m) % m);
 }
 
+// Where a node that moves with time is, in its own cycles, from its Time — a count as
+// `vec2f(whole, fraction)` — and its Offset, one helper per kind of period (`nodes::timing`).
+// Each reduces the whole part by the period, adds the fraction, then adds the Offset, the
+// order that brings a Time one period on back to exactly what a Time of zero drew.
+// A node whose picture comes back every cycle: the fraction plus the Offset, which the body
+// wraps where it needs to.
+fn time_periodic(time: vec2f, offset: f32) -> f32 { return time.y + offset; }
+// A node that comes back every `n` cycles, a whole number the count's whole part wraps at.
+fn time_repeat(time: vec2f, n: f32, offset: f32) -> f32 {
+    return whole_mod(time.x, n) + time.y + offset;
+}
+// A node that never comes back: the whole count.
+fn time_unbounded(time: vec2f, offset: f32) -> f32 { return time.x + time.y + offset; }
+
 // Two numbers from a point, 0 to 1, for a measurement's jitter. Deterministic in its
 // argument: the same cell and the same moment give the same offset.
 //

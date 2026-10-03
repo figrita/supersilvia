@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! What a loop of a Master Gear needs: the chains of Ratio Gears below it, the nodes those
-//! chains drive through their Time, and how many of its cycles bring every one of them back.
+//! chains drive through their Time, and how many of its cycles bring every one of them back;
+//! and whether a node on its own clock comes back over a length. It reads each node's
+//! declaration (`nodes::timing`) — rate, pace, period, mode — and nothing about a node kind.
 //!
 //! A Ratio Gear's ratio is a fraction; a chain of them from a master multiplies them; a loop
 //! of `m` cycles of the master closes every gear on it where `m` is a multiple of every
 //! chain's denominator — so a ÷4 below asks for four cycles. A node whose Time a gear's
 //! Cycles drive comes back where `m` times the chain's product is a whole number of its own
-//! period (`Ambient::period`): a noise at Repeat 4 on a ×1 asks for four, the tunnel's 64 on
+//! period (`Timing::period`): a noise at Repeat 4 on a ×1 asks for four, the tunnel's 64 on
 //! a ×32 for two. A gear's Phase in a Time comes back every cycle of that gear, except in a
-//! sequencer, which reads it as a count. A node that never repeats, and one reached through
-//! something the walk cannot read — a Math node between a gear and a Time — never closes.
+//! sequencer, which reads it as a count. A node that never repeats, one reached through
+//! something the walk cannot read — a Math node between a gear and a Time — and one with a
+//! clock cabled into its Speed never close. A node on its own clock — Loop mode with nothing
+//! in its Time, or running free with nothing in its Speed — closes over a length `L` where its
+//! rate, or its Speed times its pace, times `L` over its period is whole ([`closes_alone`]).
 //! The caption under a Master Gear says so, and `examples/loop_gifs` renders a loop that long.
 //! See `docs/nodes.md#when-a-loop-closes`.
 
 use crate::graph::{ControlValue, Graph, NodeId};
+use crate::nodes::timing;
 
 /// A ratio as a fraction, reduced, its denominator positive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -167,14 +173,14 @@ pub fn master_loop(graph: &Graph, master: NodeId) -> MasterLoop {
                     // A gear on a gear: `driven`'s.
                     continue;
                 }
-                match node.def.ambient.filter(|_| crate::nodes::is_time(to.key)) {
-                    Some(ambient) => {
+                match node.def.timing {
+                    Some(timing) if timing::is_time(to.key) => {
                         let period = if key == "wrapped"
                             && !crate::nodes::sequencer::reads_unwrapped(node.def)
                         {
                             Some(1)
                         } else {
-                            (ambient.period)(node).and_then(whole)
+                            (timing.period)(node).and_then(whole)
                         };
                         ask(
                             to.node,
@@ -183,7 +189,9 @@ pub fn master_loop(graph: &Graph, master: NodeId) -> MasterLoop {
                                 .map(|(r, p)| Fraction::new(r.p, r.q * p)),
                         );
                     }
-                    None => {
+                    // A clock in a Speed is a rate that keeps changing: it never closes.
+                    Some(_) if timing::is_speed(to.key) => ask(to.node, None),
+                    _ => {
                         for reached in unfollowed(graph, to.node) {
                             ask(reached, None);
                         }
@@ -202,6 +210,54 @@ fn whole(period: f64) -> Option<i64> {
     ((period - n).abs() < 1e-9 && (1.0..1e9).contains(&n)).then_some(n as i64)
 }
 
+/// How many of its own cycles a second `node`'s Time runs at on its own clock, on one axis:
+/// in Loop mode with nothing in that Time, its rate at rest; running free with nothing in that
+/// Speed, its Speed's knob times its pace (`nodes::timing`). `None` where a cable drives it. A
+/// clip's pace is one play over its length, which the graph does not hold, so a clip reads as
+/// a play a second here.
+pub fn own_rate(graph: &Graph, node: NodeId, axis: timing::Axis) -> Option<f64> {
+    let n = graph.get(node)?;
+    let t = n.def.timing?;
+    if timing::runs_free(n) {
+        if graph
+            .source_of(crate::graph::PortRef::new(node, axis.speed))
+            .is_some()
+        {
+            return None;
+        }
+        match n.controls.get(axis.speed) {
+            Some(ControlValue::Float(speed)) => Some(f64::from(*speed) * t.pace),
+            _ => None,
+        }
+    } else {
+        graph
+            .source_of(crate::graph::PortRef::new(node, axis.time))
+            .is_none()
+            .then_some(t.rate)
+    }
+}
+
+/// Whether `node`, on its own clock, comes back after `seconds`: on every axis
+/// `own_rate × seconds ÷ period` is whole, which a node standing still always is and a moving
+/// picture that never repeats never is. `None` for a node that does not move with time or that
+/// a cable drives, whose loop is its chain's.
+pub fn closes_alone(graph: &Graph, node: NodeId, seconds: f64) -> Option<bool> {
+    let n = graph.get(node)?;
+    let t = n.def.timing?;
+    let mut closes = true;
+    for axis in t.axes() {
+        let rate = own_rate(graph, node, *axis)?;
+        if rate == 0.0 {
+            continue;
+        }
+        closes &= (t.period)(n).is_some_and(|p| {
+            let turns = rate * seconds / p;
+            (turns - turns.round()).abs() < 1e-6
+        });
+    }
+    Some(closes)
+}
+
 /// The nodes whose Time — or a Ratio Gear's Clock In — a number reaches through `from` and on
 /// through whatever `from` feeds, stopping at any node that moves with time or is a gear: a
 /// clock bent on the way, which the caption cannot follow.
@@ -213,7 +269,7 @@ fn unfollowed(graph: &Graph, from: NodeId) -> Vec<NodeId> {
         let Some(node) = graph.get(id) else {
             continue;
         };
-        if node.def.ambient.is_some() || node.def.category == crate::nodes::Category::Gear {
+        if node.def.timing.is_some() || node.def.category == crate::nodes::Category::Gear {
             continue;
         }
         for output in node.def.outputs {
@@ -221,9 +277,10 @@ fn unfollowed(graph: &Graph, from: NodeId) -> Vec<NodeId> {
                 let Some(target) = graph.get(to.node) else {
                     continue;
                 };
-                let clock = crate::nodes::is_time(to.key)
-                    && (target.def.ambient.is_some()
-                        || target.def.slug == crate::nodes::gear::RATIO.slug);
+                let clock = (timing::is_time(to.key)
+                    && (target.def.timing.is_some()
+                        || target.def.slug == crate::nodes::gear::RATIO.slug))
+                    || (timing::is_speed(to.key) && target.def.timing.is_some());
                 if clock {
                     if !out.contains(&to.node) {
                         out.push(to.node);
@@ -302,8 +359,11 @@ mod tests {
     use super::*;
     use crate::graph::PortRef;
 
+    /// A node of kind `slug`, at `ratio` where it is a Ratio Gear, and on a clock — Loop
+    /// mode — where it moves with time, so a gear can be cabled into its Time.
     fn gear(g: &mut Graph, slug: &str, ratio: Option<f32>) -> NodeId {
         let id = crate::nodes::add_to_graph(g, slug, emath::Pos2::ZERO).unwrap();
+        loops(g, id);
         if let Some(r) = ratio {
             g.get_mut(id)
                 .unwrap()
@@ -311,6 +371,101 @@ mod tests {
                 .insert("ratio", ControlValue::Float(r));
         }
         id
+    }
+
+    fn loops(g: &mut Graph, id: NodeId) {
+        let n = g.get_mut(id).unwrap();
+        if n.def.timing.is_some() {
+            n.options.insert(timing::MODE.key, timing::LOOP.to_string());
+        }
+    }
+
+    /// **A clock cabled into a Speed never closes**: a gear's Cycles into a free-running
+    /// node's Speed is a rate that keeps growing, and through a Multiply the same.
+    #[test]
+    fn a_clock_in_a_speed_will_not_close() {
+        let mut g = Graph::new();
+        let master = gear(&mut g, "mastergear", None);
+        let perlin = crate::nodes::add_to_graph(&mut g, "perlin", emath::Pos2::ZERO).unwrap();
+        g.connect(
+            PortRef::new(master, "cycles"),
+            PortRef::new(perlin, timing::SPEED),
+        )
+        .unwrap();
+        assert_eq!(master_loop(&g, master).open, [perlin]);
+        assert_eq!(caption(&g, master), "1 node will not close");
+
+        let mut g = Graph::new();
+        let master = gear(&mut g, "mastergear", None);
+        let times = gear(&mut g, "multiply", None);
+        let perlin = crate::nodes::add_to_graph(&mut g, "perlin", emath::Pos2::ZERO).unwrap();
+        g.connect(PortRef::new(master, "cycles"), PortRef::new(times, "a"))
+            .unwrap();
+        g.connect(
+            PortRef::new(times, "output"),
+            PortRef::new(perlin, timing::SPEED),
+        )
+        .unwrap();
+        assert_eq!(master_loop(&g, master).open, [perlin]);
+    }
+
+    /// **A node on its own clock closes where its rate times the length over its period is
+    /// whole**: running free, its Speed times its pace — Mandelbrot at Speed 1, half a drift a
+    /// second, closes over 2 s and not 3 s, and at Speed 1.5 over 4 s — and in Loop mode with
+    /// nothing in its Time, its rate at rest. A node standing still closes on anything, a noise
+    /// that never repeats closes on nothing, and a cable in its Speed leaves it to its chain.
+    #[test]
+    fn a_node_on_its_own_clock_closes_where_its_rate_comes_round() {
+        let mut g = Graph::new();
+        let fractal = crate::nodes::add_to_graph(&mut g, "mandelbrot", emath::Pos2::ZERO).unwrap();
+        assert_eq!(own_rate(&g, fractal, timing::Axis::X), Some(0.5));
+        assert_eq!(closes_alone(&g, fractal, 2.0), Some(true));
+        assert_eq!(closes_alone(&g, fractal, 3.0), Some(false));
+        g.get_mut(fractal)
+            .unwrap()
+            .controls
+            .insert(timing::SPEED, ControlValue::Float(1.5));
+        assert_eq!(closes_alone(&g, fractal, 2.0), Some(false));
+        assert_eq!(closes_alone(&g, fractal, 4.0), Some(true));
+        loops(&mut g, fractal);
+        assert_eq!(
+            own_rate(&g, fractal, timing::Axis::X),
+            Some(0.5),
+            "its rest rate"
+        );
+
+        let simplex = crate::nodes::add_to_graph(&mut g, "simplex", emath::Pos2::ZERO).unwrap();
+        assert_eq!(
+            closes_alone(&g, simplex, 1.7),
+            Some(true),
+            "still at Speed 0"
+        );
+        g.get_mut(simplex)
+            .unwrap()
+            .controls
+            .insert(timing::SPEED, ControlValue::Float(1.0));
+        assert_eq!(
+            closes_alone(&g, simplex, 8.0),
+            Some(false),
+            "it never repeats"
+        );
+        g.get_mut(simplex)
+            .unwrap()
+            .options
+            .insert("repeat", "4".to_string());
+        assert_eq!(
+            closes_alone(&g, simplex, 8.0),
+            Some(true),
+            "4 cells at half a second"
+        );
+
+        let lfo = gear(&mut g, "oscillator", None);
+        g.connect(
+            PortRef::new(lfo, "output"),
+            PortRef::new(simplex, timing::SPEED),
+        )
+        .unwrap();
+        assert_eq!(closes_alone(&g, simplex, 8.0), None, "a cable in Speed");
     }
 
     /// A master two seconds long with ×2 and ÷4 below it, the ÷4 under a ×3: the chains

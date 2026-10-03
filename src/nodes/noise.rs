@@ -36,12 +36,12 @@
 //! reduced by `N` and its fraction added — so its picture comes back every `N` and a loop
 //! closes on it, at any count; Static reads its roll modulo `N`. It is an option
 //! a person chooses, since a circle through four dimensions is not the line through three, and
-//! it rebuilds. See `docs/nodes.md#time-and-offset`.
+//! it rebuilds. See `docs/nodes.md#timing`.
 
-use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
+use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::{
-    Ambient, Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind,
+    Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
 };
 
 // ------------------------------------------------------------------------ shader helpers
@@ -397,12 +397,10 @@ pub fn repeat_of(node: &crate::graph::Node) -> Option<f64> {
         .filter(|n| *n > 0.0)
 }
 
-/// A noise's ambient time: `rate` cells a second, coming back where its Repeat says.
-pub const fn noise_ambient(rate: f64) -> Ambient {
-    Ambient {
-        rate,
-        period: repeat_of,
-    }
+/// A noise's timing: `rate` cells a second at rest, `pace` at a Speed of 1, coming back where
+/// its Repeat says.
+pub const fn noise_timing(rate: f64, pace: f64) -> Timing {
+    Timing::repeating(rate, repeat_of).paced(pace)
 }
 
 /// A Repeat option's length as a WGSL literal, or `None` for Never.
@@ -416,10 +414,8 @@ pub fn repeat_wgsl(value: &str) -> Option<String> {
 /// added before Offset is, so a Time of `n` is a Time of zero to the bit, at any count.
 pub fn noise_time(repeat: Option<&str>) -> String {
     match repeat {
-        Some(n) => format!(
-            "loopCircle((whole_mod({{clock}}.x, {n}) + {{clock}}.y + {{phaseOffset}}) / {n}, {n})"
-        ),
-        None => "({clock}.x + {clock}.y + {phaseOffset})".to_string(),
+        Some(n) => format!("loopCircle(time_repeat({{clock}}, {n}, {{phaseOffset}}) / {n}, {n})"),
+        None => "time_unbounded({clock}, {phaseOffset})".to_string(),
     }
 }
 
@@ -447,13 +443,13 @@ node! {
     tooltip: "Smooth gradient noise. Scale sets the lattice size and Time walks through the \
               third dimension, half a cell a second; its value is the field the colors are \
               mixed along. Repeat makes the walk a circle that comes back.",
-    ambient: noise_ambient(0.5),
+    timing: noise_timing(0.5, 0.5),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
         VaryingNumber "scale" "Scale" = Control::num_log(10.0, 0.1, 100.0, 0.1, "/⬓"),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "contrast" "Contrast" = Control::num(1.0, 0.0, 5.0, 0.01, ""),
     ],
     options: [
@@ -500,14 +496,14 @@ node! {
     category: Generate,
     tooltip: "Gradient noise on a triangular lattice, which has fewer directional artifacts \
               than Perlin. Offset X and Y pan the field without moving the picture; it is still \
-              until a gear drives its Time.",
-    ambient: noise_ambient(0.0),
+              until its Speed or a gear drives it.",
+    timing: noise_timing(0.0, 0.5),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
         VaryingNumber "scale" "Scale" = Control::num_log(5.0, 0.1, 50.0, 0.1, "/⬓"),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "offsetX" "Offset X" = Control::num(0.0, -100.0, 100.0, 0.1, "⬓"),
         VaryingNumber "offsetY" "Offset Y" = Control::num(0.0, -100.0, 100.0, 0.1, "⬓"),
         VaryingNumber "contrast" "Contrast" = Control::num(1.0, 0.0, 5.0, 0.01, ""),
@@ -647,13 +643,13 @@ node! {
     tooltip: "Octaves of simplex noise summed at falling amplitude. Lacunarity is how much \
               finer each octave is, gain how much quieter; Ridged and Turbulence fold each \
               octave about its middle.",
-    ambient: noise_ambient(0.0),
+    timing: noise_timing(0.0, 0.5),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
         VaryingNumber "scale" "Scale" = Control::num_log(5.0, 0.1, 50.0, 0.1, "/⬓"),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "octaves" "Octaves" = Control::num(4.0, 1.0, 8.0, 1.0, ""),
         VaryingNumber "lacunarity" "Lacunarity" = Control::num(2.0, 1.0, 4.0, 0.1, "x"),
         VaryingNumber "gain" "Gain" = Control::num(0.5, 0.1, 1.0, 0.01, "x"),
@@ -700,16 +696,16 @@ node! {
     label: "Static",
     category: Generate,
     tooltip: "One random tone per cell of a square lattice. Time counts rolls, each one the \
-              whole field redrawn — still until a gear drives it; smoothness blurs each cell \
-              into its neighbors, and Repeat plays the same rolls again.",
-    ambient: noise_ambient(0.0),
+              whole field redrawn — still until its Speed or a gear drives it; smoothness \
+              blurs each cell into its neighbors, and Repeat plays the same rolls again.",
+    timing: noise_timing(0.0, 6.0),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
         VaryingNumber "seed" "Seed" = Control::num(0.0, 0.0, 1000.0, 1.0, ""),
         VaryingNumber "scale" "Scale" = Control::num_log(10.0, 1.0, 100.0, 0.1, "/⬓"),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "smoothness" "Smoothness" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
     ],
     options: [
@@ -735,9 +731,9 @@ node! {
     wgsl_common: varying(|node, ctx| {
         let roll = match repeat_wgsl(ctx.option(node, "repeat")) {
             Some(n) => format!(
-                "    let roll = floor_mod(floor(whole_mod({{clock}}.x, {n}) + {{clock}}.y + {{phaseOffset}}), {n});\n"
+                "    let roll = floor_mod(floor(time_repeat({{clock}}, {n}, {{phaseOffset}})), {n});\n"
             ),
-            None => "    let roll = floor({clock}.x + {clock}.y + {phaseOffset});\n".to_string(),
+            None => "    let roll = floor(time_unbounded({clock}, {phaseOffset}));\n".to_string(),
         };
         format!(
             "    let noiseScale = {{scale}};

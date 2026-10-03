@@ -18,17 +18,17 @@
 //! silvia's. **`mirror` and `polarcoords` guard what silvia leaves open** — the polar scale
 //! divides, and a control's range excludes zero where a cabled field does not.
 //! **`rotozoom` and `shakycam` read Time and Offset in their own cycle**, where silvia reads
-//! `u_time` inside the body: one cycle is the 20π over which silvia's rates line up — one set
-//! of zoom waves, one X wave and four Y waves — and ambient time runs it at one a minute,
-//! silvia's speeds of one rounded to whole seconds. Rotozoom's **Turns**, a whole number, is
-//! how many turns one cycle makes, so the node still comes back on every cycle; a sign turns
-//! it the other way and zero is zoom alone. See
+//! `u_time` inside the body: one cycle is the 20π over which silvia's rates line up — one set of
+//! zoom waves, one X wave and four Y waves — and Speed 1 or ambient time runs it at one a minute,
+//! silvia's speeds of one rounded to whole seconds. Rotozoom's **Turns**, a whole number, is how
+//! many turns one cycle makes, so the node still comes back on every cycle; a sign turns it the
+//! other way and zero is zoom alone. See
 //! `docs/decisions.md#silvias-other-seven-transforms-and-the-two-that-keep-time`.
 
 use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::{
-    Ambient, Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind,
+    Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
 };
 
 /// The center offset every transform shares.
@@ -468,11 +468,11 @@ node! {
               so a larger one pulls the picture away — the opposite sense of the Zoom node.",
     // "Sin Coefficient" does not fit the default 200.
     width: 240.0,
-    ambient: Ambient::periodic(1.0 / 60.0),
+    timing: Timing::periodic(1.0 / 60.0),
     inputs: [
         VaryingColor "input" "Input" at "rotozoomedUV" = Control::None,
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         UniformNumber "turns" "Turns" = Control::num(5.0, -10.0, 10.0, 1.0, ""),
         VaryingNumber "sinCoeff" "Sin Coefficient" = Control::num(1.0, -2.0, 2.0, 0.01, ""),
         VaryingNumber "cosCoeff" "Cos Coefficient" = Control::num(1.0, -2.0, 2.0, 0.01, ""),
@@ -486,7 +486,7 @@ node! {
     // before they are scaled, so an `f32` keeps its step however long the show. Zoom is
     // clamped positive, as silvia clamps it: a cabled coefficient reaches past the knob's
     // range, and a negative scale turns the picture inside out.
-    wgsl_common: "    let cycle = {clock}.y + {phaseOffset};
+    wgsl_common: "    let cycle = time_periodic({clock}, {phaseOffset});
     let wave = fract(cycle) * 20.0 * PI;
     var angle = fract(cycle * round({turns})) * 2.0 * PI;
     angle += sin(wave) * ({sinCoeff}) * 0.5;
@@ -516,17 +516,15 @@ node! {
     category: Transform,
     tooltip: "Slides the picture on four fixed waves, two per axis at rates that do not line \
               up. It is deterministic rather than noisy, which is what makes it read as a \
-              handheld camera rather than as static. Each axis has a Time and an Offset of \
-              its own, so Y can shake alone or on a gear of its own.",
+              handheld camera rather than as static. Each axis has a Time, a Speed and an \
+              Offset of its own, so Y can shake alone, at a speed or on a gear of its own.",
     // "Sin Coefficient" does not fit the default 200.
     width: 240.0,
-    ambient: Ambient::periodic(1.0 / 60.0),
+    timing_xy: Timing::periodic(1.0 / 60.0),
     inputs: [
         VaryingColor "input" "Input" at "shakenUV" = Control::None,
-        UniformNumber "clock" "Time X" = Control::None,
-        VaryingNumber "phaseOffset" "Offset X" = crate::nodes::phasor::offset_control(),
-        UniformNumber "clockY" "Time Y" = Control::None,
-        VaryingNumber "phaseOffsetY" "Offset Y" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "sinCoeff" "Sin Coefficient" = Control::num(1.0, -2.0, 2.0, 0.01, ""),
         VaryingNumber "cosCoeff" "Cos Coefficient" = Control::num(1.0, -2.0, 2.0, 0.01, ""),
         VaryingNumber "amplitude" "Amplitude" = Control::num(0.1, 0.0, 1.0, 0.01, ""),
@@ -535,8 +533,8 @@ node! {
     // 0.8 and 1.2 on Y — are silvia's, and they are what the shake sounds like. Each axis
     // reads a Time and an Offset of its own, so Y can run alone or on a gear of its own;
     // unplugged, both read the one ambient time and the shake is hers.
-    wgsl_common: "    let tx = fract({clock}.y + {phaseOffset}) * 20.0 * PI;
-    let ty = fract({clockY}.y + {phaseOffsetY}) * 20.0 * PI;
+    wgsl_common: "    let tx = fract(time_periodic({clock}, {phaseOffset})) * 20.0 * PI;
+    let ty = fract(time_periodic({clockY}, {phaseOffsetY})) * 20.0 * PI;
     let amplitude = {amplitude};
     var xOffset = sin(tx) * ({sinCoeff}) * amplitude;
     xOffset += cos(tx * 0.7) * ({cosCoeff}) * amplitude * 0.5;

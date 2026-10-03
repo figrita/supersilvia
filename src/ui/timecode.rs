@@ -187,7 +187,7 @@ fn time(ui: &mut Ui, playhead: f64, height: f32, theme: &Theme) {
         FontId::monospace(theme::FONT_BASE),
         ink(ui, theme),
     );
-    response.on_hover_text("Ambient time: the playhead every node reads unless a gear drives it");
+    response.on_hover_text("Ambient time: the playhead every node keeps time by");
 }
 
 #[cfg(test)]

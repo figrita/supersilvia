@@ -642,6 +642,20 @@ fn add_to(app: &mut App, slug: &'static str) -> NodeId {
 }
 
 fn cable(app: &mut App, from: PortRef, to: PortRef) {
+    // A clock cabled into a Time: the node loops on it rather than running free.
+    if supersilvia::nodes::is_time(to.key)
+        && app
+            .graph()
+            .get(to.node)
+            .is_some_and(|n| n.def.timing.is_some())
+    {
+        app.apply(Command::SetOption {
+            node: to.node,
+            key: "clockMode",
+            value: "loop".to_string(),
+        })
+        .unwrap();
+    }
     app.apply(Command::Connect { from, to }).expect("legal");
 }
 

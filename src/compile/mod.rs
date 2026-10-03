@@ -364,10 +364,11 @@ impl<'a> CompileContext<'a> {
     /// a prelude global is that global; anything else is a type-appropriate fallback.
     pub fn input(&mut self, id: NodeId, key: &'static str, uv: &str) -> String {
         // A Time is a count, `vec2f(whole, fraction)`: cabled, whatever arrives, split by the
-        // synth; unplugged, the ambient reading the synth publishes under the input's own key.
+        // synth; unplugged, what the synth publishes under the input's own key — the ambient
+        // reading, or a free-running node's own playhead (`nodes::timing`).
         if crate::nodes::is_time(key)
             && let Some(node) = self.graph.get(id)
-            && node.def.ambient.is_some()
+            && node.def.timing.is_some()
         {
             return match self.graph.source_of(PortRef::new(id, key)) {
                 Some(src) => self.published_count(src.node, src.key),

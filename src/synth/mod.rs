@@ -118,6 +118,9 @@ pub struct Synth {
     /// Where each node was on the transport when it last ticked, so its next tick's advance
     /// is its own: the whole gap for a node that slept on a closed tab.
     seen: HashMap<NodeId, crate::transport::Seen>,
+    /// Every free-running node's own playheads: its Speed integrated against its advance, the
+    /// one place a node's time is kept (`nodes::timing::Pace`). Dropped when it loops.
+    paces: HashMap<NodeId, crate::nodes::timing::Pace>,
     /// The same, for the Main Input's clip, which ticks every tick.
     main_input_seen: Option<crate::transport::Seen>,
     /// One tick per this many milliseconds, from the editor's display or the preference.
@@ -395,6 +398,7 @@ impl Default for Synth {
             clock: Clock::new(),
             transport: Transport::default(),
             seen: HashMap::new(),
+            paces: HashMap::new(),
             main_input_seen: None,
             interval_ms: thread::DEFAULT_INTERVAL_MS,
             cpu: HashMap::new(),
@@ -820,6 +824,8 @@ impl Synth {
         self.frames.retain(|p, _| graph.get(p.node).is_some());
         self.sims.retain(|p, _| graph.get(p.node).is_some());
         self.seen.retain(|id, _| graph.get(*id).is_some());
+        self.paces
+            .retain(|id, _| graph.get(*id).is_some_and(crate::nodes::timing::runs_free));
         // Edges do not survive a frame. A consumer that wants to remember one remembers it
         // itself, which is what keeps a stale event from firing twice.
         self.actions.clear();
@@ -877,20 +883,47 @@ impl Synth {
             };
             let def = node.def;
             let started = measuring.then(meter::thread_cpu);
-            // Ambient time, for a node that draws with it and has nothing in its Time: the
-            // playhead at the node's own rate, published as a count under the input's key so a
-            // shader reads it as a uniform, its whole part and its fraction. No node integrates
-            // it; a CPU node reads the same through `TickContext::clock`, at a rate a clip
-            // works out from its own length. A node with a Time per axis reads the same under
-            // each that is unplugged.
-            if let Some(ambient) = &def.ambient
-                && def.cpu.is_none()
-            {
-                for key in [crate::nodes::TIME, crate::nodes::TIME_Y] {
-                    let time = PortRef::new(id, key);
-                    if def.input(key).is_some() && graph.source_of(time).is_none() {
-                        self.counts.insert(time, now.playhead * ambient.rate);
+            // This node's own reading of the transport: the advance since it last ticked, which
+            // is the whole gap for a node waking on a reopened tab.
+            let own = (def.cpu.is_some() || def.timing.is_some()).then(|| {
+                let time = self.transport.time_since(self.seen.get(&id).copied());
+                self.seen.insert(id, self.transport.seen());
+                time
+            });
+            // Where a node that moves with time is: running free, its Speed integrated here into
+            // a playhead of its own; looping, the playhead at its rest rate where nothing is in
+            // its Time. A node that draws reads it as a count published under each Time's key, a
+            // CPU node through `TickContext::cycle`. See `nodes::timing`.
+            let mut free = None;
+            if let (Some(timing), Some(time)) = (def.timing, own) {
+                let running = crate::nodes::timing::runs_free(node);
+                let mut pace = running.then(|| self.paces.entry(id).or_default());
+                for axis in timing.axes() {
+                    let key = PortRef::new(id, axis.time);
+                    let at = match pace.as_deref_mut() {
+                        Some(pace) => {
+                            let speed = crate::nodes::cpu::number(
+                                graph,
+                                &self.uniforms,
+                                PortRef::new(id, axis.speed),
+                            );
+                            let at = pace.step(axis.index, f64::from(speed), &time).to;
+                            if axis.index == 0 {
+                                free = Some(at);
+                            }
+                            Some(at * timing.pace)
+                        }
+                        None => graph
+                            .source_of(key)
+                            .is_none()
+                            .then_some(time.playhead * timing.rate),
+                    };
+                    if let Some(at) = at.filter(|_| def.cpu.is_none()) {
+                        self.counts.insert(key, at);
                     }
+                }
+                if !running {
+                    self.paces.remove(&id);
                 }
             }
             // A dual output is the one CPU work a node with no `cpu` half has: its formula
@@ -946,10 +979,7 @@ impl Synth {
                 .cpu
                 .entry(id)
                 .or_insert_with(|| (def.slug, (cpu.create)()));
-            // This node's own reading: the advance since it last ticked, which is the whole
-            // gap for a node waking on a reopened tab.
-            let time = self.transport.time_since(self.seen.get(&id).copied());
-            self.seen.insert(id, self.transport.seen());
+            let time = own.unwrap_or(now);
             let mut ctx = TickContext::new(
                 graph,
                 &mut self.uniforms,
@@ -971,7 +1001,8 @@ impl Synth {
                 time.step(limit),
                 elapsed,
                 time,
-            );
+            )
+            .running_free(id, free);
             state.1.tick(id, &mut ctx);
             if let Some(started) = started {
                 let took = meter::thread_cpu().saturating_sub(started);
@@ -1409,8 +1440,10 @@ impl Synth {
         self.scopes.clear();
         self.captions.clear();
         self.playheads.clear();
-        // Every node is born again, and a node born takes the tick it is born on as its first.
+        // Every node is born again, and a node born takes the tick it is born on as its first:
+        // a free-running one where the playhead puts it.
         self.seen.clear();
+        self.paces.clear();
         // A reading from live play would feed an `autogain` on frame zero.
         self.readbacks.clear();
         self.thumbs.clear();

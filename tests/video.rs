@@ -181,6 +181,12 @@ fn geared(app: &mut App, id: NodeId, ratio: f32) -> NodeId {
         value: ControlValue::Float(ratio),
     })
     .unwrap();
+    app.apply(Command::SetOption {
+        node: id,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(gear, "cycles"),
         to: PortRef::new(id, supersilvia::nodes::TIME),
@@ -215,7 +221,7 @@ fn offset_is_added_to_time_in_either_direction() {
     .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(slew, "output"),
-        to: PortRef::new(id, supersilvia::nodes::phasor::OFFSET),
+        to: PortRef::new(id, supersilvia::nodes::timing::OFFSET),
     })
     .unwrap();
     // Half a clip on: let the slew arrive and the frame land.
@@ -353,6 +359,12 @@ fn a_held_clip_stays_held_past_1260() {
             })
             .unwrap();
         }
+        app.apply(Command::SetOption {
+            node: id,
+            key: "clockMode",
+            value: "loop".to_string(),
+        })
+        .unwrap();
         app.apply(Command::Connect {
             from: PortRef::new(source, port),
             to: PortRef::new(id, supersilvia::nodes::TIME),

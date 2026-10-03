@@ -93,7 +93,7 @@ fn tunnel3d1_output(uv: vec2f) -> vec4f {
     let p = uv - vec2f(vignette8_mask(uv), vignette9_mask(uv));
     let twist = vignette5_mask(uv);
     let tubeRadius = max(vignette6_mask(uv), 1e-3);
-    let flight = whole_mod(u.u_count_tunnel3d1_clock.x, 64.0) + u.u_count_tunnel3d1_clock.y + vignette4_mask(uv);
+    let flight = time_repeat(u.u_count_tunnel3d1_clock, 64.0, vignette4_mask(uv));
     let camZ = flight - 64.0 * floor(flight / 64.0);
     let origin = vec3f(tunnelPathSine(camZ, twist), camZ);
     let lookZ = camZ + 0.5;

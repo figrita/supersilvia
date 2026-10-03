@@ -1459,6 +1459,12 @@ fn a_random_fire_closes_its_gate_when_stopped() {
 /// start: the clock a sequencer plays on.
 fn driven(app: &mut App, node: NodeId) -> NodeId {
     let clock = add_to(app, "mastergear");
+    app.apply(Command::SetOption {
+        node,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(clock, "cycles"),
         to: PortRef::new(node, supersilvia::nodes::TIME),
@@ -1630,6 +1636,83 @@ fn lane_edges(app: &mut App, id: NodeId, frames: usize) -> [Vec<(Edge, f32)>; 4]
     out
 }
 
+/// **Running free, a sequencer steps forwards and backwards on its Speed, and never across a
+/// seek.** At Speed 1, a bar every two seconds, step 0 then step 1 open lanes 1 and 2 in that
+/// order, each closed a gate later; at Speed −1 the steps come back in reverse, lane 2's step
+/// before lane 1's; a seek lands without playing what it jumped over.
+#[test]
+fn a_free_sequencer_steps_both_ways_on_its_speed_and_not_across_a_seek() {
+    let (mut app, id) = sequencer_with(&["x...............", ".x.............."]);
+    let speed = |app: &mut App, v: f32| {
+        app.apply(Command::SetControl {
+            node: id,
+            key: "speed",
+            value: ControlValue::Float(v),
+        })
+        .unwrap();
+    };
+    app.transport(supersilvia::transport::Command::Seek(0.0));
+    let mut t = 0.0;
+    app.tick_at(t);
+    // The lanes' downs over `frames` ticks of a sixtieth, in the order they fell.
+    let downs = |app: &mut App, t: &mut f64, frames: u32| {
+        let mut out = Vec::new();
+        for _ in 0..frames {
+            *t += 1.0 / 60.0;
+            app.tick_at(*t);
+            let mut fired: Vec<(f32, usize)> = (0..2)
+                .flat_map(|lane| {
+                    let port = PortRef::new(id, ["lane1", "lane2"][lane]);
+                    app.edges(port)
+                        .iter()
+                        .filter(|e| e.is_down())
+                        .map(move |e| (e.at, lane + 1))
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+            fired.sort_by(|a, b| a.0.total_cmp(&b.0));
+            out.extend(fired.into_iter().map(|(_, lane)| lane));
+        }
+        out
+    };
+    assert!(
+        downs(&mut app, &mut t, 30).is_empty(),
+        "a new one stands still"
+    );
+
+    speed(&mut app, 1.0);
+    // A quarter of a second: steps 0 and 1.
+    assert_eq!(
+        downs(&mut app, &mut t, 15),
+        [1, 2],
+        "forwards, step 0 then step 1"
+    );
+    // On through the rest of the bar and into the next: step 16 and 17, lanes 1 and 2.
+    assert_eq!(downs(&mut app, &mut t, 120), [1, 2]);
+
+    // A seek a third of a second on, between two steps, plays nothing on the way.
+    t += 0.33;
+    app.transport(supersilvia::transport::Command::Seek(t));
+    app.tick_at(t);
+    for lane in ["lane1", "lane2"] {
+        assert!(
+            app.edges(PortRef::new(id, lane))
+                .iter()
+                .all(|e| !e.is_down()),
+            "a seek fires nothing"
+        );
+    }
+
+    speed(&mut app, -1.0);
+    // Back over steps 18 and 17 and 16: lane 2's step 17 comes before lane 1's step 16.
+    let back = downs(&mut app, &mut t, 60);
+    assert_eq!(
+        back,
+        [2, 1],
+        "backwards, the steps come in reverse: {back:?}"
+    );
+}
+
 /// Driven by a Master Gear, the playhead walks the sixteen a bar: a lit cell opens its lane on
 /// its own step and the gate closes it half a step later, and an unlit lane says nothing. The
 /// first column is the first thing heard, on the tick after the bar starts.
@@ -1747,6 +1830,12 @@ fn seconds_gear_into(app: &mut App, node: NodeId, output: &'static str) -> NodeI
         node: clock,
         key: "length",
         value: ControlValue::Float(1.0),
+    })
+    .unwrap();
+    app.apply(Command::SetOption {
+        node,
+        key: "clockMode",
+        value: "loop".to_string(),
     })
     .unwrap();
     app.apply(Command::Connect {
@@ -2085,6 +2174,12 @@ fn a_time_moved_onto_another_clock_lands_on_it() {
     for _ in 0..59 {
         app.tick(FRAME);
     }
+    app.apply(Command::SetOption {
+        node: id,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(fast, "cycles"),
         to: PortRef::new(id, supersilvia::nodes::TIME),

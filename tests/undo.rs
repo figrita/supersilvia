@@ -67,6 +67,76 @@ fn undo_restores_a_deleted_node_with_its_edges_and_controls() {
     );
 }
 
+/// **A time mode switched is one step, its dropped cable with it.** A Perlin looping on a
+/// gear's Cycles switched to Free drops the gear's cable from its Time, since a growing count
+/// would race off as a speed; one undo puts the mode and the cable back together, and one redo
+/// takes them both again. Back in Loop mode, an LFO cabled into Speed is dropped the same way.
+/// A cable cannot land on the row a mode puts away at all.
+#[test]
+fn a_time_mode_switched_drops_the_cable_it_puts_away_in_one_step() {
+    let mut app = App::headless();
+    let gear = add(&mut app, "mastergear");
+    let lfo = add(&mut app, "oscillator");
+    let perlin = add(&mut app, "perlin");
+    let mode = |app: &App| app.graph().get(perlin).unwrap().options["clockMode"].clone();
+    let time = PortRef::new(perlin, "clock");
+    let speed = PortRef::new(perlin, "speed");
+    assert_eq!(mode(&app), "free", "a new node runs free");
+    assert!(matches!(
+        app.apply(Command::Connect {
+            from: PortRef::new(gear, "cycles"),
+            to: time,
+        }),
+        Err(CommandError::Refused(
+            supersilvia::graph::ConnectError::Inactive(_)
+        ))
+    ));
+
+    let set = |app: &mut App, value: &str| {
+        app.apply(Command::SetOption {
+            node: perlin,
+            key: "clockMode",
+            value: value.to_string(),
+        })
+        .unwrap();
+    };
+    set(&mut app, "loop");
+    wire(&mut app, (gear, "cycles"), (perlin, "clock"));
+    set(&mut app, "free");
+    assert_eq!(mode(&app), "free");
+    assert_eq!(
+        app.graph().source_of(time),
+        None,
+        "the switch dropped the gear"
+    );
+
+    assert!(app.undo());
+    assert_eq!(mode(&app), "loop", "one undo is the mode");
+    assert_eq!(
+        app.graph().source_of(time),
+        Some(PortRef::new(gear, "cycles")),
+        "and the cable with it"
+    );
+    assert!(app.redo());
+    assert_eq!(
+        (mode(&app).as_str(), app.graph().source_of(time)),
+        ("free", None)
+    );
+
+    wire(&mut app, (lfo, "output"), (perlin, "speed"));
+    set(&mut app, "loop");
+    assert_eq!(
+        app.graph().source_of(speed),
+        None,
+        "Loop drops a Speed's cable"
+    );
+    assert!(app.undo());
+    assert_eq!(
+        app.graph().source_of(speed),
+        Some(PortRef::new(lfo, "output"))
+    );
+}
+
 #[test]
 fn undo_restores_a_connection_that_was_replaced() {
     let mut app = App::headless();

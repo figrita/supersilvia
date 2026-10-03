@@ -14,12 +14,12 @@
 //! one node whose whole job is to be looked at, and fifteen rows with nothing drawn was the
 //! wrong shape for it. What the cells cost is what a cable into Amp G could have done, which
 //! is what silvia never had either. **Time and Offset shift the palette**, in cycles of it:
-//! still at rest, as silvia's Cycle of zero is, with Offset placing it and a gear cabled into
-//! Time drifting it.
+//! still on a new node, as silvia's Cycle of zero is, with Offset placing it and a Speed turned
+//! up, a shift every ten seconds at 1, or a gear cabled into Time drifting it.
 
-use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
+use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::node;
-use crate::nodes::{Ambient, Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
+use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind, Timing};
 
 /// The twelve, as the grid lays them out: one term a row, R, G and B across.
 ///
@@ -59,12 +59,10 @@ node! {
     category: Color,
     tooltip: "Turns a number into a color with one cosine per channel: bias + amp · \
               cos(2π(freq · t + phase)). Offsetting the three phases is what makes a ramp \
-              run through the spectrum; a gear in Time drifts all three.",
-    ambient: Ambient::periodic(0.0),
+              run through the spectrum; its Speed or a gear in Time drifts all three.",
+    timing: Timing::periodic(0.0).paced(0.1),
     inputs: [
         VaryingNumber "t" "Input" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
     ],
     hidden: [
         "biasR" "Bias R" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
@@ -86,7 +84,7 @@ node! {
     let bias = vec3f({biasR}, {biasG}, {biasB});
     let amp = vec3f({ampR}, {ampG}, {ampB});
     let freq = vec3f({freqR}, {freqG}, {freqB});
-    let phase = vec3f({phaseR}, {phaseG}, {phaseB}) + ({clock}.y + {phaseOffset});
+    let phase = vec3f({phaseR}, {phaseG}, {phaseB}) + time_periodic({clock}, {phaseOffset});
     let rgb = bias + amp * cos(2.0 * PI * (freq * t + phase));
     return vec4f(clamp(rgb, vec3f(0.0), vec3f(1.0)), 1.0);",
     ],

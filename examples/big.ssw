@@ -55,7 +55,9 @@
         "y": 520.0
       },
       "controls": {},
-      "options": {}
+      "options": {
+        "clockMode": "loop"
+      }
     },
     {
       "id": 4,

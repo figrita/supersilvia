@@ -182,9 +182,10 @@ never reflows the layout. Pause and back to zero are squares the height of the b
 
 **Back to zero is a seek.** Every gear is born again at the start of its cycle, so the whole
 show starts over together, and a stateful node — a simulation, a slew, a counter — carries
-across it as it carries across any seek. There is no speed, no loop and no typed seek: a node
-that should run slower or faster has a gear in its Time, and a loop is what a Master Gear's
-caption says ([the gear region](#the-gear-region)).
+across it as it carries across any seek, and a free-running node moves by its Speed times the
+jump. There is no speed, no loop and no typed seek on the transport: a node that should run
+slower or faster has its own Speed, or a gear in its Time in Loop mode, and a loop is what a
+Master Gear's caption says ([the gear region](#the-gear-region)).
 
 **While a render runs the readout is disabled**: the render owns the playhead, the readout
 shows the render's time, neither button answers and `F8` does nothing. When the render
@@ -1990,7 +1991,7 @@ only the kinds that can take the cable, with the cable still drawn to where it w
 The kind chosen lands wired, as one `Command::AddConnected` and so one undo step: out of an
 output, the cable lands on the new node's first input that takes it and the node stands to
 the right of the pointer; dragged back out of an input, it leaves the new node's first output
-that feeds it and the node stands to the left. Time and Offset are asked last, since a number
+that feeds it and the node stands to the left. The time rows are asked last, since a number
 let go in the open means a parameter more often than a clock. `Escape` or a click away
 dismisses the browser and the cable with it, and the browser carries no Paste row here, a
 paste being no answer to where a cable goes. Where no kind can take the cable, nothing opens.
@@ -2013,7 +2014,7 @@ it where it was dropped.
 (`nodes::attach::splice_ports`): a selection has no one input and one output to put into a
 cable, and a node already patched would be rewired by a drop meant only to move it. Which of
 its ports carry the cable is asked of a copy of the graph with the old cable out and both new
-ones in, inputs and outputs in declaration order with Time and Offset last; the answer is
+ones in, inputs and outputs in declaration order with the time rows last; the answer is
 kept for the node and the cable under the hand and forgotten when the hand opens, since a
 drag writes positions and nothing else.
 
@@ -2308,18 +2309,20 @@ cannot land on either input, so both draw as any unconnected `UniformNumber` inp
 hand sees what may go there before it drags anything at it. See
 [nodes.md](nodes.md#dual-outputs).
 
-**Time is a diamond with no knob.** Every node that moves with time carries two rows, **Time**
-and **Offset** ([nodes.md](nodes.md#time-and-offset)). Time's row is its label and its
-diamond and nothing else: unplugged, the node reads ambient time — the playhead [the time
-readout](#the-time-readout) shows — at a rate of its own that no hand dials, and a cable,
-usually a gear's Cycles, replaces it. A field cannot land there, since Time is one number
-per node. **Offset** is an ordinary s-number from 0 to 1, one of the node's own cycles,
-added every frame; on a node that draws it takes a field too, so a radial cabled into it
-makes a ripple. **No row anywhere is a speed**: a node that should run slower or faster has
-a Ratio Gear in its Time. A stateful node — a simulation, a counter, an autoexposure — steps
-on the transport and keeps its pace in a row of its own, **Rate** on the Slime Mold, the
-Cellular Automata and the Smooth Counter, **Response** on Auto Exposure, **Drift** on
-Star Gate.
+**Time is a diamond with no knob, and Speed is a knob.** Every node that moves with time
+carries its time rows ([nodes.md](nodes.md#timing)): **Time**, **Speed** and **Offset**, one
+of the first two at a time by the node's mode. In **Free** mode, the default, the row is
+**Speed**, an ordinary s-number from −4 to 4 with a port: 1 is the node's own pace, 0 stands
+it still and a negative number runs it backwards, and a cable — an LFO, an envelope — changes
+how fast it runs. In **Loop** mode the row is **Time**, its label and its diamond and nothing
+else: unplugged, the node reads ambient time — the playhead [the time readout](#the-time-readout)
+shows — at a rate of its own, and a cable, usually a gear's Cycles, replaces it. A field cannot
+land on either, since each is one number per node. **Offset** is an ordinary s-number from 0
+to 1, one of the node's own cycles, added every frame in both modes; on a node that draws it
+takes a field too, so a radial cabled into it makes a ripple. A stateful node — a simulation, a
+counter, an autoexposure — steps on the transport and keeps its pace in a row of its own,
+**Rate** on the Slime Mold, the Cellular Automata and the Smooth Counter, **Response** on Auto
+Exposure, **Drift** on Star Gate.
 
 **Offset means that input alone.** Where another node's row said Offset for something else,
 it says what it is: the Oscillator's DC level is **Level**, the Clock's hours from UTC
@@ -2541,17 +2544,25 @@ a band and has nowhere to hang a heading of its own, so the node names each opti
 `widgets::heading_row`, so they cannot drift apart by a point. A registry test holds every
 heading option to having a region or a row heading to sit on.
 
-**Time and Offset fold under a Time heading that starts closed**, on every node that moves
-with time (`nodes::SHOW_TIME`, option `time`): a node reads ambient time until something is
-cabled into its Time, and its Offset is set once and left, so the two rows are the least read
-on the node. The bar is `canvas::Row::TimeHeading`, in the input block where Time's row is,
-over Time and the Offset row under it, which a registry test holds every such node to; it
-takes no turn in the banding, and the slabs either side round their corners against it as
-against a seam. **A folded port keeps its cable**: a Time or an Offset with a cable on it
+**The time rows fold under a Timing heading that starts closed**, on every node that moves
+with time (`nodes::timing::HEADING`, option `timing`): a new node runs at its own pace until a
+hand opens it, and its Offset is set once and left, so they are the least read rows on the
+node. The bar is `canvas::Row::TimingHeading`, in the input block where the first time row
+is, over the rows under it, which a registry test holds every such node to; it takes no turn
+in the banding, and the slabs either side round their corners against it as against a seam.
+**The mode is on the bar**: two segments, **Free** and **Loop**, at its right end
+(`widgets::heading_segments`, for the option `OptionDef::on_heading` names, `clockMode`),
+drawn whether the heading is open or closed and registered after the bar, so a click on a
+segment switches the mode and never folds the rows. The lit segment is the mode the node is
+in. Switching shows Speed where Time stood, or Time where Speed stood, at the same height —
+a Time row is as tall as the Speed knob it stands in for — so the node keeps its height, and
+drops the cable in the row that goes away in the same undo step; a cable can never land on the
+row the mode puts away. **A folded port keeps its cable**: a time row with a cable on it
 gathers on the bar's left edge, so the cable is drawn into the heading that says the rows are
 there, and one with nothing on it has no dot, as an output a tick hides has none — to cable a
-folded Time, open its heading. `node!` gives every node it declares with an `ambient:` the
-heading; a hand-written moving node declares it itself.
+folded row, open its heading. Every node that declares `timing` gets the heading and its mode
+from `nodes::timing`: `node!` writes them, and a hand-written moving node takes them from
+`timing::options!`.
 
 Which options are ticks and which are headings is **the definition's** —
 `NodeDef::checks` and `NodeDef::headings`, counted off its options and read through

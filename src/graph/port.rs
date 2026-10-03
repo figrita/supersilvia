@@ -227,6 +227,9 @@ pub enum ConnectError {
         from: NodeId,
         to: NodeId,
     },
+    /// The input is the time row its node's mode puts away — a Time while the node runs free,
+    /// a Speed while it loops — which has no row to land on (`nodes::is_inactive`).
+    Inactive(PortRef),
 }
 
 impl std::fmt::Display for ConnectError {
@@ -247,6 +250,11 @@ impl std::fmt::Display for ConnectError {
             Self::WouldCycle { from, to } => {
                 write!(f, "connecting {from:?} into {to:?} would create a cycle")
             }
+            Self::Inactive(p) => write!(
+                f,
+                "{:?}.{} is put away by the node's time mode",
+                p.node, p.key
+            ),
         }
     }
 }

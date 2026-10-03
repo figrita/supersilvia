@@ -122,7 +122,7 @@ impl CanvasFrame<'_> {
     }
 
     /// Where a node that moves with time is this frame, in its own cycles: what its Time read
-    /// — the cable's, or the ambient reading published under the input's own key — taken
+    /// — the cable's, or what the synth published under the input's own key — taken
     /// modulo the node's period in `f64` where it arrived as a count, so it is as precise at
     /// any count, with its Offset knob added. `None` for a node that does not move with time,
     /// and before the first tick. A field in Offset has no one value, and adds nothing here.
@@ -131,15 +131,15 @@ impl CanvasFrame<'_> {
     /// Shaky Cam draws no region that reads where it is.
     fn time_of(&self, id: NodeId) -> Option<f32> {
         let node = self.graph.get(id)?;
-        let ambient = node.def.ambient?;
+        let timing = node.def.timing?;
         let time = PortRef::new(id, crate::nodes::TIME);
         let at = self.graph.source_of(time).unwrap_or(time);
         let clock = self
             .uniforms
             .count(at)
             .or_else(|| self.uniforms.get(at).map(f64::from))?;
-        let clock = crate::nodes::phasor::fraction(clock, ambient.wrap(node)) as f32;
-        let offset = PortRef::new(id, crate::nodes::phasor::OFFSET);
+        let clock = crate::nodes::phasor::fraction(clock, timing.wrap(node)) as f32;
+        let offset = PortRef::new(id, crate::nodes::timing::OFFSET);
         let knob = match (self.graph.source_of(offset), node.controls.get(offset.key)) {
             (None, Some(crate::graph::ControlValue::Float(v))) => *v,
             _ => 0.0,

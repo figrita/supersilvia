@@ -15,7 +15,7 @@
 //! there.
 
 use crate::graph::{Graph, NodeId, PortRef, WorkspaceId};
-use crate::nodes::{REGISTRY, TIME, phasor};
+use crate::nodes::{REGISTRY, is_time_row};
 use emath::Pos2;
 
 /// One kind a loose cable could land on, and the port on it the cable would take.
@@ -31,9 +31,9 @@ pub struct Taker {
 ///
 /// A fresh node of each kind is put on a copy of `graph` and asked [`Graph::can_connect`]:
 /// a fresh node has no cables, so what can refuse it is the cable's own type against the
-/// port's, and an action against data. **Time and Offset come last**, because a number let go
+/// port's, and an action against data. **The time rows come last**, because a number let go
 /// in the open means a parameter more often than a clock, and a node that moves with time
-/// lists those two first.
+/// may list them first.
 pub fn takers(graph: &Graph, end: PortRef, workspace: WorkspaceId) -> Vec<Taker> {
     let Some(node) = graph.get(end.node) else {
         return Vec::new();
@@ -54,7 +54,7 @@ pub fn takers(graph: &Graph, end: PortRef, workspace: WorkspaceId) -> Vec<Taker>
         } else {
             &fresh.outputs
         };
-        let folded = |key: &str| key == TIME || key == phasor::OFFSET;
+        let folded = |key: &str| def.timing.is_some() && is_time_row(key);
         let takes = |key: &'static str| {
             let made = PortRef::new(id, key);
             let checked = if from_output {
@@ -86,7 +86,7 @@ pub fn takers(graph: &Graph, end: PortRef, workspace: WorkspaceId) -> Vec<Taker>
 ///
 /// Only a node with no cables of its own is offered, so a splice never quietly rewires
 /// something that was already patched. Each pairing is tried on a copy with the old cable
-/// taken out and both new ones landed, in declaration order with Time and Offset last, for the
+/// taken out and both new ones landed, in declaration order with the time rows last, for the
 /// reason [`takers`] gives — so the answer is the graph's, a dual node's flip included.
 pub fn splice_ports(
     graph: &Graph,
@@ -105,7 +105,7 @@ pub fn splice_ports(
     {
         return None;
     }
-    let folded = |key: &str| key == TIME || key == phasor::OFFSET;
+    let folded = |key: &str| n.def.timing.is_some() && is_time_row(key);
     let ordered = |ports: &[crate::graph::PortDef]| -> Vec<&'static str> {
         ports
             .iter()

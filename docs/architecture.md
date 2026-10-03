@@ -719,8 +719,10 @@ There is one clock. **The transport is a coordinate system over it**, not a time
 a playhead `T` in seconds and a play bit, read as
 `T = T_anchor + playing × (elapsed − elapsed_anchor)` and re-anchored on every play, pause and
 seek. It has no speed and no loop. The playhead is **ambient time**: a node that moves with
-time reads it at its own rate, `Time + Offset` with nothing kept, and a gear — the one place a
-rate is set — is a coordinate system over *it*, integrating how far the playhead moved. When audio is running, the authority for the
+time reads it at its own rate in Loop mode, `Time + Offset` with nothing kept, or runs free on
+its Speed, which the synth integrates against how far the playhead moved, and a gear — where a
+rate several nodes share is set — is a coordinate system over *it* the same way
+(`nodes::timing`). When audio is running, the authority for the
 clock becomes the device's sample counter rather than the system clock — *who holds it*
 changes, the number of clocks does not. [cpu.md](cpu.md#the-transport) has the per-node
 reading.

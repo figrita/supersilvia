@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A video file, as a texture, played by its Time — ambient time or a gear's — with Offset
-//! added.
+//! A video file, as a texture, played by its Time — its own Speed, ambient time or a gear's —
+//! with Offset added.
 //!
 //! The file is transcoded on first use into all-intra H.264 in the cache (`video/clip.rs`),
 //! so every frame is reachable at the same cost. Position is the primitive: each tick the
 //! node decides which frame it wants.
 //!
-//! **A clip is an oscillator whose shape is a frame lookup.** One cycle is one play of the
-//! clip. **Time** counts plays: unplugged it is ambient time at the clip's native speed, one
-//! play every clip length; a gear cabled in replaces it, so a Ratio Gear at `-×1` plays it
-//! backwards and one at ×2 twice as fast. **Offset** is added, 0 to 1 across the clip, and the
-//! Loop option wraps the sum or, at Hold, clamps it to one play. A slow wave on Offset scratches
-//! around the playing clip. The frame is `round(position × frames)`, so the same position is
-//! the same frame however it was reached, and the node keeps no position of its own: a hand on
-//! the scrubber moves Offset so the sum lands where it was dropped.
+//! **A clip is an oscillator whose shape is a frame lookup.** One cycle is one play of the clip.
+//! **Time** counts plays (`TickContext::cycle_at`): at Speed 1, or in Loop mode unplugged, the
+//! clip's native speed, one play every clip length, so Speed −1 plays it backwards and 2 twice as
+//! fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at `-×1` backwards and one at ×2
+//! twice as fast. **Offset** is added, 0 to 1 across the clip, and the Loop option wraps the sum
+//! or, at Hold, clamps it to one play. A slow wave on Offset scratches around the playing clip. The
+//! frame is `round(position × frames)`, so the same position is the same frame however it was
+//! reached, and the node keeps no position of its own: a hand on the scrubber moves Offset so the
+//! sum lands where it was dropped.
 //!
 //! **A render waits for its frame.** Live, the picture is whatever the decoder has delivered,
 //! a tick late after a jump; in a render the stepper holds the frame until the one asked for
@@ -31,8 +32,7 @@ use crate::audio::{self, bands};
 use crate::graph::NodeId;
 use crate::graph::PortType::{UniformNumber, VaryingColor};
 use crate::nodes::{
-    Category, Control, CpuDef, CpuNode, Edge, Frame, InputDef, NodeDef, OptionDef, OutputDef,
-    OutputKind, TickContext,
+    Category, CpuDef, CpuNode, Edge, Frame, NodeDef, OptionDef, OutputDef, OutputKind, TickContext,
 };
 use crate::video::clip::{self, Codec, Player, Settings, Transcode};
 use std::path::{Path, PathBuf};
@@ -44,24 +44,14 @@ pub static DEF: NodeDef = NodeDef {
     category: Category::Source,
     icon: "🎞",
     label: "Video",
-    tooltip: "A video file. Transcoded once so any frame is reachable; plays at its own speed, \
-              or as a gear cabled into Time plays it, and Offset is added to where that is.",
-    ambient: Some(AMBIENT),
+    tooltip: "A video file. Transcoded once so any frame is reachable; plays at its own speed \
+              times its Speed, or as a gear cabled into Time plays it, and Offset is added to \
+              where that is.",
+    timing: Some(TIMING),
     inputs: crate::audio_inputs![
-        InputDef {
-            key: crate::nodes::TIME,
-            label: "Time",
-            ty: UniformNumber,
-            // No knob: unplugged, Time is ambient time at the clip's own speed.
-            control: Control::None,
-        },
-        InputDef {
-            key: crate::nodes::phasor::OFFSET,
-            label: "Offset",
-            ty: UniformNumber,
-            // In plays of the clip, 0 to 1 across it, added to Time.
-            control: crate::nodes::phasor::offset_control(),
-        },
+        crate::nodes::timing::time_row(TIMING, 0),
+        crate::nodes::timing::speed_row(TIMING, 0),
+        crate::nodes::timing::offset_row(TIMING, 0, UniformNumber),
     ],
     hidden: crate::nodes::audio_ports::TUNING,
     outputs: crate::audio_outputs![OutputDef {
@@ -84,7 +74,7 @@ pub static DEF: NodeDef = NodeDef {
         },
         ..OutputDef::EMPTY
     },],
-    options: &[
+    options: crate::nodes::timing::options![
         OptionDef {
             key: "file",
             label: "File",
@@ -122,9 +112,8 @@ pub static DEF: NodeDef = NodeDef {
         crate::nodes::audio_ports::SHOW_EVENTS,
         crate::nodes::audio_ports::SHOW_SCOPE,
         crate::nodes::SHOW_PREVIEW,
-        crate::nodes::SHOW_TIME,
     ],
-    row_headings: &[crate::nodes::SHOW_TIME.key],
+    row_headings: crate::nodes::timing::ROW_HEADINGS,
     // What the `preview` tick draws: the clip itself, the same texture the port hands
     // downstream, letterboxed into a 16:9 band because a clip's aspect is whatever was
     // imported and the band is laid out before a frame has been decoded.
@@ -140,13 +129,12 @@ pub static DEF: NodeDef = NodeDef {
     ..NodeDef::EMPTY
 };
 
-/// A clip's ambient time: a play a cycle, at the clip's native speed — one over its own
-/// length, which the node reads off the clip rather than off the definition. A looping clip
+/// A clip's timing: a play a cycle, at the clip's native speed — one over its own length,
+/// which the node reads off the clip and hands to `TickContext::cycle_at`. A looping clip
 /// comes back every play, and one holding its last frame never does.
-pub const AMBIENT: crate::nodes::Ambient = crate::nodes::Ambient {
-    rate: 1.0,
-    period: |node| (node.options.get("loop").map(String::as_str) != Some("hold")).then_some(1.0),
-};
+pub const TIMING: crate::nodes::Timing = crate::nodes::Timing::repeating(1.0, |node| {
+    (node.options.get("loop").map(String::as_str) != Some("hold")).then_some(1.0)
+});
 
 /// An elapsed time as a clock reads it: `0:07`, `1:42`, `13:05`.
 ///
@@ -431,7 +419,7 @@ impl CpuNode for VideoNode {
         // A hand on the scrubber puts the clip where it was dropped: Offset is moved so the sum
         // lands there, and Time plays on from it.
         let dropped = ctx.seek(id);
-        let offset = f64::from(ctx.input(id, crate::nodes::phasor::OFFSET));
+        let offset = f64::from(ctx.input(id, crate::nodes::timing::OFFSET));
 
         // Where the picture is, in seconds, so the soundtrack can be read at the same place.
         let mut seconds = None;
@@ -441,19 +429,20 @@ impl CpuNode for VideoNode {
                 let info = player.info();
                 let frames = info.frames.max(1);
                 let length = frames as f64 / info.fps.max(0.001);
-                // Plays of the clip: one every `length` seconds at its native speed.
-                let time = ctx.clock_at(id, 1.0 / length);
-                let mut offset = offset;
+                // Plays of the clip: one every `length` seconds at its native speed, and where
+                // its Time is without the Offset, for a scrub to move Offset against.
+                let mut sum = ctx.cycle_at(id, 1.0 / length);
                 if let Some(to) = dropped {
+                    let time = sum - offset;
                     let to = f64::from(to).clamp(0.0, 1.0);
-                    offset = if hold {
+                    let offset = if hold {
                         (to - time).clamp(0.0, 1.0)
                     } else {
                         crate::nodes::phasor::fraction(to - time, 1.0)
                     };
-                    ctx.write_control(id, crate::nodes::phasor::OFFSET, offset as f32);
+                    ctx.write_control(id, crate::nodes::timing::OFFSET, offset as f32);
+                    sum = time + offset;
                 }
-                let sum = time + offset;
                 self.shown = if hold {
                     sum.clamp(0.0, 1.0)
                 } else {

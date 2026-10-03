@@ -822,10 +822,11 @@ that fails reaches `error()` and the status line, and the node publishes a 2x2 b
 a shader sampling it has a real texture rather than a missing uniform.
 
 **A GIF plays by its own delays.** Each frame carries the delay it was authored with, and the
-node reads Time in plays of the whole animation, `video`'s rule: unplugged, ambient time at its
-own pace, one play every length of its delays, so it pauses with the show and a seek lands it
-where the playhead puts it; a gear cabled in replaces it, a Ratio Gear at ×2 twice as fast, one at `-×1`
-backwards and one at ×0 holding it. **Offset is added**, in plays, 0 to 1 across the whole
+node reads where it is in plays of the whole animation, `video`'s rule: at Speed 1, or in Loop
+mode unplugged, its own pace, one play every length of its delays, so it pauses with the show;
+Speed 2 plays it twice as fast and −1 backwards, and in Loop mode a gear cabled into Time
+replaces it, a Ratio Gear at ×2 twice as fast, one at `-×1` backwards and one at ×0 holding
+it. **Offset is added**, in plays, 0 to 1 across the whole
 animation laid over the delays, and the sum wraps as a GIF does. The frame shown is the one
 whose delay the sum falls inside, so the same sum is the same frame however it was reached,
 and the node keeps no playhead of its own. A frame may claim a delay of zero, which every

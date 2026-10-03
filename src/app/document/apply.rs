@@ -365,6 +365,11 @@ impl Document {
                 }
                 let def = n.def;
                 n.options.insert(key, value.clone());
+                // A time mode puts one row away, and the cable into it goes in the same step,
+                // so the switch and the disconnect are one undo.
+                if !self.graph_mut().drop_inactive(node).is_empty() {
+                    self.mark(&mut out, node);
+                }
                 // Only a `Code` option is in the shader. A `Uniform` one is an `int` the
                 // program already reads and an `Asset` names a texture the renderer binds,
                 // so neither is a reason to rebuild — which is what lets a crossfade method
@@ -397,6 +402,10 @@ impl Document {
                 }
                 for (key, _) in controls {
                     recap(n, key);
+                }
+                // And its time mode's: the cable into a row put away goes with it.
+                if !self.graph_mut().drop_inactive(node).is_empty() {
+                    self.mark(&mut out, node);
                 }
                 // The rule `SetOption` keeps: only a `Code` option is in the shader.
                 if options.iter().any(|(key, _)| {

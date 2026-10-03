@@ -1,14 +1,18 @@
 # Time
 
-**Status: built, on `main`.** This is the time model as it stands: ambient time, Time and
-Offset on every moving node, and gears. The spec carries it in pieces —
-[docs/cpu.md](../docs/cpu.md#the-transport) (the transport and the gears),
-[docs/nodes.md](../docs/nodes.md#time-and-offset) (Time and Offset on each node),
-[docs/rendering.md](../docs/rendering.md) (a render) and [docs/ui.md](../docs/ui.md) (the time
-readout and the gear region). This file is the whole argument in one place. What lost, and why,
-is in [docs/decisions.md](../docs/decisions.md): *Time is an input port*, *Offset, added, in the
-node's own cycles*, *One transport over the one clock*, *Gears: the one place a rate lives* and
-*Nodes keep no time*.
+**Status: built, on `main`, with one answer changed.** This is the time model: ambient time,
+Time and Offset on every moving node, and gears — and since, a second mode beside it. Every
+moving node now runs **Free** by default, on a **Speed** knob the synth integrates against the
+transport, and this file's design is its **Loop** mode, which a gear's Cycles drive exactly;
+answer 2 below, *no moving node has a speed knob*, holds only in Loop mode. The spec carries it
+in pieces — [docs/cpu.md](../docs/cpu.md#the-transport) (the transport and the gears),
+[docs/nodes.md](../docs/nodes.md#timing) (the two modes and Offset on each node, and
+`nodes::timing`), [docs/rendering.md](../docs/rendering.md) (a render) and
+[docs/ui.md](../docs/ui.md) (the time readout and the gear region). This file is the whole
+argument for Loop mode in one place. What lost, and why, is in
+[docs/decisions.md](../docs/decisions.md): *Time is an input port*, *Offset, added, in the
+node's own cycles*, *One transport over the one clock*, *Gears: a rate shared, and a loop
+closed* and *Two modes, and a loop is read from the clocks*.
 
 ## The answers, in short
 

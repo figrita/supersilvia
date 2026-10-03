@@ -79,7 +79,7 @@ fn vignette9_mask(uv: vec2f) -> f32 {
 }
 
 fn rotozoom1_output(uv: vec2f) -> vec4f {
-    let cycle = u.u_count_rotozoom1_clock.y + vignette4_mask(uv);
+    let cycle = time_periodic(u.u_count_rotozoom1_clock, vignette4_mask(uv));
     let wave = fract(cycle) * 20.0 * PI;
     var angle = fract(cycle * round(u.u_control_rotozoom1_turns)) * 2.0 * PI;
     angle += sin(wave) * (vignette5_mask(uv)) * 0.5;

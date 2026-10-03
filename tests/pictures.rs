@@ -615,6 +615,12 @@ fn a_gear_in_a_gifs_time_plays_it() {
     .unwrap();
     let clock = app.graph().iter().map(|(id, _)| id).max().unwrap();
     set(&mut app, clock, "ratio", 0.5);
+    app.apply(Command::SetOption {
+        node: id,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(clock, "cycles"),
         to: PortRef::new(id, supersilvia::nodes::TIME),
@@ -668,6 +674,12 @@ fn a_still_gear_holds_a_gif() {
     .unwrap();
     let gear = app.graph().iter().map(|(id, _)| id).max().unwrap();
     set(&mut app, gear, "ratio", 0.0);
+    app.apply(Command::SetOption {
+        node: id,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(gear, "cycles"),
         to: PortRef::new(id, supersilvia::nodes::TIME),

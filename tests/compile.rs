@@ -908,24 +908,24 @@ fn node_graph(def: &'static nodes::NodeDef, wired: bool, strict: bool) -> (Graph
     (g, out)
 }
 
-/// Whether `body` adds `offset` to `time`, a count `vec2f(whole, fraction)`: to its fraction
-/// on a periodic node, to the two parts on a line, or to its whole part taken modulo the
-/// tunnel's 64 and then its fraction.
+/// Whether `body` adds `offset` to `time`, a count `vec2f(whole, fraction)`, through the
+/// prelude's helper for its period: to its fraction on a periodic node, to the two parts on a
+/// line, or to its whole part taken modulo the tunnel's 64 and then its fraction.
 fn added(body: &str, time: &str, offset: &str) -> bool {
     [
-        format!("{time}.y + {offset}"),
-        format!("{time}.x + {time}.y + {offset}"),
-        format!("floor_mod({time}.x, 64.0) + {time}.y + {offset}"),
+        format!("time_periodic({time}, {offset})"),
+        format!("time_unbounded({time}, {offset})"),
+        format!("time_repeat({time}, 64.0, {offset})"),
     ]
     .iter()
     .any(|sum| body.contains(sum.as_str()))
 }
 
 /// **Time and Offset are ordinary holes.** Time is a count, a whole part and a fraction.
-/// Unconnected, a node's Time is the ambient reading the synth publishes under the node's own
-/// key, and Offset its knob, added; a gear cabled into Time is the gear's Cycles in its place;
-/// a field cabled into Offset is a call, added per pixel. No speed is asked for, because there
-/// is none.
+/// Unconnected, a node's Time is what the synth publishes under the node's own key — the
+/// ambient reading, or a free-running node's own playhead — and Offset its knob, added; a gear
+/// cabled into a looping node's Time is the gear's Cycles in its place; a field cabled into
+/// Offset is a call, added per pixel. Speed is never asked for: the synth folds it into Time.
 #[test]
 fn a_time_driven_node_reads_time_and_adds_offset() {
     for (slug, root_key) in [
@@ -961,6 +961,10 @@ fn a_time_driven_node_reads_time_and_adds_offset() {
         // A gear in Time, a field in Offset.
         let mut g = Graph::new();
         let under = add(&mut g, slug);
+        g.get_mut(under).unwrap().options.insert(
+            supersilvia::nodes::timing::MODE.key,
+            supersilvia::nodes::timing::LOOP.to_string(),
+        );
         let gear = add(&mut g, "ratiogear");
         let field = add(&mut g, FIELD.0);
         g.connect(
@@ -970,7 +974,7 @@ fn a_time_driven_node_reads_time_and_adds_offset() {
         .expect("a gear's Cycles feed Time");
         g.connect(
             PortRef::new(field, FIELD.1),
-            PortRef::new(under, supersilvia::nodes::phasor::OFFSET),
+            PortRef::new(under, supersilvia::nodes::timing::OFFSET),
         )
         .expect("Offset is a varying number input");
         let out = add(&mut g, "output");

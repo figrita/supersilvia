@@ -188,7 +188,7 @@ fn loopCircle(turn: f32, reach: f32) -> vec2f {
 fn fractal1_color(uv: vec2f) -> vec4f {
     let contrast = u.u_control_fractal1_contrast;
     let octaves = i32(clamp(u.u_control_fractal1_octaves, 1.0, 8.0));
-    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, (u.u_count_fractal1_clock.x + u.u_count_fractal1_clock.y + u.u_control_fractal1_phaseOffset), 0);
+    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_unbounded(u.u_count_fractal1_clock, u.u_control_fractal1_phaseOffset), 0);
     let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
     return mix(u.u_control_fractal1_background, u.u_control_fractal1_foreground, value);
 }
@@ -196,7 +196,7 @@ fn fractal1_color(uv: vec2f) -> vec4f {
 fn fractal1_value(uv: vec2f) -> f32 {
     let contrast = u.u_control_fractal1_contrast;
     let octaves = i32(clamp(u.u_control_fractal1_octaves, 1.0, 8.0));
-    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, (u.u_count_fractal1_clock.x + u.u_count_fractal1_clock.y + u.u_control_fractal1_phaseOffset), 0);
+    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_unbounded(u.u_count_fractal1_clock, u.u_control_fractal1_phaseOffset), 0);
     let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
     return value;
 }

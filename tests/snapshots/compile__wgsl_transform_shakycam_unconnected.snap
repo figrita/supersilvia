@@ -17,8 +17,8 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn shakycam1_output(uv: vec2f) -> vec4f {
-    let tx = fract(u.u_count_shakycam1_clock.y + u.u_control_shakycam1_phaseOffset) * 20.0 * PI;
-    let ty = fract(u.u_count_shakycam1_clockY.y + u.u_control_shakycam1_phaseOffsetY) * 20.0 * PI;
+    let tx = fract(time_periodic(u.u_count_shakycam1_clock, u.u_control_shakycam1_phaseOffset)) * 20.0 * PI;
+    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, u.u_control_shakycam1_phaseOffsetY)) * 20.0 * PI;
     let amplitude = u.u_control_shakycam1_amplitude;
     var xOffset = sin(tx) * (u.u_control_shakycam1_sinCoeff) * amplitude;
     xOffset += cos(tx * 0.7) * (u.u_control_shakycam1_cosCoeff) * amplitude * 0.5;

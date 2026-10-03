@@ -68,6 +68,9 @@ pub struct Render {
     /// as the render found it.
     parked: HashMap<NodeId, (&'static str, Box<dyn crate::nodes::CpuNode>)>,
     seen: HashMap<NodeId, crate::transport::Seen>,
+    /// Every free-running node's own playheads, which the render starts again from its first
+    /// frame, put back with them.
+    paces: HashMap<NodeId, crate::nodes::timing::Pace>,
     /// Where the Main Input's file was, put back with it.
     live_position: f64,
     /// The frames the live show's CPU nodes had published, and what its taps last measured,
@@ -314,6 +317,7 @@ impl Synth {
         let frames = self.frames.clone();
         let readbacks = self.readbacks.clone();
         let seen = self.seen.clone();
+        let paces = std::mem::take(&mut self.paces);
         self.reset_cpu();
         let live = std::mem::take(&mut self.clock);
         let live_position = self.main_input.position();
@@ -333,6 +337,7 @@ impl Synth {
             transport,
             parked,
             seen,
+            paces,
             live_position,
             frames,
             readbacks,
@@ -651,6 +656,7 @@ impl Synth {
         self.frames = r.frames;
         self.readbacks = r.readbacks;
         self.seen = r.seen;
+        self.paces = r.paces;
         self.transport.resume(r.transport, live.elapsed());
         self.clock = live;
         self.main_input.drive(None);

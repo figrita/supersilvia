@@ -145,6 +145,10 @@ class Workspace:
             f"{self.slug_of(a)}.{out} ({src}) cannot feed {self.slug_of(b)}.{into} ({dst})"
         )
         assert not any(c["to"] == {"node": b, "key": into} for c in self.connections), f"{into} is cabled twice"
+        # A cable into a Time is a clock: the node loops on it rather than running free.
+        if into in ("clock", "clockY") and any(o["key"] == "clockMode" for o in d["options"]):
+            node = next(n for n in self.nodes if n["id"] == b)
+            node["options"]["clockMode"] = "loop"
         self.connections.append({"from": {"node": a, "key": out}, "to": {"node": b, "key": into}})
 
     def output(self, x, y, resolution="1280x720", duration=LOOP):

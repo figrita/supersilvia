@@ -1131,6 +1131,12 @@ fn geared(
     })
     .unwrap();
     let out = add_node(&mut app, "output");
+    app.apply(Command::SetOption {
+        node: src,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     for (from, to) in [
         (PortRef::new(gear, "cycles"), PortRef::new(under, "clock")),
         (
@@ -1234,7 +1240,7 @@ fn a_noise_under_repeat_closes_with_its_offset() {
     .unwrap();
     app.apply(Command::SetControl {
         node: perlin,
-        key: supersilvia::nodes::phasor::OFFSET,
+        key: supersilvia::nodes::timing::OFFSET,
         value: ControlValue::Float(0.3),
     })
     .unwrap();

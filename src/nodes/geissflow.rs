@@ -16,8 +16,9 @@
 //!
 //! **The flow takes its time from Time and Offset**, in cycles of the 20π over which silvia's
 //! five wave rates line up. silvia multiplies `u_time` by Flow Speed inside the body, so
-//! turning the speed jumps the field; here ambient time runs it at a cycle every 160 s —
-//! silvia's 0.4 over 20π, rounded to whole seconds — and a gear cabled into Time turns it.
+//! turning the speed jumps the field; here Speed 1 or ambient time runs it at a cycle every
+//! 160 s — silvia's 0.4 over 20π, rounded to whole seconds — and its Speed, integrated, or a
+//! gear cabled into Time turns it.
 //!
 //! Two conversions from silvia's coordinates, both because it works in the frame's own 0 to 1
 //! and this works in worldspace: the flow offset is doubled, since worldspace is 2.0 tall
@@ -27,9 +28,9 @@
 //! **The floor stays.** `max(result, live × (1 − feedback))` is what stops the loop
 //! swallowing the live picture at full feedback, and it is most of why this reads as flow.
 
-use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
+use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::node;
-use crate::nodes::{Ambient, Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
+use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind, Timing};
 
 node! {
     /// A swirling vector field that drags the returning frame around under the live one.
@@ -43,12 +44,12 @@ node! {
               Output's Frame Out into Last Frame to close the loop. Flow Scale and Swirl \
               shape the field, Distortion is how far a pixel travels along it, and Feedback \
               and Fade say how much of the older picture survives.",
-    ambient: Ambient::periodic(1.0 / 160.0),
+    timing: Timing::periodic(1.0 / 160.0),
     inputs: [
         VaryingColor "input" "Input" = Control::None,
         VaryingColor "lastFrame" "Last Frame" at "flowed" = Control::color("#000000ff"),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
+    ],
+    after_time: [
         VaryingNumber "flowScale" "Flow Scale" = Control::num(3.5, 0.1, 20.0, 0.1, "/⬓"),
         VaryingNumber "distortionAmount" "Distortion" = Control::num(0.015, 0.0, 0.1, 0.001, "⬓"),
         VaryingNumber "feedbackAmount" "Feedback" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
@@ -58,7 +59,7 @@ node! {
     // The field, and the unit vector along it. `normalize` of a vector that cancelled to
     // nothing is a division by zero, which silvia leaves in and a cable here can reach.
     wgsl_common: "    let flowCoord = uv * {flowScale};
-    let t = fract({clock}.y + {phaseOffset}) * 20.0 * PI;
+    let t = fract(time_periodic({clock}, {phaseOffset})) * 20.0 * PI;
     let swirl = {swirl};
     let noise1 = sin(flowCoord.x * 2.0 + t) * cos(flowCoord.y * 1.5 + t * 0.7);
     let noise2 = cos(flowCoord.x * 1.3 + t * 0.8) * sin(flowCoord.y * 2.2 + t * 0.5);

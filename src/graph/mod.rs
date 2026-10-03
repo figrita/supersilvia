@@ -635,6 +635,10 @@ impl Graph {
             return Err(ConnectError::SelfConnection(from.node));
         }
 
+        if crate::nodes::timing::is_inactive(to_node, to.key) {
+            return Err(ConnectError::Inactive(to));
+        }
+
         if from_port.ty.is_data() != to_port.ty.is_data() {
             return Err(ConnectError::ActionMismatch {
                 from: from_port.ty,
@@ -772,6 +776,27 @@ impl Graph {
         if !removed.is_empty() {
             self.invalidate();
             self.recompute_effective_types(&[to.node]);
+        }
+        removed
+    }
+
+    /// Remove every cable into one of `id`'s inputs that its time mode puts away
+    /// (`nodes::is_inactive`): what a change of mode drops in the same step, so a gear's
+    /// Cycles left in a Speed never races off as a rate. Returns the ones removed.
+    pub fn drop_inactive(&mut self, id: NodeId) -> Vec<Connection> {
+        let Some(node) = self.nodes.get(&id) else {
+            return Vec::new();
+        };
+        let inactive: Vec<&'static str> = node
+            .inputs
+            .iter()
+            .map(|p| p.key)
+            .filter(|key| crate::nodes::timing::is_inactive(node, key))
+            .collect();
+        let removed = self.unlink_where(|c| c.to.node == id && inactive.contains(&c.to.key));
+        if !removed.is_empty() {
+            self.invalidate();
+            self.recompute_effective_types(&[id]);
         }
         removed
     }

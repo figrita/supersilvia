@@ -153,14 +153,15 @@ pub fn varying<F: FnOnce(NodeId, &CompileContext<'_>) -> String>(f: F) -> Varyin
 /// after them, which draws a typed field with the choices as presets; `checked by f` after
 /// that names the `fn(&str) -> bool` the row's border reads.
 ///
-/// `ambient: Ambient::periodic(0.5),` before `inputs:` makes the node one that moves with
-/// time ([`crate::nodes::Ambient`]): it declares a **Time** input keyed
-/// [`crate::nodes::TIME`] and an **Offset** keyed `phaseOffset` among its inputs, and a body
-/// reads its own cycles through the ordinary holes. The Time hole is a count,
-/// `vec2f(whole, fraction)`: `{clock}.y + {phaseOffset}` is the cycle, and
-/// `whole_mod({clock}.x, n) + {clock}.y + {phaseOffset}` the time modulo a period `n` dividing
-/// `phasor::WHOLE_WRAP`. Unplugged, it is the ambient reading the synth publishes each tick;
-/// the node keeps no state.
+/// `timing: Timing::periodic(0.5),` before `inputs:` makes the node one that moves with
+/// time ([`crate::nodes::timing`]), and `timing_xy:` one that moves on two axes. The macro
+/// writes its time rows — Time, Speed and a varying Offset per axis — after `inputs:` and
+/// before `after_time:`, its Timing heading and mode after its options, and a body reads where
+/// it is through the Time hole and the prelude's time helpers: `time_periodic({clock},
+/// {phaseOffset})` is the cycle, `time_repeat({clock}, n, {phaseOffset})` the time modulo a
+/// period `n` dividing `phasor::WHOLE_WRAP`, and `time_unbounded({clock}, {phaseOffset})` the
+/// whole count. Time is what the synth publishes each tick — the ambient reading or a cable in
+/// Loop mode, the node's own integrated Speed in Free mode — so a body never reads Speed.
 macro_rules! node {
     (
         $(#[$attr:meta])*
@@ -171,10 +172,14 @@ macro_rules! node {
         category: $category:ident,
         tooltip: $tooltip:literal,
         $( width: $width:literal, )?
-        $( ambient: $ambient:expr, )?
+        $( timing: $timing:expr, )?
+        $( timing_xy: $timing_xy:expr, )?
         inputs: [ $(
             $ity:ident $ikey:literal $ilabel:literal $(at $iat:literal)? = $ictl:expr
         ),* $(,)? ],
+        $( after_time: [ $(
+            $aty:ident $akey:literal $alabel:literal $(at $aat:literal)? = $actl:expr
+        ),* $(,)? ], )?
         $( hidden: [ $(
             $hkey:literal $hlabel:literal = $hctl:expr
         ),* $(,)? ], )?
@@ -196,6 +201,18 @@ macro_rules! node {
             /// the outputs so its repetition and theirs do not have to be the same length.
             const INPUTS: &[(&str, &str)] = &[
                 $( ($ikey, $crate::nodes::macros::sample_at(&[$($iat)?])), )*
+                // The time rows, at the fragment: a body reads Time and Offset, never Speed.
+                $(
+                    ($crate::nodes::timing::TIME, $crate::nodes::macros::at_fragment($timing)),
+                    ($crate::nodes::timing::OFFSET, "uv"),
+                )?
+                $(
+                    ($crate::nodes::timing::TIME, $crate::nodes::macros::at_fragment($timing_xy)),
+                    ($crate::nodes::timing::OFFSET, "uv"),
+                    ($crate::nodes::timing::TIME_Y, "uv"),
+                    ($crate::nodes::timing::OFFSET_Y, "uv"),
+                )?
+                $($( ($akey, $crate::nodes::macros::sample_at(&[$($aat)?])), )*)?
                 // A hidden control fills a hole exactly as a port does: `ctx.input` resolves
                 // it to the same `u_control_…` uniform, having found it through
                 // `NodeDef::input`, which searches the hidden list too. It is sampled at the
@@ -222,10 +239,39 @@ macro_rules! node {
             tooltip: $tooltip,
             $( width: Some($width), )?
             category: Category::$category,
-            $( ambient: Some($ambient), )?
-            inputs: &[ $(
-                InputDef { key: $ikey, label: $ilabel, ty: $ity, control: $ictl },
-            )* ],
+            $( timing: Some($timing), )?
+            $( timing: Some(($timing_xy).xy()), )?
+            inputs: &[
+                $( InputDef { key: $ikey, label: $ilabel, ty: $ity, control: $ictl }, )*
+                // The time rows, expanded from the declaration: an Offset on a node that draws
+                // is a field.
+                $(
+                    $crate::nodes::timing::time_row($timing, 0),
+                    $crate::nodes::timing::speed_row($timing, 0),
+                    $crate::nodes::timing::offset_row(
+                        $timing,
+                        0,
+                        $crate::graph::PortType::VaryingNumber,
+                    ),
+                )?
+                $(
+                    $crate::nodes::timing::time_row(($timing_xy).xy(), 0),
+                    $crate::nodes::timing::speed_row(($timing_xy).xy(), 0),
+                    $crate::nodes::timing::offset_row(
+                        ($timing_xy).xy(),
+                        0,
+                        $crate::graph::PortType::VaryingNumber,
+                    ),
+                    $crate::nodes::timing::time_row(($timing_xy).xy(), 1),
+                    $crate::nodes::timing::speed_row(($timing_xy).xy(), 1),
+                    $crate::nodes::timing::offset_row(
+                        ($timing_xy).xy(),
+                        1,
+                        $crate::graph::PortType::VaryingNumber,
+                    ),
+                )?
+                $($( InputDef { key: $akey, label: $alabel, ty: $aty, control: $actl }, )*)?
+            ],
             // A hidden control has no port, so its type is not a port's type: it is one
             // number for the whole frame, which is what `UniformNumber` says and what the
             // compiler emits for it either way.
@@ -251,10 +297,14 @@ macro_rules! node {
                     ..OptionDef::EMPTY
                 },
             )*)?
-            // A node that moves with time folds its Time and Offset under a heading, last
-            // because a heading is drawn on its rows and never in the option block.
-            $( $crate::nodes::macros::time_heading!($ambient), )? ],
-            $( row_headings: &[$crate::nodes::macros::time_heading!($ambient).key], )?
+            // A node that moves with time folds its time rows under a heading, with its mode
+            // on the heading's bar, last because both are drawn on its rows and never in the
+            // option block.
+            $( $crate::nodes::macros::timing_heading!($timing), $crate::nodes::timing::MODE, )?
+            $( $crate::nodes::macros::timing_heading!($timing_xy), $crate::nodes::timing::MODE, )?
+            ],
+            $( row_headings: $crate::nodes::macros::row_headings!($timing), )?
+            $( row_headings: $crate::nodes::macros::row_headings!($timing_xy), )?
             wgsl_utils: &[ $($($wutil),*)? ],
             outputs: &[ $(
                 OutputDef {
@@ -283,12 +333,27 @@ macro_rules! node {
 
 pub(crate) use node;
 
-/// The Time heading, for a node `node!` declares with an `ambient:` — the expression is only
+/// The Timing heading, for a node `node!` declares with a `timing:` — the expression is only
 /// how the macro knows there is one.
-macro_rules! time_heading {
-    ($ambient:expr) => {
-        $crate::nodes::SHOW_TIME
+macro_rules! timing_heading {
+    ($timing:expr) => {
+        $crate::nodes::timing::HEADING
     };
 }
 
-pub(crate) use time_heading;
+pub(crate) use timing_heading;
+
+/// The row headings of a node `node!` declares with a `timing:`, by the same trick.
+macro_rules! row_headings {
+    ($timing:expr) => {
+        $crate::nodes::timing::ROW_HEADINGS
+    };
+}
+
+pub(crate) use row_headings;
+
+/// Where a time row is sampled: at the fragment. A function of the declaration only so that
+/// `node!`'s repetition over it has something to repeat on.
+pub const fn at_fragment(_timing: crate::nodes::Timing) -> &'static str {
+    "uv"
+}

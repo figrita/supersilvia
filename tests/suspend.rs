@@ -191,6 +191,12 @@ fn a_gear_on_a_closed_tab_keeps_running_while_an_open_tab_reads_it() {
         })
         .unwrap();
     }
+    app.apply(Command::SetOption {
+        node: osc,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     for (from, to) in [
         (
             PortRef::new(master, "cycles"),

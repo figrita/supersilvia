@@ -25,7 +25,7 @@ struct Uniforms {
 
 fn geissflow1_output(uv: vec2f) -> vec4f {
     let flowCoord = uv * u.u_control_geissflow1_flowScale;
-    let t = fract(u.u_count_geissflow1_clock.y + u.u_control_geissflow1_phaseOffset) * 20.0 * PI;
+    let t = fract(time_periodic(u.u_count_geissflow1_clock, u.u_control_geissflow1_phaseOffset)) * 20.0 * PI;
     let swirl = u.u_control_geissflow1_swirl;
     let noise1 = sin(flowCoord.x * 2.0 + t) * cos(flowCoord.y * 1.5 + t * 0.7);
     let noise2 = cos(flowCoord.x * 1.3 + t * 0.8) * sin(flowCoord.y * 2.2 + t * 0.5);
@@ -51,7 +51,7 @@ fn geissflow1_output(uv: vec2f) -> vec4f {
 
 fn geissflow1_angle(uv: vec2f) -> f32 {
     let flowCoord = uv * u.u_control_geissflow1_flowScale;
-    let t = fract(u.u_count_geissflow1_clock.y + u.u_control_geissflow1_phaseOffset) * 20.0 * PI;
+    let t = fract(time_periodic(u.u_count_geissflow1_clock, u.u_control_geissflow1_phaseOffset)) * 20.0 * PI;
     let swirl = u.u_control_geissflow1_swirl;
     let noise1 = sin(flowCoord.x * 2.0 + t) * cos(flowCoord.y * 1.5 + t * 0.7);
     let noise2 = cos(flowCoord.x * 1.3 + t * 0.8) * sin(flowCoord.y * 2.2 + t * 0.5);

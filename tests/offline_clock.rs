@@ -234,6 +234,12 @@ fn step_zero_on_a_master(slug: &'static str) -> (App, NodeId) {
             .unwrap();
         }
     }
+    app.apply(Command::SetOption {
+        node: seq,
+        key: "clockMode",
+        value: "loop".to_string(),
+    })
+    .unwrap();
     app.apply(Command::Connect {
         from: PortRef::new(clock, "cycles"),
         to: PortRef::new(seq, supersilvia::nodes::TIME),

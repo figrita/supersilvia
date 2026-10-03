@@ -5,19 +5,21 @@
 //! node's own question, asked through the `pulse` a [`Transport::tick`] is handed —
 //! `euclideanrhythm` answers from Bjorklund's figure, `stepsequencer` from the cells a hand lit.
 //!
-//! **A step is a crossing of `floor(16 × (Time + Offset))`.** Unplugged, Time is ambient time at
-//! rest — a sequencer starts stopped, as silvia's does — so a Master Gear a bar long cabled into
-//! Time is the tempo, and its Hold and Reset are the play and the reset silvia's Start/Stop and
-//! Reset were. Nothing is integrated: the node remembers only last tick's reading, to see what
-//! it crossed, and a cabled Time read as a count whole or unwrapped where its source declares
-//! its wrap, so a gear's Phase passing one is a frame's motion and not a jump. **A reading
-//! that moves backwards, more than a bar in one tick, or onto another clock as Time's cable
-//! is moved, is a jump** and fires nothing, and so is the first reading. A step it lands exactly on, with a gear
-//! driving Time and the show playing, is played at once, so a render's first frame is its
-//! bar's downbeat; any other step it lands in is played on the next tick where it landed no
-//! further past it than that tick moves, so a gear's Reset lands on the downbeat. Each lane
-//! reads the absolute step modulo its own length, so a lane of five against sixteen keeps its
-//! phase.
+//! **A step is a crossing of `floor(16 × cycle)`**, where the node is in bars with its Offset added
+//! (`TickContext::cycle`). A new one stands still — Speed 0, a sequencer starts stopped, as
+//! silvia's does — and Speed 1 is a bar every two seconds; in Loop mode a Master Gear a bar long
+//! cabled into Time is the tempo, and its Hold and Reset are the play and the reset silvia's
+//! Start/Stop and Reset were. Nothing is integrated here: the node remembers only last tick's
+//! reading, to see what it crossed, and a cabled Time read as a count whole or unwrapped where its
+//! source declares its wrap, so a gear's Phase passing one is a frame's motion and not a jump. **A
+//! reading that moves more than a bar in one tick, or onto another clock as Time's cable is moved,
+//! is a jump** and fires nothing, and so is the first reading and one that moves backwards on a
+//! clock; running free, a negative Speed plays the steps backwards, each entered at its top
+//! boundary. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
+//! playing, is played at once, so a render's first frame is its bar's downbeat; any other step it
+//! lands in is played on the next tick where it landed no further past it than that tick moves, so
+//! a gear's Reset lands on the downbeat. Each lane reads the absolute step modulo its own length,
+//! so a lane of five against sixteen keeps its phase.
 //!
 //! **`gate` closes each lane's own down**: a lane's gate is driven straight off whether that
 //! lane is a pulse at each step boundary, `mastergear`'s down-then-up-after-a-fraction shape
@@ -36,25 +38,12 @@
 use crate::graph::NodeId;
 use crate::graph::PortType::{Action, UniformNumber};
 use crate::nodes::phasor::{self, REACH};
-use crate::nodes::{Ambient, Control, Event, Gate, InputDef, OutputDef, OutputKind, TickContext};
+use crate::nodes::{Control, Event, Gate, InputDef, OutputDef, OutputKind, TickContext, Timing};
 
-/// Time and Offset in bars, then Step as a button with a port, and Gate: silvia's s-number, as
+/// The time rows in bars, then Step as a button with a port, and Gate: silvia's s-number, as
 /// a knob a cable can drive.
-pub const INPUTS: &[InputDef] = &[
-    InputDef {
-        key: crate::nodes::TIME,
-        label: "Time",
-        ty: UniformNumber,
-        // No knob: unplugged, Time is ambient time, which a sequencer at rest does not move.
-        control: Control::None,
-    },
-    InputDef {
-        key: phasor::OFFSET,
-        label: "Offset",
-        ty: UniformNumber,
-        // In bars: a sixteenth of one is a step.
-        control: phasor::offset_control(),
-    },
+pub const INPUTS: &[InputDef] = crate::nodes::timing::inputs![
+    TIMING;
     InputDef {
         key: "step",
         label: "Step",
@@ -69,8 +58,9 @@ pub const INPUTS: &[InputDef] = &[
     },
 ];
 
-/// A sequencer's ambient time: still at rest, a bar a cycle.
-pub const AMBIENT: Ambient = Ambient::periodic(0.0);
+/// A sequencer's timing: a bar a cycle, still at rest, and at a Speed of 1 a bar every two
+/// seconds — 120 beats a minute. Each node's period is its own, where its lanes meet again.
+pub const TIMING: Timing = Timing::periodic(0.0).paced(0.5);
 
 /// Whether a node reads a cabled Time unwrapped where its source declares the wrap, as a
 /// sequencer does: a gear's Phase in its Time is then a count, and not a fraction that jumps
@@ -216,20 +206,23 @@ impl Transport {
             return;
         }
 
-        let now = BAR * (self.time(id, ctx) + f64::from(ctx.input(id, phasor::OFFSET)));
+        let now = BAR * self.time(id, ctx);
         let Some(p0) = self.last.replace(now) else {
             // The first reading, after a reset among them, is a landing too.
             self.land(id, ctx, now, &pulse);
             return;
         };
         let p1 = now;
-        if ctx.time.jumped || self.moved || p1 < p0 - REACH || p1 - p0 > BAR {
+        // Running free, a negative Speed plays the steps backwards; on a clock, a reading
+        // that goes back is a jump.
+        let free = ctx.runs_free(id);
+        if ctx.time.jumped || self.moved || (!free && p1 < p0 - REACH) || (p1 - p0).abs() > BAR {
             // A jump plays nothing on the way, and closes what it left open.
             self.close(id, ctx);
             self.land(id, ctx, now, &pulse);
             return;
         }
-        if p1 <= p0 + REACH {
+        if (p1 - p0).abs() <= REACH {
             // Standing still — at rest, held, paused — says nothing, and holds nothing held
             // but what a landing on this very step opened, which waits for the Time to move.
             if !self.standing {
@@ -242,6 +235,10 @@ impl Transport {
         let gate = f64::from(ctx.input(id, "gateLength").clamp(0.001, 1.0));
         let dt = ctx.dt;
         let moment = |p: f64| (((p - p0) / (p1 - p0)).clamp(0.0, 1.0) as f32) * dt;
+        if p1 < p0 {
+            self.walk_back(id, ctx, (p0, p1), gate, &moment, &pulse);
+            return;
+        }
 
         let mut fired = 0u32;
         let mut boundary = p0.floor();
@@ -273,21 +270,60 @@ impl Transport {
         }
     }
 
-    /// Time in bars. Unplugged it is ambient time; cabled, it is what arrives read as a Ratio
-    /// Gear's Clock In is — a count whole, anything else unwrapped where its source declares
-    /// its wrap (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's
-    /// motion, and a jump,
-    /// or a cable plugged in, let go or moved onto another output, puts it back at the reading
-    /// as published, and is a jump.
+    /// A frame run backwards, from `p0` down to `p1`, in steps: each boundary `b` crossed
+    /// going down enters step `b − 1`, whose lanes open there and close `gate` of a step
+    /// further down — the steps in reverse order, each held as long as forwards.
+    fn walk_back(
+        &mut self,
+        id: NodeId,
+        ctx: &mut TickContext<'_>,
+        (p0, p1): (f64, f64),
+        gate: f64,
+        moment: &impl Fn(f64) -> f32,
+        pulse: &impl Fn(usize, i64) -> bool,
+    ) {
+        let mut fired = 0u32;
+        let mut boundary = (p0 - REACH).ceil();
+        while boundary >= p1 - REACH && fired < MAX_EVENTS_PER_FRAME {
+            let step_index = boundary as i64 - 1;
+            let arrives = boundary < p0 - REACH;
+            if arrives {
+                self.current = Some(step_index);
+            }
+            for (lane_idx, key) in LANE_KEYS.iter().enumerate() {
+                let want_down = pulse(lane_idx, step_index);
+                for (p, level, due) in [
+                    (boundary, want_down, arrives),
+                    (boundary - gate, false, boundary - gate < p0 - REACH),
+                ] {
+                    if due
+                        && p >= p1 - REACH
+                        && let Some(edge) = self.lanes[lane_idx].set(level)
+                    {
+                        ctx.fire_at(id, key, edge, moment(p));
+                        fired += 1;
+                    }
+                }
+            }
+            boundary -= 1.0;
+        }
+    }
+
+    /// Where the node is in bars, its Offset added ([`TickContext::cycle`]). Running free, or
+    /// unplugged, it is that reading; cabled, it is what arrives read as a Ratio Gear's Clock
+    /// In is — a count whole, anything else unwrapped where its source declares its wrap
+    /// (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's motion,
+    /// and a jump, or a cable plugged in, let go or moved onto another output, puts it back
+    /// at the reading as published, and is a jump.
     fn time(&mut self, id: NodeId, ctx: &TickContext<'_>) -> f64 {
         let source = ctx.source(id, crate::nodes::TIME);
         self.moved = self.last.is_some() && source != self.source;
         self.source = source;
-        if !ctx.connected(id, crate::nodes::TIME) {
+        let raw = ctx.cycle(id);
+        if ctx.runs_free(id) || !ctx.connected(id, crate::nodes::TIME) {
             self.raw = None;
-            return ctx.clock(id);
+            return raw;
         }
-        let raw = ctx.clock(id);
         self.time = match self.raw {
             Some(was) if !ctx.time.jumped && !self.moved => {
                 self.time + phasor::unwrap_at(was, raw, ctx.wraps_at(id, crate::nodes::TIME))
@@ -311,7 +347,10 @@ impl Transport {
         pulse: &impl Fn(usize, i64) -> bool,
     ) {
         let whole = at.round();
-        let driven = ctx.connected(id, crate::nodes::TIME) && ctx.time.playing;
+        // On a gear, or running free at a Speed that moves.
+        let moving = ctx.connected(id, crate::nodes::TIME)
+            || (ctx.runs_free(id) && ctx.input(id, crate::nodes::timing::SPEED) != 0.0);
+        let driven = moving && ctx.time.playing;
         self.landed = !(driven && (at - whole).abs() <= REACH);
         self.standing = !self.landed;
         if self.landed {

@@ -259,7 +259,7 @@ fn domainwarp1_output(uv: vec2f) -> vec4f {
     let octaves = i32(clamp(vignette7_mask(uv), 1.0, 8.0));
     let lacunarity = vignette8_mask(uv);
     let gain = vignette9_mask(uv);
-    let t = (u.u_count_domainwarp1_clock.x + u.u_count_domainwarp1_clock.y + vignette4_mask(uv));
+    let t = time_unbounded(u.u_count_domainwarp1_clock, vignette4_mask(uv));
     let seed = vignette10_mask(uv);
     let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
     var warp = vec2f(0.0);
@@ -276,7 +276,7 @@ fn domainwarp1_value(uv: vec2f) -> f32 {
     let octaves = i32(clamp(vignette7_mask(uv), 1.0, 8.0));
     let lacunarity = vignette8_mask(uv);
     let gain = vignette9_mask(uv);
-    let t = (u.u_count_domainwarp1_clock.x + u.u_count_domainwarp1_clock.y + vignette4_mask(uv));
+    let t = time_unbounded(u.u_count_domainwarp1_clock, vignette4_mask(uv));
     let seed = vignette10_mask(uv);
     let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
     var warp = vec2f(0.0);

@@ -436,7 +436,7 @@ fn timed(slug: &'static str, root: &'static str, offset: f32) -> (Graph, NodeId,
     }
     g.connect(PortRef::new(under, root), PortRef::new(out, "input"))
         .unwrap();
-    for key in [nodes::phasor::OFFSET, nodes::phasor::OFFSET_Y] {
+    for key in [nodes::timing::OFFSET, nodes::timing::OFFSET_Y] {
         if nodes::find(slug).unwrap().input(key).is_some() {
             g.get_mut(under)
                 .unwrap()
@@ -516,14 +516,14 @@ fn a_field_into_offset_is_a_ripple() {
                 .unwrap();
             g.connect(
                 PortRef::new(radius, "output"),
-                PortRef::new(grad, nodes::phasor::OFFSET),
+                PortRef::new(grad, nodes::timing::OFFSET),
             )
             .expect("a field feeds Offset");
         } else {
             let number = add(&mut g, "number");
             g.connect(
                 PortRef::new(number, "output"),
-                PortRef::new(grad, nodes::phasor::OFFSET),
+                PortRef::new(grad, nodes::timing::OFFSET),
             )
             .unwrap();
         }
@@ -568,6 +568,10 @@ fn a_gear_in_time_is_the_node_at_the_gears_reading() {
     for (slug, root) in [("cosinegradient", "output"), ("rotozoom", "output")] {
         let reading: f32 = 0.37;
         let (mut g, out, under) = timed(slug, root, 0.0);
+        g.get_mut(under)
+            .unwrap()
+            .options
+            .insert(nodes::timing::MODE.key, nodes::timing::LOOP.to_string());
         let gear = add(&mut g, "ratiogear");
         g.connect(
             PortRef::new(gear, "cycles"),
@@ -658,7 +662,7 @@ fn static_under_repeat_comes_back_with_a_field_in_its_offset() {
             (PortRef::new(scale, "output"), PortRef::new(shift, "a")),
             (
                 PortRef::new(shift, "output"),
-                PortRef::new(under, nodes::phasor::OFFSET),
+                PortRef::new(under, nodes::timing::OFFSET),
             ),
         ] {
             g.connect(from, to).unwrap();

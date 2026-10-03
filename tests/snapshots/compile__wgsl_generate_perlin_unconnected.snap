@@ -156,7 +156,7 @@ fn loopCircle(turn: f32, reach: f32) -> vec2f {
 fn perlin1_color(uv: vec2f) -> vec4f {
     let noiseScale = u.u_control_perlin1_scale;
     let contrast = u.u_control_perlin1_contrast;
-    let raw = cnoise3(vec3f(uv * noiseScale, (u.u_count_perlin1_clock.x + u.u_count_perlin1_clock.y + u.u_control_perlin1_phaseOffset)));
+    let raw = cnoise3(vec3f(uv * noiseScale, time_unbounded(u.u_count_perlin1_clock, u.u_control_perlin1_phaseOffset)));
     let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
     return mix(u.u_control_perlin1_background, u.u_control_perlin1_foreground, value);
 }
@@ -164,7 +164,7 @@ fn perlin1_color(uv: vec2f) -> vec4f {
 fn perlin1_value(uv: vec2f) -> f32 {
     let noiseScale = u.u_control_perlin1_scale;
     let contrast = u.u_control_perlin1_contrast;
-    let raw = cnoise3(vec3f(uv * noiseScale, (u.u_count_perlin1_clock.x + u.u_count_perlin1_clock.y + u.u_control_perlin1_phaseOffset)));
+    let raw = cnoise3(vec3f(uv * noiseScale, time_unbounded(u.u_count_perlin1_clock, u.u_control_perlin1_phaseOffset)));
     let value = clamp(raw * 0.5 * contrast + 0.5, 0.0, 1.0);
     return value;
 }

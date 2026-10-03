@@ -11,9 +11,10 @@
 //! how many frames have landed in the meantime, and it is a count rather than a fraction
 //! because a GIF's header does not say how many are coming — so there is no `progress` to
 //! draw a bar with. A still is one frame; a GIF is as many as it holds, each with the delay it
-//! was authored with. **Time counts plays of it**, `video`'s rule: unplugged, ambient time at
-//! the animation's own pace, one play every length of its delays; a gear cabled in replaces
-//! it, so a Ratio Gear at ×2 plays it twice as fast and one at `-×1` backwards. **Offset** is
+//! was authored with. **Time counts plays of it**, `video`'s rule: at Speed 1, or in Loop mode
+//! unplugged, the animation's own pace, one play every length of its delays, and Speed 2 twice
+//! as fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at ×2 twice as fast and one
+//! at `-×1` backwards. **Offset** is
 //! added, 0 to 1 across the whole animation laid over the frames' own delays, the sum wrapping
 //! at the end as a GIF does; a slow wave on it scratches around the playing animation. The
 //! frame shown is a function of that sum, so the same sum is the same frame however it was
@@ -28,13 +29,17 @@ use crate::graph::NodeId;
 use crate::graph::PortType::{UniformNumber, VaryingColor};
 use crate::nodes::phasor;
 use crate::nodes::{
-    Accepts, Category, Control, CpuDef, CpuNode, Frame, InputDef, NodeDef, OptionDef, OptionKind,
-    OutputDef, OutputKind, Pixels, TickContext,
+    Accepts, Category, CpuDef, CpuNode, Frame, NodeDef, OptionDef, OptionKind, OutputDef,
+    OutputKind, Pixels, TickContext,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
+
+/// A play a cycle, at the animation's own pace — one over its length, which the node reads
+/// off its delays and hands to `TickContext::cycle_at`.
+const TIMING: crate::nodes::Timing = crate::nodes::Timing::periodic(1.0);
 
 pub static DEF: NodeDef = NodeDef {
     slug: "imagegif",
@@ -42,26 +47,11 @@ pub static DEF: NodeDef = NodeDef {
     icon: "🖼",
     label: "Image/GIF",
     tooltip: "A still image or an animated GIF, as a texture. A GIF plays by its own frame \
-              delays, or as a gear cabled into Time plays it, and Offset is added to where \
-              that is.",
+              delays times its Speed, or as a gear cabled into Time plays it, and Offset is \
+              added to where that is.",
     // A play a cycle, at the animation's own pace, which the node reads off its delays.
-    ambient: Some(crate::nodes::Ambient::periodic(1.0)),
-    inputs: &[
-        InputDef {
-            key: crate::nodes::TIME,
-            label: "Time",
-            ty: UniformNumber,
-            // No knob: unplugged, Time is ambient time at the animation's own pace.
-            control: Control::None,
-        },
-        InputDef {
-            key: phasor::OFFSET,
-            label: "Offset",
-            ty: UniformNumber,
-            // In plays of the animation, 0 to 1 across it, added to Time.
-            control: phasor::offset_control(),
-        },
-    ],
+    timing: Some(TIMING),
+    inputs: crate::nodes::timing::inputs![TIMING;],
     outputs: &[
         OutputDef {
             key: "output",
@@ -99,7 +89,7 @@ pub static DEF: NodeDef = NodeDef {
             ..OutputDef::EMPTY
         },
     ],
-    options: &[
+    options: crate::nodes::timing::options![
         OptionDef {
             key: "file",
             label: "File",
@@ -113,9 +103,8 @@ pub static DEF: NodeDef = NodeDef {
             ..OptionDef::EMPTY
         },
         crate::nodes::SHOW_PREVIEW,
-        crate::nodes::SHOW_TIME,
     ],
-    row_headings: &[crate::nodes::SHOW_TIME.key],
+    row_headings: crate::nodes::timing::ROW_HEADINGS,
     // The picture itself, on the body, which is the whole of what this node holds: silvia
     // draws the loaded image in the node up to about 320 across, so a row of them reads as a
     // contact sheet. It is the clip node's own region under the clip node's own heading —
@@ -343,9 +332,8 @@ impl CpuNode for Picture {
 
         // Only an animation that has decoded plays, and a still has nowhere to go: plays of
         // it, at its own pace, with Offset added.
-        let offset = f64::from(ctx.input(id, phasor::OFFSET));
         self.seconds = match self.length() {
-            Some(length) => (ctx.clock_at(id, 1.0 / length) + offset) * length,
+            Some(length) => ctx.cycle_at(id, 1.0 / length) * length,
             None => 0.0,
         };
         self.at = self.frame_at(self.seconds);

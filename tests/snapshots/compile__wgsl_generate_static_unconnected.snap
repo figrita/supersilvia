@@ -32,7 +32,7 @@ fn static1_color(uv: vec2f) -> vec4f {
     let gridUV = uv * noiseScale;
     let cell = floor(gridUV);
     let cellFract = fract(gridUV);
-    let roll = floor(u.u_count_static1_clock.x + u.u_count_static1_clock.y + u.u_control_static1_phaseOffset);
+    let roll = floor(time_unbounded(u.u_count_static1_clock, u.u_control_static1_phaseOffset));
     let animSeed = u.u_control_static1_seed + roll;
     let tl = cellHash(cell, animSeed);
     let tr = cellHash(cell + vec2f(1.0, 0.0), animSeed);
@@ -50,7 +50,7 @@ fn static1_value(uv: vec2f) -> f32 {
     let gridUV = uv * noiseScale;
     let cell = floor(gridUV);
     let cellFract = fract(gridUV);
-    let roll = floor(u.u_count_static1_clock.x + u.u_count_static1_clock.y + u.u_control_static1_phaseOffset);
+    let roll = floor(time_unbounded(u.u_count_static1_clock, u.u_control_static1_phaseOffset));
     let animSeed = u.u_control_static1_seed + roll;
     let tl = cellHash(cell, animSeed);
     let tr = cellHash(cell + vec2f(1.0, 0.0), animSeed);

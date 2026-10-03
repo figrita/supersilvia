@@ -43,14 +43,14 @@ pub static DEF: NodeDef = NodeDef {
     category: Category::Control,
     icon: "⚪",
     label: "Euclidean Rhythm",
-    tooltip: "Generate Euclidean rhythms with pulse count and rotation controls for each lane; a Master Gear a bar long cabled into Time plays them, a bar a cycle.",
+    tooltip: "Generate Euclidean rhythms with pulse count and rotation controls for each lane; Speed 1 plays them a bar every two seconds, or a Master Gear a bar long cabled into Time does, a bar a cycle.",
     inputs: sequencer::INPUTS,
-    ambient: Some(crate::nodes::Ambient {
-        rate: 0.0,
+    timing: Some(crate::nodes::Timing {
         period: |node| Some(bars(node)),
+        ..sequencer::TIMING
     }),
-    options: &[crate::nodes::SHOW_TIME],
-    row_headings: &[crate::nodes::SHOW_TIME.key],
+    options: crate::nodes::timing::options![],
+    row_headings: crate::nodes::timing::ROW_HEADINGS,
     // The twelve a lane is shaped by: values the node keeps, drawn three across on a slab
     // per lane under the grid rather than on twelve rows with ports nobody cabled. Pulses is
     // capped by that lane's own Steps, so a 32-step lane can be filled the whole way rather

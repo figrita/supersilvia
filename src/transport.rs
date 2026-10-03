@@ -2,7 +2,7 @@
 
 //! The transport: a playhead in seconds over the one clock, which plays, pauses and seeks.
 //! It is **ambient time**, the one clock of the show: every node that moves with time reads
-//! it at a rate of its own unless a gear is cabled into its Time.
+//! it, at a rate of its own or its Speed integrated, unless a gear is cabled into its Time.
 //!
 //! It is a coordinate system over [`crate::clock::Clock`], not a second timer. It keeps an
 //! anchor — a playhead and the clock's `elapsed` at that playhead — and reads
@@ -13,8 +13,8 @@
 //!
 //! re-anchoring on every play, pause and seek, the way Ableton Link, Tidal and
 //! SuperCollider's TempoClock keep a position. Nothing else keeps a timer. There is no speed
-//! and no loop: a rate is a gear's, and a loop is a property of a gear chain, which a Master
-//! Gear's caption reads (`nodes::chain`).
+//! and no loop: a rate is a node's Speed or a gear's, both integrating this one, and a loop is
+//! a property of a gear chain, which a Master Gear's caption reads (`nodes::chain`).
 //!
 //! **Travel is what gears integrate.** Beside the playhead it keeps `travel`, the total
 //! distance the playhead has moved, carrying a seek's jump as a jump. Two readings of it a

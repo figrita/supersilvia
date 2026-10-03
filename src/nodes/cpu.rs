@@ -691,6 +691,25 @@ impl Default for MainInputFeed<'_> {
     }
 }
 
+/// The value on a uniform number input this frame: what its source published where it is
+/// connected, its control where it is not, and zero for anything else.
+pub fn number<S: std::hash::BuildHasher>(
+    graph: &Graph,
+    uniforms: &HashMap<PortRef, f32, S>,
+    input: PortRef,
+) -> f32 {
+    if let Some(src) = graph.source_of(input) {
+        return uniforms.get(&src).copied().unwrap_or(0.0);
+    }
+    match graph
+        .get(input.node)
+        .and_then(|n| n.controls.get(input.key))
+    {
+        Some(ControlValue::Float(v)) => *v,
+        _ => 0.0,
+    }
+}
+
 /// What a `tick` can see and say. Inputs resolve exactly as the compiler resolves them: a
 /// connected port reads the producer's published value, an unconnected one reads its
 /// control, and anything else is zero.
@@ -757,6 +776,10 @@ pub struct TickContext<'a> {
     /// is over. `automation`'s recording, and nothing else so far. See
     /// [`Self::write_value`].
     value_writes: &'a mut Vec<(NodeId, &'static str, crate::graph::Value)>,
+    /// The ticking node's own playhead while it runs free, in seconds of its pace: what the
+    /// synth's integrator made of its Speed this tick (`nodes::timing::Pace`). `None` for a
+    /// node that loops. See [`Self::cycle`].
+    free: Option<(NodeId, f64)>,
 }
 
 impl<'a> TickContext<'a> {
@@ -807,7 +830,20 @@ impl<'a> TickContext<'a> {
             pointer,
             control_writes,
             value_writes,
+            free: None,
         }
+    }
+
+    /// The same, for `id` running free with its own playhead at `at`, in seconds of its pace.
+    #[must_use]
+    pub fn running_free(mut self, id: NodeId, at: Option<f64>) -> Self {
+        self.free = at.map(|at| (id, at));
+        self
+    }
+
+    /// Whether `id` runs free this tick: Speed in its Time's place.
+    pub fn runs_free(&self, id: NodeId) -> bool {
+        self.free.is_some_and(|(node, _)| node == id)
     }
 
     /// How far through this tick's advance a moment `at` seconds into the frame is, 0 to 1:
@@ -853,13 +889,7 @@ impl<'a> TickContext<'a> {
 
     /// The value on one of `id`'s uniform number inputs this frame.
     pub fn input(&self, id: NodeId, key: &'static str) -> f32 {
-        if let Some(src) = self.graph.source_of(PortRef::new(id, key)) {
-            return self.uniforms.get(&src).copied().unwrap_or(0.0);
-        }
-        match self.graph.get(id).and_then(|n| n.controls.get(key)) {
-            Some(ControlValue::Float(v)) => *v,
-            _ => 0.0,
-        }
+        number(self.graph, self.uniforms, PortRef::new(id, key))
     }
 
     /// The color on one of `id`'s uniform color inputs this frame.
@@ -895,25 +925,25 @@ impl<'a> TickContext<'a> {
             .is_some_and(|src| self.counts.contains_key(&src))
     }
 
-    /// What `id`'s **Time** reads this tick, in its own cycles and unwrapped: what is cabled
-    /// into it, read as a count ([`Self::count`]), or with nothing there ambient time at the
-    /// node's declared rate, from the `f64` playhead. See [`crate::nodes::Ambient`].
-    pub fn clock(&self, id: NodeId) -> f64 {
-        let rate = self
-            .graph
-            .get(id)
-            .and_then(|n| n.def.ambient)
-            .map_or(0.0, |a| a.rate);
-        self.clock_at(id, rate)
+    /// Where `id` is this tick, in its own cycles and unwrapped, with its Offset added: in
+    /// Loop mode its Time — what is cabled in, read as a count ([`Self::count`]), or ambient
+    /// time at its rest rate, from the `f64` playhead — and in Free mode its own playhead at
+    /// its pace. See [`crate::nodes::timing`].
+    pub fn cycle(&self, id: NodeId) -> f64 {
+        let timing = self.graph.get(id).and_then(|n| n.def.timing);
+        let rate = timing.map_or(0.0, |t| if self.runs_free(id) { t.pace } else { t.rate });
+        self.cycle_at(id, rate)
     }
 
-    /// The same at a rate the node works out itself — a clip's one play over its length.
-    pub fn clock_at(&self, id: NodeId, rate: f64) -> f64 {
-        if self.connected(id, crate::nodes::TIME) {
-            self.count(id, crate::nodes::TIME)
-        } else {
-            self.time.playhead * rate
-        }
+    /// The same at a rate the node works out itself — a clip's one play over its length, which
+    /// is both its rate at rest and its pace.
+    pub fn cycle_at(&self, id: NodeId, rate: f64) -> f64 {
+        let time = match self.free {
+            Some((node, at)) if node == id => at * rate,
+            _ if self.connected(id, crate::nodes::TIME) => self.count(id, crate::nodes::TIME),
+            _ => self.time.playhead * rate,
+        };
+        time + f64::from(self.input(id, crate::nodes::timing::OFFSET))
     }
 
     /// Where the clock cabled into one of `id`'s inputs wraps as [`Self::count`] reads it:

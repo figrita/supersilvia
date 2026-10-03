@@ -146,7 +146,7 @@ fn mandelbrot1_map(uv: vec2f) -> vec4f {
     }
     var finalUV: vec2f;
     if (i < maxIter) {
-        let tu = floor_mod(atan2(z.y, z.x) / (2.0 * PI) + (u.u_count_mandelbrot1_clock.y + vignette11_mask(uv)), 1.0);
+        let tu = floor_mod(atan2(z.y, z.x) / (2.0 * PI) + time_periodic(u.u_count_mandelbrot1_clock, vignette11_mask(uv)), 1.0);
         let tv = log2(log(dot(z, z)) / log(10000.0));
         finalUV = vec2f(tu, mix(tv, 1.0 - tv, floor_mod(f32(i), 2.0)));
     } else {

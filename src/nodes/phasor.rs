@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! A rate integrated against how far the transport moved: what the stateful nodes with a
-//! start of their own step — `animation`, `automation`'s playback, a clip's Main Input play.
-//! A gear integrates its own `f64` and reads this module's [`Step`], [`fraction`] and
-//! [`wrap_count`]; a node that moves with ambient time integrates nothing: it reads
-//! `Time + Offset` each frame (`nodes::Ambient`). See `proposals/time.md` and
-//! `docs/cpu.md#stateful-nodes-step-on-dt`.
+//! start of their own step — `animation`, `automation`'s playback, a clip's Main Input play —
+//! and what a free-running node's Speed is integrated by (`nodes::timing::Pace`, which the
+//! synth keeps). A gear integrates its own `f64` and reads this module's [`Step`],
+//! [`fraction`] and [`wrap_count`]; a node that moves with time reads `Time + Offset` each
+//! frame. See `proposals/time.md` and `docs/cpu.md#stateful-nodes-step-on-dt`.
 //!
 //! **It integrates the advance it is handed** ([`Time::advance`]), never a frame's `dt`. So it
 //! pauses with the show, follows a seek by `rate × the jump`, and catches up after a stall or
@@ -49,20 +49,6 @@ pub const WRAP: f64 = 2520.0;
 /// the least common multiple of [`WRAP`] and 128, so a noise's Repeat, Static's 16 to 128, the
 /// tunnel's 64 and one cycle all divide it.
 pub const WHOLE_WRAP: f64 = 40320.0;
-
-/// The key of **Offset**, the input every time-driven node takes beside its Time: added to
-/// Time every frame, in the node's own cycles, so 0 to 1 is exactly one of them. A varying
-/// circle on a node that draws, so a field makes a ripple, and a uniform number on a CPU node.
-/// See `docs/nodes.md#time-and-offset`.
-pub const OFFSET: &str = "phaseOffset";
-
-/// The key of a second axis's Offset, beside [`crate::nodes::TIME_Y`]: Shaky Cam's Y.
-pub const OFFSET_Y: &str = "phaseOffsetY";
-
-/// The control every Offset carries: zero adds nothing, and 0 to 1 is one cycle.
-pub const fn offset_control() -> crate::nodes::Control {
-    crate::nodes::Control::num(0.0, 0.0, 1.0, 0.001, "")
-}
 
 /// A step of a cabled clock larger than this is its wrap at [`WRAP`], not a motion; and the
 /// bounds of a published count, `-HALF_WRAP` up to `HALF_WRAP`.

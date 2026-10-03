@@ -19,9 +19,9 @@
 //! set and 0 outside, which is what the name means everywhere else in the library.
 //!
 //! **Time and Offset, in drifts of the map.** silvia's orbit-trap mapping reads `u_time *
-//! timeSpeed`; here the escape-time pair read ambient time at half a drift a second — silvia's
-//! Time Speed of 0.5 — through **Time**, which a gear cabled in replaces, and **Offset** is
-//! added to it, so a Ratio Gear turns the drift and nothing jumps.
+//! timeSpeed`; here the escape-time pair move at half a drift a second — silvia's Time Speed
+//! of 0.5 — at Speed 1, or in Loop mode on ambient time or a gear cabled into **Time**, and
+//! **Offset** is added to it, so a Speed or a Ratio Gear turns the drift and nothing jumps.
 //!
 //! `lyapunov` runs a fixed [`ITERATIONS`] steps of its map rather than silvia's Iterations
 //! control: ten are enough for the picture, and a count that is a field is a loop no compiler
@@ -34,11 +34,11 @@
 //! rebuild, one undo step and a saved sequence. It is a button and not silvia's action input,
 //! because a cable that rewrote a `Code` option would rebuild the shader every time it fired.
 
-use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
+use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::{
-    Ambient, Buttons, Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind,
-    Region, Settings,
+    Buttons, Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Region,
+    Settings, Timing,
 };
 
 // --------------------------------------------------------------------- escape-time pair
@@ -76,7 +76,7 @@ const ESCAPE_SMOOTH: &str = "    return smoothT;";
 /// radius, a captured one at its own coordinate pushed by where the orbit ended up.
 const ESCAPE_MAP_WGSL: &str = "    var finalUV: vec2f;
     if (i < maxIter) {
-        let tu = floor_mod(atan2(z.y, z.x) / (2.0 * PI) + ({clock}.y + {phaseOffset}), 1.0);
+        let tu = floor_mod(atan2(z.y, z.x) / (2.0 * PI) + time_periodic({clock}, {phaseOffset}), 1.0);
         let tv = log2(log(dot(z, z)) / log(10000.0));
         finalUV = vec2f(tu, mix(tv, 1.0 - tv, floor_mod(f32(i), 2.0)));
     } else {
@@ -95,7 +95,7 @@ node! {
               count as a field, and its map reads the input picture along each orbit.",
     // "Map Strength" does not fit the default 200.
     width: 240.0,
-    ambient: Ambient::periodic(0.5),
+    timing: Timing::periodic(0.5),
     inputs: [
         VaryingColor "input" "Map Texture" at "finalUV" = Control::None,
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
@@ -105,8 +105,6 @@ node! {
         VaryingNumber "zoom" "Zoom" = Control::num_log(1.0, 0.01, 100_000.0, 0.01, "x"),
         VaryingNumber "iterations" "Iterations" = Control::num_log(50.0, 10.0, 500.0, 1.0, ""),
         VaryingNumber "strength" "Map Strength" = Control::num(1.3, -5.0, 5.0, 0.01, ""),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
     ],
     wgsl_common: {
         [
@@ -137,7 +135,7 @@ node! {
               shape; its mask, smooth and map are the Mandelbrot's.",
     // "Map Strength" does not fit the default 200.
     width: 240.0,
-    ambient: Ambient::periodic(0.5),
+    timing: Timing::periodic(0.5),
     inputs: [
         VaryingColor "input" "Map Texture" at "finalUV" = Control::None,
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
@@ -149,8 +147,6 @@ node! {
         VaryingNumber "cImag" "C Imaginary" = Control::num(0.27015, -2.0, 2.0, 0.001, "⬓"),
         VaryingNumber "iterations" "Iterations" = Control::num_log(50.0, 10.0, 500.0, 1.0, ""),
         VaryingNumber "strength" "Map Strength" = Control::num(1.3, -5.0, 5.0, 0.01, ""),
-        UniformNumber "clock" "Time" = Control::None,
-        VaryingNumber "phaseOffset" "Offset" = crate::nodes::phasor::offset_control(),
     ],
     wgsl_common: {
         [

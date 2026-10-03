@@ -379,15 +379,17 @@ pub fn button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str) -> bo
 }
 
 /// The heading's own geometry, silvia's `.section-toggle` in world units: a 20 point header
-/// (`canvas::HEADING_HEIGHT`) whose bar pulls in by `HEADING_PAD` top and bottom, a disclosure
-/// triangle in a fixed box so the label cannot shift as it turns, and silvia's `gap: 6px`
-/// between the two.
+/// (`canvas::HEADING_HEIGHT`) whose bar pulls in by `HEADING_PAD` at the top, a disclosure
+/// triangle in a fixed box so the label cannot shift as it turns, and a gap a little under
+/// silvia's `gap: 6px` between the two.
 const TRIANGLE: f32 = 9.0;
-const TRIANGLE_GAP: f32 = 6.0;
+const TRIANGLE_GAP: f32 = 4.0;
 /// How far the triangle's corners are rounded, in world units.
 const TRIANGLE_ROUND: f32 = 0.9;
-/// Air above and below the bar, which is also half the clearance between two stacked headings.
-const HEADING_PAD: f32 = 2.0;
+/// Air above the bar: `canvas::HEADING_GAP`, the one gap a heading keeps. What goes under a
+/// closed bar is the layout's (`canvas::rows_with_top`), so the bar is the same height open or
+/// closed.
+const HEADING_PAD: f32 = canvas::HEADING_GAP;
 /// How long the triangle takes to turn, and how long the bar takes to brighten under the
 /// pointer — silvia's `transition: transform 0.15s ease` on the same arrow.
 const TURN_TIME: f32 = 0.15;
@@ -426,7 +428,7 @@ pub fn show(
         rect = Rect::from_min_max(pos2(band.min.x, split), band.max);
         let open = canvas::region_open(node, region);
         // Drawn before the node's border, which covers the bar's ends, so it needs no inset.
-        if heading_row(ui, strip, 0.0, heading, open, node, id, t.zoom, theme) {
+        if heading_row(ui, strip, [0.0; 2], heading, open, node, id, t.zoom, theme) {
             out.push(RegionEvent::Option {
                 key: heading.key,
                 value: if open {
@@ -490,14 +492,14 @@ pub fn show(
 /// `bg_sunken` rather than below it — across the body's full width, as wide as the rows or
 /// region it folds, under a dimmed `border_subtle` hairline with a brighter one along the
 /// bottom edge, so a heading reads as a slab sitting in the body rather than as a hole cut in
-/// it. `edge` pulls the bar's ends in, in screen points, for a caller that draws it over the
-/// node's border. **No tooltip.** A triangle beside a label is the one control that
+/// it. `edge` pulls the bar's left and right ends in, in screen points, for a caller that
+/// draws it over the node's border. **No tooltip.** A triangle beside a label is the one control that
 /// needs no words, and the tip it used to show landed over the heading below it.
 #[allow(clippy::too_many_arguments)]
 pub fn heading_row(
     ui: &mut Ui,
     strip: Rect,
-    edge: f32,
+    edge: [f32; 2],
     heading: Heading,
     open: bool,
     node: &Node,
@@ -519,9 +521,13 @@ pub fn heading_row(
     );
 
     // The bar spans the body edge to edge, as the rows and regions it folds do: a bar pulled in
-    // from both sides sat narrower than what opened under it. Only the air above and below
-    // stays, so two stacked headings still read as two strips.
-    let bar = strip.shrink2(vec2(edge, HEADING_PAD * zoom));
+    // from both sides sat narrower than what opened under it. The air above it stays, so two
+    // stacked headings still read as two strips, and it reaches down to the strip's foot, so
+    // open it touches what it folds and the two read as one.
+    let bar = Rect::from_min_max(
+        strip.min + vec2(edge[0], HEADING_PAD * zoom),
+        strip.max - vec2(edge[1], 0.0),
+    );
     let painter = ui.painter();
     painter.rect_filled(
         bar,
@@ -564,11 +570,14 @@ pub fn heading_row(
         .text_secondary()
         .lerp_to_gamma(theme.text_primary(), hot);
     // The triangle's box is fixed and its label's x is a constant off the strip, so neither
-    // moves as the triangle turns or as `edge` changes with the selection. The left edge of
-    // that box lines up with a port row's own label, `node_widget::LABEL_INSET` in from the
+    // moves as the triangle turns or as `edge` changes with the selection. The box's left
+    // edge lines up with a port row's own label, `node_widget::LABEL_INSET` in from the
     // body's edge.
     let inset = crate::ui::node_widget::LABEL_INSET;
-    let center = pos2(strip.min.x + (inset + TRIANGLE * 0.5) * zoom, bar.center().y);
+    let center = pos2(
+        strip.min.x + (inset + TRIANGLE * 0.5) * zoom,
+        bar.center().y,
+    );
     triangle(
         painter,
         center,
@@ -594,6 +603,97 @@ pub fn heading_row(
     // is the part of the node it hides rather than the affordance it happens to wear.
     crate::ui::accessible(&w, eframe::egui::WidgetType::Button, &name);
     w.clicked()
+}
+
+/// How wide one segment of [`heading_segments`] is, and how far the row stands in from the
+/// strip's right end, in world units at zoom 1.
+const SEGMENT_WIDTH: f32 = 32.0;
+const SEGMENT_INSET: f32 = 4.0;
+
+/// A row of segments at the right end of a heading's bar, one per choice, the chosen one lit:
+/// an option drawn on the heading rather than as a row (`OptionDef::on_heading`), such as a
+/// time-driven node's Free and Loop. Which segment was clicked, if one was.
+///
+/// Registered after the heading's own strip, so a click here is the segment's and never the
+/// fold's. One rounded frame in the press button's chrome, split by a hairline, with each
+/// choice's name in the heading's tiny type; drawn whether the heading is open or closed.
+pub fn heading_segments(
+    ui: &mut Ui,
+    strip: Rect,
+    choices: crate::nodes::Choices,
+    chosen: &str,
+    name: &str,
+    zoom: f32,
+    theme: &Theme,
+) -> Option<usize> {
+    use eframe::egui::{CornerRadius, Stroke, StrokeKind};
+    let height = (canvas::HEADING_HEIGHT - 2.0 * HEADING_PAD - 4.0).max(1.0) * zoom;
+    let width = SEGMENT_WIDTH * zoom;
+    let right = strip.max.x - SEGMENT_INSET * zoom;
+    // Centred on the bar, which starts `HEADING_PAD` below the strip's top.
+    let middle = (strip.min.y + HEADING_PAD * zoom + strip.max.y) * 0.5;
+    let frame = Rect::from_min_max(
+        pos2(right - width * choices.len() as f32, middle - height * 0.5),
+        pos2(right, middle + height * 0.5),
+    );
+    let radius = CornerRadius::same(crate::ui::theme::RADIUS_SM);
+    let hair = (1.0 * zoom).max(1.0);
+    let font = FontId::monospace(crate::ui::theme::font_size(
+        crate::ui::theme::FONT_TINY,
+        zoom,
+    ));
+    ui.painter()
+        .rect_filled(frame, radius, theme.bg_interactive());
+    let mut clicked = None;
+    for (i, (value, label)) in choices.iter().enumerate() {
+        let rect = Rect::from_min_size(
+            pos2(frame.min.x + width * i as f32, frame.min.y),
+            vec2(width, height),
+        );
+        let segment = format!("{name}.{value}");
+        let w = ui.interact(rect, ui.id().with(("segment", &segment)), Sense::click());
+        let lit = *value == chosen;
+        let corners = CornerRadius {
+            nw: if i == 0 { radius.nw } else { 0 },
+            sw: if i == 0 { radius.sw } else { 0 },
+            ne: if i + 1 == choices.len() { radius.ne } else { 0 },
+            se: if i + 1 == choices.len() { radius.se } else { 0 },
+        };
+        let painter = ui.painter();
+        if lit {
+            painter.rect_filled(rect, corners, theme.bg_active());
+        } else if w.hovered() {
+            painter.rect_filled(rect, corners, theme.bg_hover());
+        }
+        if i > 0 {
+            painter.line_segment(
+                [rect.left_top(), rect.left_bottom()],
+                Stroke::new(hair, theme.border_normal()),
+            );
+        }
+        painter.text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            label,
+            font.clone(),
+            if lit {
+                theme.text_primary()
+            } else {
+                theme.text_secondary()
+            },
+        );
+        crate::ui::accessible(&w, eframe::egui::WidgetType::RadioButton, &segment);
+        if w.clicked() && !lit {
+            clicked = Some(i);
+        }
+    }
+    ui.painter().rect_stroke(
+        frame,
+        radius,
+        Stroke::new(hair, theme.border_normal()),
+        StrokeKind::Inside,
+    );
+    clicked
 }
 
 /// A rounded equilateral triangle, pointing right at `turn` 0 and down at `turn` 1.

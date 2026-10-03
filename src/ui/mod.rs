@@ -2836,6 +2836,7 @@ fn refusal_words(
     match graph.can_connect_within(reach, from, to) {
         Err(ConnectError::SelfConnection(_)) => Some("a node can't feed itself".to_owned()),
         Err(ConnectError::WouldCycle { .. }) => Some("would make a loop".to_owned()),
+        Err(ConnectError::Inactive(_)) => Some("the time mode puts this row away".to_owned()),
         Err(
             ConnectError::TypeMismatch { from, to } | ConnectError::ActionMismatch { from, to },
         ) => Some(format!("{} can't take {}", carried(to), carried(from))),

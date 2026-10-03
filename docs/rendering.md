@@ -852,13 +852,15 @@ spent waiting on the writer — a GIF quantizing, a slow disk, the last frames b
 a file — is the writer's time and counts towards nothing.
 
 **Time in a shader is a number, so a render builds nothing of its own.** A node that moves
-with time declares `NodeDef::ambient`, its rate at rest and its period. With nothing cabled
-into its Time (key `clock`, no knob), the compiler reads the input as a published count under
-that key, `u_count_{slug}{id}_clock` (`compile::CompileContext::published_count`), and on
-every tick the synth writes `playhead × rate` there from the `f64` playhead. Cabled, Time
+with time declares `NodeDef::timing`, its rate at rest, its pace and its period. With nothing
+cabled into its Time (key `clock`, no knob), the compiler reads the input as a published count
+under that key, `u_count_{slug}{id}_clock` (`compile::CompileContext::published_count`), and
+on every tick the synth writes there `playhead × rate` from the `f64` playhead in Loop mode, or
+in Free mode the node's own playhead, its Speed integrated, times its pace — which a render
+starts again from its first frame, so the film is the same twice. Cabled, Time
 reads what arrives the same way, usually a gear's Cycles. A count is a `vec2f`, its whole part
 wrapped at 40320 and the `f32` of its fraction (`nodes::phasor::split`, resolved by the synth
-from `UniformProvider::NodeCount`), and a body reduces the whole part by its period — one
+from `UniformProvider::NodeCount`), and a body, through the prelude's time helpers, reduces the whole part by its period — one
 cycle, `N` under Repeat, 64 for the Tunnel while its depth wraps — before it adds the
 fraction. So a module holds no clock and no loop: there is no Loop bit in the compiler,
 the link or the plan, one module has one form, and a pause, a seek or a render changes numbers
@@ -923,7 +925,7 @@ button — and what says one is running is the band across the editor; both are 
 the one way to render**, a loop included: a loop's length is a Master Gear's, which its
 caption states (`nodes::chain`), and the render's frames are that length at the Output's
 FPS. There is no loop export, no seam measured in the app and no loop badge —
-[decisions.md](decisions.md#one-transport-over-the-one-clock-and-gears-hold-the-only-time).
+[decisions.md](decisions.md#one-transport-over-the-one-clock-and-every-rate-integrates-it).
 
 **`examples/loop_gifs` renders a loop through it.** For each workspace it takes the Output's
 ordinary render for as long as its Master Gear says a loop is (`nodes::chain::master_length`:

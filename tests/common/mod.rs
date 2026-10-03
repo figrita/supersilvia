@@ -29,8 +29,22 @@ pub fn add_on(app: &mut App, slug: &'static str, workspace: WorkspaceId) -> Node
         .expect("just added")
 }
 
-/// Cable one port to another.
+/// Cable one port to another; a clock into a Time puts its node in Loop mode first.
 pub fn connect(app: &mut App, from: (NodeId, &'static str), to: (NodeId, &'static str)) {
+    // A clock cabled into a Time: the node loops on it rather than running free.
+    if supersilvia::nodes::is_time(to.1)
+        && app
+            .graph()
+            .get(to.0)
+            .is_some_and(|n| n.def.timing.is_some())
+    {
+        app.apply(Command::SetOption {
+            node: to.0,
+            key: "clockMode",
+            value: "loop".to_string(),
+        })
+        .unwrap();
+    }
     app.apply(Command::Connect {
         from: PortRef::new(from.0, from.1),
         to: PortRef::new(to.0, to.1),

@@ -99,16 +99,16 @@ functions the bodies call — a noise gradient, a hash — and they reach `NodeD
 which the compiler emits once into a shader that touches such a node and never into one that
 does not.
 
-`ambient: Ambient::periodic(0.5),` after `width` and before `inputs:` makes the node one
-that moves with time, and reaches `NodeDef::ambient` — [Time and Offset](#time-and-offset).
-The node lists the two inputs among its others like any port, `UniformNumber "clock" "Time"
-= Control::None` and `VaryingNumber "phaseOffset" "Offset" =
-crate::nodes::phasor::offset_control()`, and a body reads its own cycles through the
-ordinary holes. The Time hole is a count, `vec2f(whole, fraction)`: `{clock}.y +
-{phaseOffset}` is the cycle on a periodic node, `whole_mod({clock}.x, N) + {clock}.y +
-{phaseOffset}` its time round a period `N`, and `{clock}.x + {clock}.y + {phaseOffset}` its
-time on a line. The arm adds no `cpu` half and no output: with nothing in Time, the hole is a
-uniform the synth writes each tick, so the node keeps no state.
+`timing: Timing::periodic(0.5),` after `width` and before `inputs:` makes the node one
+that moves with time, and reaches `NodeDef::timing` — [Timing](#timing); `timing_xy:` is the
+same on two axes. The node writes no time row itself: the macro puts Time, Speed and Offset
+after the `inputs:` list and before an optional `after_time:` list, and the Timing heading
+and its mode after the options. A body reads where the node is through the Time hole and
+Offset's, by the prelude's helper for its kind of period: `time_periodic({clock},
+{phaseOffset})` is the cycle on a periodic node, `time_repeat({clock}, N, {phaseOffset})` its
+time round a period `N`, and `time_unbounded({clock}, {phaseOffset})` its time on a line. The
+arm adds no `cpu` half and no output: the Time hole is a count the synth writes each tick,
+and a body never reads Speed.
 
 Every definition also names a `Category`, which `NodeDef::EMPTY` supplies a default for and
 `every_node_declares_a_category` insists is a real one. The Nodes menu is `Category::ALL`
@@ -306,7 +306,7 @@ variant: it is an `OptionDef` with `placeholder` set, below.
 An input on a GPU node is a `VaryingNumber`, whether it is a strength, a radius, a seed or
 a count of segments: a count that varies across the frame is a picture a person makes on
 purpose. A `UniformNumber` input on a GPU node is the exception, kept for Time — one moment
-per node, which the CPU reads as well ([Time and Offset](#time-and-offset)) — for a whole
+per node, which the CPU reads as well ([Timing](#timing)) — and Speed, its rate — for a whole
 number the node's cycle is built on, Rotozoom's Turns, which as a field would stop the node
 coming back every cycle, and for an input the node could publish a uniform of its own from,
 and weighed even then. A CPU node's inputs are uniforms by construction. See
@@ -431,89 +431,119 @@ input's label in place of the chosen value. It is a field rather than a case in 
 so `ui/` draws the state without knowing which node it belongs to, and a registry test holds
 the key to a real input of the same node. `tap.measure` is the one that has it.
 
-## Time and Offset
+## Timing
 
-There is one clock, the transport's playhead in seconds ([cpu.md](cpu.md#the-transport)), and
-it is **ambient**: a node that moves with time reads it unless something is cabled in. **A
-moving node has two inputs and no speed.**
+There is one clock, the transport's playhead in seconds ([cpu.md](cpu.md#the-transport)).
+A node that moves with time says so once, in **`NodeDef::timing: Option<nodes::Timing>`**,
+and `nodes::timing` — whose module doc is the one place these rules are written beside the
+code — expands everything else from that declaration: its time rows, its heading, its mode,
+the WGSL it reads them through, what a CPU node reads, and what the loop arithmetic reads.
 
-- **Time** (`nodes::TIME`, key `clock`) is a diamond with **no knob**, in the node's own
-  cycles. Unplugged, it is ambient time: the playhead at the node's own rate. Plugged,
-  whatever arrives **replaces** it — usually a gear's Cycles. Time is one moment per node,
-  which the CPU reads as well as the shader, so a field cabled into it is an ordinary type
-  mismatch. **Time reads a count whole**: a gear's Cycles, the Time node's Seconds and the
-  ambient reading are counts, which a CPU node reads in `f64` and a shader as its whole part
-  and its fraction ([cpu.md](cpu.md#gears)), so a Time is as precise a million cycles on as
-  at the first. Anything else in it — a Phase, an oscillator, a count through a Math node — is
-  the one `f32` that arrives.
-- **Offset** (`nodes::phasor::OFFSET`, key `phaseOffset`) is 0 to 1 of the node's own cycles
-  — units, on a node whose picture never repeats — from a knob at zero that adds nothing, and
-  it is **added** every frame. On a node that draws it is a varying number, so a field makes a
-  ripple with one cable: a radial into Offset spreads the picture outward as rings. On a CPU
-  node, whose tick has no pixel, it is a uniform number.
+**A `Timing`** is the node's rate at rest, its pace, its period and its axes. `rate` is how
+many of its own cycles one ambient second is in Loop mode with nothing cabled in; `pace` is
+how many one second is at a Speed of 1 in Free mode; `period: fn(&Node) -> Option<f64>` is
+how long its picture takes to come back in its own units by what its options say — one for a
+periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps, `None` for a picture
+that never repeats; and `axes` is one, or X and Y on Shaky Cam. `Timing::periodic(rate)` is
+a periodic node whose pace is its rate, `Timing::repeating(rate, period)` one with a period
+of its own, `.paced(pace)` gives a node resting at zero a pace, and `.xy()` a second axis.
 
-The two are adjacent rows, Time then Offset, folded under a **Time** heading that starts
-closed ([ui.md](ui.md#options-and-the-file-button) has the bar).
+**Two modes, so the first time row means one thing at a time.** The option `clockMode`
+(`nodes::timing::MODE`), values `free` and `loop`, shown "Free" and "Loop", default `free`:
 
-The node computes `Time + Offset` each frame and integrates nothing. **A node keeps no state
-for time**: no node has a speed knob, and a rate is set, changed or divided in one place, a
-gear. So nothing jumps. There is no speed to turn, a Ratio Gear's change lands on its input's
-next whole cycle, and a Master Gear's length turned bends from where it is. What moves the
-picture at once is an edit or a hand: a cable into Time, a gear's Reset, a seek.
+- **Free** — the row is **Speed** (key `speed`, `nodes::timing::SPEED`): a uniform number with
+  a knob and a port, −4 to 4, a multiple of the node's pace. 1 is its normal pace, 0 stands
+  still, negative runs backwards. Its knob starts at 1 on a node whose rate at rest is not
+  zero, so a new one moves as silvia's does, and at 0 on one that silvia keeps still. The
+  synth integrates it against the transport's advance — the same advance a gear integrates,
+  never a frame's raw `dt` — into the node's own playhead in `f64`, one per axis
+  (`nodes::timing::Pace`), and publishes `playhead × pace` under the Time key. So it pauses
+  with the show, follows a seek by `speed × the jump`, wakes from a closed tab having moved by
+  the gap, and is born where the playhead puts it, `speed × playhead`, as a Master Gear is: at
+  Speed 1 it reads exactly what Loop mode's ambient reading does, and a render, which starts
+  every playhead again, is deterministic. A knob turned glides to its new value over 50 ms in
+  closed form, so a stepped knob bends the motion rather than kinking it and lands on the same
+  phase at 30, 60 or 144 frames a second. A cable into Speed — an LFO, an envelope — changes
+  how fast the node runs, not where it is.
+- **Loop** — the row is **Time** (key `clock`, `nodes::TIME`): a diamond with **no knob**, in
+  the node's own cycles. Unplugged it is ambient time, `playhead × rate`. Plugged, whatever
+  arrives **replaces** it — usually a gear's Cycles, which drives the node exactly and closes
+  a loop to the bit. Time is one moment per node, which the CPU reads as well as the shader,
+  so a field cabled into it is an ordinary type mismatch.
 
-**`NodeDef::ambient: Option<nodes::Ambient>`** is what says a node moves with time. `Ambient`
-holds `rate`, how many of the node's own cycles one ambient second is at rest, and `period:
-fn(&Node) -> Option<f64>`, how long its picture takes to come back in its own units by what
-its options say: one for a periodic node, a noise's Repeat, the tunnel's 64 while its depth
-wraps, and `None` for a picture that never repeats. `Ambient::periodic(rate)` is the first of
-those. For a drawing node with nothing in its Time, the synth writes `playhead × rate` as a
-count under the input's own key each tick, from the `f64` playhead, and the compiler reads an
-unplugged Time as that published count, `u_count_{slug}{id}_clock`, as it reads a gear's
-Cycles cabled in. The body takes it round the node's period by its whole part, or, where there
-is none, adds its two parts. The registry test `a_time_driven_node_has_time_and_offset_and_no_speed`
-holds every node with `ambient` to a Time with no knob, an Offset one cycle from zero and no
-speed beside them, and names each node that has one.
+**Time reads a count whole.** In both modes the synth publishes where the node is under the
+Time key, `u_count_{slug}{id}_clock`: a gear's Cycles, the Time node's Seconds, the ambient
+reading and a free-running playhead are counts, which a CPU node reads in `f64` and a shader
+as its whole part and its fraction ([cpu.md](cpu.md#gears)), so a Time is as precise a
+million cycles on as at the first. Anything else in a Time — a Phase, an oscillator, a count
+through a Math node — is the one `f32` that arrives. A body never reads Speed.
+
+**Switching mode** puts one row away and shows the other in place, at the same height, so the
+node does not grow or shrink. The cable in the row that goes away is dropped by the same
+step (`Graph::drop_inactive`, from `SetOption`), one undo: a gear's Cycles, a growing count,
+left in a Speed would race off as a rate. A cable can never land on the row a mode puts away
+(`nodes::timing::is_inactive`, which `Graph::can_connect` refuses as `ConnectError::Inactive`),
+from a hand or from a file.
+
+**Offset** (key `phaseOffset`, `nodes::timing::OFFSET`) is 0 to 1 of the node's own cycles —
+units, on a node whose picture never repeats — from a knob at zero that adds nothing, and it
+is **added** in both modes: to Time in Loop mode, to the node's own playhead in Free mode. On
+a node that draws it is a varying number, so a field makes a ripple with one cable: a radial
+into Offset spreads the picture outward as rings. On a CPU node, whose tick has no pixel, it
+is a uniform number.
+
+The time rows are adjacent — Time, Speed, Offset, one of the first two shown — folded under a
+**Timing** heading (`nodes::timing::HEADING`, key `timing`) that starts closed, with the mode
+as two segments, Free and Loop, at the right end of its bar, drawn whether the heading is open
+or closed ([ui.md](ui.md#options-and-the-file-button) has the bar).
+
+**What a body reads.** One prelude helper per kind of period, each taking the Time count and
+Offset: `time_periodic` for a node that comes back every cycle, the fraction plus Offset;
+`time_repeat(time, n, offset)` for one that comes back every `n`, the whole part reduced by
+`n`, then the fraction, then Offset; and `time_unbounded` for one that never does, the whole
+count plus Offset. The tunnel is `time_repeat` at 64 while its depth wraps. The body takes the
+result round its own period where it needs to.
 
 **The rate at rest is silvia's default speed** in the node's own cycles, so a node dropped in
 moves as silvia's does. Where silvia's period was 20π it is rounded to whole seconds, which
-is under 5% off. Where silvia is still at its default, the rate is zero: the node sits still
-until a gear is cabled into its Time, and Offset's knob places it.
+is under 5% off. Where silvia is still at its default, the rate is zero — in Loop mode the
+node sits still until a gear is cabled into its Time and Offset's knob places it — and its
+pace is one chosen to look natural at Speed 1, with Speed starting at 0.
 
-| node | one cycle, or one unit | rate at rest | the body takes Time round |
-| --- | --- | --- | --- |
-| `mandelbrot`, `juliaset` | one drift of the Map orbit | 0.5: a drift every 2 s | 1 |
-| `cosinegradient` | one shift of the palette | 0: still, Offset places the palette | 1 |
-| `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60: a cycle a minute | 1 |
-| `shakycam` | the 20π super-cycle: one X wave, four Y waves | 1/60 | 1 |
-| `geissflow` | the 20π flow cycle | 1/160 | 1 |
-| `perlin` | a lattice cell along the time axis | 0.5 cells a second | `N` under Repeat, else nothing |
-| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | `N` under Repeat, else nothing |
-| `static` | a roll | 0: still | `N` under Repeat, else nothing |
-| `tunnel3d` | a unit of camera depth | 0.5 units a second | 64 while the depth wraps, else nothing |
-| `oscillator` | one wave | 1: a wave a second | read unwrapped on the CPU |
-| `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length: its native speed | read unwrapped on the CPU |
-| `stepsequencer`, `euclideanrhythm` | one bar of sixteen steps | 0: stopped | read unwrapped on the CPU |
+| node | one cycle, or one unit | rate at rest (Loop) | pace at Speed 1 (Free) | Speed starts | the body takes Time round |
+| --- | --- | --- | --- | --- | --- |
+| `mandelbrot`, `juliaset` | one drift of the Map orbit | 0.5: a drift every 2 s | 0.5 | 1 | 1 |
+| `cosinegradient` | one shift of the palette | 0: still | 0.1: a shift every 10 s | 0 | 1 |
+| `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60: a cycle a minute | 1/60 | 1 | 1 |
+| `shakycam` | the 20π super-cycle: one X wave, four Y waves | 1/60 | 1/60, per axis | 1, per axis | 1 |
+| `geissflow` | the 20π flow cycle | 1/160 | 1/160 | 1 | 1 |
+| `perlin` | a lattice cell along the time axis | 0.5 cells a second | 0.5 | 1 | `N` under Repeat, else nothing |
+| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | 0.5 cells a second | 0 | `N` under Repeat, else nothing |
+| `static` | a roll | 0: still | 6 rolls a second | 0 | `N` under Repeat, else nothing |
+| `tunnel3d` | a unit of camera depth | 0.5 units a second | 0.5 | 1 | 64 while the depth wraps, else nothing |
+| `oscillator` | one wave | 1: a wave a second | 1 | 1 | read unwrapped on the CPU |
+| `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length: its native speed | 1 ÷ the clip's length | 1 | read unwrapped on the CPU |
+| `stepsequencer`, `euclideanrhythm` | one bar of sixteen steps | 0: stopped | 0.5: a bar every 2 s, 120 BPM | 0 | read unwrapped on the CPU |
 
 Rotozoom, Shaky Cam and Geiss Flow keep silvia's uneven wave rates inside their cycle — 1,
-0.7, 0.8 and 1.2, which line up over 20π — and scale the cycle, Time's fraction plus Offset, back to silvia's
-units in the body, so their knobs and their looks are hers. **Rotozoom's Turns**, a whole
-number from −10 to 10, default 5, is how many turns one cycle makes: silvia's equal speeds
-give five, 4π into 20π. Zero is zoom alone and a sign reverses the turn; being whole, it is a
-ratio inside the node, which still comes back every cycle. **Shaky Cam has a Time and an
-Offset per axis** — Time X and Offset X keyed `clock` and `phaseOffset`, Time Y and Offset Y
-keyed `clockY` (`nodes::TIME_Y`) and `phaseOffsetY` (`phasor::OFFSET_Y`) — so Y can shake
-alone or on a gear of its own. Unplugged, both read the one ambient time, published under each
-key, and the shake is silvia's; all four rows fold under the one Time heading.
+0.7, 0.8 and 1.2, which line up over 20π — and scale the cycle, `time_periodic`, back to
+silvia's units in the body, so their knobs and their looks are hers. **Rotozoom's Turns**, a
+whole number from −10 to 10, default 5, is how many turns one cycle makes: silvia's equal
+speeds give five, 4π into 20π. Zero is zoom alone and a sign reverses the turn; being whole, it
+is a ratio inside the node, which still comes back every cycle. **Shaky Cam has its time rows
+per axis** — Time X, Speed X and Offset X keyed `clock`, `speed` and `phaseOffset`, Time Y,
+Speed Y and Offset Y keyed `clockY`, `speedY` and `phaseOffsetY` — under one mode, so Y can
+shake alone, at a speed of its own or on a gear of its own; all six rows fold under the one
+Timing heading.
 
 **Repeat.** A noise's picture never comes back on its own, so `perlin`, `simplex`, `fractal`
 and `domainwarp` carry a **Repeat** option: Never, the default and silvia's look, or every 1,
 2, 4, 8 or 16 cells. `static`'s is Never or every 4, 8, 16, 32, 64 or 128 rolls. With a length
 `N`, a noise walks a circle of circumference `N` through a four-dimensional noise, turned
-`(Time mod N + Offset) ÷ N` (`loopCircle`, with `PERLIN4D_WGSL`, `SIMPLEX4D_WGSL` and
-`FBM_LOOP_WGSL`, Gustavson's `webgl-noise`), so its picture comes back every `N`; Static takes
-Time modulo `N`, adds Offset and reads its roll modulo `N`. Time modulo `N` is its whole part
-reduced by `N` and its fraction added, and every `N` divides the 40320 the whole part wraps
-at, so a noise on a gear never meets a seam. It is a `Code` option and rebuilds, and a person chooses it, because a
+`time_repeat(Time, N, Offset) ÷ N` (`loopCircle`, with `PERLIN4D_WGSL`, `SIMPLEX4D_WGSL` and
+`FBM_LOOP_WGSL`, Gustavson's `webgl-noise`), so its picture comes back every `N`; Static reads
+its roll modulo `N`. Every `N` divides the 40320 the whole part wraps at, so a noise on a gear
+never meets a seam. It is a `Code` option and rebuilds, and a person chooses it, because a
 circle through four dimensions is not the line through three and the picture changes. Offset
 on a noise does not wrap unless Repeat is on, and then it wraps at `N`. At rest, Perlin at
 Repeat 4 comes back every 8 s; driven by a gear at a cell a cycle, Repeat 1 comes back every
@@ -527,11 +557,14 @@ wraps, the shader takes the camera's depth modulo 64, Time's whole part reduced 
 so Time 64 draws Time 0 to the byte at any count. Depth Wrap None never repeats.
 
 **What a CPU node reads.** No uniform is written for a CPU node. Its tick asks
-`TickContext::clock(id)` — what is cabled into Time, a count read whole in `f64`, or the
-playhead times the node's declared rate, unwrapped — or `clock_at(id, rate)` where the node works out its own rate, a clip's one
-play over its length. `oscillator` plays its wave at `Time + Offset` in waves, `video` and
-`imagegif` play `Time + Offset` in plays of the clip, and the sequencers step on crossings of
-`floor(16 × (Time + Offset))`, in bars. Each is in [the library](#the-library) below.
+`TickContext::cycle(id)` — where the node is with its Offset added: in Loop mode what is
+cabled into Time, a count read whole in `f64`, or the playhead times its rate, and in Free
+mode its own playhead times its pace — or `cycle_at(id, rate)` where the node works out its
+own rate, a clip's one play over its length, which is both its rate and its pace. `oscillator`
+plays its wave at that in waves, `video` and `imagegif` play it in plays of the clip, and the
+sequencers step on crossings of `floor(16 × cycle)`, in bars — backwards, in reverse order,
+under a negative Speed in Free mode, and never across a seek. Each is in
+[the library](#the-library) below.
 
 **Stateful nodes are not on Time.** A simulation, an envelope or a filter steps from wherever
 it is, on the transport's `dt`, clamped at `transport::MAX_DT`, 0.1 s. A pause holds it and a
@@ -562,13 +595,13 @@ Mold's Sensor Offset keep theirs.
 ### When a loop closes
 
 Nothing in the app switches into a loop. Whether a picture comes back is a property of the
-clocks it is on, read from its gears by `nodes::chain`: the caption under every Master Gear
-reads it, and `examples/loop_gifs` renders each workspace's Output through the ordinary render
-for as long as its Master Gear says. The rule:
+clocks it is on, read by `nodes::chain` from its gears and from each node's `Timing` and mode:
+the caption under every Master Gear reads it, and `examples/loop_gifs` renders each
+workspace's Output through the ordinary render for as long as its Master Gear says. The rule:
 
 - A node on a chain of Ratio Gears rooted at a Master Gear `M` advances `m × Πr ÷ P` of its
   periods over `m` cycles of `M`, `Πr` the product of the ratios on the chain and `P` its
-  period in its own units (`Ambient::period`: one on a periodic node and a looping clip, `N`
+  period in its own units (`Timing::period`: one on a periodic node and a looping clip, `N`
   under Repeat, 64 on the tunnel while its depth wraps, `lcm(16, lanes) ÷ 16` bars on a
   sequencer, where its lanes and the bar's sixteen steps meet again). It closes when that is
   whole. A gear's Phase in a Time comes back every cycle of that gear, `P` one, except in a
@@ -580,14 +613,19 @@ for as long as its Master Gear says. The rule:
   fraction, or has a cable in it, leaves its chain open, and so does a node whose Time a gear
   reaches through anything but gears — a Math node between them, which the caption cannot
   follow.
-- A node on ambient time closes over a length `L` when `rate × L ÷ P` is whole.
+- A node on its own clock closes over a length `L` when its rate times `L ÷ P` is whole: in
+  Loop mode with nothing in its Time, `rate × L ÷ P`; running free with nothing in its Speed,
+  `speed × pace × L ÷ P` (`chain::closes_alone`). A node standing still closes on anything.
+- A clock in a Speed — a gear's Cycles or Phase, or a number a Math node made of one — is a
+  rate that keeps changing, and the node never closes on it; the caption counts it.
 - A picture that never repeats — a noise at Repeat Never, the tunnel at Depth Wrap None, a
   clip on Hold — never closes on a gear's Cycles, and the caption says it will not.
 - An unconnected color input falls back to the hue wheel, `defaultUvMap`, which stands still
   and so closes on any loop.
 
 **A loop that closes closes to the bit.** A node takes its Time round its own period before
-it adds Offset — Time's fraction plus Offset on a periodic node, `Time mod N` under Repeat, a
+it adds Offset — the prelude's `time_periodic`, `time_repeat` and `time_unbounded` — Time's
+fraction plus Offset on a periodic node, `Time mod N` under Repeat, a
 noise's circle and Static's roll alike, `Time mod 64` in the tunnel, each the whole part
 reduced and the fraction added — so a Time one whole period on draws exactly what a Time of
 zero drew, whatever the Offset or the field in it. Added the other way round, `Time + Offset`
@@ -690,7 +728,7 @@ The nodes with a `cpu` half and nothing else are `number`, `clock`, `oscillator`
 `brickgame` have both halves, and
 `audioin`, `camera`, `screencapture`, `syphon`, `ndi`, `video`, `imagegif`, `drawingcanvas`, `text` and
 `maininput` are the sources. The twelve generators and transforms that move with time have
-no `cpu` half: the synth writes their Time ([Time and Offset](#time-and-offset)).
+no `cpu` half: the synth writes their Time ([Timing](#timing)).
 `ctx.downs(id, key, &mut gate)` is how a node reads a button that may also have a cable in
 it: the number of downs this frame, hand included, so a toggle flips once per press wherever
 the press came from.
@@ -940,7 +978,7 @@ things drawn around a center, `patterns.rs` for the ones that repeat across the 
 random ones. Every one of them is the `node!` macro except `checkerboard`, the hand-written
 example above. `mandelbrot` and `juliaset` read Time and Offset on
 their `map` output, where silvia read `u_time` directly, one cycle a drift of the orbit map,
-a drift every two seconds at rest — [Time and Offset](#time-and-offset) has the rule. `lyapunov`'s `sequence` is typed free
+a drift every two seconds at rest — [Timing](#timing) has the rule. `lyapunov`'s `sequence` is typed free
 text, like silvia's own field, and silvia's Random Seq writes it: a
 [`Region::Buttons`](ui.md#a-nodes-own-buttons) row of one under the rows, rolling two to
 eleven letters of `A` and `B`, both present, exactly as silvia's `randomSequence` does. A press
@@ -954,7 +992,7 @@ between the distance to its nearest feature point, one flat tone per cell, and t
 edges; `fractal` sums octaves of `simplex`; `static` redraws its whole field once a roll,
 the `floor` of `Time + Offset`. `perlin`, `simplex` and `fractal` walk their time axis by the
 same sum, in lattice cells, and the three with `static` carry the Repeat option that walks a
-circle instead ([Time and Offset](#time-and-offset)); `worley` has no time input at all.
+circle instead ([Timing](#timing)); `worley` has no time input at all.
 Their gradient functions are `NodeDef::wgsl_utils`, so a shader with no noise in it carries
 none of them.
 
@@ -1105,8 +1143,8 @@ draws it — a gradient strip and the three channel curves over a grid of the tw
 coefficients three across under R, G and B — and the twelve are the node's own values rather
 than ports, so what a cable can reach is what goes through the palette and what drifts it.
 Time and Offset shift the three cosines' own phases together, in cycles of the palette: still
-at rest, as silvia's Cycle of zero is, Offset placing the palette and a gear cabled into Time
-drifting it; the strip on the node drifts with it. Phase on this node is only the grid's
+on a new node, as silvia's Cycle of zero is, Offset placing the palette and a Speed turned up
+or a gear cabled into Time drifting it; the strip on the node drifts with it. Phase on this node is only the grid's
 per-channel coefficients. `reframerange` maps
 `in[min, max]` onto `out[min, max]` with all four bounds as ports
 and an optional clamp, and carries silvia's five named bases — 0 to 1, 0 to 360, -1 to 1, 0
@@ -1301,9 +1339,10 @@ through `ctx.own_uniform`, which is how a node closes a loop over itself without
 so every frame costs the same to reach. **The position is the primitive**: each tick the node
 decides which frame it wants, and **a clip is an oscillator whose shape is a frame lookup**.
 One cycle is one play of the clip. **Time** counts plays: unplugged, it is ambient time at the
-clip's native speed, a play every clip length, read through `TickContext::clock_at`; a gear
-cabled in replaces it, so a Ratio Gear at ×2 plays it twice as fast and one at −×1 plays it
-backwards. **Offset**, 0 to 1 across the clip, is **added**; `loop` wraps the sum, or at Hold
+clip's native speed, a play every clip length, read through `TickContext::cycle_at`, and
+running free its Speed is a multiple of that native speed, so Speed 2 plays it twice as fast and
+−1 backwards; in Loop mode a gear cabled in replaces Time, so a Ratio Gear at ×2 plays it twice
+as fast and one at −×1 plays it backwards. **Offset**, 0 to 1 across the clip, is **added**; `loop` wraps the sum, or at Hold
 clamps it to one play, and the frame is `round(position × frames)`. The node keeps no position
 of its own, so the same sum is the same frame however it was reached. A slow wave on Offset
 scratches around the playing clip, and a Ratio Gear at ×0 into Time leaves a cable on Offset
@@ -1366,8 +1405,8 @@ The gears, `time`, `oscillator` and `animation` are all CPU halves, and none of 
 multiplies a speed by a time.
 
 **The gears** are the one place a rate is set, changed or divided, and they hold the only
-state in the time model: everything they drive is a function of what they publish ([Time and
-Offset](#time-and-offset)). They are the `Gear` category, **Gears** in the menu under ⚙,
+state in the time model besides a free-running node's own playhead, which the synth keeps:
+everything they drive is a function of what they publish ([Timing](#timing)). They are the `Gear` category, **Gears** in the menu under ⚙,
 between Control and Output, in `nodes::gear`, with `time` beside them; see
 [cpu.md](cpu.md#gears) for their tick.
 
@@ -1484,18 +1523,21 @@ downstream, as every other normalized output here works. What stays ours is the 
 timing and the gate being the sum of every source rather than whichever spoke last.
 
 **The two step sequencers are one clock under two patterns.** `euclideanrhythm` and
-`stepsequencer` both run `nodes::sequencer::Transport` — Time and Offset in bars, silvia's Step
+`stepsequencer` both run `nodes::sequencer::Transport` — their time rows in bars, silvia's Step
 as an action row, Gate as a knob with a port, four lanes out — and each hands it only what a
 lane plays at a step: Bjorklund's figure over three numbers a lane, or the cells a hand lit.
-**A step is a crossing of `floor(16 × (Time + Offset))`**, stamped where in the frame it fell.
-Unplugged, Time stands still — a sequencer starts stopped, as silvia's does — so a Master Gear
-a bar long cabled into Time is the tempo, and its Hold and Reset are the play and the reset
-silvia's Start/Stop and Reset were. Nothing is integrated: the node remembers only last tick's
+**A step is a crossing of `floor(16 × cycle)`**, `TickContext::cycle` in bars, stamped where
+in the frame it fell. A new one stands still — Speed at 0, a sequencer starts stopped, as
+silvia's does — and Speed 1 runs it at a bar every two seconds, 120 BPM; in Loop mode a Master
+Gear a bar long cabled into Time is the tempo, and its Hold and Reset are the play and the
+reset silvia's Start/Stop and Reset were. Nothing is integrated: the node remembers only last tick's
 reading, to see what it crossed, and a cabled Time read as a count whole, or unwrapped where
 its source declares its wrap, so a gear's Phase passing one is a frame's motion. A reading
-that moves backwards, more than a bar in a tick, across a seek or onto another clock as its
-Time cable is moved is a jump and fires nothing, and so is the first reading. A step it lands exactly on, with a gear driving Time and the show
-playing, plays at once, so a render's first frame is its bar's downbeat; any other step it
+that moves more than a bar in a tick, across a seek or onto another clock as its Time cable
+is moved is a jump and fires nothing, and so is the first reading; so is one that moves
+backwards on a clock, while running free a negative Speed plays the steps backwards, each
+entered at its top boundary and held a gate length as forwards. A step it lands exactly on, with a gear driving Time or a Speed
+moving it and the show playing, plays at once, so a render's first frame is its bar's downbeat; any other step it
 lands in plays on the next tick, so a gear's Reset lands on the downbeat. A Time that stands
 still — a gear held, the show paused — closes whatever a step opened as the Time passed it,
 and leaves what a landing opened on the step it stands on open until the Time moves on, so a
@@ -1548,9 +1590,10 @@ they were trait implementations.
    `a_measurement_belongs_to_a_node_with_a_cpu_half` refuses a `measure_wgsl` with no `tick` to
    read the slot back, `a_dual_output_is_a_varying_number_a_tick_can_evaluate` refuses an
    `OutputDef::eval` anywhere its formula could not be the same function as the WGSL beside
-   it, `a_time_driven_node_has_time_and_offset_and_no_speed` holds a node with
-   `NodeDef::ambient` to a Time with no knob and an Offset one cycle from zero, with no speed
-   beside them, and names every node that moves with time,
+   it, `a_moving_node_has_the_rows_its_timing_expands_into` holds a node with
+   `NodeDef::timing` to the time rows, heading and mode `nodes::timing` expands it into, and
+   `the_moving_nodes_and_their_rates_and_paces` names every node that moves with time with its
+   rate and its pace,
    `no_node_function_reads_the_resolution` runs every generator of every
    node over every choice of every option and refuses `u_resolution`, `frag_coord`, the position
    builtin or `gl_FragCoord` in the emitted text, and `every_node_declares_a_category`

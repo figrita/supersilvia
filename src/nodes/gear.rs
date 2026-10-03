@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Gears: the one place a rate is set, changed or divided.
+//! Gears: where a rate several nodes keep time by is set, changed or divided.
 //!
-//! A node that moves with time has no speed of its own. It reads ambient time, the playhead,
-//! at a rate its kind declares, unless a gear is cabled into its Time — and a gear is where
-//! the show's clock is turned into another one. Gears hold the only state in the time model:
-//! everything they drive is a function of what they publish. See `proposals/time.md`, *Gears*,
-//! and `docs/cpu.md#gears`.
+//! A node that moves with time runs free on its own Speed, or loops on its Time: ambient time,
+//! the playhead, at a rate its kind declares, unless a gear is cabled in — and a gear is where
+//! the show's clock is turned into another one (`nodes::timing`). Everything a gear drives is
+//! a function of what it publishes. See `proposals/time.md`, *Gears*, and
+//! `docs/cpu.md#gears`.
 //!
 //! **The Master Gear** is the show's own clock at a length in seconds. It integrates the
 //! playhead's advance over its length in `f64`, so a length turned bends from where it is and

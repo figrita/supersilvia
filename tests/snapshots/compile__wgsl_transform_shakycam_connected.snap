@@ -70,8 +70,8 @@ fn vignette8_mask(uv: vec2f) -> f32 {
 }
 
 fn shakycam1_output(uv: vec2f) -> vec4f {
-    let tx = fract(u.u_count_shakycam1_clock.y + vignette4_mask(uv)) * 20.0 * PI;
-    let ty = fract(u.u_count_shakycam1_clockY.y + vignette5_mask(uv)) * 20.0 * PI;
+    let tx = fract(time_periodic(u.u_count_shakycam1_clock, vignette4_mask(uv))) * 20.0 * PI;
+    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, vignette5_mask(uv))) * 20.0 * PI;
     let amplitude = vignette8_mask(uv);
     var xOffset = sin(tx) * (vignette6_mask(uv)) * amplitude;
     xOffset += cos(tx * 0.7) * (vignette7_mask(uv)) * amplitude * 0.5;

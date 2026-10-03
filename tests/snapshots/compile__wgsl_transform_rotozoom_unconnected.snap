@@ -18,7 +18,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn rotozoom1_output(uv: vec2f) -> vec4f {
-    let cycle = u.u_count_rotozoom1_clock.y + u.u_control_rotozoom1_phaseOffset;
+    let cycle = time_periodic(u.u_count_rotozoom1_clock, u.u_control_rotozoom1_phaseOffset);
     let wave = fract(cycle) * 20.0 * PI;
     var angle = fract(cycle * round(u.u_control_rotozoom1_turns)) * 2.0 * PI;
     angle += sin(wave) * (u.u_control_rotozoom1_sinCoeff) * 0.5;

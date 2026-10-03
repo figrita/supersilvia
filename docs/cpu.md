@@ -159,10 +159,11 @@ rest of the app:
   empty. A node asks for a path and never learns where the project is.
 - `ctx.cache_dir()` — where the files derived from the project's media go: a transcode, a
   decoded soundtrack. Inside the project folder, so it travels with it.
-- `ctx.clock(id)` — what the node's **Time** reads this tick, in its own cycles: what is
-  cabled into it, read as a count, or the playhead at the node's declared rate, unwrapped.
-  `ctx.clock_at(id, rate)` is the same at a rate the node works out itself. See [ambient
-  time](#ambient-time).
+- `ctx.cycle(id)` — where a node that moves with time is this tick, in its own cycles and
+  unwrapped, its Offset added: in Loop mode what is cabled into its Time, read as a count, or
+  the playhead at its rate; in Free mode its own playhead at its pace, which the synth
+  integrated from its Speed. `ctx.cycle_at(id, rate)` is the same at a rate the node works out
+  itself, and `ctx.runs_free(id)` says which mode it is in. See [ambient time](#ambient-time).
 - `ctx.count(id, key)` — what arrives at an input read as a **count**, in `f64`: a count its
   source published whole, unbounded, or else the one `f32` `ctx.input` reads.
   `ctx.counted(id, key)` says which. `ctx.publish_count(id, port, count, one)` publishes a
@@ -282,8 +283,8 @@ the playhead puts it and a node on ambient time reads the playhead as it is —
 **Ambient time is the playhead.** `crate::transport` is a playhead `T` in seconds over the one
 clock, with a play bit. It reads `T = T_anchor + playing × (elapsed − elapsed_anchor)` and
 re-anchors on every play, pause and seek. It plays, pauses and seeks, and does nothing else:
-there is no speed dial and no loop, because a rate is a [gear's](#gears) and a loop is a
-property of a gear chain. Beside the playhead it keeps **travel**, the total distance the
+there is no speed dial and no loop, because a rate is a free-running node's Speed or a
+[gear's](#gears) and a loop is a property of a gear chain. Beside the playhead it keeps **travel**, the total distance the
 playhead has moved, carrying a seek's jump as a jump, and a count of seeks, so a node can tell
 a jump inside its advance from a motion.
 
@@ -300,8 +301,9 @@ when it last ticked (`transport::Seen`), and hands it `ctx.time` measured from t
   and it fires nothing and steps no simulation across the gap;
 - a node ticking for the first time gets this tick's motion, as a node made a frame ago would.
 
-The advance is what a gear integrates and what a stateful node steps. A node on
-[ambient time](#ambient-time) needs none of it: it reads the playhead.
+The advance is what a gear integrates, what a free-running node's Speed integrates
+([ambient time](#ambient-time)) and what a stateful node steps. A looping node on ambient
+time needs none of it: it reads the playhead.
 
 **What moves it.** `App::transport(Command)` — `Play`, `Pause`, `Seek(t)` — is a hand on the
 instrument rather than an edit: it never enters the undo history. It crosses as
@@ -334,7 +336,8 @@ is unclamped; `Beat::At(t)` is the same step for a test with no GPU. While it ru
 not followed. Every node starts the render from scratch — a fresh instance in place of its
 live one, or a device's reset where it is — and the first frame is a seek, so every gear
 is born again where the playhead puts it — at playhead zero every Master Gear is at the start
-of its cycle — and everything on ambient time reads the frame's own moment. **A render waits
+of its cycle — every free-running node is born again at its Speed times that moment, and
+everything on ambient time reads the frame's own moment. **A render waits
 for its clips.** Live, a `video` and the Main Input's clip show whatever frame their decoder
 has delivered, a tick late after a jump; a render asks every node's `CpuNode::waiting` and the
 Main Input's after it steps a frame, and while one is waiting it holds the frame — the Output
@@ -344,8 +347,8 @@ a clip is the same film twice, whatever live play left behind, and nothing else 
 step while it waits. A frame held for a clip is not counted against the Output, and neither is
 a tick spent waiting on a full writer. **When the render ends, the live show comes back as the
 render found it**: the transport whole, its playhead, travel and seeks (`Transport::resume`),
-every node's live instance the render set aside, and where each node last read the transport,
-so no node sees a jump — a held gear is held where it was, an XY Pad keeps its wells, a
+every node's live instance the render set aside, every free-running node's playhead, and where
+each node last read the transport, so no node sees a jump — a held gear is held where it was, an XY Pad keeps its wells, a
 simulation and a hand-started animation run on. What the live show reads next off the GPU is
 set aside with them (`Renderer::park_live`): a simulation's world, which the render grows
 afresh from the node's seed, so `slimemold`'s agents, field and picture come back where the
@@ -357,59 +360,72 @@ which are back. A Pause or Play pressed during the render is kept.
 
 ## Ambient time
 
-**A node that moves with time has two inputs for it and keeps no state for it.** **Time**,
-`nodes::TIME` (key `clock`), is a diamond with no knob, in the node's own cycles. **Offset**,
-`nodes::phasor::OFFSET` (key `phaseOffset`), is 0 to 1 of those cycles, added every frame. The
-node draws or computes `Time + Offset` and integrates nothing, so the same moment is the same
-picture however the show got there: a pause holds it, a seek lands it, a render reads it at the
-frame's own time. [nodes.md](nodes.md#time-and-offset) has the two inputs from the shader's
-side and each kind's rate.
+**A node that moves with time declares it once and keeps no state for it**: its
+`NodeDef::timing`, a `nodes::Timing` — a rate at rest and a pace, in its own cycles a second,
+a period by its options, and one axis or two — from which `nodes::timing` expands its rows,
+its Timing heading and its mode, `clockMode`. The module doc there is the one place the rules
+sit beside the code; [nodes.md](nodes.md#timing) has them from the shader's side, with each
+kind's rate and pace.
 
-**Unplugged, Time is ambient time**: the playhead at the rate the node's kind declares.
-`NodeDef::ambient` is a `nodes::Ambient` — a rate at rest, in the node's own cycles an ambient
-second, and a period by the node's options; `Ambient::periodic(rate)` is a node whose picture
-comes back every cycle. For a node that draws, with no `cpu` half, the synth writes
-`playhead × rate`, from the `f64` playhead, as a count ([gears](#gears)) under `(node,
-"clock")` at the node's place in each tick's walk, and the compiler reads an unplugged Time as
-that published count, `vec2f(whole, fraction)`. A body takes its Time round its period — one
-cycle on a periodic node, `N` under a noise's Repeat, 64 on the tunnel while its depth wraps —
-by reducing the whole part first and adding the fraction, and where the picture never repeats
-it adds the two.
+**Loop mode**: the first row is **Time**, `nodes::TIME` (key `clock`), a diamond with no knob,
+in the node's own cycles. Unplugged it is ambient time, the playhead at the node's rate: for a
+node that draws, with no `cpu` half, the synth writes `playhead × rate`, from the `f64`
+playhead, as a count ([gears](#gears)) under `(node, "clock")` at the node's place in each
+tick's walk. Plugged, what arrives replaces it, usually a gear's Cycles. Time is a
+`UniformNumber`, so a field cabled into it is an ordinary type mismatch.
 
-**Plugged, what arrives replaces it**, usually a gear's Cycles. Time is a `UniformNumber`, so
-a field cabled into it is an ordinary type mismatch: a per-pixel lag is Offset's job, and on a
-node that draws Offset is a varying input, where a field makes a ripple.
+**Free mode**, the default: the first row is **Speed** (key `speed`), a uniform number with a
+knob and a port, a multiple of the node's pace. **The synth integrates it**, the one place a
+node's time is kept: each tick, for each free-running node in its walk, it reads the Speed —
+the knob, or what is cabled in — and steps that node's `nodes::timing::Pace` by its own
+advance (`Transport::time_since` from where the node was last seen), a `phasor::Phasor` per
+axis with a 50 ms closed-form glide. So the playhead it keeps pauses with the show, moves by
+`speed × the jump` on a seek, catches up a closed tab's gap, and is born at `speed × playhead`
+— a render starts every one again with the rest of the nodes, and puts the live ones back
+after. For a node that draws, the synth writes `playhead × pace` under `(node, "clock")`
+exactly where Loop mode writes its ambient reading, so the compiler, which reads an unplugged
+Time as that published count, `vec2f(whole, fraction)`, cannot tell the two modes apart.
 
-**A CPU node reads the same through `TickContext::clock(id)`**: what is cabled into its Time,
-read as a count in `f64`, or the playhead times its declared rate, unwrapped. `ctx.clock_at(id, rate)` is that reading
-at a rate the node works out itself — a clip's one play over its own length. Its Offset is
-`ctx.input(id, phasor::OFFSET)`, a uniform number.
+A body takes its Time round its period through the prelude's helpers — `time_periodic`,
+`time_repeat` and `time_unbounded` — by reducing the whole part first, adding the fraction, then
+adding **Offset**, `nodes::timing::OFFSET` (key `phaseOffset`), 0 to 1 of the node's cycles,
+added in both modes. Offset is a varying input on a node that draws, where a field makes a
+ripple, and a uniform number on a CPU node.
+
+**A CPU node reads where it is through `TickContext::cycle(id)`**, its Offset added: in Loop
+mode what is cabled into its Time, read as a count in `f64`, or the playhead times its rate;
+in Free mode its own playhead times its pace, handed to the tick by the synth
+(`TickContext::running_free`). `ctx.cycle_at(id, rate)` is the same at a rate the node works
+out itself — a clip's one play over its own length, which is its pace too. `ctx.runs_free(id)`
+says which mode it is in.
 
 ### The oscillator, the sequencers and the clips
 
 Each is a function of `Time + Offset`. The most any of them keeps is last tick's reading, to
 see what it crossed: an edge detector, not an accumulator.
 
-- **`oscillator`** is a wave at `Time + Offset`, one wave a second at rest, silvia's 1 Hz. A
-  frequency, a stop and a restart are a gear's Ratio, Hold and Reset, and a one-shot is
-  `animation`'s. The Noise waveform draws one value a cycle, keyed by `floor(Time + Offset)`
+- **`oscillator`** is a wave at `ctx.cycle`, one wave a second at rest and at Speed 1,
+  silvia's 1 Hz. A frequency is its Speed, or a gear's Ratio in Loop mode, where a stop and a
+  restart are the gear's Hold and Reset, and a one-shot is `animation`'s. The Noise waveform draws one value a cycle, keyed by `floor(Time + Offset)`
   and the node's id, so it holds for a wave, loops when its Time does and is the same twice.
   **Level** is the level added to the wave.
-- **`stepsequencer` and `euclideanrhythm`** read Time in bars, sixteen steps a bar, through one
-  reading, `nodes::sequencer`, under two patterns. At rest their rate is zero: they stand still
-  until a gear drives them, and a Master Gear a bar long is the tempo, its Hold and Reset the play
-  and the reset. A cabled Time is read as a Ratio Gear's Clock In is: a count whole, in `f64`,
+- **`stepsequencer` and `euclideanrhythm`** read `ctx.cycle` in bars, sixteen steps a bar,
+  through one reading, `nodes::sequencer`, under two patterns. A new one stands still, its Speed
+  at 0; Speed 1 is a bar every two seconds, and in Loop mode a Master Gear a bar long is the
+  tempo, its Hold and Reset the play and the reset. A cabled Time is read as a Ratio Gear's Clock In is: a count whole, in `f64`,
   and anything else unwrapped where its source declares its wrap, so a gear's Phase passing
   one, or a count's one `f32` through a Math node stepping from 1260 to −1260, is a frame's
   motion; a jump, or a cable plugged in, let go or moved onto another
   output, puts the reading back at what the source publishes. **A step fires on each crossing of
-  `floor(16 × (Time + Offset))`**, stamped with its moment inside the frame, and each lane
+  `floor(16 × cycle)`**, stamped with its moment inside the frame, and each lane
   reads the absolute step modulo its own length, so a lane of five against sixteen keeps its
-  phase. **A reading that moves backwards,
-  more than a bar in one tick, across a seek or onto another clock's cable is a jump**, and so
-  is the first reading, a
-  render's start among them: it fires nothing on the way and closes every open gate. A step it
-  lands exactly on, with a gear driving Time and the show playing, has been crossed by nobody
+  phase. **A reading that moves more than a bar in one tick, across a seek or onto another
+  clock's cable is a jump**, and so is the first reading, a render's start among them, and one
+  that moves backwards on a clock: it fires nothing on the way and closes every open gate.
+  Running free, a negative Speed plays the steps backwards — each boundary crossed going down
+  enters the step below it, which opens its lanes there and closes them a gate length further
+  down. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
+  playing, has been crossed by nobody
   and plays at once, so a render's first frame is its bar's downbeat; any other step it landed
   in plays on the next tick where it landed no further past it than that tick moves, so a
   gear's Reset lands on the downbeat. A Time that stands still —
@@ -421,12 +437,13 @@ see what it crossed: an edge detector, not an accumulator.
   and while something is cabled into Step the sequencer ignores its Time, because an event
   clock — a tap, a threshold — is not a gear. Gate is how much of a step a lane's gate stays
   open.
-- **`video` and `imagegif`** read Time in plays, `ctx.clock_at(id, 1 ÷ length)`, so at rest a
-  clip plays at its native speed and a GIF at its own delays. Offset is added, 0 to 1 across
+- **`video` and `imagegif`** read where they are in plays, `ctx.cycle_at(id, 1 ÷ length)`, so
+  at rest and at Speed 1 a clip plays at its native speed and a GIF at its own delays. Offset is added, 0 to 1 across
   the clip; `video`'s Loop option wraps the sum and Hold clamps it to one play, and a GIF
   wraps. The frame is a function of the sum, so the node keeps no position: a hand on the
   scrubber writes Offset through `write_control`, so the sum lands where it was dropped and
-  Time plays on from there. Reverse is a Ratio Gear at `-×1`, and twice as fast one at ×2. A
+  Time plays on from there. Reverse is Speed −1, or a Ratio Gear at `-×1` in Loop mode, and
+  twice as fast Speed 2 or a gear at ×2. A
   render still waits for a clip's frame — [media.md](media.md#video-files).
 
 The Main Input's clip is not a node and has no Time: it plays at its own speed on the
@@ -461,8 +478,9 @@ says:
 
 ## Gears
 
-**Gears hold the only time state there is.** A rate is set, changed or divided in a gear and
-nowhere else, and everything a gear drives is a function of what it publishes. `nodes::gear`
+**Gears hold the shared time state.** A rate several nodes keep time by is set, changed or
+divided in a gear, and everything a gear drives is a function of what it publishes; a
+free-running node's own Speed is the one other rate, and turns that node alone. `nodes::gear`
 holds the two, in the Nodes menu's **Gears** between Control and Output (`Category::Gear`),
 beside the Time node.
 
@@ -504,7 +522,7 @@ motion, and forwards a fast gear passes several cycles a frame, which is motion.
 
 **Both publish the same four.** **Cycles** is a **count**, published whole
 (`ctx.publish_count`), which a Time reads at the same precision at every count forever. A CPU
-node reads it in `f64`, unbounded, through `ctx.count` and `ctx.clock`. A shader reads it as
+node reads it in `f64`, unbounded, through `ctx.count` and `ctx.cycle`. A shader reads it as
 `vec2f(whole, fraction)` (`compile::UniformProvider::NodeCount`, `phasor::split`): the whole
 part wrapped at `phasor::WHOLE_WRAP`, 40320, centered on zero, −20160 up to 20160, and the
 `f32` of the fraction, zero within `phasor::REACH` of a whole number. 40320 is the least common
@@ -569,12 +587,14 @@ nodes will not close"; the node shows it up to its " (" and the whole of it on h
 
 **When a loop closes.** A node on a chain from a Master Gear `M` advances `m × Πr ÷ P` of its
 own periods over `m` cycles of `M`, where `Πr` is the chain's product and `P` the node's period
-(`Ambient::period`) — one for a periodic node and a looping clip, `N` under a noise's or
+(`Timing::period`) — one for a periodic node and a looping clip, `N` under a noise's or
 Static's Repeat, 64 for the tunnel while its depth wraps, a sequencer's lanes and the bar's
 sixteen steps meeting again, `lcm(16, lanes) ÷ 16` bars, and none for a clip on Hold — and it
 closes when that is whole. A gear's Phase in a Time comes back every cycle of that gear, `P`
 one, except in a sequencer, which reads it unwrapped as a count. A node
-on ambient time closes over a length `L` when `rate × L ÷ P` is whole. An unconnected color
+on its own clock closes over a length `L` when its rate — in Loop mode with nothing in Time —
+or its Speed times its pace — running free with nothing in Speed — times `L ÷ P` is whole
+(`chain::closes_alone`), and a clock cabled into a Speed never closes; the caption counts it. An unconnected color
 input falls back to the hue wheel, which stands still, so it closes on any loop. **A loop is rendered by the Output's ordinary
 render**, for as long as the caption says; there is no loop export.
 `examples/loop_gifs` does it headless for every tab of a project
@@ -771,15 +791,16 @@ node with both halves is a tap, a sample, an `autoexposure`, a `triggeredcolor`,
 a `cellularautomata`, a `slimemold` or a `brickgame`. The twelve generators and transforms that
 move with time — mandelbrot, juliaset, perlin, simplex, fractal, static, cosinegradient,
 domainwarp, tunnel3d, rotozoom, shakycam and geissflow — have no CPU half at all: their Time is
-the synth's [ambient reading](#ambient-time) or a cable's.
+the synth's [ambient reading or free-running playhead](#ambient-time), or a cable's.
 
 ## Adding one
 
 1. Write the definition with `UniformNumber` inputs and outputs, `OutputKind::Uniform`,
    `no_wgsl` as the generator, and `cpu: Some(CpuDef { create, integrates, live })` — does the
    tick integrate `dt` or the transport, does it read a device. A node that moves with time
-   declares `ambient`, takes Time and Offset and reads `ctx.clock` — it has no speed, since a
-   rate is a [gear's](#gears); a stateful one steps on `ctx.dt`. A tap adds a `Shader` output
+   declares `timing`, takes its rows from `nodes::timing::inputs!` and its heading and mode from
+   `options!`, and reads `ctx.cycle` — the synth integrates its Speed; a stateful one steps on
+   `ctx.dt`. A tap adds a `Shader` output
    that passes its input through and a `measure_wgsl` that claims a slot with
    `ctx.tap_slot(node, kind)`, writes to `tap` and registers itself with `ctx.measure_grid`
    or `ctx.measure_once`.

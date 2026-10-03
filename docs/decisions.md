@@ -74,55 +74,71 @@ keys the drawing on it.
 
 ### Time is an input port, not an ambient global
 
-**Chosen.** Every node that moves with time has a **Time** input, key `clock`: a diamond with
-no knob, in the node's own cycles. Unplugged, it reads ambient time — the transport's
-playhead — at a rate the node declares (`NodeDef::ambient`), which the synth writes under the
-input's own key every tick and the compiler reads as a published uniform. Plugged, what
-arrives **replaces** it, usually a gear's Cycles. The body reads its Time and never `u_time`,
-so time-warping, a clock of another rate and scrubbing are ordinary graph operations.
-[proposals/time.md](../proposals/time.md#the-rules) is the argument.
+**Chosen.** Every node that moves with time keeps it in one of **two modes**, its option
+`clockMode` (`nodes::timing::MODE`), so its first time row means one thing at a time. In
+**Loop** mode it has a **Time** input, key `clock`: a diamond with no knob, in the node's own
+cycles. Unplugged, it reads ambient time — the transport's playhead — at a rate the node
+declares (`NodeDef::timing`), which the synth writes under the input's own key every tick and
+the compiler reads as a published uniform. Plugged, what arrives **replaces** it, usually a
+gear's Cycles. In **Free** mode, the default, the row is **Speed**, key `speed`: a knob and a
+port, a multiple of the node's pace, which the synth integrates against the transport's
+advance into the node's own playhead and publishes under the same Time key. The body reads
+its Time and never `u_time` or Speed, so time-warping, a clock of another rate and scrubbing
+are ordinary graph operations, and a knob is all it takes to make one node faster.
+[proposals/time.md](../proposals/time.md#the-rules) is the argument, and `nodes::timing` the
+code.
 
 Only 12 of silvia's 146 nodes touch `u_time`, and 11 of those 16 references are
 `u_time * speed` — precisely the discontinuity `phaseAccumulator.js` spends 286 lines
-smoothing. Here there is no speed to multiply: a node computes `Time + Offset` each frame and
-integrates nothing, and a rate is set, turned or divided only in a gear
-([Gears](#gears-the-one-place-a-rate-lives)).
+smoothing. Here a speed is never multiplied into a time: in Free mode it is integrated, with a
+closed-form glide, so a turned knob bends the motion; in Loop mode there is no speed, and a
+rate is set, turned or divided in a gear ([Gears](#gears-a-rate-shared-and-a-loop-closed)).
 
 **Why a diamond.** Time says which moment the node is at, one number per node, and the CPU
 needs that number: for a sequencer's crossing, a clip's frame, the palette region's drift. A
 lag per pixel is Offset's job, the circle beside it, so a field cabled into Time is an
-ordinary type mismatch.
+ordinary type mismatch. Speed is a uniform number for the same reason: it is integrated on the
+CPU, once per node.
 
-**Rejected: a speed on every node, integrated against the transport**, with the cable added
-on top — the design this one replaced, and why it lost is under [Nodes keep no
-time](#nodes-keep-no-time-and-a-loop-is-read-from-the-gears). **Rejected: a cabled time
-multiplied by the speed**, `time × speed`, which is the jump
-the accumulator removed, one level down. **Rejected: an unconnected Time bound to `u_time`**
-(`Control::Global`): `u_time` has no rate and no period, so each node would multiply it again
-in its body, and a node's reading would wrap rather than come round its own cycle. The
-per-node reading is `playhead × rate` from the `f64` playhead, published as a count, which
-the body takes round the node's period. **Rejected: Time added
-rather than replaced.** Replacing is what makes a gear drive a node exactly; the added input
-is Offset.
+**Why two modes rather than Speed beside Time.** One row that is a knob in one mode and a
+diamond in the other says what a cable into it does: into Speed it changes how fast, into Time
+it says where. Shown together, a cable into Time would leave a Speed knob that did nothing, or
+multiply it, which is the jump again. Switching drops the cable in the row that goes away, in
+the same undo step, because a gear's Cycles — a growing count — left in a Speed would race off
+as a rate.
+
+**Rejected: a gear for every change of pace**, the design before this one: no node had a
+speed, so a free-running node was made faster only by cabling a Ratio Gear on ambient time into
+its Time. It kept every node stateless and every loop exact, and it made the commonest edit — a
+little faster, a little slower — a gear and two cables. Loop mode keeps that design whole for
+the patches that loop. **Rejected: a cabled time multiplied by the speed**, `time × speed`,
+which is the jump the accumulator removed, one level down. **Rejected: an unconnected Time
+bound to `u_time`** (`Control::Global`): `u_time` has no rate and no period, so each node would
+multiply it again in its body, and a node's reading would wrap rather than come round its own
+cycle. The per-node reading is `playhead × rate` or the node's own playhead from the `f64`
+playhead, published as a count, which the body takes round the node's period. **Rejected: Time
+added rather than replaced.** Replacing is what makes a gear drive a node exactly; the added
+input is Offset.
 
 **Rejected: a Clock input on every node**, with a rate on the node read against whatever is
-cabled there: the same choice offered on every moving node, and three time rows on each. A
-gear offers it once. **Rejected: a Speed and an added Phase on each node**, multiplying to set
-the rate and adding to set the offset on the node itself: every moving node kept a speed and
-the state it integrated, and a loop needed a ratio beside each speed to close. The rate went to
-the gears and the added input is Offset. **Rejected: a port type for time**, a phase carrying a
-count and a fraction with periods the compiler follows. It would keep the count exact and
-check a loop at compile time, at the cost of a new wire, its conversions and a second way to
-say time; time is plain floats in cycles. **Rejected: a rate field**, a
-speed per pixel integrated into a state texture per Output: two pixels whose rates differ drift
-apart without bound, so the picture shreds into noise within minutes, and an added Offset
-expresses every per-pixel rate that does not.
+cabled there: the same choice offered on every moving node, and three time rows on each, of
+which one always did nothing. The two modes show two rows at a time. **Rejected: a Speed and an
+added Phase on each node with a ratio beside each speed to close a loop**: a loop that closes
+is Loop mode's, on a gear, and a free-running node closes over a length only where its Speed
+times its pace makes it come round. **Rejected: a port type for time**, a phase carrying a count
+and a fraction with periods the compiler follows. It would keep the count exact and check a
+loop at compile time, at the cost of a new wire, its conversions and a second way to say time;
+time is plain floats in cycles. **Rejected: a rate field**, a speed per pixel integrated into a
+state texture per Output: two pixels whose rates differ drift apart without bound, so the
+picture shreds into noise within minutes, and an added Offset expresses every per-pixel rate
+that does not.
 
 ### Offset, added, in the node's own cycles
 
-**Chosen: a gear sets the rate, Offset sets where it is.** Beside Time every moving node has
-**Offset**, key `phaseOffset` (`nodes::phasor::OFFSET`), with a small knob: 0 to 1 is exactly
-one of the node's cycles, it is **added** every frame, and it wraps. It is a varying circle
+**Chosen: Speed or a gear sets the rate, Offset sets where it is.** Beside Time and Speed
+every moving node has **Offset**, key `phaseOffset` (`nodes::timing::OFFSET`), with a small
+knob: 0 to 1 is exactly one of the node's cycles, it is **added** every frame in either mode,
+and it wraps. It is a varying circle
 wherever the node draws, so the distance from the middle into it is a ripple with one cable,
 and a uniform number on the CPU nodes, whose tick has no pixel. It is the generators' and
 transforms' old Time, `video`'s and `imagegif`'s Position and the oscillator's Phase under one
@@ -145,10 +161,10 @@ and an output of one name, and beside a Time input it no longer says what it add
 **Rejected: Time in seconds of the node's motion**, as first built. It matched cycles only
 where a node's period was one, so the same cable meant a sixty-third of a cycle on Rotozoom
 and a whole one on Mandelbrot. **Rejected: Position, the oscillator's Phase and Time as three
-inputs** for one thing. **Rejected: an Offset per motion on Rotozoom**, four
-time rows on a node already nine inputs tall. Shaky Cam has a Time and an Offset per axis, as
-decided on 1 October, so its Y can run on a gear of its own; the four rows fold
-under its Time heading.
+inputs** for one thing. **Rejected: an Offset per motion on Rotozoom**, four time rows on a
+node already nine inputs tall. Shaky Cam has a Time, a Speed and an Offset per axis under one
+mode, so its Y can run at a speed or on a gear of its own; the six rows fold under its Timing
+heading.
 
 ### wgpu, not glow
 
@@ -1340,7 +1356,7 @@ which is `slew`, a node, downstream. See [band shaping](#band-shaping-belongs-to
 **Chosen.** `Clock::elapsed()` is true monotonic time, and so is the interval between two
 ticks: nothing on the clock is clamped. The one clamp is a stateful node's step,
 `transport::MAX_DT`, applied where that step is taken — see
-[One transport](#one-transport-over-the-one-clock-and-gears-hold-the-only-time).
+[One transport](#one-transport-over-the-one-clock-and-every-rate-integrates-it).
 
 It used to accumulate the *clamped* `dt`, so a 200 ms stall advanced it by 100 ms. The reason
 given was that feeding a true value to a phase accumulator makes everything jump — which is
@@ -1373,14 +1389,14 @@ generator sat 0.2 s behind `u_time` for good, and a minimized second came back a
 gear and an ambient reading take the whole of a stall, and only a stateful node — a
 simulation, a slew, an envelope, a pad — is bounded, because only a stateful node is harmed by a long step.
 
-### One transport over the one clock, and gears hold the only time
+### One transport over the one clock, and every rate integrates it
 
 **Chosen.** `transport.rs` is a playhead in seconds over the one clock, and it plays, pauses
 and seeks — nothing else. It reads `T = T_anchor + playing × (elapsed − elapsed_anchor)`,
 re-anchored on every play, pause and seek, the way Link, Tidal and SuperCollider keep a
-position. That playhead is **ambient time**, the one clock of the show: every moving node
-reads it at its own rate unless a gear is cabled into its Time, and every gear integrates how
-far it moved. So the show pauses and seeks as one, and a render drives the same playhead a
+position. That playhead is **ambient time**, the one clock of the show: a looping node reads it
+at its own rate unless a gear is cabled into its Time, and every gear and every free-running
+node's Speed integrates how far it moved. So the show pauses and seeks as one, and a render drives the same playhead a
 frame at a time. [proposals/time.md](../proposals/time.md) is the argument.
 
 **The time readout is all a person sees of it**: the playhead as `mm:ss.ff` at a fixed width,
@@ -1430,15 +1446,16 @@ and enters no undo history.
 shown on two tabs, or a cable across them, would have two times, and a CPU node has one state
 to follow them with. Local time is a gear.
 
-**Rejected: Loop mode**, a switch for the whole show (View ▸ Loop, `L`, a strip with a loop
+**Rejected: a show-wide Loop mode**, a switch for the whole show (View ▸ Loop, `L`, a strip with a loop
 length) under which every speed ran a whole number of its cycles a loop and every noise was
 compiled walking a circle. It was built and it lost for three reasons. It changed the picture:
-a noise in Loop mode was another noise, so the show a person tuned was not the one they
+a noise under it was another noise, so the show a person tuned was not the one they
 exported. It needed a ratio per speed, a hidden control beside every speed that the row showed
 and edited in the speed's place, so every moving node had two numbers for one rate and a
 mode deciding which one was true. And it made a loop a property of the transport, where it is
 a property of what drives the nodes: here a loop is the gear chain's, which a Master Gear's
-caption reads ([Nodes keep no time](#nodes-keep-no-time-and-a-loop-is-read-from-the-gears)).
+caption reads, and a node's own Loop mode is the node choosing a clock rather than the show
+choosing for it ([Two modes](#two-modes-and-a-loop-is-read-from-the-clocks)).
 **Rejected with it: the speed dial**, which only a show that should run slower or faster
 used — a Ratio Gear on ambient time does that for what it drives — **the transport strip**,
 whose pause and reset the readout keeps, and **typed seek**. **Rejected before it: silently
@@ -1466,11 +1483,12 @@ the gear chain already says. `examples/loop_gifs` keeps its own seam check for t
 GIFs. **A GIF is the `image` crate's encoder**, already in the binary for decoding, where
 GStreamer's `gifenc` is a Rust plugin that a distribution's GStreamer often lacks.
 
-### Gears: the one place a rate lives
+### Gears: a rate shared, and a loop closed
 
 **Chosen.** **Gears** are a category of their own, `Category::Gear`, between Control and
-Output. No node that moves with time has a speed: a gear is where a rate is set, changed or
-divided, and gears hold the only time state in the model. Time on a wire is a float in cycles
+Output. A gear is where a rate is shared, changed on the beat or divided: one cable drives any
+number of looping nodes at one rate, and a chain of gears says whether they close. A node's
+own Speed, in Free mode, turns one node; a gear is what several nodes keep time by. Time on a wire is a float in cycles
 of some clock — **Cycles** the count, published whole for a Time and as one `f32` wrapped at
 2520 centered on zero for anything else, **Phase** the fraction — and no new port type
 carries it.
@@ -1533,16 +1551,19 @@ deleting and rewiring.
   or clamps the sum. **A render waits for a clip's frame**, holding the frame and ticking only
   what waits, where live play shows what the decoder has.
 - **`stepsequencer` and `euclideanrhythm`** fire on crossings of `floor(16 × (Time + Offset))`,
-  sixteen steps a bar, and stand still at rest until a gear drives them: a Master Gear a bar
-  long is their tempo. A reading that runs backwards, more than a bar in a tick, across a seek
-  or onto another clock's cable is a jump that fires nothing and closes the gates. **Step stays**: while cabled, a sequencer
+  sixteen steps a bar, and a new one stands still: Speed 1 is a bar every two seconds, and in
+  Loop mode a Master Gear a bar long is their tempo. A reading that moves more than a bar in a
+  tick, across a seek or onto another clock's cable is a jump that fires nothing and closes the
+  gates, and so is one that runs backwards on a clock; running free, a negative Speed plays the
+  steps in reverse. **Step stays**: while cabled, a sequencer
   counts Step events and ignores Time, the one stateful path, because an event clock — a tap,
   a threshold — is not a gear.
 
-**Rejected: a ratio knob on each speed**, the hidden control Loop mode kept beside every
-speed. A gear is where a rate lives: one cable drives any number of nodes at one rate, one
-knob turns them together, and a chain of gears says whether they close. A rate on each node is
-a rate in twenty places, each to find and each to keep whole. **Rejected: `phase` and
+**Rejected: a ratio knob on each speed**, the hidden control the show-wide Loop mode kept
+beside every speed so a loop would close. A node that must close loops on a gear: one cable
+drives any number of nodes at one rate, one knob turns them together, and a chain of gears
+says whether they close. A ratio on each Speed is a rate in twenty places, each to find and
+each to keep whole. **Rejected: `phase` and
 `bpmclock` kept beside the gears.** With no BPM on the moving nodes, a
 `bpmclock` is exactly a Master Gear that fires on its cycle and `phase` exactly a Ratio Gear,
 and two nodes doing one job is what this removes. **Rejected: keeping the Time node's own
@@ -1554,34 +1575,47 @@ tick never waits; only a render, which owns its clock, holds a frame. **Rejected
 while a render holds**: a noise oscillator would draw a second random and a one-frame gate
 would close early, so how often the decoder was slow would change the film.
 
-### Nodes keep no time, and a loop is read from the gears
+### Two modes, and a loop is read from the clocks
 
-**Chosen.** A node that moves with time is a function of `Time + Offset` and keeps nothing:
-`phasor::Generator`, the per-node accumulator and its `accumulates:` macro arm are gone, and no
-moving node publishes a phase of its own. A node may remember last tick's reading to fire on a
-crossing — an edge detector, not an accumulator. So a node draws one picture at one moment
-however the show got there, a render needs no path to reach a frame, and whether a loop closes
-is arithmetic on the gear chains rather than a question about history. **Rejected: a speed on
-each node**, integrated into a phase the node kept. It bent rather than jumped, but it made
-every moving node stateful: its picture at a moment depended on every speed it had run at to
-get there, a closed tab had to catch up on it, and a loop closed only where each node's history
-happened to land on a whole cycle. Moving the one integral into gears keeps the bend, since a
-gear's length or tempo turned bends, and leaves the nodes stateless.
+**Chosen.** A node keeps no time of its own. In **Loop** mode it is a function of
+`Time + Offset`: the per-node accumulator `phasor::Generator` and its `accumulates:` macro arm
+are gone, and a node draws one picture at one moment however the show got there. In **Free**
+mode it runs on its Speed, and the integral is the synth's, not the node's: one playhead per
+node, born where the playhead puts it, kept in `nodes::timing::Pace` and published under the
+node's Time key, so the body is the same function of `Time + Offset` in both modes and the
+whole of a node's timing is declared once (`NodeDef::timing`) and expanded by
+`nodes::timing`. A node may remember last tick's reading to fire on a crossing — an edge
+detector, not an accumulator.
+
+**What Free mode costs, and why it is the default.** A free-running node's picture at a moment
+depends on the Speeds it ran at to get there, so a seek moves it by `speed × the jump` rather
+than putting it where the playhead says, a closed tab catches up by the gap, and its loop closes
+only where its Speed times its pace comes round over the length. That is the cost the design
+before it refused, when no node had a speed and every change of pace was a gear cabled into
+Time — and the cost of refusing it was the commonest edit, a node a little faster, taking a gear
+and two cables. Free is the default because most nodes are turned rather than locked; Loop
+keeps the stateless, exact design for whatever has to close. At a Speed it has never left, a
+free-running node is exactly where Loop mode's ambient reading would put it — it is born at
+`speed × playhead` and every seek moves it by `speed × the jump` — so a render, which starts
+every node again, is deterministic, and a switch from one mode to the other at Speed 1 does not
+move the picture.
 
 **The rate at rest is silvia's default speed**, in the node's own cycles an ambient second,
-declared on the node (`NodeDef::ambient`). A rate that was irrational in seconds, a period of
-20π, is rounded to nearby whole seconds — Rotozoom and Shaky Cam a cycle a minute, Geiss Flow
-one in 160 s — under 5% off, and a whole number of seconds is a length a loop can have. **Where
-silvia is still at rest the rate is zero**: Cosine Gradient, Simplex,
-Fractal, Domain Warp, Static and the two sequencers stay still until a gear drives them, and
-Offset places them. **Rejected: a slow drift at rest** on each of them, which would put motion
-silvia does not have on a node a person drops in.
+declared on the node (`Timing::rate`). A rate that was irrational in seconds, a period of 20π,
+is rounded to nearby whole seconds — Rotozoom and Shaky Cam a cycle a minute, Geiss Flow one in
+160 s — under 5% off, and a whole number of seconds is a length a loop can have. **Speed 1 is
+that rate** (`Timing::pace`). **Where silvia is still at rest the rate is zero**, and the pace
+is one that looks natural — Cosine Gradient a shift every 10 s, Simplex, Fractal and Domain Warp
+half a cell a second, Static six rolls a second, the sequencers a bar every two seconds — with
+the Speed knob starting at 0, so the node a person drops in still sits still, as silvia's does.
+**Rejected: a slow drift at rest** on each of them, which would put motion silvia does not have
+on a node a person drops in.
 
 **A noise repeats by an option, Repeat**: Never, silvia's look and the default, or every 1, 2,
 4, 8 or 16 cells, and on Static every 4 to 128 rolls. With `N` a noise walks a circle of
 circumference `N` through its four-dimensional noise at `(Time + Offset) ÷ N`, and Static reads
 its roll modulo `N`. It is an ordinary option that rebuilds. **Rejected: repeating
-automatically**, which Loop mode did: a circle through four dimensions is not the line through
+automatically**, which the show-wide Loop mode did: a circle through four dimensions is not the line through
 three, so repeating changes the picture and a person chooses it. **Rejected: both forms in
 every module, chosen by a uniform**, which would compile a four-dimensional noise into every
 shader holding a noise for the few that repeat.
@@ -1595,8 +1629,9 @@ on a gear never meets a seam.
 
 **When a loop closes.** A node on a chain from Master Gear `M` advances `m × Πr ÷ P` of its own
 periods over `m` cycles of `M` — `Πr` the product of the chain's ratios, `P` the node's period —
-and closes when that is whole; a node on ambient time closes over a length `L` when
-`rate × L ÷ P` is whole. A Master Gear's loop is its length times the least common multiple of
+and closes when that is whole; a node on its own clock closes over a length `L` when its rate,
+or its Speed times its pace, times `L ÷ P` is whole (`nodes::chain::closes_alone`), and a clock
+cabled into a Speed never closes. A Master Gear's loop is its length times the least common multiple of
 its chains' denominators (`nodes::chain::master_length`), which its caption says: "loops in 4
 cycles · 8.000 s (÷4 on ratiogear12)", or "2 nodes will not close". An unconnected color
 input's hue wheel stands still, so it never holds a loop open. **Rejected: silvia's turning
@@ -3916,7 +3951,7 @@ again — `UniformNumber` inputs Time and Offset in waves, Amplitude and Level, 
 waveform phases, and a `UniformNumber` output, which feeds a `VaryingNumber` for free. It
 keeps no accumulator: its value is the wave at `Time + Offset`, a wave a second at rest, and
 silvia's frequency, start/stop, reset and 50 ms glide are the gear's that drives it
-([Gears](#gears-the-one-place-a-rate-lives)); a one-shot is `animation`'s.
+([Gears](#gears-a-rate-shared-and-a-loop-closed)); a one-shot is `animation`'s.
 
 **Why the field version lost: one name for a circle and a diamond is the ambiguity the
 context-free graph exists to remove.** The field oscillator could be fed a gradient, a noise
@@ -4160,7 +4195,7 @@ own doc: the ends option is called `ends`, which is `counter`'s name for it, not
 **Chosen**, on the [parity review](../proposals/silvia-node-parity.md)'s reading of
 `counter`, `smoothcounter`, `bpmclock` and `clockdivider`. Each of the four keeps what it
 does better than silvia's and takes back what silvia's said about itself. `bpmclock` has since
-become the Master Gear ([Gears](#gears-the-one-place-a-rate-lives)), and what is said here of
+become the Master Gear ([Gears](#gears-a-rate-shared-and-a-loop-closed)), and what is said here of
 its tap, its triplet and its stop is the Master Gear's.
 
 **A default range is what node you get.** silvia's Counter opens at 0 to 1 in hundredths and
@@ -4182,7 +4217,7 @@ section above gives.
 
 **The tap tempo went with the BPM.** It wrote a whole tempo onto the Master Gear's own `bpm`
 knob through `TickContext::write_control`, where it could be seen, nudged and saved; the
-Master Gear's length is in seconds now ([Gears](#gears-the-one-place-a-rate-lives)), and a
+Master Gear's length is in seconds now ([Gears](#gears-a-rate-shared-and-a-loop-closed)), and a
 `tap` measures a picture.
 
 **Triplet was half of silvia's, which silently changes what a patch plays.** It fired two

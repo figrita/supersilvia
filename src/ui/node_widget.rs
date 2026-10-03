@@ -545,12 +545,11 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
     let mut rows = cx.layout.rows.iter().peekable();
     let block_radius = (canvas::ROW_BLOCK_RADIUS * cx.zoom()).round() as u8;
     let mut previous: Option<u8> = None;
-    let mut after_bar = false;
     let mut ordinal_in_section = 0usize;
     let is_bar = |row: canvas::Row| {
         matches!(
             row,
-            canvas::Row::RenderHeading | canvas::Row::SendHeading | canvas::Row::TimeHeading
+            canvas::Row::RenderHeading | canvas::Row::SendHeading | canvas::Row::TimingHeading
         )
     };
     while let Some(&canvas::RowBox { row, top, height }) = rows.next() {
@@ -558,13 +557,13 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
         let opens_section = previous != Some(section);
         // A heading bar paints its own slab on the body's ground, exactly as a region's does,
         // so this row has no band of its own and does not take a turn in the alternation —
-        // the rows under it keep the banding they had when the heading was a tick. The slab
-        // rows either side of one round their corners against it as against a seam.
+        // the rows under it keep the banding they had when the heading was a tick.
         let heading_bar = is_bar(row);
-        let is_first = opens_section || after_bar;
-        let is_last = rows
-            .peek()
-            .is_none_or(|r| r.row.section() != section || is_bar(r.row));
+        // A heading parts a block with air, not with corners: the rows either side of a bar,
+        // and the Timing heading's own rows, stay square, and only a section's own first and
+        // last rows round.
+        let is_first = opens_section;
+        let is_last = rows.peek().is_none_or(|r| r.row.section() != section);
         if !heading_bar {
             ordinal_in_section = if opens_section {
                 0
@@ -574,7 +573,6 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
         }
         let opens_a_seam = opens_section && previous.is_some();
         previous = Some(section);
-        after_bar = heading_bar;
 
         let band = cx.screen(canvas::row_block(world, row, top, height));
         let fill = if ordinal_in_section.is_multiple_of(2) {
@@ -759,7 +757,17 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
                 &node.inputs,
                 false,
                 Align2::LEFT_CENTER,
-                band.left_center() + vec2(LABEL_INSET * zoom, 0.0),
+                band.left_center()
+                    + vec2(
+                        (LABEL_INSET
+                            + if canvas::under_timing(node, r.row) {
+                                canvas::TIMING_INDENT
+                            } else {
+                                0.0
+                            })
+                            * zoom,
+                        0.0,
+                    ),
             )
         } else {
             (
@@ -1248,7 +1256,7 @@ fn playing<S: std::hash::BuildHasher>(
         // argue with it — the node would put the clip back on the next tick. So the bar
         // stays, saying where the graph has put it, and stops being a handle.
         seekable: graph
-            .source_of(PortRef::new(id, crate::nodes::phasor::OFFSET))
+            .source_of(PortRef::new(id, crate::nodes::timing::OFFSET))
             .is_none(),
     }
 }
@@ -1856,16 +1864,23 @@ pub fn controls(
         return;
     }
     input_controls(ui, cx, fx, open);
-    // The heading a moving node's Time and Offset fold under, the same bar again, over two
-    // port rows.
-    if canvas::time_heading(cx.node).is_some() {
+    // The heading a moving node's time rows fold under, the same bar again, with its mode on
+    // the bar's right end, open or closed.
+    if canvas::timing_heading(cx.node).is_some() {
         row_heading(
             ui,
             cx,
             fx,
-            crate::nodes::SHOW_TIME.key,
-            canvas::Row::TimeHeading,
-            canvas::time_shown(cx.node),
+            crate::nodes::timing::HEADING.key,
+            canvas::Row::TimingHeading,
+            canvas::timing_shown(cx.node),
+        );
+        heading_options(
+            ui,
+            cx,
+            fx,
+            crate::nodes::timing::HEADING.key,
+            canvas::Row::TimingHeading,
         );
     }
     // The heading over the Render section: the same bar, triangle and turn a region's heading
@@ -2076,11 +2091,15 @@ fn row_heading(
     let Some(strip) = cx.block(row) else {
         return;
     };
-    // Drawn after the node's border, so its bar stops short of the border on each side.
+    // Drawn after the node's border, so its bar stops short of the border on each side that
+    // reaches it: both on a full-width row, the port side alone on the Timing heading, whose
+    // far end stops short where the inputs do.
+    let border = border_width(cx.selected);
+    let flush = strip.max.x >= cx.screen(cx.layout.rect).max.x - 0.5;
     if crate::widgets::heading_row(
         ui,
         strip,
-        border_width(cx.selected),
+        [border, if flush { border } else { 0.0 }],
         heading,
         open,
         cx.node,
@@ -2093,6 +2112,44 @@ fn row_heading(
             key: heading.key,
             value: if open { nodes::OFF } else { nodes::ON }.to_string(),
         });
+    }
+}
+
+/// The options a heading's bar carries at its right end (`OptionDef::on_heading`), each a row
+/// of segments: a time-driven node's Free and Loop. Drawn after the bar, so a click on a
+/// segment is the segment's and not the fold's.
+fn heading_options(
+    ui: &mut Ui,
+    cx: &NodeCtx<'_>,
+    fx: &mut Effects,
+    heading: &'static str,
+    row: canvas::Row,
+) {
+    let Some(strip) = cx.block(row) else {
+        return;
+    };
+    let (node, def) = (cx.node, cx.node.def);
+    for option in def.options.iter().filter(|o| o.on_heading == Some(heading)) {
+        let chosen = node
+            .options
+            .get(option.key)
+            .map_or(option.default, String::as_str);
+        let name = format!("{}{}.{}", def.slug, cx.id, option.key);
+        if let Some(i) = crate::widgets::heading_segments(
+            ui,
+            strip,
+            option.choices,
+            chosen,
+            &name,
+            cx.zoom(),
+            cx.theme(),
+        ) {
+            fx.commands.push(crate::command::Command::SetOption {
+                node: cx.id,
+                key: option.key,
+                value: option.choices[i].0.to_string(),
+            });
+        }
     }
 }
 
@@ -2523,7 +2580,7 @@ fn option_rows(
         // The ticks are not here: they share the one `Checks` row below, which is also why
         // `Row::Option(i)` counts only the selects. Nor is an option a region draws, whose
         // region is its control.
-        .filter(|o| !o.checkbox && !o.in_region)
+        .filter(|o| !o.checkbox && !o.in_region && o.on_heading.is_none())
         // The render's own selects are drawn in its section, under its heading, and the send
         // options are the Send rows.
         .filter(|o| {

@@ -89,6 +89,15 @@ fn build(app: &mut App, def: &'static nodes::NodeDef) -> NodeId {
         value: ControlValue::Float(0.25),
     })
     .unwrap();
+    // On a gear, the node loops rather than running free.
+    if def.timing.is_some() {
+        app.apply(Command::SetOption {
+            node: id,
+            key: "clockMode",
+            value: "loop".to_string(),
+        })
+        .unwrap();
+    }
     for input in driven {
         let from = if input.ty == PortType::Action {
             "trigger"

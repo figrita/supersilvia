@@ -95,6 +95,7 @@ pub mod tap;
 pub mod test_support;
 pub mod text;
 pub mod time;
+pub mod timing;
 pub mod transform;
 pub mod triggeredcolor;
 pub mod triggeredrandom;
@@ -237,63 +238,12 @@ impl Control {
     }
 }
 
-/// The key of a time-driven node's **Time**: a diamond with no knob, in the node's own
-/// cycles. Unplugged, it is ambient time at the node's declared rate ([`Ambient`]), which the
-/// synth writes under this key every tick; plugged, what arrives — usually a gear's Cycles —
-/// replaces it. `phase`'s Clock was keyed so before it became the Ratio Gear's Clock In.
-pub const TIME: &str = "clock";
-
-/// The key of a second **Time**, for a node that moves each axis on a clock of its own —
-/// Shaky Cam's Y. Read as [`TIME`] is: unplugged, ambient time at the node's rate, published
-/// under this key; plugged, what arrives.
-pub const TIME_Y: &str = "clockY";
-
-/// Whether an input is a Time: [`TIME`], or a second axis's [`TIME_Y`].
-pub fn is_time(key: &str) -> bool {
-    key == TIME || key == TIME_Y
-}
-
-/// Whether an input folds under the Time heading: a Time or an Offset, of either axis.
-pub fn is_time_row(key: &str) -> bool {
-    is_time(key) || key == phasor::OFFSET || key == phasor::OFFSET_Y
-}
+pub use timing::{TIME, TIME_Y, Timing, is_time, is_time_row};
 
 /// The unit every angle knob is read in: **turns**, so 1 is one full turn and a gear's Phase
 /// cabled into a Rotation turns it once a cycle with no snap. A glyph rather than the word,
 /// so it fits beside three decimals in silvia's 100-point number control as her `π` did.
 pub const TURNS: &str = "↻";
-
-/// How a node that moves with time reads ambient time: the one clock, the playhead, at a rate
-/// of its own. A node computes `Time + Offset` each frame and integrates nothing. See
-/// `docs/nodes.md#time-and-offset` and `proposals/time.md`.
-#[derive(Debug, Clone, Copy)]
-pub struct Ambient {
-    /// How many of the node's own cycles one ambient second is, at rest: silvia's default
-    /// speed, rounded to whole seconds where it was 20π, and zero where silvia is still.
-    pub rate: f64,
-    /// How long the node's picture takes to come back, in its own units, by what its options
-    /// say: one for a periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps,
-    /// and `None` for a picture that never repeats.
-    pub period: fn(&Node) -> Option<f64>,
-}
-
-impl Ambient {
-    /// A node whose picture comes back after one of its own cycles.
-    pub const fn periodic(rate: f64) -> Self {
-        Self {
-            rate,
-            period: |_| Some(1.0),
-        }
-    }
-
-    /// What the editor reads `node`'s Time round: its period, or [`phasor::WRAP`] for a
-    /// picture that never repeats.
-    pub fn wrap(&self, node: &Node) -> f64 {
-        (self.period)(node)
-            .filter(|p| *p > 0.0)
-            .unwrap_or(phasor::WRAP)
-    }
-}
 
 /// Which group of the Nodes menu a definition belongs to.
 ///
@@ -629,12 +579,6 @@ impl ValueDef {
 pub const SHOW_PREVIEW: OptionDef =
     OptionDef::heading("preview", "Preview", true, OptionKind::Presentation);
 
-/// The heading Time and Offset fold under, on every node that moves with time: closed on a new
-/// node, since a node reads ambient time until something is cabled into it, and Offset is set
-/// once and left.
-pub const SHOW_TIME: OptionDef =
-    OptionDef::heading("time", "Time", false, OptionKind::Presentation);
-
 /// The heading over a trace, and over Automation's recorded curve, which is the same band:
 /// open on a new node, since the shape is what a person reads first.
 pub const SHOW_TRACE: OptionDef =
@@ -782,6 +726,11 @@ pub struct OptionDef {
     /// which asks the machine for its list again: a camera plugged in after the app started
     /// is not in it until then.
     pub devices: bool,
+    /// Drawn as a row of segments, one per choice, at the right end of the bar of the row
+    /// heading this names, rather than as a row of its own: [`timing::MODE`] on the Time
+    /// heading, where it shows whether the heading is open or closed. Stored, saved, undone
+    /// and validated exactly as a select's value is.
+    pub on_heading: Option<&'static str>,
 }
 
 impl OptionDef {
@@ -801,6 +750,7 @@ impl OptionDef {
         in_region: false,
         found: None,
         devices: false,
+        on_heading: None,
     };
 
     /// A checkbox option: a tick that is on or off, in the row the node's other ticks share.
@@ -993,10 +943,10 @@ pub struct NodeDef {
     pub resizable: bool,
     /// Which group of the Nodes menu this belongs to.
     pub category: Category,
-    /// How this node reads ambient time, for a node that moves with it: the rate its Time
-    /// runs at with nothing cabled into it, and the period its picture comes back after.
-    /// `None` for every node that does not move with time. See [`Ambient`].
-    pub ambient: Option<Ambient>,
+    /// How this node keeps time, for a node that moves with it: its rate at rest, its pace,
+    /// its period and its axes, from which its time rows, its Timing heading and its mode are
+    /// expanded. `None` for every node that does not move with time. See [`timing`].
+    pub timing: Option<Timing>,
     /// The CPU half, for a node that computes something outside a shader: a uniform number
     /// per frame, or a captured texture. Created per instance on first tick.
     pub cpu: Option<CpuDef>,
@@ -1045,7 +995,7 @@ impl NodeDef {
         resizable: false,
         // Overridden by every shipping node, and held to it by a registry test.
         category: Category::Effect,
-        ambient: None,
+        timing: None,
         cpu: None,
         measure_wgsl: None,
         row_headings: &[],
@@ -1072,6 +1022,15 @@ impl NodeDef {
     /// every node but `drawingcanvas`, whose tool is its brush's row of buttons.
     pub fn in_regions(&self) -> usize {
         self.options.iter().filter(|o| o.in_region).count()
+    }
+
+    /// How many of this kind's options are segments on a heading's bar rather than a row:
+    /// [`timing::MODE`] on every node that moves with time, and none elsewhere.
+    pub fn on_headings(&self) -> usize {
+        self.options
+            .iter()
+            .filter(|o| o.on_heading.is_some())
+            .count()
     }
 
     /// An input by key, port or not.
@@ -2261,7 +2220,7 @@ mod tests {
     /// The two bits an offline render reads, held to the source that would contradict them.
     /// A tick reading `ctx.dt` or `ctx.elapsed` is either summing time into its state or
     /// placing a device's sample inside the frame, so it is `integrates` or `live`; one that
-    /// reads only the transport's playhead — `ctx.time`, `ctx.clock` — may be neither, since
+    /// reads only where it is in time — `ctx.time`, `ctx.cycle` — may be neither, since
     /// the playhead is the frame's own; and a node that says it integrates reads one of them,
     /// or the claim is idle.
     /// A node is read from the file named for it, and the two gears from `gear.rs`; a
@@ -2287,7 +2246,7 @@ mod tests {
                 continue;
             }
             let steps = source.contains("ctx.dt") || source.contains("ctx.elapsed");
-            let reads_time = steps || source.contains("ctx.time") || source.contains("ctx.clock");
+            let reads_time = steps || source.contains("ctx.time") || source.contains("ctx.cycle");
             assert!(
                 !steps || cpu.integrates || cpu.live,
                 "{}: steps on the clock and claims neither `integrates` nor `live`",
@@ -2464,53 +2423,86 @@ mod tests {
         }
     }
 
-    /// **A node that moves with time has Time and Offset, and no speed.** Every node that
-    /// declares [`Ambient`] keeps a **Time** keyed [`TIME`] — a diamond with no knob, since
-    /// unplugged it is ambient time — and an **Offset** keyed `phaseOffset`, 0 to 1 one of its
-    /// own cycles from a zero that adds nothing: a varying circle on a node that draws, so a
-    /// field is a ripple, and a uniform number on a CPU node, which has no uv. None keeps a
-    /// speed. These are the ones that do, and the rate each runs at rest.
+    /// **A node that moves with time declares its timing, and its time rows are the
+    /// declaration's.** Every node with a [`Timing`] has exactly the rows `nodes::timing`
+    /// expands it into — Time, Speed and Offset per axis, in one run, an Offset varying on a
+    /// node that draws and uniform on a CPU node — its Timing heading, closed, on those rows,
+    /// and its mode on the heading. No other node has a time row or the heading. The expansion
+    /// itself is tested once, in `timing`.
     #[test]
-    fn a_moving_node_folds_its_time_and_offset_under_a_closed_time_heading() {
+    fn a_moving_node_has_the_rows_its_timing_expands_into() {
         for def in REGISTRY {
-            let (Some(time), Some(_)) = (
-                def.inputs.iter().position(|i| i.key == TIME),
-                def.input(phasor::OFFSET),
-            ) else {
+            let Some(t) = def.timing else {
                 assert!(
-                    def.option(SHOW_TIME.key).is_none(),
-                    "{}: a Time heading with nothing to fold",
+                    def.option(timing::HEADING.key).is_none()
+                        && def.option(timing::MODE.key).is_none(),
+                    "{}: a Timing heading or a mode with no timing",
+                    def.slug
+                );
+                assert!(
+                    !def.inputs
+                        .iter()
+                        .any(|i| is_time(i.key) || i.key == timing::OFFSET)
+                        || def.slug == "ratiogear",
+                    "{}: a Time or an Offset with no timing",
                     def.slug
                 );
                 continue;
             };
-            assert_eq!(
-                def.inputs.get(time + 1).map(|i| i.key),
-                Some(phasor::OFFSET),
-                "{}: Offset is the row under Time, so one heading folds both",
-                def.slug
-            );
-            let run = def.inputs[time..]
+            let offset = if def.cpu.is_none() {
+                PortType::VaryingNumber
+            } else {
+                PortType::UniformNumber
+            };
+            // An input as text, since a definition compares nothing itself.
+            let row = |i: &InputDef| match i.control {
+                Control::Number {
+                    default, min, max, ..
+                } => format!("{} {} {:?} {default} {min} {max}", i.key, i.label, i.ty),
+                _ => format!("{} {} {:?}", i.key, i.label, i.ty),
+            };
+            let want: Vec<String> = t
+                .axes()
                 .iter()
-                .take_while(|i| is_time_row(i.key))
-                .count();
+                .flat_map(|a| {
+                    [
+                        timing::time_row(t, a.index),
+                        timing::speed_row(t, a.index),
+                        timing::offset_row(t, a.index, offset),
+                    ]
+                })
+                .map(|i| row(&i))
+                .collect();
+            let have: Vec<String> = def
+                .inputs
+                .iter()
+                .skip_while(|i| !is_time_row(i.key))
+                .take(want.len())
+                .map(row)
+                .collect();
+            assert_eq!(have, want, "{}: the rows its timing expands into", def.slug);
             assert_eq!(
-                run,
                 def.inputs.iter().filter(|i| is_time_row(i.key)).count(),
-                "{}: every Time and Offset is in the one run under the heading",
+                want.len(),
+                "{}: every time row is in the one run under the heading",
                 def.slug
             );
-            let option = def
-                .option(SHOW_TIME.key)
-                .unwrap_or_else(|| panic!("{}: no Time heading", def.slug));
-            assert!(option.heading && option.label == "Time", "{}", def.slug);
-            assert_eq!(
-                option.default, OFF,
-                "{}: the heading starts closed",
+            let heading = def.option(timing::HEADING.key);
+            assert!(
+                heading.is_some_and(|o| o.heading && o.default == OFF && o.label == "Timing"),
+                "{}: a closed Timing heading",
+                def.slug
+            );
+            let mode = def.option(timing::MODE.key);
+            assert!(
+                mode.is_some_and(
+                    |o| o.default == timing::FREE && o.on_heading == Some(timing::HEADING.key)
+                ),
+                "{}: its mode, Free, on the heading",
                 def.slug
             );
             assert!(
-                def.row_headings.contains(&SHOW_TIME.key),
+                def.row_headings.contains(&timing::HEADING.key),
                 "{}: the heading sits on the rows it folds",
                 def.slug
             );
@@ -2565,84 +2557,23 @@ mod tests {
         }
     }
 
+    /// **Which nodes move with time, and how fast**: the twelve that draw and the five on the
+    /// CPU, each at silvia's rest rate in Loop mode, and a pace for Free mode — the rate
+    /// itself, or for a node silvia keeps still a pace that looks natural, with its Speed
+    /// starting at zero so a new one still sits still. No node keeps a speed of its own
+    /// beside its time rows.
     #[test]
-    fn a_time_driven_node_has_time_and_offset_and_no_speed() {
-        let mut found: Vec<(&str, f64)> = Vec::new();
-        let mut drawn: Vec<&str> = Vec::new();
-        for def in REGISTRY {
-            let Some(ambient) = def.ambient else {
-                assert!(
-                    def.input(TIME).is_none() || def.slug == "ratiogear",
-                    "{}: a Time with no ambient reading",
-                    def.slug
-                );
-                continue;
-            };
-            found.push((def.slug, ambient.rate));
-            if def.cpu.is_none() {
-                drawn.push(def.slug);
-            }
-            let time = def
-                .input(TIME)
-                .unwrap_or_else(|| panic!("{}: a Time", def.slug));
-            // A node with a Time per axis names each by its axis.
-            let axes = def.input(TIME_Y).is_some();
-            assert_eq!(
-                time.label,
-                if axes { "Time X" } else { "Time" },
-                "{}",
-                def.slug
-            );
-            assert!(
-                time.ty == PortType::UniformNumber && matches!(time.control, Control::None),
-                "{}: Time is a diamond with no knob",
-                def.slug
-            );
-            let offset = def
-                .input(phasor::OFFSET)
-                .unwrap_or_else(|| panic!("{}: an Offset", def.slug));
-            assert_eq!(
-                offset.label,
-                if axes { "Offset X" } else { "Offset" },
-                "{}",
-                def.slug
-            );
-            let draws = def.outputs.iter().any(|o| o.kind != OutputKind::Uniform);
-            let want = if def.cpu.is_none() {
-                PortType::VaryingNumber
-            } else {
-                PortType::UniformNumber
-            };
-            assert!(
-                (!draws || offset.ty == want)
-                    && matches!(
-                        offset.control,
-                        Control::Number { default, min, max, .. }
-                            if default == 0.0 && min == 0.0 && max == 1.0
-                    ),
-                "{}: Offset is one cycle from zero",
-                def.slug,
-            );
-            for speed in [
-                "timeSpeed",
-                "speed",
-                "cycle",
-                "flowSpeed",
-                "rotSpeed",
-                "zoomSpeed",
-                "xSpeed",
-                "ySpeed",
-                "bpm",
-                "time",
-                "position",
-            ] {
-                assert!(
-                    def.input(speed).is_none(),
-                    "{}: no {speed} beside Time",
-                    def.slug
-                );
-            }
-        }
+    fn the_moving_nodes_and_their_rates_and_paces() {
+        let timed = |slug: &str| {
+            find(slug)
+                .and_then(|d| d.timing)
+                .unwrap_or_else(|| panic!("{slug} keeps time"))
+        };
+        let mut drawn: Vec<&str> = REGISTRY
+            .iter()
+            .filter(|d| d.timing.is_some() && d.cpu.is_none())
+            .map(|d| d.slug)
+            .collect();
         drawn.sort_unstable();
         assert_eq!(
             drawn,
@@ -2662,22 +2593,9 @@ mod tests {
             ],
             "every generator and transform that moves with time"
         );
-        let rate = |slug: &str| found.iter().find(|(s, _)| *s == slug).unwrap().1;
-        assert_eq!(rate("mandelbrot"), 0.5, "a drift every two seconds");
-        assert_eq!(rate("rotozoom"), 1.0 / 60.0, "20π rounded to a minute");
-        assert_eq!(rate("geissflow"), 1.0 / 160.0);
-        for still in [
-            "cosinegradient",
-            "simplex",
-            "fractal",
-            "domainwarp",
-            "static",
-        ] {
-            assert_eq!(rate(still), 0.0, "{still} is still at rest, as silvia's is");
-        }
         let mut cpu: Vec<&str> = REGISTRY
             .iter()
-            .filter(|d| d.ambient.is_some() && d.cpu.is_some())
+            .filter(|d| d.timing.is_some() && d.cpu.is_some())
             .map(|d| d.slug)
             .collect();
         cpu.sort_unstable();
@@ -2692,10 +2610,54 @@ mod tests {
             ],
             "and every node on the CPU that does"
         );
+        for (slug, rate, pace) in [
+            ("mandelbrot", 0.5, 0.5),
+            ("juliaset", 0.5, 0.5),
+            ("rotozoom", 1.0 / 60.0, 1.0 / 60.0),
+            ("shakycam", 1.0 / 60.0, 1.0 / 60.0),
+            ("geissflow", 1.0 / 160.0, 1.0 / 160.0),
+            ("perlin", 0.5, 0.5),
+            ("tunnel3d", 0.5, 0.5),
+            ("oscillator", 1.0, 1.0),
+            ("video", 1.0, 1.0),
+            ("imagegif", 1.0, 1.0),
+            ("cosinegradient", 0.0, 0.1),
+            ("simplex", 0.0, 0.5),
+            ("fractal", 0.0, 0.5),
+            ("domainwarp", 0.0, 0.5),
+            ("static", 0.0, 6.0),
+            ("stepsequencer", 0.0, 0.5),
+            ("euclideanrhythm", 0.0, 0.5),
+        ] {
+            let t = timed(slug);
+            assert_eq!((t.rate, t.pace), (rate, pace), "{slug}");
+            assert_eq!(
+                t.speed_default(),
+                if rate == 0.0 { 0.0 } else { 1.0 },
+                "{slug}"
+            );
+        }
+        assert_eq!(timed("shakycam").axes, timing::Axes::Two, "a Time per axis");
         assert!(find("oscillator").unwrap().input("frequency").is_none());
-        assert_eq!(rate("oscillator"), 1.0, "a wave a second");
-        for still in ["stepsequencer", "euclideanrhythm"] {
-            assert_eq!(rate(still), 0.0, "{still} starts stopped, as silvia's does");
+        for def in REGISTRY.iter().filter(|d| d.timing.is_some()) {
+            for speed in [
+                "timeSpeed",
+                "cycle",
+                "flowSpeed",
+                "rotSpeed",
+                "zoomSpeed",
+                "xSpeed",
+                "ySpeed",
+                "bpm",
+                "time",
+                "position",
+            ] {
+                assert!(
+                    def.input(speed).is_none(),
+                    "{}: a {speed} of its own",
+                    def.slug
+                );
+            }
         }
     }
 
