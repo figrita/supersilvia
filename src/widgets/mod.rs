@@ -425,7 +425,8 @@ pub fn show(
         let strip = Rect::from_min_max(band.min, pos2(band.max.x, split));
         rect = Rect::from_min_max(pos2(band.min.x, split), band.max);
         let open = canvas::region_open(node, region);
-        if heading_row(ui, strip, heading, open, node, id, t.zoom, theme) {
+        // Drawn before the node's border, which covers the bar's ends, so it needs no inset.
+        if heading_row(ui, strip, 0.0, heading, open, node, id, t.zoom, theme) {
             out.push(RegionEvent::Option {
                 key: heading.key,
                 value: if open {
@@ -486,14 +487,17 @@ pub fn show(
 /// a 12 px arrow and the label, the arrow rotating 90 degrees over `0.15s ease`, sitting on a
 /// section whose ground is one inset hairline of `border-subtle`. This is that, in supersilvia's tokens:
 /// `bg_secondary` — silvia's own `.mixer-section` ground, a step *above* the body's
-/// `bg_sunken` rather than below it — under a dimmed `border_subtle` hairline at
-/// `RADIUS_SHARP` with a brighter one along the bottom edge, so a heading reads as a slab
-/// sitting in the body rather than as a hole cut in it. **No tooltip.** A triangle beside a label is the one control that
+/// `bg_sunken` rather than below it — across the body's full width, as wide as the rows or
+/// region it folds, under a dimmed `border_subtle` hairline with a brighter one along the
+/// bottom edge, so a heading reads as a slab sitting in the body rather than as a hole cut in
+/// it. `edge` pulls the bar's ends in, in screen points, for a caller that draws it over the
+/// node's border. **No tooltip.** A triangle beside a label is the one control that
 /// needs no words, and the tip it used to show landed over the heading below it.
 #[allow(clippy::too_many_arguments)]
 pub fn heading_row(
     ui: &mut Ui,
     strip: Rect,
+    edge: f32,
     heading: Heading,
     open: bool,
     node: &Node,
@@ -514,40 +518,42 @@ pub fn heading_row(
         HOVER_TIME,
     );
 
-    // The bar, inset from the body's sides by a row block's own inset so two stacked headings
-    // read as two strips with air between them.
-    let bar = strip.shrink2(vec2(canvas::ROW_BLOCK_INSET * zoom, HEADING_PAD * zoom));
-    let radius = eframe::egui::CornerRadius::same(
-        (f32::from(crate::ui::theme::RADIUS_SHARP) * zoom).round() as u8,
-    );
+    // The bar spans the body edge to edge, as the rows and regions it folds do: a bar pulled in
+    // from both sides sat narrower than what opened under it. Only the air above and below
+    // stays, so two stacked headings still read as two strips.
+    let bar = strip.shrink2(vec2(edge, HEADING_PAD * zoom));
     let painter = ui.painter();
-    painter.rect(
+    painter.rect_filled(
         bar,
-        radius,
+        0.0,
         theme
             .bg_secondary()
             .lerp_to_gamma(theme.bg_hover(), hot * 0.7),
+    );
+    // No sides, since the node's own edge is there: a dim hairline along the top and a brighter
+    // one along the bottom, which catches the light the top does not and makes the bar a slab
+    // in the body rather than a hole cut in it.
+    let hair = (1.0 * zoom).max(1.0);
+    painter.line_segment(
+        [
+            pos2(bar.min.x, bar.min.y + hair * 0.5),
+            pos2(bar.max.x, bar.min.y + hair * 0.5),
+        ],
         eframe::egui::Stroke::new(
-            (1.0 * zoom).max(1.0),
+            hair,
             theme
                 .border_subtle()
                 .gamma_multiply(0.45)
                 .lerp_to_gamma(theme.border_normal(), hot * 0.7),
         ),
-        eframe::egui::StrokeKind::Inside,
     );
-    // What makes it recessed rather than outlined: the bottom edge catches the light the top
-    // one does not, which is the two tones `number::bevel_border` puts on the s-number at a
-    // size that can carry a 1.5 point bevel. A heading cannot, so it is one hairline.
-    let lip = (1.0 * zoom).max(1.0);
-    let corner = f32::from(crate::ui::theme::RADIUS_SHARP) * zoom;
     painter.line_segment(
         [
-            pos2(bar.min.x + corner, bar.max.y - lip * 0.5),
-            pos2(bar.max.x - corner, bar.max.y - lip * 0.5),
+            pos2(bar.min.x, bar.max.y - hair * 0.5),
+            pos2(bar.max.x, bar.max.y - hair * 0.5),
         ],
         eframe::egui::Stroke::new(
-            lip,
+            hair,
             theme
                 .border_subtle()
                 .lerp_to_gamma(theme.border_normal(), hot),
@@ -557,11 +563,12 @@ pub fn heading_row(
     let tint = theme
         .text_secondary()
         .lerp_to_gamma(theme.text_primary(), hot);
-    // The triangle's box is fixed and its label's x is a constant off the bar, so neither
-    // moves as the triangle turns. The left edge of that box lines up with a port row's own
-    // label: the bar's inset plus the same inset again is `node_widget::LABEL_INSET`.
-    let inset = crate::ui::node_widget::LABEL_INSET - canvas::ROW_BLOCK_INSET;
-    let center = pos2(bar.min.x + (inset + TRIANGLE * 0.5) * zoom, bar.center().y);
+    // The triangle's box is fixed and its label's x is a constant off the strip, so neither
+    // moves as the triangle turns or as `edge` changes with the selection. The left edge of
+    // that box lines up with a port row's own label, `node_widget::LABEL_INSET` in from the
+    // body's edge.
+    let inset = crate::ui::node_widget::LABEL_INSET;
+    let center = pos2(strip.min.x + (inset + TRIANGLE * 0.5) * zoom, bar.center().y);
     triangle(
         painter,
         center,
@@ -572,7 +579,7 @@ pub fn heading_row(
     );
     painter.text(
         pos2(
-            bar.min.x + (inset + TRIANGLE + TRIANGLE_GAP) * zoom,
+            strip.min.x + (inset + TRIANGLE + TRIANGLE_GAP) * zoom,
             bar.center().y,
         ),
         Align2::LEFT_CENTER,

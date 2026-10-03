@@ -504,11 +504,14 @@ pub fn body(
     ui.painter().rect_stroke(
         rect,
         radius,
-        if cx.selected {
-            Stroke::new(2.0, theme.primary())
-        } else {
-            Stroke::new(1.0, theme.border_subtle())
-        },
+        Stroke::new(
+            border_width(cx.selected),
+            if cx.selected {
+                theme.primary()
+            } else {
+                theme.border_subtle()
+            },
+        ),
         eframe::egui::StrokeKind::Inside,
     );
 
@@ -516,6 +519,13 @@ pub fn body(
     picture_marks(ui, cx, fx, pictures);
     players(ui, cx, fx, pictures);
     response.union(ground)
+}
+
+/// How wide the node's border is, in screen points, drawn inside the body: two when selected,
+/// one otherwise. A heading bar over rows is drawn after the border, so it stops this far short
+/// of each side rather than covering it.
+pub fn border_width(selected: bool) -> f32 {
+    if selected { 2.0 } else { 1.0 }
 }
 
 /// Alternating row bands: inputs, then outputs, then options, each its own block rather than
@@ -2066,9 +2076,11 @@ fn row_heading(
     let Some(strip) = cx.block(row) else {
         return;
     };
+    // Drawn after the node's border, so its bar stops short of the border on each side.
     if crate::widgets::heading_row(
         ui,
         strip,
+        border_width(cx.selected),
         heading,
         open,
         cx.node,
