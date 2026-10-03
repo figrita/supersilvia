@@ -33,9 +33,19 @@ pub const INTEGRATED: &str = "integrated";
 /// PCI vendor id of NVIDIA.
 pub const NVIDIA: u32 = 0x10de;
 
-/// The backends an instance is made with: Vulkan on Linux and Windows, Metal on macOS, nothing
-/// else.
+/// The backend an instance is made with: Direct3D 12 on Windows, which every Windows GPU driver
+/// carries, and Vulkan on Linux and Metal on macOS, nothing else.
+#[cfg(target_os = "windows")]
+pub const BACKENDS: wgpu::Backends = wgpu::Backends::DX12;
+/// The backend an instance is made with: Vulkan on Linux, Metal on macOS, Direct3D 12 on
+/// Windows, nothing else.
+#[cfg(not(target_os = "windows"))]
 pub const BACKENDS: wgpu::Backends = wgpu::Backends::VULKAN.union(wgpu::Backends::METAL);
+
+/// Whether an adapter's backend is one supersilvia renders on, on any machine.
+fn renders_on(backend: Backend) -> bool {
+    matches!(backend, Backend::Vulkan | Backend::Metal | Backend::Dx12)
+}
 
 /// What the environment asks of [`choose`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -111,20 +121,20 @@ pub fn kind(device_type: DeviceType) -> &'static str {
 
 /// The adapter supersilvia renders on, out of every adapter the instance offers.
 ///
-/// In order: an adapter on another backend than Vulkan or Metal is never taken; an override
-/// leaves only the adapters it names and refuses to start if it names none; a software adapter
-/// needs `software`, named or not; of what is left, a discrete GPU before an integrated one
-/// before any other hardware before a software adapter, and among adapters of one kind the
-/// first in the order the instance lists them. `Err` names every adapter offered and why each
-/// was passed over.
+/// In order: an adapter on another backend than Vulkan, Metal or Direct3D 12 is never taken;
+/// an override leaves only the adapters it names and refuses to start if it names none; a
+/// software adapter needs `software`, named or not; of what is left, a discrete GPU before an
+/// integrated one before any other hardware before a software adapter, and among adapters of
+/// one kind the first in the order the instance lists them. `Err` names every adapter offered
+/// and why each was passed over.
 pub fn choose(adapters: &[AdapterInfo], asked: &Asked) -> Result<usize, String> {
     let mut passed = Vec::new();
     let mut candidates = Vec::new();
 
     for (i, info) in adapters.iter().enumerate() {
-        let refusal = if !matches!(info.backend, Backend::Vulkan | Backend::Metal) {
+        let refusal = if !renders_on(info.backend) {
             Some(format!(
-                "its backend is {:?}, not Vulkan or Metal",
+                "its backend is {:?}, not Vulkan, Metal or Direct3D 12",
                 info.backend
             ))
         } else if let Some(wanted) = &asked.adapter
@@ -239,6 +249,8 @@ pub fn pick(adapters: &[wgpu::Adapter], asked: &Asked) -> Result<wgpu::Adapter, 
 pub fn headless(asked: &Asked) -> Result<(wgpu::Instance, wgpu::Adapter, Choice), String> {
     let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
     desc.backends = BACKENDS;
+    // Direct3D 12 compiles naga's HLSL with the DXC linked in (`Cargo.toml`).
+    desc.backend_options.dx12.shader_compiler = wgpu::Dx12Compiler::StaticDxc;
     let instance = wgpu::Instance::new(desc);
     let adapters = block_on(instance.enumerate_adapters(BACKENDS));
     let offered: Vec<AdapterInfo> = adapters.iter().map(wgpu::Adapter::get_info).collect();
@@ -491,7 +503,7 @@ mod tests {
     }
 
     #[test]
-    fn a_backend_other_than_vulkan_or_metal_is_never_taken() {
+    fn a_backend_other_than_vulkan_metal_or_direct3d_12_is_never_taken() {
         let gl = AdapterInfo {
             name: "Mesa Intel(R) Graphics (RPL-S)".to_owned(),
             vendor: 0x8086,
@@ -499,13 +511,19 @@ mod tests {
         };
         assert_eq!(choose(&[gl.clone(), uhd770()], &none()), Ok(1));
         let err = choose(&[gl], &named("intel")).unwrap_err();
-        assert!(err.contains("not Vulkan or Metal"), "{err}");
+        assert!(err.contains("not Vulkan, Metal or Direct3D 12"), "{err}");
         let metal = AdapterInfo {
             name: "Apple M2".to_owned(),
             ..AdapterInfo::new(DeviceType::IntegratedGpu, Backend::Metal)
         };
         assert_eq!(choose(std::slice::from_ref(&metal), &none()), Ok(0));
         assert_eq!(choose(&[metal], &named(INTEGRATED)), Ok(0));
+        let dx12 = AdapterInfo {
+            name: "Intel(R) UHD Graphics 770".to_owned(),
+            vendor: 0x8086,
+            ..AdapterInfo::new(DeviceType::IntegratedGpu, Backend::Dx12)
+        };
+        assert_eq!(choose(&[dx12], &named("intel")), Ok(0));
     }
 
     #[test]

@@ -21,8 +21,9 @@
 # GStreamer the first time.
 #
 # Environment, all optional:
-#   SUPERSILVIA_PACKAGING_CACHE where GStreamer is downloaded and installed, and the Wine prefix
-#                               it is installed in; ~/.cache/supersilvia-windows by default.
+#   SUPERSILVIA_PACKAGING_CACHE where GStreamer is downloaded and installed, the Wine prefix
+#                               it is installed in, and cargo-xwin's CRT and SDK with ATL;
+#                               ~/.cache/supersilvia-windows by default.
 #   SUPERSILVIA_PROFILE         the Cargo profile; `dist` by default. `release` builds in a
 #                               fraction of the time, for trying the folder rather than
 #                               handing it out.
@@ -94,9 +95,11 @@ fi
 # ------------------------------------------------------------------------------ build
 
 say "cargo xwin build --profile $profile, against GStreamer $GST_VERSION"
-# pkg-config reads the release's .pc files and nothing of this machine's own GStreamer.
+# pkg-config reads the release's .pc files and nothing of this machine's own GStreamer. The
+# shader compiler wgpu links in needs Microsoft's ATL, which cargo-xwin leaves out unless asked,
+# so its CRT and SDK are kept in a cache of their own here, with ATL.
 export XWIN_ACCEPT_LICENSE=1 PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_LIBDIR=$gst/lib/pkgconfig
-export PKG_CONFIG_PATH=
+export PKG_CONFIG_PATH= XWIN_INCLUDE_ATL=true XWIN_CACHE_DIR=$cache/xwin
 cargo xwin build --target "$TARGET" --profile "$profile" ${features:+--features "$features"}
 exe=$root/target/$TARGET/$profile/supersilvia.exe
 [[ -f $exe ]] || die "no $exe"
@@ -140,6 +143,7 @@ cp "$root/packaging/macos/LGPL-2.1.txt" "$out/licenses/GStreamer-LGPL-2.1.txt"
 mkdir -p "$out/licenses/assets"
 cp "$root"/licenses/*.txt "$out/licenses/assets/"
 cp "$here/rust-crates.txt" "$out/licenses/rust-crates.txt"
+cp "$here/dxc-LICENSE.txt" "$out/licenses/DirectXShaderCompiler-LICENSE.txt"
 {
   echo "GStreamer $GST_VERSION, as carried in bin/, lib/gstreamer-1.0/ and libexec/"
   echo

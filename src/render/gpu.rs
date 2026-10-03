@@ -4,9 +4,9 @@
 //! one device and its one queue — and the **completion serial**, the one number that replaces
 //! every GL fence.
 //!
-//! **A serial per submission.** Vulkan and Metal know completion per submission, not at an
-//! arbitrary point in the command stream as a GL fence does. So every submission made through
-//! [`Gpu::submit`] is numbered, and `Queue::on_submitted_work_done` stores the number into one
+//! **A serial per submission.** Vulkan, Metal and Direct3D 12 know completion per submission,
+//! not at an arbitrary point in the command stream as a GL fence does. So every submission made
+//! through [`Gpu::submit`] is numbered, and `Queue::on_submitted_work_done` stores the number into one
 //! `AtomicU64` once the GPU has finished it. "Has this finished?" is then a comparison against
 //! [`Gpu::completed`], and a slot, a readback or a returned DMA-BUF carries the serial of the
 //! submission that last touched it. The number is taken and the submission made under one
@@ -69,7 +69,7 @@ pub struct Ticket {
 
 impl Gpu {
     /// A device on the adapter `render::adapter` picks with what `asked` asks, from an instance
-    /// made with no display handle — which Vulkan and Metal do not need, even to present to a
+    /// made with no display handle — which none of its backends needs, even to present to a
     /// window: the app's, made in `main` and handed to eframe, `--check`'s, and a bench's.
     pub fn headless(asked: &adapter::Asked) -> Result<Self, String> {
         let (instance, adapter, choice) = adapter::headless(asked)?;

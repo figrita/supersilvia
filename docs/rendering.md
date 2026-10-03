@@ -1,7 +1,7 @@
 # Rendering
 
-The app draws with `render/`, on wgpu: Vulkan on Linux, Metal on macOS, one device for
-everything ([one device](#one-device)). `render/` is the renderer and what it shares with the
+The app draws with `render/`, on wgpu: Vulkan on Linux, Metal on macOS, Direct3D 12 on
+Windows, one device for everything ([one device](#one-device)). `render/` is the renderer and what it shares with the
 rest of the crate — the job types, `render::adapter`, the picture windows. `unsafe` is allowed
 in `render::picture`, for the borrowed `wl_display` and the raw surface handle made on it, and
 in `render::dmabuf`, for the import through wgpu-hal, and outside `render/` only in the macOS services that call Apple's frameworks. `Renderer::draw` is a **safe** function: `app/` and
@@ -686,9 +686,9 @@ Readings are kept only for nodes holding a slot in a pass the plan carries (reta
 loses its uniform number instead of freezing it.
 
 **A storage buffer written from a fragment shader** needs
-`DownlevelFlags::FRAGMENT_WRITABLE_STORAGE`, which Vulkan and Metal both have; `atomicAdd`,
-`atomicMin` and `atomicMax` on `u32` are core WGSL, and `tests/shader_targets.rs` takes every
-tapping module to MSL and to SPIR-V.
+`DownlevelFlags::FRAGMENT_WRITABLE_STORAGE`, which Vulkan, Metal and Direct3D 12 all have;
+`atomicAdd`, `atomicMin` and `atomicMax` on `u32` are core WGSL, and `tests/shader_targets.rs`
+takes every tapping module to MSL, SPIR-V and HLSL.
 
 ## The thumbnail readback
 
@@ -1155,7 +1155,7 @@ it, where the OUTPUTS table's total sums the passes alone), `thumbnails` (the
 **`between` is the whole less the six parts**: the GPU work of the
 draw's bookkeeping, resizes and clears.
 
-**On Vulkan a mark is written at the bottom of the pipe**, after every command recorded before
+**On Vulkan and Direct3D 12 a mark is written at the bottom of the pipe**, after every command recorded before
 it, so the dispatches ahead of `SimsTo` are inside `sims`, and `slimemold`'s steps read there
 rather than in the first Output that samples its picture. A timestamp is the GPU's clock, so a span is
 everything between its two marks on the one queue — including the time the throttle held the
@@ -1239,7 +1239,9 @@ squeezed.
 ## One device
 
 **The whole app draws on one wgpu device and its one queue.** `main.rs` makes it before the
-window, with `render::Gpu::headless`: an instance over Vulkan and Metal, the adapter
+window, with `render::Gpu::headless`: an instance over the machine's one backend
+(`render::adapter::BACKENDS`) — Vulkan on Linux, Metal on macOS, and Direct3D 12 on Windows,
+whose HLSL the DirectX Shader Compiler linked into the binary compiles — the adapter
 `render::adapter::choose` picks — the strongest GPU, never a software adapter unless told
 ([invariants.md](invariants.md#what-a-machine-catches)) — one device with the adapter's own
 limits and whichever of the renderer's wanted features it offers, and its queue. A box with no
@@ -1248,7 +1250,7 @@ adapter the rule accepts refuses to start and says what it was offered.
 **The strongest GPU is the kind, not a measurement.** Of the adapters left, a discrete GPU
 of any vendor, NVIDIA included, comes before an integrated one, before any other hardware,
 before a software adapter where `SUPERSILVIA_SOFTWARE_GPU=1` allows one; of two of a kind, the
-first the instance lists, which on Vulkan is the loader's order. **`SUPERSILVIA_ADAPTER`
+first the instance lists, which on Vulkan is the loader's order and on Direct3D 12 DXGI's. **`SUPERSILVIA_ADAPTER`
 names one instead and wins**: an index into the list a refusal prints,
 `vendor:device` in hex, `integrated` for every integrated GPU, or a case-insensitive piece of
 the adapter's name — `intel`, `radeon`, `nvidia`, `4070`. It leaves only what it names, so one
@@ -1259,8 +1261,9 @@ integrated GPU themselves, `adapter::Asked::integrated`
 ([testing.md](testing.md#3-the-gpu--the-actual-pixels)). `scripts/doctor.sh` applies the same rule to
 `vulkaninfo`'s list. eframe is handed the four through
 `Renderer::Wgpu` and `egui_wgpu::WgpuSetup::Existing`, so the editor paints through the same
-device; eframe is built with `wgpu_no_default_features`, so no GLES or DX12 backend is in the
-binary, and its surface presents in eframe's default `AutoVsync`.
+device; eframe is built with `wgpu_no_default_features`, so no GLES backend is in the binary
+and each machine's has its own backend alone, and its surface presents in eframe's default
+`AutoVsync`.
 
 `App::new` takes its `Gpu` from `render::Gpu::for_eframe`, which wraps
 `cc.wgpu_render_state`. Under egui_kittest there is none, and the app runs headless: pictures
@@ -1276,8 +1279,8 @@ thread and nothing the synth submits touches its textures
 schedule, whatever the frame thread is doing. `Gpu::for_synth` is the one door a synth on a
 device of its own would change.
 
-**One counter of finished submissions** says what the GPU has done (`render/gpu.rs`). Vulkan
-and Metal know completion per submission, not at a point in the command stream, so every
+**One counter of finished submissions** says what the GPU has done (`render/gpu.rs`). Vulkan,
+Metal and Direct3D 12 know completion per submission, not at a point in the command stream, so every
 submission made through `Gpu::submit` is numbered, and `Queue::on_submitted_work_done` stores
 the number into one atomic once the GPU has finished it. "Has this finished?" is a comparison
 with `Gpu::completed`, and a slot, a readback or a returned DMA-BUF carries the serial of the
@@ -1529,8 +1532,8 @@ a clear to black, a blit with `Fit::Letterbox` over `Viewport::whole`, the submi
 present, and the `Published` let go. The surface is the non-sRGB `Bgra8Unorm` and opaque, as
 on Linux.
 
-**A window's clock is `Fifo`.** Metal has `Fifo` and `Immediate` and no `Mailbox`, and Vulkan
-on Windows paces `Fifo` by the display's vertical blank as well. The surface presents in
+**A window's clock is `Fifo`.** Metal has `Fifo` and `Immediate` and no `Mailbox`, and Direct3D
+12 on Windows paces `Fifo` by the display's vertical blank as well. The surface presents in
 `Fifo` with two drawables, so the thread blocks in `get_current_texture` until one
 is free and paints once per refresh of the display the window is on, at most one refresh
 behind. That is why there is a thread per window rather than one for all: the acquire blocks,

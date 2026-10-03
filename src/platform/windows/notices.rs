@@ -5,11 +5,25 @@
 //!
 //! The crates are `packaging/windows/rust-crates.txt`, which `scripts/crate-licenses.py` writes
 //! for `x86_64-pc-windows-msvc` and `tests/notices.rs` holds to Cargo.lock, compiled in as
-//! Linux's are, since Windows has no About panel of its own to show them in.
+//! Linux's are, since Windows has no About panel of its own to show them in. After them comes
+//! the DirectX Shader Compiler, which one of them, `mach-dxcompiler-rs`, links into the binary
+//! whole, under its own licence, `packaging/windows/dxc-LICENSE.txt` as upstream ships it.
 
 /// Every Rust crate compiled in, its declared licence, and the licence texts their packages
-/// carry.
-pub const RUST_CRATES: &str = include_str!("../../../packaging/windows/rust-crates.txt");
+/// carry, then the shader compiler one of them links in.
+pub const RUST_CRATES: &str = concat!(
+    include_str!("../../../packaging/windows/rust-crates.txt"),
+    "
+==============================================================================
+The DirectX Shader Compiler
+
+mach-dxcompiler-rs links Microsoft's DirectX Shader Compiler into supersilvia, which compiles
+its shaders for Direct3D 12 with it. It is built from https://github.com/hexops/mach-dxcompiler
+and https://github.com/microsoft/DirectXShaderCompiler, under the licence below.
+
+",
+    include_str!("../../../packaging/windows/dxc-LICENSE.txt"),
+);
 
 /// GStreamer, which the Windows folder carries.
 pub const GSTREAMER: &str = "\

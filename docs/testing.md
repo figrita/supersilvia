@@ -9,8 +9,8 @@ node code was written.
 ordinary unit and integration tests. The generated WGSL is snapshot-tested with `insta`, and
 `tests/shader_targets.rs` takes every WGSL module the compiler can write — each workspace
 pass among them, and one holding every node in the registry — and every stage and
-kernel the wgpu renderer writes for itself, through naga to MSL and SPIR-V, so a module Metal
-or Vulkan would refuse is a failure here. Seconds, not
+kernel the wgpu renderer writes for itself, through naga to MSL, SPIR-V and HLSL, so a module
+Metal, Vulkan or Direct3D 12 would refuse is a failure here. Seconds, not
 minutes — nearly all of it `video/clip.rs` driving a real hardware encoder; everything else
 is instant. **Reach for this first, always.**
 
@@ -160,7 +160,7 @@ every other parked in a wait.
 
 Sharing the instance costs two conditions of its own, and both are in `tests/ui.rs`. It offers
 **the app's own backends and never GL**, `render::adapter::BACKENDS` — Vulkan on Linux, Metal
-on macOS — because every harness's renderer enumerates the instance's adapters and a GL
+on macOS, Direct3D 12 on Windows — because every harness's renderer enumerates the instance's adapters and a GL
 adapter's `AdapterContext` clones share one EGL context — made current on two threads at once
 that is a `BadAccess` unwrapped in `wgpu_hal::gles::egl`, a panic in one test rather than a
 fault in the process. Which also means the snapshots need a Vulkan or Metal device on the

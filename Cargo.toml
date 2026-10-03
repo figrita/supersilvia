@@ -27,9 +27,10 @@ eframe = { version = "0.36.2", default-features = false, features = [
 ] }
 egui = "0.36.2"
 emath = { version = "0.36", features = ["serde"] }
-# The renderer: Vulkan on Linux and Windows and Metal on macOS (`proposals/wgpu.md`), on the
-# adapter `render::adapter` picks; the version is the one egui-wgpu puts in the lock.
-wgpu = { version = "30", default-features = false, features = ["std", "vulkan", "metal", "wgsl"] }
+# The renderer, on the adapter `render::adapter` picks (`proposals/wgpu.md`); the version is
+# the one egui-wgpu puts in the lock. Each machine's backend is its own feature, in its table
+# below: Vulkan on Linux, Metal on macOS, Direct3D 12 on Windows.
+wgpu = { version = "30", default-features = false, features = ["std", "wgsl"] }
 # The editor's pictures are blitted inside egui's own render pass by paint callbacks
 # (`render::viewer`), which are `egui_wgpu::CallbackTrait`s. Its default features are
 # **off**: they are `wgpu/default` and `wgpu/webgl`, which would put the GLES backend in the
@@ -86,6 +87,8 @@ rustix = { version = "1", default-features = false, features = ["time"] }
 # Linux's alone: what `platform/linux/` names, and nothing else does (see `src/platform/`),
 # then the Wayland crates `render/picture/`'s Linux half draws its windows with.
 [target.'cfg(target_os = "linux")'.dependencies]
+# The renderer's backend on Linux.
+wgpu = { version = "30", default-features = false, features = ["vulkan"] }
 # xdg-portal, not the gtk3 backend: on KDE/Wayland it uses the desktop's own dialog, matches
 # the user's theme, and keeps GTK out of the process.
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "tokio"] }
@@ -143,6 +146,8 @@ calloop-wayland-source = "0.3"
 # macOS's alone: what `platform/macos/` names, and nothing else does (see `src/platform/`),
 # then what `render/`'s import of an `IOSurface` names.
 [target.'cfg(target_os = "macos")'.dependencies]
+# The renderer's backend on macOS.
+wgpu = { version = "30", default-features = false, features = ["metal"] }
 # File dialogs, `NSOpenPanel`, named by `platform/macos/files.rs` alone. The default features
 # are Linux's portal backend and async-std; the macOS backend needs none. **Already in the
 # lock** with its macOS dependencies (objc2, objc2-app-kit, dispatch2, block2), so declaring
@@ -289,6 +294,10 @@ winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
 
 # Windows' alone: what `platform/windows/` names, and nothing else does (see `src/platform/`).
 [target.'cfg(target_os = "windows")'.dependencies]
+# The renderer's backend on Windows, with DXC linked into the binary to compile naga's HLSL:
+# FXC, the alternative that needs no library, is slow and miscompiles the larger modules
+# naga writes, and the DLLs of a dynamic DXC would be two more files to carry and find.
+wgpu = { version = "30", default-features = false, features = ["dx12", "static-dxc"] }
 # File dialogs and the error box, the shell's `IFileOpenDialog` and `MessageBoxW`, named by
 # `platform/windows/files.rs` and `alert.rs`. The default features are Linux's portal backend
 # and async-std; the Win32 backend needs none. **Already in the lock** with its Windows
@@ -318,8 +327,9 @@ windows = { version = "0.62", default-features = false, features = [
 egui_kittest = { version = "0.36", features = ["eframe", "wgpu", "snapshot"] }
 insta = "1"
 # The WGSL gate, `tests/shader_targets.rs`: naga at the version wgpu 30 puts in the lock,
-# reading WGSL and writing what wgpu hands Metal and Vulkan. See `proposals/shader-path.md`.
-naga = { version = "30", features = ["wgsl-in", "msl-out", "spv-out"] }
+# reading WGSL and writing what wgpu hands Metal, Vulkan and Direct3D 12. See
+# `proposals/shader-path.md`.
+naga = { version = "30", features = ["wgsl-in", "msl-out", "spv-out", "hlsl-out"] }
 # The device's own object counts, `Device::get_internal_counters`, for the tests that hold a
 # freed target freed and churn flat (`tests/gpu_ring.rs`). Tests and examples only.
 wgpu = { version = "30", default-features = false, features = ["counters"] }

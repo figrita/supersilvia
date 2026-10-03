@@ -105,9 +105,13 @@ down as files, so it can be read without running anything:
 | `install.sh`, and the AppImage, which is `install.sh` into an AppDir | `<prefix>/share/licenses/supersilvia/` |
 | the Flatpak | `/app/share/licenses/io.github.figrita.supersilvia/` |
 | the `.app` | `Contents/Resources/licenses/`, with `Credits.rtf` for AppKit's About panel |
+| the Windows folder | `licenses/` |
 
 Each holds `LICENSE`, `rust-crates.txt` and `assets/` — the `licenses/` folder — and the
 `.app` adds Syphon's and GStreamer's, which it carries; no Linux package carries GStreamer.
+The Windows folder adds GStreamer's, and the DirectX Shader Compiler's, which a crate links into
+the binary whole; Help ▸ Licences shows the compiler's after the crates, from
+[`windows/dxc-LICENSE.txt`](windows/dxc-LICENSE.txt).
 
 **The crates' notices are written by [`../scripts/crate-licenses.py`](../scripts/crate-licenses.py)**
 from `cargo metadata --offline`: for Linux into `linux/rust-crates.txt` and for Windows into

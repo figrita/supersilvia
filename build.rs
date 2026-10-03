@@ -18,6 +18,10 @@
 //! Neither is a crate, so nothing is added to the build of any other machine. With neither, the
 //! executable builds without its icon and a warning says so: the window's own icon is
 //! `main.rs`'s and does not depend on it.
+//!
+//! **The linker is told not to look for ATL's debug information.** The shader compiler linked
+//! in on Windows (`Cargo.toml`) takes the Active Template Library's static library with it,
+//! whose objects name a PDB Microsoft does not ship, and `lld-link` warns once per object.
 
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -28,7 +32,10 @@ fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
     match std::env::var("CARGO_CFG_TARGET_OS").as_deref() {
         Ok("macos") => syphon(&manifest),
-        Ok("windows") => icon(&manifest),
+        Ok("windows") => {
+            icon(&manifest);
+            println!("cargo:rustc-link-arg=/IGNORE:4099");
+        }
         _ => {}
     }
 }
@@ -94,7 +101,10 @@ fn resource_script(manifest: &Path) -> String {
     let _ = writeln!(rc, "PRODUCTVERSION {numeric}");
     // VOS_NT_WINDOWS32 and VFT_APP, by number: no header is read.
     let _ = writeln!(rc, "FILEOS 0x40004\nFILETYPE 0x1");
-    let _ = writeln!(rc, "BEGIN\n BLOCK \"StringFileInfo\"\n BEGIN\n  BLOCK \"040904B0\"\n  BEGIN");
+    let _ = writeln!(
+        rc,
+        "BEGIN\n BLOCK \"StringFileInfo\"\n BEGIN\n  BLOCK \"040904B0\"\n  BEGIN"
+    );
     for (key, value) in [
         ("CompanyName", "supersilvia"),
         ("FileDescription", "supersilvia"),

@@ -1,7 +1,7 @@
 # Contributing to supersilvia
 
 supersilvia is a native modular video synthesizer: Rust, egui/eframe 0.36 and wgpu, on Vulkan
-on Linux and Windows and Metal on macOS. This page is the working reference for changing it:
+on Linux, Metal on macOS and Direct3D 12 on Windows. This page is the working reference for changing it:
 how to build and test, the rules the code keeps, the traps the tests have, and how comments
 and docs are written.
 

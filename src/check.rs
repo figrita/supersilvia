@@ -4,7 +4,7 @@
 //! what to install where something is missing. A person runs it first on a machine the app has
 //! never run on, and pastes it into a bug report.
 //!
-//! The binary ships without GStreamer, the Vulkan driver or the windowing libraries, which are
+//! The binary ships without GStreamer, the GPU driver or the windowing libraries, which are
 //! the machine's (`packaging/linux/TESTERS.md`), so what the app can do is decided by what the
 //! machine has: every GStreamer element a pipeline makes, by the plugin set a distribution
 //! packages it in, a hardware codec pair for video import, the GPU `render::adapter` would
@@ -244,7 +244,7 @@ fn gstreamer() -> Line {
 }
 
 /// Whether GStreamer's registry has an element by this name.
-fn has(element: &str) -> bool {
+pub(crate) fn has(element: &str) -> bool {
     gst::ElementFactory::find(element).is_some()
 }
 

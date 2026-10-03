@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The WGSL gate: every module the compiler writes for wgpu reaches Metal and Vulkan.
+//! The WGSL gate: every module the compiler writes for wgpu reaches Metal, Vulkan and
+//! Direct3D 12.
 //!
 //! The corpus is every node in the registry built into an Output unconnected and with every
 //! input driven, each connected build's cost probe, the workspace pass of each of those
 //! graphs — its measurements and its thumbnails — and of one holding every node, every
 //! choice of every option that changes the generated code, and a tap's pass with no
 //! thumbnail. Each module goes through naga the way wgpu takes it: parse, validate with the capabilities wgpu gives a
-//! device that asks for no optional features, then MSL out and SPIR-V out. Any error fails.
+//! device that asks for no optional features, then MSL out, SPIR-V out and HLSL out, at the shader
+//! model DXC compiles for wgpu. Any error fails.
 //!
 //! Beside that, each module is held to what the renderer will assume of it without
 //! reflection: its uniform struct sits at the offsets `compile::wgsl::uniform_layout` gives,
@@ -235,6 +237,10 @@ fn capabilities() -> naga::valid::Capabilities {
     naga::valid::Capabilities::CUBE_ARRAY_TEXTURES | naga::valid::Capabilities::MULTISAMPLED_SHADING
 }
 
+/// The shader model naga writes HLSL for: the floor of the DXC wgpu compiles with, which is
+/// linked into the Windows binary (`Cargo.toml`).
+const HLSL_MODEL: naga::back::hlsl::ShaderModel = naga::back::hlsl::ShaderModel::V6_0;
+
 /// What a module may not contain: sampling with implicit derivatives, and derivatives.
 const FORBIDDEN: &[&str] = &[
     "textureSample(",
@@ -271,7 +277,7 @@ fn check_no_local_u(source: &str) -> Result<(), String> {
 }
 
 /// One module through the path wgpu takes it: no word [`FORBIDDEN`], parsed, validated with
-/// [`capabilities`], then MSL out and SPIR-V out. The module, and the MSL it wrote.
+/// [`capabilities`], then MSL out, SPIR-V out and HLSL out. The module, and the MSL it wrote.
 fn translate(source: &str) -> Result<(naga::Module, String), String> {
     for word in FORBIDDEN {
         if source.contains(word) {
@@ -297,6 +303,18 @@ fn translate(source: &str) -> Result<(naga::Module, String), String> {
     .map_err(|e| format!("msl-out: {}", error_chain(&e)))?;
     naga::back::spv::write_vec(&module, &info, &naga::back::spv::Options::default(), None)
         .map_err(|e| format!("spv-out: {}", error_chain(&e)))?;
+    let hlsl_options = naga::back::hlsl::Options {
+        shader_model: HLSL_MODEL,
+        ..Default::default()
+    };
+    let mut hlsl = String::new();
+    naga::back::hlsl::Writer::new(
+        &mut hlsl,
+        &hlsl_options,
+        &naga::back::hlsl::PipelineOptions::default(),
+    )
+    .write(&module, &info, None)
+    .map_err(|e| format!("hlsl-out: {}", error_chain(&e)))?;
     Ok((module, msl))
 }
 
@@ -418,7 +436,7 @@ fn untranslated(shader: &Shader) -> BTreeSet<&'static str> {
 }
 
 #[test]
-fn every_wgsl_module_reaches_msl_and_spirv() {
+fn every_wgsl_module_reaches_msl_spirv_and_hlsl() {
     let entries = corpus();
     assert!(
         entries.iter().any(|e| e.shader.body.contains("atomicAdd"))
@@ -533,9 +551,9 @@ fn check_compute(source: &str) -> Result<String, String> {
 
 /// Every kernel `slimemold` steps its world with, as `render::sims::source` assembles it
 /// after the renderer's prelude with the numbers the node hands it, and the renderer's own
-/// resample stage, reach Metal and Vulkan. `SHADER_TARGETS_DUMP` writes them beside the rest.
+/// resample stage, reach Metal, Vulkan and Direct3D 12. `SHADER_TARGETS_DUMP` writes them beside the rest.
 #[test]
-fn every_simulation_kernel_reaches_msl_and_spirv() {
+fn every_simulation_kernel_reaches_msl_spirv_and_hlsl() {
     use supersilvia::nodes::slimemold::{KERNELS, PARAMS};
     use supersilvia::render::sims;
 
@@ -582,11 +600,11 @@ fn every_simulation_kernel_reaches_msl_and_spirv() {
 
 /// Every render stage the renderer writes for itself rather than compiling from a graph: the
 /// conversion pass a CPU node's planes go through, the carry a resize scales the old frame
-/// with, the pass every picture read draws, the mix and the viewer's blit. Each reaches Metal
-/// and Vulkan and has the vertex and fragment entry points its pipeline names, and none
+/// with, the pass every picture read draws, the mix and the viewer's blit. Each reaches Metal,
+/// Vulkan and Direct3D 12 and has the vertex and fragment entry points its pipeline names, and none
 /// samples with implicit derivatives. `SHADER_TARGETS_DUMP` writes them beside the rest.
 #[test]
-fn every_renderer_stage_reaches_msl_and_spirv() {
+fn every_renderer_stage_reaches_msl_spirv_and_hlsl() {
     use supersilvia::render::{mixer, readback, shared, sources, viewer};
 
     let stages = [

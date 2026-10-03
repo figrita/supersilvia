@@ -4,7 +4,7 @@
 //! device.
 //!
 //! **Paced by its own display.** The surface presents in `Fifo`, which is Metal's display
-//! sync on a Mac and the swapchain's vertical blank under Vulkan on Windows, with two
+//! sync on a Mac and the swapchain's vertical blank under Direct3D 12 on Windows, with two
 //! drawables. The thread blocks in `get_current_texture` until one is free, so
 //! it paints once per refresh of the display the window is on and is at most one refresh
 //! behind. A thread per window, rather than one for all, because that acquire blocks: on one

@@ -7,9 +7,9 @@
 //! its beginning and end ([`Stamps::span`]). Each of the draw's ten marks is an empty compute
 //! pass whose end writes one timestamp into the encoder of the phase it bounds
 //! ([`Stamps::mark`]). A pass-boundary timestamp needs `TIMESTAMP_QUERY` alone, so a mark goes
-//! wherever an Output's span does, and on Vulkan both are written at the bottom of the pipe,
-//! after every command recorded before them. A span is the GPU's clock between two marks of
-//! the synth's own stream, so it holds whatever else the GPU fitted in between them.
+//! wherever an Output's span does, and on Vulkan and Direct3D 12 both are written at the bottom
+//! of the pipe, after every command recorded before them. A span is the GPU's clock between two
+//! marks of the synth's own stream, so it holds whatever else the GPU fitted in between them.
 //!
 //! **One query set per renderer, and few in the process on Metal.** A draw's marks and every
 //! Output span it records are one range of the renderer's single query set: the ten marks,

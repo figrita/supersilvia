@@ -152,8 +152,9 @@ under its Time heading.
 
 ### wgpu, not glow
 
-**Chosen**, reversing glow, for one renderer on two operating systems: a native macOS app on
-Apple Silicon through Metal, and Linux through Vulkan, from the same code. **Why glow lost:**
+**Chosen**, reversing glow, for one renderer on every operating system: a native macOS app on
+Apple Silicon through Metal, Linux through Vulkan and Windows through Direct3D 12, from the
+same code. **Why glow lost:**
 macOS's OpenGL stops at 4.1, deprecated, and 4.1 has no shader storage buffers, no atomics in a
 fragment shader and no compute shaders. Taps are atomics into a storage buffer from inside a
 fragment shader, the cost probe is the same, and `slimemold` is compute kernels over storage
@@ -166,6 +167,19 @@ that ported almost verbatim, where wgpu takes WGSL (below, decided in
 `proposals/shader-path.md`); and binary size, since wgpu and
 naga are several megabytes, recorded rather than gated. **No Vulkan, no app**: a Linux box with
 no Vulkan driver refuses to start and says why, with no fallback to GL.
+
+### Direct3D 12 on Windows, its shaders compiled by a DXC linked in
+
+**Chosen**: wgpu renders on Direct3D 12 alone on Windows, and compiles naga's HLSL with the
+DirectX Shader Compiler, linked into the binary by `mach-dxcompiler-rs`. Why: every Windows GPU
+driver carries Direct3D 12, GStreamer's Direct3D 12 decoders hand their frames out as Direct3D
+12 textures, which a device of the same API can sample with no copy, and DXC is the compiler
+Microsoft maintains. **Not taken: Vulkan on Windows**, which Windows' drivers carry less evenly and which
+would need the decoder's textures shared across APIs; nor Vulkan as a fallback beside it, which
+would be a second backend to test for a machine that has none. **Not taken: FXC**, the compiler
+that needs no library, which is slow and miscompiles the larger modules naga writes. **Not
+taken: DXC as `dxcompiler.dll` beside the binary**, two more files to carry and find for the
+same compiler; the cost of linking it is about 22 MB of binary.
 
 ### The strongest GPU, with the variable choosing another
 
@@ -185,8 +199,8 @@ that rule and was machinery with no gain once the rule went. See
 ### WGSL for wgpu, not GLSL through a translator
 
 **Chosen** for the move to wgpu: every node is written in WGSL, and naga — already inside
-wgpu — takes it to MSL and SPIR-V with nothing between; `tests/shader_targets.rs` puts every
-module through both.
+wgpu — takes it to MSL, SPIR-V and HLSL with nothing between; `tests/shader_targets.rs` puts
+every module through all three.
 **Rejected:** keeping GLSL and translating it through glslang to SPIR-V, which took 420 of the
 421 shaders the program wrote but costs a C++ build, 3 MB of binary, a permanent dialect
 transform in the compiler and a second reader of every program; and naga's GLSL frontend,

@@ -469,7 +469,8 @@ pub mod filedrop {
 /// What `--check` asks of the machine ([`crate::check`]): the GStreamer elements the app makes,
 /// in `GROUPS` by what each serves and the plugin set it ships in, and `machine`, the report's
 /// lines about everything past GStreamer and the GPU — on Linux the session, the libraries
-/// opened at run time, the audio server and the MIDI sequencer, on Windows the Vulkan loader.
+/// opened at run time, the audio server and the MIDI sequencer, on Windows the Direct3D 12
+/// runtime and the GPU's video decoders.
 /// `os` names the operating system, its version and the desktop in one line, for Help ▸
 /// Report a problem….
 pub mod check {

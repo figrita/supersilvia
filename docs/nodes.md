@@ -180,7 +180,7 @@ abstraction boundary, and it is one character wide.**
 ## WGSL
 
 The renderer draws WGSL, wgpu's own language, which naga validates and writes out as MSL
-on Metal and SPIR-V on Vulkan with nothing between ([proposals/shader-path.md](../proposals/shader-path.md)).
+on Metal, SPIR-V on Vulkan and HLSL on Direct3D 12 with nothing between ([proposals/shader-path.md](../proposals/shader-path.md)).
 The compiler's entry points are `compile::wgsl::build` for an Output, `build_probe` for the
 cost probe, `build_pass` for a workspace's
 [pass](rendering.md#the-workspace-pass) — its measurements and its thumbnails — and
@@ -265,7 +265,7 @@ picture, and a CPU source's `1.0 - …` on `v` reads its top-first bytes the rig
 
 `tests/shader_targets.rs` is the gate: every module — each node unconnected and connected,
 each probe, every code option's every choice — is parsed, validated with the capabilities
-wgpu gives a plain device, and written as MSL and SPIR-V, and its struct and bindings are held
+wgpu gives a plain device, and written as MSL, SPIR-V and HLSL, and its struct and bindings are held
 to `uniform_layout` and `bindings`; it refuses `textureSample(`, `dpdx`, `dpdy` and `fwidth`
 outright, and a local named `u` outside the module's own `var<uniform> u: Uniforms;`.
 `tests/compile.rs` snapshots every node as `wgsl_{group}_{slug}_{wiring}`; a new node's first
@@ -1566,7 +1566,7 @@ they were trait implementations.
    accident. If the field *is* the picture, as in a gradient, a checkerboard or an emboss,
    there is nothing to publish.
 5. Snapshot the generated [WGSL](#wgsl), review it once by eye, and accept its `wgsl_`
-   snapshots; `tests/shader_targets.rs` takes the module through naga to MSL and SPIR-V.
+   snapshots; `tests/shader_targets.rs` takes the module through naga to MSL, SPIR-V and HLSL.
 6. Compile it on the GPU. `every_node_compiles_on_the_gpu` builds a shader for **every node
    in the registry, in every option combination, with inputs connected and unconnected**, and
    hands each to the driver. That is what makes porting cheap: a typo in a shader body is a

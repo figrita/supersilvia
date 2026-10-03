@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! What `--check` asks of a Windows machine: every GStreamer element the app makes, which the
-//! folder carries from GStreamer's official release, and the one library past it the app
-//! opens by name at run time, the Vulkan loader, which a GPU driver installs.
+//! folder carries from GStreamer's official release, the Direct3D 12 runtime every picture is
+//! drawn through, which Windows carries, and whether this machine's GPU decodes video in
+//! Direct3D 12. GStreamer registers a Direct3D 12 decoder only for a device that has video decode, so the
+//! registry is the answer and no device is opened for it.
 //!
 //! **The version is the kernel's own**, from `RtlGetVersion`, which reports it whatever
 //! compatibility the executable declares; `GetVersionEx` reports Windows 8 to an executable
@@ -115,8 +117,12 @@ pub const GROUPS: &[Group] = &[
     },
 ];
 
-/// The Vulkan loader every picture is drawn through.
-const VULKAN: (&str, &str) = ("vulkan-1.dll", "Vulkan loader");
+/// The Direct3D 12 runtime every picture is drawn through.
+const D3D12: (&str, &str) = ("d3d12.dll", "Direct3D 12");
+
+/// The Direct3D 12 video decoders GStreamer registers for the device of the adapter it lists
+/// first, by the codecs a clip's cache is written in.
+const D3D12_DECODERS: [&str; 3] = ["d3d12h264dec", "d3d12h265dec", "d3d12av1dec"];
 
 /// `Windows 11, build 26100, x86_64`: the release the kernel's version says, its build, and
 /// the processor.
@@ -139,19 +145,34 @@ pub fn os() -> String {
     format!("Windows {release}, build {}, {arch}", info.dwBuildNumber)
 }
 
-/// The Vulkan loader, where Windows keeps it.
+/// The Direct3D 12 runtime, where Windows keeps it, and the video decoders GStreamer found on
+/// this machine's GPU.
 pub fn machine() -> Vec<Line> {
     let system = std::env::var_os("SystemRoot")
-        .map(|root| PathBuf::from(root).join("System32").join(VULKAN.0));
-    vec![match system.filter(|path| path.exists()) {
-        Some(path) => Line::new(Verdict::Pass, VULKAN.1, path.display().to_string()),
+        .map(|root| PathBuf::from(root).join("System32").join(D3D12.0));
+    let runtime = match system.filter(|path| path.exists()) {
+        Some(path) => Line::new(Verdict::Pass, D3D12.1, path.display().to_string()),
         None => Line::new(
             Verdict::Fail,
-            VULKAN.1,
+            D3D12.1,
             format!(
-                "{} not found — install your GPU's driver, which carries Vulkan",
-                VULKAN.0
+                "{} not found — supersilvia needs Windows 10 or later and a GPU driver",
+                D3D12.0
             ),
         ),
-    }]
+    };
+    let decoders: Vec<&str> = D3D12_DECODERS
+        .into_iter()
+        .filter(|name| crate::check::has(name))
+        .collect();
+    let decode = if decoders.is_empty() {
+        Line::new(
+            Verdict::Warn,
+            "Direct3D 12 video",
+            "no Direct3D 12 video decoder on this GPU — a clip's frames are copied through memory",
+        )
+    } else {
+        Line::new(Verdict::Pass, "Direct3D 12 video", decoders.join(", "))
+    };
+    vec![runtime, decode]
 }
