@@ -39,9 +39,11 @@ pub(super) struct Show {
 /// What a toast is saying, which decides how long it stays and what replaces it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kind {
-    /// News of the editor itself — *Editor hidden*, *Undo Delete 3 nodes*. The next one
-    /// replaces it.
+    /// News of the editor itself — *Undid Delete 3 nodes*. It stacks with the rest.
     News,
+    /// What a toggle now is — *Editor hidden*. The next one replaces it, since `H` twice is
+    /// one state and not two.
+    State,
     /// A file was written, with a **Show**.
     Written,
     /// Something failed, marked by the `⚠` and the accent.
@@ -60,14 +62,6 @@ struct Toast {
     go: Option<Go>,
 }
 
-impl Toast {
-    /// Whether it stays while the pointer is on it: one with something to press, or a
-    /// failure to read.
-    fn lingers(&self) -> bool {
-        self.kind != Kind::News || self.go.is_some()
-    }
-}
-
 /// Where a toast's ▸ go takes the view.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Go {
@@ -83,12 +77,13 @@ enum Pressed {
     Go(Go),
 }
 
-/// How long a toast stays, in seconds: silvia's two.
-const TOAST_SECONDS: f64 = 2.0;
+/// How long a toast stays, in seconds: long enough to read a line that came while the eyes
+/// were on the canvas. Under the pointer any toast stays until the pointer leaves.
+const TOAST_SECONDS: f64 = 4.0;
 
 /// How long a toast with a Show button, a ▸ go or a failure stays, in seconds: long enough
-/// to read and to reach. Under the pointer it stays until the pointer leaves.
-const SHOW_SECONDS: f64 = 6.0;
+/// to read and to reach.
+const SHOW_SECONDS: f64 = 8.0;
 
 /// How many toasts stand at once. A fourth pushes the oldest off.
 pub const TOASTS: usize = 3;
@@ -122,14 +117,14 @@ impl App {
     }
 
     /// Put a toast up. The ones gone are dropped first; one saying the same thing again is
-    /// moved to the foot rather than doubled, and a piece of news replaces the last news.
+    /// moved to the foot rather than doubled, and a state replaces the last state.
     fn toast_up(&mut self, toast: Toast) {
         let now = self.clock().elapsed();
         let toasts = &mut self.show.toasts;
         toasts.retain(|t| {
             now < t.until
                 && t.text != toast.text
-                && !(toast.kind == Kind::News && t.kind == Kind::News)
+                && !(toast.kind == Kind::State && t.kind == Kind::State)
         });
         toasts.push(toast);
         while toasts.len() > TOASTS {
@@ -141,9 +136,20 @@ impl App {
         self.say_with_go(text, None);
     }
 
+    /// Say what a toggle now is, replacing what the last toggle said.
+    pub(super) fn say_state(&mut self, text: impl Into<String>) {
+        let until = self.clock().elapsed() + TOAST_SECONDS;
+        self.toast_up(Toast {
+            text: text.into(),
+            until,
+            shows: None,
+            kind: Kind::State,
+            go: None,
+        });
+    }
+
     /// Say what changed, with a **▸ go** beside it where there is somewhere to go, which
-    /// stays as long as a Show does so a hand can reach it. News, so the next undo's toast
-    /// replaces it rather than stacking.
+    /// stays as long as a Show does so a hand can reach it.
     pub(super) fn say_with_go(&mut self, text: impl Into<String>, go: Option<Go>) {
         let seconds = if go.is_some() {
             SHOW_SECONDS
@@ -196,10 +202,10 @@ impl App {
     /// The toasts: a line each at the bottom of the window, above everything, the newest at
     /// the foot. Drawn where they are asked for, so the clock decides rather than a timer.
     ///
-    /// A piece of news is gone in two seconds. One that says a file was written carries a
+    /// A piece of news is gone in four seconds. One that says a file was written carries a
     /// **Show** after its text, one that says what an undo changed off screen a **▸ go**, and
-    /// one that says something failed wears the `⚠` and an edge in the accent; those stay six
-    /// seconds, and for as long as the pointer is on them. They float over the canvas, so
+    /// one that says something failed wears the `⚠` and an edge in the accent; those stay
+    /// eight. Any toast stays for as long as the pointer is on it. They float over the canvas, so
     /// they move nothing under them, and each is one line whatever it says.
     pub(super) fn show_toast(&mut self, ctx: &egui::Context) {
         self.hear_failures();
@@ -211,7 +217,6 @@ impl App {
         let shown = egui::Area::new(egui::Id::new("toast"))
             .order(egui::Order::Tooltip)
             .anchor(egui::Align2::CENTER_BOTTOM, egui::vec2(0.0, -40.0))
-            .interactable(toasts.iter().any(Toast::lingers))
             .show(ctx, |ui| {
                 ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
                     for toast in &toasts {
@@ -223,7 +228,7 @@ impl App {
             });
         let now = self.clock().elapsed();
         if shown.response.contains_pointer() {
-            for live in self.show.toasts.iter_mut().filter(|t| t.lingers()) {
+            for live in &mut self.show.toasts {
                 if now < live.until {
                     live.until = live.until.max(now + 1.0);
                 }

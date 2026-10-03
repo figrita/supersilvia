@@ -141,7 +141,11 @@ fn an_undo_on_another_workspace_goes_there() {
     h.get_by_label("▸ go").click();
     h.run_steps(2);
     assert_eq!(h.state().active(), Active::Workspace(home));
-    assert_eq!(h.state().toast(), None, "the toast went with the go");
+    assert_eq!(
+        h.state().toasts(),
+        ["Undid New workspace Elsewhere"],
+        "the toast went with the go, and the undo before it still stands"
+    );
 }
 
 /// Edit ▸ Undo History… lists the steps by name, and a click on one walks the ring to it.

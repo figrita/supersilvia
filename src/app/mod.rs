@@ -1618,7 +1618,7 @@ impl App {
             }
             MenuAction::HideEditor => {
                 self.show.hidden = !self.show.hidden;
-                self.say(if self.show.hidden {
+                self.say_state(if self.show.hidden {
                     "Editor hidden — press H to show"
                 } else {
                     "Editor visible — press H to hide"

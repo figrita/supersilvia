@@ -454,7 +454,7 @@ Frequency*, *Reset Zoom range*, *Show 2 nodes on Second*, *Auto-arrange*. Nothin
 a gesture that wrote several things is named by the last, as its step is.
 
 **After an undo or a redo, the toast says what changed** — *Undid Delete 3 nodes*, *Redid Move
-Checkerboard* — and where the change is not in view it carries a **▸ go** and stays six
+Checkerboard* — and where the change is not in view it carries a **▸ go** and stays eight
 seconds, as a Show does. The go is `App::navigate_to` on the first node the command names that
 is still in the graph, which opens its workspace, centres the view on it and throbs it; where
 the command named no node or its nodes are gone — an Add undone — it opens the workspace the
@@ -2944,9 +2944,10 @@ repository is public. The window closes by its ✕ and keeps no place between ru
 each one line whatever it says. Three kinds:
 
 - **News of the editor itself** — *Editor hidden — press H to show*, *Undid Delete 3 nodes* —
-  gone in two seconds. The next piece of news replaces it, since `H` twice is one state and
-  not two. One after an undo or a redo carries a **▸ go** where the change is out of view, and
-  stays as long as a file written does — see [Undo by name](#undo-by-name).
+  gone in four seconds. What `H` says replaces what it said last, since `H` twice is one state
+  and not two; other news stacks, so three undos show three lines. One after an undo or a redo
+  carries a **▸ go** where the change is out of view, and stays as long as a file written
+  does — see [Undo by name](#undo-by-name).
 - **A file written** — *snapped 1280x720 to snaps/…*, *rendered 120 frames to …* — with a
   **Show** after its text, which opens the folder holding the file with the file selected.
 - **A failure**, every one that reaches the Status box's file line: a failed save, open, new
@@ -2957,8 +2958,8 @@ each one line whatever it says. Three kinds:
   writes the status line, the toast and the list together; a render's outcome, which `Media`
   reads itself, goes through `Media::fail`, which the toast hears before it draws.
 
-A file written, a failure and a toast with a ▸ go stay six seconds, and as long as the
-pointer is on any toast.
+A file written, a failure and a toast with a ▸ go stay eight seconds. Every toast stays as long
+as the pointer is on it.
 
 **A short queue.** Up to three stand at once, stacked, the newest at the foot; a fourth pushes
 the oldest off. Two things said in one second both stand — a Snap's line is not written over by
@@ -3422,7 +3423,7 @@ already covered by the mix hides the very graph the project was opened to work o
 same idea at full strength and is not remembered either.
 
 **`H` hides the editor**: the central panel shows nothing but the mix, and a toast says
-*Editor hidden — press H to show* for two seconds, in [the toast](#the-toast). The menu, the tabs and the Main Mixer
+*Editor hidden — press H to show* for four seconds, in [the toast](#the-toast). The menu, the tabs and the Main Mixer
 stay, as silvia's side panels do, so the fade and the sources are still to hand. **`F` is fullscreen** for
 the editor window; in a picture window it is that window's own. View ▸ Hide editor and View ▸
 Fullscreen are the same two, printed with their keys, and read *Show editor* and *Leave
