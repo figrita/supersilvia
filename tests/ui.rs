@@ -213,9 +213,11 @@ fn double_click(h: &mut Harness<'_, App>, label: &str) {
 
 /// Node entries live under the Nodes menu, so a test has to open it and pick the category
 /// first. The menu is built from the registry, and every entry in it — there and in the
-/// browser, which draws the same rows — is named for the node it adds.
+/// browser, which draws the same rows — is named for the node it adds. A category of one,
+/// Output, is its node: the click on its row adds it, and there is no entry to pick.
 fn add_node(h: &mut Harness<'_, App>, path: (&str, &str)) {
     let (group, label) = path;
+    let before = h.state().graph().len();
     h.get_by_label("Nodes").click();
     // Two frames. The first time an `Area` appears egui runs a sizing pass — the content is
     // laid out at a provisional position to measure it, then discarded and re-run. A real
@@ -231,7 +233,9 @@ fn add_node(h: &mut Harness<'_, App>, path: (&str, &str)) {
     )
     .click();
     h.step();
-    h.get_by_label(label).click();
+    if h.state().graph().len() == before {
+        h.get_by_label(label).click();
+    }
     // Two frames: the entry is clicked on the first, which has already drawn the menu, and
     // the second is the one where the menu is gone.
     h.run_steps(2);

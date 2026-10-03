@@ -534,7 +534,9 @@ is one: on the project tab there is nothing for a node to land on.
 **The categories are `Category::ALL`, in roughly signal order**: Source, Generate, Color,
 Transform, Effect, Convert, Tap, Math, Control, **Gears** and Output. Gears, under `⚙`, holds
 the Master Gear, the Ratio Gear and Time — the clocks, the one place a rate is set, changed
-or divided — between the values that change over time and what a picture ends in.
+or divided — between the values that change over time and what a picture ends in. **A
+category of one node is that node**: Output's row has no ▶ and no submenu, and a click or
+`Enter` adds the Output, since a submenu holding one entry of the same name chooses nothing.
 
 **The button is canvas furniture and a window is not**, so a window covers it. The button is
 an `Area` — it has to be, for the menu to stand on it — at `Order::Background`, which is

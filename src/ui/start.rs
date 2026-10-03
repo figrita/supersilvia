@@ -26,6 +26,10 @@
 //! back out; `Escape` outside a submenu closes the menu. Opening a submenu with the pointer
 //! moves the keyboard into it with nothing selected, so `Down` then walks its entries — that
 //! is silvia's `onSubmenuShown`, and it is why hovering and typing compose.
+//!
+//! **A category of one node is that node.** Output is the only one: a submenu holding a
+//! single entry of the same name is a step that chooses nothing, so its row is the node
+//! itself, with no ▶, and a click or `Enter` adds it.
 
 use crate::nodes::{Category, NodeDef, REGISTRY};
 use crate::ui::theme::{self, Theme};
@@ -161,6 +165,14 @@ fn categories() -> Vec<(Category, Vec<&'static NodeDef>)> {
         .collect()
 }
 
+/// The node a category of one member stands for, which its row adds directly.
+fn leaf(members: &[&'static NodeDef]) -> Option<&'static NodeDef> {
+    match members {
+        [only] => Some(*only),
+        _ => None,
+    }
+}
+
 /// Draw the start button in `within`'s bottom-left corner and, while it is open, the menu
 /// above it. Returns a node kind to add.
 pub fn show(
@@ -201,7 +213,13 @@ pub fn show(
     // sixteen milliseconds these delays exist to spend well.
     if let Some((index, due)) = menu.pending {
         if now >= due {
-            menu.show_submenu(index);
+            // A leaf has no submenu of its own, but resting on it still puts away the one
+            // that is up, as resting on any other category would.
+            if cats.get(index).is_some_and(|(_, m)| leaf(m).is_some()) {
+                menu.hide_submenu();
+            } else {
+                menu.show_submenu(index);
+            }
         } else {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_secs_f64(due - now));
@@ -250,8 +268,14 @@ pub fn show(
                     // Flush, like every menu: the height above is computed from the rows, and
                     // a gap between them would put the panel's bottom edge over the button.
                     ui.spacing_mut().item_spacing.y = 0.0;
-                    for (index, (category, _)) in cats.iter().enumerate() {
-                        rows.push(category_row(ui, *category, index, menu, theme));
+                    for (index, (category, members)) in cats.iter().enumerate() {
+                        let leaf = leaf(members);
+                        let (rect, clicked) =
+                            category_row(ui, *category, leaf, index, menu, theme);
+                        rows.push(rect);
+                        if clicked && let Some(def) = leaf {
+                            chosen = Some(def.slug);
+                        }
                     }
                 });
             if let Some(p) = pointer
@@ -389,37 +413,43 @@ fn crossings(menu: &mut StartMenu, over: Over, now: f64) {
     }
 }
 
-/// One category: icon, name, and the ▶ that says it has a submenu.
+/// One category: icon, name, and the ▶ that says it has a submenu — or, for a category of
+/// one, the node it stands for, named by the node and with no ▶. Returns its rect, and
+/// whether it was clicked, which only a leaf answers.
 fn category_row(
     ui: &mut Ui,
     category: Category,
+    leaf: Option<&'static NodeDef>,
     index: usize,
     menu: &StartMenu,
     theme: &Theme,
-) -> Rect {
+) -> (Rect, bool) {
     let (rect, response) = ui.allocate_exact_size(vec2(WIDTH, ROW), Sense::click());
     let selected = menu.cursor == Some(index) && !menu.inside;
+    let label = leaf.map_or(category.label(), |def| def.label);
     browse::paint_row(
         ui,
         rect,
         selected,
         response.hovered(),
         category.icon(),
-        category.label(),
+        label,
         theme,
     );
-    ui.painter().text(
-        rect.right_center() - vec2(8.0, 0.0),
-        Align2::RIGHT_CENTER,
-        "▶",
-        FontId::proportional(theme::FONT_TINY),
-        theme.primary_muted(),
-    );
-    let name = format!("{} {}", category.icon(), category.label());
+    if leaf.is_none() {
+        ui.painter().text(
+            rect.right_center() - vec2(8.0, 0.0),
+            Align2::RIGHT_CENTER,
+            "▶",
+            FontId::proportional(theme::FONT_TINY),
+            theme.primary_muted(),
+        );
+    }
+    let name = format!("{} {label}", category.icon());
     response.widget_info(|| {
         eframe::egui::WidgetInfo::labeled(eframe::egui::WidgetType::Button, true, &name)
     });
-    rect
+    (rect, leaf.is_some() && response.clicked())
 }
 
 /// The start button's area.
@@ -541,6 +571,7 @@ fn keys(
         .and_then(|i| cats.get(i))
         .map_or(0, |(_, m)| m.len());
     let mut enter = false;
+    let mut right = false;
     ui.input_mut(|i| {
         if i.consume_key(Modifiers::NONE, Key::Escape) {
             if menu.inside {
@@ -568,10 +599,10 @@ fn keys(
         if i.consume_key(Modifiers::NONE, Key::ArrowLeft) && menu.inside {
             menu.hide_submenu();
         }
-        enter = i.consume_key(Modifiers::NONE, Key::Enter)
-            || i.consume_key(Modifiers::NONE, Key::ArrowRight);
+        enter = i.consume_key(Modifiers::NONE, Key::Enter);
+        right = i.consume_key(Modifiers::NONE, Key::ArrowRight);
     });
-    if !enter || !menu.open {
+    if !(enter || right) || !menu.open {
         return;
     }
     if menu.inside {
@@ -585,6 +616,14 @@ fn keys(
             *chosen = Some(def.slug);
         }
     } else if let Some(index) = menu.cursor {
+        // A leaf has nothing to go into: `Enter` takes it, and `Right` does nothing, as on
+        // a Windows menu entry with no submenu.
+        if let Some(def) = cats.get(index).and_then(|(_, m)| leaf(m)) {
+            if enter {
+                *chosen = Some(def.slug);
+            }
+            return;
+        }
         // Going in by key selects the first entry, where going in by pointer selects none.
         menu.show_submenu(index);
         menu.item = Some(0);
@@ -633,6 +672,19 @@ mod tests {
         let cats = categories();
         assert_eq!(cats.len(), Category::ALL.len(), "a category has no nodes");
         assert!(cats.iter().all(|(_, m)| !m.is_empty()));
+    }
+
+    /// Output, a category of one, is offered as the node; every other category opens.
+    #[test]
+    fn only_output_is_a_leaf() {
+        for (category, members) in categories() {
+            assert_eq!(
+                leaf(&members).map(|d| d.slug),
+                (category == Category::Output).then_some("output"),
+                "{}",
+                category.label()
+            );
+        }
     }
 
     /// A pointer that has not moved says nothing, so no timer starts and no selection moves.
