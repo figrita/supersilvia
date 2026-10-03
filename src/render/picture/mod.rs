@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Picture windows: a window of our own per picture, drawn off the editor's thread — a Wayland
-//! surface on Linux, a winit window on macOS.
+//! surface on Linux, a winit window on macOS and Windows.
 //!
 //! **What this is for.** `proposals/deterministic-loop.md` left one cost open: a minimized
 //! editor stopped the projector, because eframe runs one winit event loop and that loop
@@ -30,10 +30,11 @@
 //! geometry and keys a window reads, and the editor's list of windows ([`Wall`]), all tested
 //! with no compositor. [`Host`], the thread from the editor's side, is `wayland.rs` on Linux,
 //! with the thread itself in `thread.rs`; those two hold the module's `unsafe` and name its
-//! Wayland crates. On macOS it is `macos/`, which answers the same names with no `unsafe`:
-//! AppKit makes windows on the main thread alone, so each is a winit window made inside the
-//! event loop [`run`] starts around eframe, and drawn on a thread of its own on the one device
-//! (`proposals/macos-windows.md`).
+//! Wayland crates. On macOS and Windows it is `winit/`, which answers the same names with no
+//! `unsafe`: AppKit makes windows on the main thread alone, and Win32 delivers a window's
+//! messages to the thread that made it, which must be the event loop's, so each is a winit
+//! window made inside the event loop [`run`] starts around eframe, and drawn on a thread of its
+//! own on the one device (`proposals/macos-windows.md`).
 //!
 //! `proposals/picture-windows.md` is the argument; [`docs/rendering.md`] carries the
 //! threading contract.
@@ -51,14 +52,14 @@ mod wayland;
 #[cfg(target_os = "linux")]
 pub use wayland::Host;
 
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-pub use macos::{Host, run};
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+mod winit;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+pub use self::winit::{Host, run};
 
 /// Start eframe and run it until the app quits: `eframe::run_native`, with the same three
-/// arguments and nothing else. macOS's `run` builds the event loop itself, because its picture
-/// windows are made inside it.
+/// arguments and nothing else. macOS's and Windows' `run` builds the event loop itself, because
+/// their picture windows are made inside it.
 ///
 /// # Errors
 /// What `eframe::run_native` returns.
@@ -198,13 +199,13 @@ pub struct Bounds {
 /// pointer has travelled `travel` points since.
 ///
 /// Where no window system drags or resizes a borderless window for us — winit on macOS has no
-/// resize at all — this is the whole gesture, recomputed on every motion from where it began,
-/// so nothing accumulates. `edge` is the band the press landed in ([`edge_at`]): `None`, the
-/// middle, moves the window whole; an edge or a corner follows the pointer while the opposite
-/// side stays where it was. `aspect`, where there is one, is the lock `Shift` or `Ctrl` holds,
-/// by [`fit_aspect`]'s rule anchored on the same edge. The size never goes below `min`, and a
-/// locked one grows back to it at its aspect rather than giving the aspect up. Sizes are whole
-/// points.
+/// resize at all, and Windows shares macOS's windows — this is the whole gesture, recomputed
+/// on every motion from where it began, so nothing accumulates. `edge` is the band the press
+/// landed in ([`edge_at`]): `None`, the middle, moves the window whole; an edge or a corner
+/// follows the pointer while the opposite side stays where it was. `aspect`, where there is
+/// one, is the lock `Shift` or `Ctrl` holds, by [`fit_aspect`]'s rule anchored on the same
+/// edge. The size never goes below `min`, and a locked one grows back to it at its aspect
+/// rather than giving the aspect up. Sizes are whole points.
 pub fn dragged(
     start: Bounds,
     travel: (f64, f64),

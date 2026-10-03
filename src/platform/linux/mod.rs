@@ -14,6 +14,7 @@
 pub mod alert;
 pub mod audio;
 pub mod check;
+pub mod clock;
 pub mod dirs;
 #[allow(unsafe_code)]
 pub mod filedrop;

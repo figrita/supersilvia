@@ -132,37 +132,42 @@ fn the_pure_modules_reach_no_graphical_crate_through_the_crate() {
 
 /// Each operating system's crates are named in its own backend and nowhere else: Linux's —
 /// `libloading` among them, which opens the NDI® runtime by its path — in `platform/linux/`,
-/// macOS's — `midir` among them — in `platform/macos/`, and `rfd`, which is
-/// both machines' file dialogs, in those two. Apple's own bindings — every `objc2` crate,
+/// macOS's in `platform/macos/`, Windows' — `windows` — in `platform/windows/`, `midir` in the
+/// last two, `rustix`, Linux's and macOS's thread clock, in the first two, and `rfd`, which is
+/// every machine's file dialogs, in all three. Apple's own bindings — every `objc2` crate,
 /// `dispatch2` and `block2` — are macOS's, and `render/` may name them too, since the Metal
 /// import of an `IOSurface` is the renderer's. `block2` is Syphon's, for the block a client is
-/// handed its frames through, and `render/` names none. `gstndi`, the NDI® plugin, is both
-/// machines' and is named by `video/ndi.rs` alone, which registers it: everything else asks for
-/// its elements by name.
+/// handed its frames through, and `render/` names none. `gstndi`, the NDI® plugin, is every
+/// machine's and is named by `video/ndi.rs` alone, which registers it: everything else asks for
+/// its elements by name. A crate is named where its name begins a path, so `std::os::windows`
+/// is not the `windows` crate.
 ///
 /// Everything the app asks of the machine goes through `platform/`'s narrow services, which
 /// is what lets each backend answer the same names; a Linux crate named anywhere else is a
 /// Linux dependency the macOS build cannot see coming, and the reverse, since `Cargo.toml`
 /// declares each of these for its own machine alone. The Wayland crates `render::picture`
-/// draws its windows with on Linux, and the winit it draws them with on macOS, are not on the
-/// list: the picture windows are `render/`'s, not a service of `platform/`.
+/// draws its windows with on Linux, and the winit it draws them with on macOS and Windows, are
+/// not on the list: the picture windows are `render/`'s, not a service of `platform/`.
 #[test]
 fn the_os_crates_are_named_only_in_their_backends() {
     const LINUX: &str = "src/platform/linux/";
     const MACOS: &str = "src/platform/macos/";
+    const WINDOWS: &str = "src/platform/windows/";
     const RENDER: &str = "src/render/";
     const NDI: &str = "src/video/ndi.rs";
     // Each crate, and the backends that may name it; a name ending in `*` is every crate whose
     // name begins with the rest. A macOS crate goes in with `&[MACOS]`.
-    const OS: [(&str, &[&str]); 12] = [
+    const OS: [(&str, &[&str]); 14] = [
         ("alsa", &[LINUX]),
         ("libloading", &[LINUX]),
         ("ashpd", &[LINUX]),
         ("fontconfig", &[LINUX]),
         ("tokio", &[LINUX]),
         ("gstreamer_allocators", &[LINUX]),
-        ("rfd", &[LINUX, MACOS]),
-        ("midir", &[MACOS]),
+        ("rustix", &[LINUX, MACOS]),
+        ("rfd", &[LINUX, MACOS, WINDOWS]),
+        ("midir", &[MACOS, WINDOWS]),
+        ("windows", &[WINDOWS]),
         ("objc2*", &[MACOS, RENDER]),
         ("dispatch2", &[MACOS, RENDER]),
         ("block2", &[MACOS]),
@@ -176,8 +181,9 @@ fn the_os_crates_are_named_only_in_their_backends() {
     let mut found = Vec::new();
     for (f, tokens) in &crate_.files {
         for (name, backends) in OS {
-            let named = tokens.windows(2).any(|w| {
+            let named = tokens.windows(2).enumerate().any(|(i, w)| {
                 w[1] == "::"
+                    && (i == 0 || tokens[i - 1] != "::")
                     && name
                         .strip_suffix('*')
                         .map_or(w[0] == name, |prefix| w[0].starts_with(prefix))
@@ -204,7 +210,7 @@ fn the_os_crates_are_named_only_in_their_backends() {
 /// is added to the list, and to CONTRIBUTING.md's and docs/invariants.md's.
 #[test]
 fn unsafe_is_allowed_only_where_the_rule_names() {
-    const ALLOWED: [&str; 11] = [
+    const ALLOWED: [&str; 15] = [
         "src/render/mod.rs: dmabuf",
         "src/render/picture/mod.rs: thread",
         "src/render/picture/mod.rs: wayland",
@@ -216,6 +222,10 @@ fn unsafe_is_allowed_only_where_the_rule_names() {
         "src/platform/macos/mod.rs: pixels",
         "src/platform/macos/mod.rs: screen",
         "src/platform/macos/mod.rs: syphon",
+        "src/platform/windows/mod.rs: check",
+        "src/platform/windows/mod.rs: clock",
+        "src/platform/windows/mod.rs: dirs",
+        "src/platform/windows/mod.rs: fonts",
     ];
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = Vec::new();

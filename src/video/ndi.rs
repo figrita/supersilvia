@@ -176,15 +176,21 @@ fn probe() -> u8 {
 /// The runtime's file names, in the order the plugin opens them.
 #[cfg(target_os = "macos")]
 const LIBRARY_NAMES: &[&str] = &["libndi.dylib"];
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+const LIBRARY_NAMES: &[&str] = &["Processing.NDI.Lib.x64.dll"];
+#[cfg(target_os = "linux")]
 const LIBRARY_NAMES: &[&str] = &["libndi.so.6", "libndi.so.5"];
 
 /// Where the runtime is looked for past the loader's own search: on a Mac, dyld's default
-/// fallback, which is where NDI's installers put `libndi.dylib`; on Linux, the usual library
-/// folders, which `ld.so` need not search — Fedora's does not search `/usr/local/lib`.
+/// fallback, which is where NDI's installers put `libndi.dylib`; on Windows, the folder NDI 6's
+/// runtime installs to, which its installer also names in `NDI_RUNTIME_DIR_V6`; on Linux, the
+/// usual library folders, which `ld.so` need not search — Fedora's does not search
+/// `/usr/local/lib`.
 #[cfg(target_os = "macos")]
 const SYSTEM_DIRS: &[&str] = &["/usr/local/lib", "/usr/lib"];
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+const SYSTEM_DIRS: &[&str] = &[r"C:\Program Files\NDI\NDI 6 Runtime\v6"];
+#[cfg(target_os = "linux")]
 const SYSTEM_DIRS: &[&str] = &[
     "/usr/lib",
     "/usr/local/lib",

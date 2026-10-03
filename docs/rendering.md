@@ -1415,8 +1415,8 @@ egui viewport**. eframe runs one winit `EventLoop` (winit permits exactly one pe
 loop services every viewport in turn, so a minimized editor would take every other window down
 with it. A window paced by its own compositor cannot.
 
-How a window is made is the one thing that differs by system. On macOS it is a winit window
-inside eframe's own loop, [below](#on-macos). On Linux, `render/picture/` opens **Wayland
+How a window is made is the one thing that differs by system. On macOS and Windows it is a
+winit window inside eframe's own loop, [below](#on-macos-and-windows). On Linux, `render/picture/` opens **Wayland
 surfaces of its own** on a thread named `pictures`: an
 `xdg_toplevel` with no decorations per picture, a wgpu surface on each, and a `Viewer` per
 surface format, all on a clone of the one device. `proposals/picture-windows.md` is the
@@ -1494,24 +1494,26 @@ where the thread starts, and each window's wgpu surface, made over raw handles w
 `wl_surface` the window drops only after the surface. The protocol side is `wayland-client` and
 `smithay-client-toolkit`, which are safe.
 
-### On macOS
+### On macOS and Windows
 
-AppKit makes and drives windows from the main thread alone, so a thread that owns windows is
-Linux's alone. On macOS each picture window is **a winit window made inside eframe's own event
-loop**. `render::picture::run` builds that loop, starts eframe in it through
+AppKit makes and drives windows from the main thread alone, and Win32 hands a window's
+messages to the thread that made it, which winit allows to be the event loop's alone, so a
+thread that owns windows is Linux's alone. On macOS and Windows each picture window is **a
+winit window made inside eframe's own event loop**, in `render/picture/winit/`, one
+implementation for both. `render::picture::run` builds that loop, starts eframe in it through
 `eframe::create_native`, and runs `picture::Loop` around it on the main thread, passing eframe
-every event that is not for a picture window. `main.rs` calls `run` on both systems, and on
+every event that is not for a picture window. `main.rs` calls `run` on every system, and on
 Linux `run` is `eframe::run_native` and nothing else. `proposals/macos-windows.md` is the
-argument.
+argument, written for the Mac.
 
-**The threading contract, on macOS.**
+**The threading contract, on macOS and Windows.**
 
 | | owns | borrows | never touches |
 | --- | --- | --- | --- |
 | the main thread, in `Loop` | every picture window's winit `Window`, its keys, its pointer and its fullscreen | eframe, which it forwards to | the graph, the snapshot, egui, the command bus |
 | a thread named `picture`, one per window | that window's wgpu surface | a clone of the one `Gpu`, the synth's `Arc<Live>`, a `Viewer` per surface format shared by every window | the window itself |
 
-**An ask needs no wake-up.** The editor's `picture::Ask` is sent from `App::ui`, which on a Mac
+**An ask needs no wake-up.** The editor's `picture::Ask` is sent from `App::ui`, which here
 runs inside winit's `RedrawRequested` on the main thread; winit calls `about_to_wait` in the
 same turn of the loop, and `Loop` acts on the ask there. `picture::Told` comes back on a plain
 channel the editor drains once a frame. The two ends meet through a slot on the main thread:
@@ -1520,24 +1522,25 @@ sending the loop the device and `Live`. A harness never runs `run`, finds no slo
 detached.
 
 **A window's surface is made on the main thread and drawn on the window's own.** winit hands
-out a window handle on the main thread alone, and the `CAMetalLayer` under it is made from the
-view, which AppKit allows nowhere else; the surface then moves to the window's thread, which
+out a window handle on the main thread alone, and on a Mac the `CAMetalLayer` under it is made
+from the view, which AppKit allows nowhere else; the surface then moves to the window's thread, which
 configures it, paints and presents. That thread's paint is Linux's: the newest `Published`,
 a clear to black, a blit with `Fit::Letterbox` over `Viewport::whole`, the submission, the
 present, and the `Published` let go. The surface is the non-sRGB `Bgra8Unorm` and opaque, as
 on Linux.
 
-**A window's clock is `Fifo`.** Metal has `Fifo` and `Immediate` and no `Mailbox`. The surface
-presents in `Fifo` with two drawables, so the thread blocks in `get_current_texture` until one
+**A window's clock is `Fifo`.** Metal has `Fifo` and `Immediate` and no `Mailbox`, and Vulkan
+on Windows paces `Fifo` by the display's vertical blank as well. The surface presents in
+`Fifo` with two drawables, so the thread blocks in `get_current_texture` until one
 is free and paints once per refresh of the display the window is on, at most one refresh
 behind. That is why there is a thread per window rather than one for all: the acquire blocks,
 and on one thread a window on a 60 Hz projector would hold back one on a 120 Hz screen.
 
-**A picture window nobody can see stops painting.** AppKit's occlusion reaches the window's
-thread as winit's `Occluded`, sent on by `Loop`, and the thread blocks on its channel with no
+**A picture window nobody can see stops painting.** AppKit's occlusion, or a minimized
+window on Windows, reaches the window's thread as winit's `Occluded`, sent on by `Loop`, and the thread blocks on its channel with no
 timeout until the window can be seen again, is resized or is closed. wgpu answers `Occluded`
 at once for such a window rather than waiting for a drawable; the thread sleeps on that too,
-for a quarter of a second at a time, in case wgpu saw it before AppKit said so.
+for a quarter of a second at a time, in case wgpu saw it before the window system said so.
 
 **A window is dropped on the main thread, after its thread.** A winit window dropped anywhere
 else closes itself by waiting on the main thread, so a drawing thread holding the last of one
@@ -1548,13 +1551,16 @@ a drawable a hidden window may never be given: its window is hidden and held unt
 quit, `Loop` does the same after eframe's own exit, and lets go of any window whose thread is
 still waiting without dropping it.
 
-**Fullscreen covers the window's screen at once, in place**: `set_simple_fullscreen`, on a
-window made with `with_borderless_game`, so the menu bar and the Dock are hidden outright
-while supersilvia is in front. There is no animation and no Space of its own. A window casts no
-shadow.
+**Fullscreen covers the window's screen at once, in place.** On a Mac it is
+`set_simple_fullscreen`, on a window made with `with_borderless_game`, so the menu bar and the
+Dock are hidden outright while supersilvia is in front, with no animation and no Space of its
+own, and a window casts no shadow. On Windows it is winit's borderless fullscreen on the
+monitor the window is on, which covers the taskbar and changes no display mode. The move, the
+resize band and the aspect lock are the same on both: the gesture `Loop` computes from
+`picture::dragged`.
 
-**No `unsafe`.** winit's safe API is the whole of the macOS half, which stays under the crate
-root's `deny(unsafe_code)`.
+**No `unsafe`.** winit's safe API is the whole of `render/picture/winit/`, which stays under the
+crate root's `deny(unsafe_code)`.
 
 ## Syphon
 

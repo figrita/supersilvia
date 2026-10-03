@@ -4,9 +4,9 @@
 //! each one.
 //!
 //! Each service below is a module whose names are the whole of what the rest of the app may
-//! call, and each name is re-exported from `linux/` or `macos/` by the build's own target —
-//! the two backends side by side, so a name one of them lacks is a build failure on that
-//! target rather than a surprise at run time. What a service hands back is the app's own
+//! call, and each name is re-exported from `linux/`, `macos/` or `windows/` by the build's own
+//! target — the three backends side by side, so a name one of them lacks is a build failure on
+//! that target rather than a surprise at run time. What a service hands back is the app's own
 //! plain data: a MIDI [`Message`](crate::midi::Message), a [`Frame`](crate::nodes::Frame), a
 //! path. Nothing here owns a node, a graph or a window.
 //!
@@ -21,21 +21,29 @@
 //! capture, which is ScreenCaptureKit's, MIDI, which is CoreMIDI through `midir`, the fonts,
 //! which are AppKit's font collection, the menu bar, which is AppKit's, and Syphon, which
 //! Linux does not have. `proposals/platform.md` is the plan that got there, and what the
-//! renderer needs from here beside it.
+//! renderer needs from here beside it. **`windows/` answers every service too**, the media
+//! through GStreamer's official MSVC release: Media Foundation's cameras, WASAPI's inputs and
+//! loopbacks, the primary monitor through Direct3D 11, each GPU vendor's hardware codecs, the
+//! shell's dialogs, Known Folders and Explorer, WinMM through `midir` and DirectWrite's fonts,
+//! with no menu bar, Syphon or zero-copy path, as on Linux, and no GPU counter read.
 //!
 //! The picture windows and the GPU device are not here. They are `render/`'s and
-//! `render/`'s, with Wayland beneath the windows.
+//! `render/`'s, with Wayland beneath the windows on Linux and winit's on the other two.
 
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "windows")]
+mod windows;
 
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
-compile_error!("supersilvia's platform layer has a Linux backend and a macOS one, and no other");
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+compile_error!(
+    "supersilvia's platform layer has a Linux backend, a macOS one and a Windows one, and no other"
+);
 
 /// MIDI in: every source the machine offers, wired to one input, read on a thread that is not
-/// the frame's — the backend's own on Linux, CoreMIDI's on macOS.
+/// the frame's — the backend's own on Linux, CoreMIDI's on macOS and WinMM's on Windows.
 ///
 /// `Midi::open` returns the handle and the queue its reader posts to; `Midi::sources` lists
 /// what is there and whether it is wired in; `Midi::connect_all` wires in whatever is not.
@@ -45,6 +53,20 @@ pub mod midi {
     pub use crate::platform::linux::midi::Midi;
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::midi::Midi;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::midi::Midi;
+}
+
+/// The calling thread's own CPU time, the clock that stands still while the thread is blocked,
+/// for the Status box's line between work and waiting on the GPU (`synth::meter`):
+/// `CLOCK_THREAD_CPUTIME_ID` on Linux and macOS, `GetThreadTimes` on Windows.
+pub mod clock {
+    #[cfg(target_os = "linux")]
+    pub use crate::platform::linux::clock::thread_cpu;
+    #[cfg(target_os = "macos")]
+    pub use crate::platform::macos::clock::thread_cpu;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::clock::thread_cpu;
 }
 
 /// Screen capture: the desktop's own picker, and the session that must outlive whatever reads
@@ -54,12 +76,15 @@ pub mod midi {
 /// long as anything reads it, and dropping it ends the capture. `Cast::stream` is the
 /// `Stream` a [`crate::video::Source::Screen`] names, and `Stream::head` is where its frames
 /// come from: a GStreamer source element that reads it on Linux, and on macOS the slots the
-/// capture writes each frame and its end into itself.
+/// capture writes each frame and its end into itself. Windows has no picker: its `Pending`
+/// answers on the first poll, with the primary monitor, read by a GStreamer element.
 pub mod screen {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::screen::{Cast, Pending, Stream, ask};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::screen::{Cast, Pending, Stream, ask};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::screen::{Cast, Pending, Stream, ask};
 
     use crate::nodes::Frame;
     use std::sync::{Arc, Mutex};
@@ -90,9 +115,9 @@ pub mod screen {
 /// a size, which the renderer draws into, and `Server::publish` tells its clients a frame is
 /// there. `servers` is every server the machine's directory knows of, which on a Mac is kept
 /// by the main thread's run loop and on a test's by `pump`. A [`Client`] is handed one server's
-/// [`Surface`] on each of its frames. Linux has no Syphon: the list is empty and a server or a
-/// client is refused, `unavailable` says why, and [`available`](syphon::available) is false, so
-/// nothing that offers Syphon is drawn there. An [`Inlet`](syphon::Inlet) is a client
+/// [`Surface`] on each of its frames. Linux and Windows have no Syphon: the list is empty and a
+/// server or a client is refused, `unavailable` says why, and
+/// [`available`](syphon::available) is false, so nothing that offers Syphon is drawn there. An [`Inlet`](syphon::Inlet) is a client
 /// whose frames land in the slots a [`crate::video::Camera`] reads, through its
 /// [`Stream`](syphon::Stream), as a screen's do. See `proposals/syphon.md`.
 ///
@@ -103,6 +128,8 @@ pub mod syphon {
     pub use crate::platform::linux::syphon::{Client, Inlet, Server, Surface, pump, servers};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::syphon::{Client, Inlet, Server, Surface, pump, servers};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::syphon::{Client, Inlet, Server, Surface, pump, servers};
 
     use crate::nodes::Frame;
     #[cfg(target_os = "linux")]
@@ -110,10 +137,13 @@ pub mod syphon {
     #[cfg(target_os = "macos")]
     use crate::platform::macos::syphon as here;
     use crate::platform::screen::{Head, Slot};
+    #[cfg(target_os = "windows")]
+    use crate::platform::windows::syphon as here;
     use std::cell::Cell;
     use std::sync::Arc;
 
-    /// What a machine without Syphon says: Linux's answer, and a pretending thread's.
+    /// What a machine without Syphon says: Linux's and Windows' answer, and a pretending
+    /// thread's.
     pub(crate) const MACOS_ONLY: &str = "Syphon is macOS's";
 
     std::thread_local! {
@@ -236,12 +266,16 @@ pub mod syphon {
 /// `/usr/local/lib`, where NDI's installer puts `libndi.so.6`, and glibc hands the plugin's
 /// later open of that bare name the object already loaded under it as its SONAME. On macOS it
 /// opens nothing and answers [`Preload::Left`](ndi::Preload::Left): dyld's fallback already
-/// searches `/usr/local/lib`, where NDI's installer puts `libndi.dylib`.
+/// searches `/usr/local/lib`, where NDI's installer puts `libndi.dylib`. Nor on Windows, where
+/// the plugin opens `Processing.NDI.Lib.x64.dll` from the folder `NDI_RUNTIME_DIR_V6` names,
+/// which NDI's installer sets.
 pub mod ndi {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::ndi::preload;
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::ndi::preload;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::ndi::preload;
 
     use std::path::PathBuf;
 
@@ -269,6 +303,8 @@ pub mod files {
     pub use crate::platform::linux::files::{MANAGER, edit_text, pick, reveal, reveal_file};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::files::{MANAGER, edit_text, pick, reveal, reveal_file};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::files::{MANAGER, edit_text, pick, reveal, reveal_file};
 
     /// What a dialog is asked for.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -297,17 +333,24 @@ pub mod dirs {
     pub use crate::platform::macos::dirs::{
         DENIED_HINT, DOCUMENTS_UNSET, NOT_IN_NAMES, config, data, documents,
     };
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::dirs::{
+        DENIED_HINT, DOCUMENTS_UNSET, NOT_IN_NAMES, config, data, documents,
+    };
 }
 
 /// A box on the desktop saying why the app cannot go on, for an exit before any window of its
 /// own is up: `fatal` puts it up and waits for it to be closed. `rfd`'s message dialog on
-/// both machines — `zenity` on Linux, or `kdialog` where that is what the desktop has, and a
-/// `CFUserNotification` alert on macOS. Called on the main thread.
+/// every machine — `zenity` on Linux, or `kdialog` where that is what the desktop has, a
+/// `CFUserNotification` alert on macOS and a `MessageBoxW` on Windows. Called on the main
+/// thread.
 pub mod alert {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::alert::fatal;
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::alert::fatal;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::alert::fatal;
 }
 
 /// The font families this machine has, by the names the Text node's letters are drawn with.
@@ -319,11 +362,13 @@ pub mod fonts {
     pub use crate::platform::linux::fonts::installed;
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::fonts::installed;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::fonts::installed;
 }
 
-/// The menu bar, where the operating system draws one: AppKit's on macOS. Linux has none, so
-/// its `Bar::install` answers `None` and `App` draws the egui bar instead — as it does on any
-/// build with no native bar.
+/// The menu bar, where the operating system draws one: AppKit's on macOS. Linux and Windows
+/// have none, so their `Bar::install` answers `None` and `App` draws the egui bar instead — as
+/// it does on any build with no native bar.
 ///
 /// The menus arrive as the plain data below, which `App` makes from `ui::menu`'s model, and
 /// what was chosen comes back as the [`Entry::tag`]s it gave them. `Bar::show` puts this
@@ -334,6 +379,8 @@ pub mod menu {
     pub use crate::platform::linux::menu::Bar;
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::menu::Bar;
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::menu::Bar;
 
     /// One menu, on the bar or inside another.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -394,13 +441,16 @@ pub mod menu {
 
 /// The third-party notices that differ by machine, for Help ▸ Licences: `RUST_CRATES`, every
 /// Rust crate compiled in with its licence, and `GSTREAMER`, where the machine's GStreamer
-/// comes from and under what terms. On Linux the crates are a committed file compiled in; a
-/// Mac's are in its bundle, and it keeps AppKit's About panel instead of the window.
+/// comes from and under what terms. On Linux and Windows the crates are a committed file
+/// compiled in; a Mac's are in its bundle, and it keeps AppKit's About panel instead of the
+/// window.
 pub mod notices {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::notices::{GSTREAMER, RUST_CRATES};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::notices::{GSTREAMER, RUST_CRATES};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::notices::{GSTREAMER, RUST_CRATES};
 }
 
 /// Files dragged onto the editor's window from another app, where winit does not hear them:
@@ -419,28 +469,34 @@ pub mod filedrop {
 /// What `--check` asks of the machine ([`crate::check`]): the GStreamer elements the app makes,
 /// in `GROUPS` by what each serves and the plugin set it ships in, and `machine`, the report's
 /// lines about everything past GStreamer and the GPU — on Linux the session, the libraries
-/// opened at run time, the audio server and the MIDI sequencer. `os` names the operating
-/// system, its version and the desktop in one line, for Help ▸ Report a problem….
+/// opened at run time, the audio server and the MIDI sequencer, on Windows the Vulkan loader.
+/// `os` names the operating system, its version and the desktop in one line, for Help ▸
+/// Report a problem….
 pub mod check {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::check::{GROUPS, machine, os};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::check::{GROUPS, machine, os};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::check::{GROUPS, machine, os};
 }
 
 /// The GPU's use, from the operating system's own counters rather than from a query the
 /// renderer placed: this whole process's share of the render engine on Linux, the whole GPU's
-/// on a Mac, which keeps no count per process.
+/// on a Mac, which keeps no count per process, and nothing on Windows, whose counters are not
+/// read.
 ///
 /// `Clients::scan` finds what to read, which is worth doing now and again rather than every
-/// time; `Clients::read` is a [`Read`]. `WHOLE_GPU` says which of the two the machine gives,
-/// before anything is read. `render_engine_ns` is the process's engine nanoseconds at once,
-/// for a benchmark, and zero on a Mac.
+/// time; `Clients::read` is a [`Read`], or `None` where there is nothing to read. `WHOLE_GPU`
+/// says which of the two the machine gives, before anything is read. `render_engine_ns` is the
+/// process's engine nanoseconds at once, for a benchmark, and zero on a Mac and on Windows.
 pub mod gpu {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::gpu::{Clients, WHOLE_GPU, render_engine_ns};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::gpu::{Clients, WHOLE_GPU, render_engine_ns};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::gpu::{Clients, WHOLE_GPU, render_engine_ns};
 
     /// What `Clients::read` found.
     #[derive(Debug, Clone, PartialEq)]
@@ -461,13 +517,15 @@ pub mod gpu {
 /// [`crate::audio::device::DEFAULT_MONITOR`], which is the loopback on every machine. `Tap`
 /// is a name read without GStreamer: `Tap::open` answers `None` for a name `element` opens,
 /// and a tap, not yet running, for one it does not — the loopback on a Mac, a Core Audio
-/// process tap. `Tap::start` hands its blocks, mono at `Tap::rate`, to the analyzer's closure,
+/// process tap. Linux's and Windows' loopbacks are GStreamer's, so their `Tap` is never made. `Tap::start` hands its blocks, mono at `Tap::rate`, to the analyzer's closure,
 /// and dropping it stops it.
 pub mod audio {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::audio::{Tap, element, sources};
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::audio::{Tap, element, sources};
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::audio::{Tap, element, sources};
 
     /// One thing that can be listened to.
     #[derive(Debug, Clone, PartialEq, Eq)]
@@ -505,6 +563,12 @@ pub mod video {
     };
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::video::{
+        CODEC_HINT, CODECS, NAMED_CAMERAS, capture_devices, clip_dmabuf, device_caps,
+        device_element, dmabuf_caps, dmabuf_chain, dmabuf_format, dmabuf_frame, dmabuf_imports,
+        first_capture_device, prefer_hardware_jpeg, settle_before_eos,
+    };
+    #[cfg(target_os = "windows")]
+    pub use crate::platform::windows::video::{
         CODEC_HINT, CODECS, NAMED_CAMERAS, capture_devices, clip_dmabuf, device_caps,
         device_element, dmabuf_caps, dmabuf_chain, dmabuf_format, dmabuf_frame, dmabuf_imports,
         first_capture_device, prefer_hardware_jpeg, settle_before_eos,

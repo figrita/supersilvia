@@ -27,8 +27,8 @@ eframe = { version = "0.36.2", default-features = false, features = [
 ] }
 egui = "0.36.2"
 emath = { version = "0.36", features = ["serde"] }
-# The renderer: Vulkan on Linux and Metal on macOS (`proposals/wgpu.md`), on the adapter
-# `render::adapter` picks; the version is the one egui-wgpu puts in the lock.
+# The renderer: Vulkan on Linux and Windows and Metal on macOS (`proposals/wgpu.md`), on the
+# adapter `render::adapter` picks; the version is the one egui-wgpu puts in the lock.
 wgpu = { version = "30", default-features = false, features = ["std", "vulkan", "metal", "wgsl"] }
 # The editor's pictures are blitted inside egui's own render pass by paint callbacks
 # (`render::viewer`), which are `egui_wgpu::CallbackTrait`s. Its default features are
@@ -74,11 +74,13 @@ raw-window-handle = "0.6"
 # It is also the dev-dependency `examples/node_shots` and the fixtures in `tests/` use, so
 # the version is kittest's own and the lock does not move.
 image = "0.25"
-# The synth thread's own CPU clock, `CLOCK_THREAD_CPUTIME_ID`, for the Status box's line
-# between work and waiting on the GPU (`synth/meter.rs`). **Already in the tree** under
-# winit and zbus, at this version and with `time` on, so declaring it moves nothing in the
-# lock; what it buys over a call of our own is that the call is safe outside `render/`. The
-# clock is macOS's too.
+
+# Linux's and macOS's: the synth thread's own CPU clock, `CLOCK_THREAD_CPUTIME_ID`, for the
+# Status box's line between work and waiting on the GPU, named by `platform/linux/clock.rs`
+# and `platform/macos/clock.rs` alone. **Already in the tree** under winit and zbus, at this
+# version and with `time` on, so declaring it moves nothing in the lock; what it buys over a
+# call of our own is that the call is safe. Windows reads its clock through `windows` below.
+[target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 rustix = { version = "1", default-features = false, features = ["time"] }
 
 # Linux's alone: what `platform/linux/` names, and nothing else does (see `src/platform/`),
@@ -139,7 +141,7 @@ calloop = "0.13"
 calloop-wayland-source = "0.3"
 
 # macOS's alone: what `platform/macos/` names, and nothing else does (see `src/platform/`),
-# then what `render/picture/`'s macOS half names.
+# then what `render/`'s import of an `IOSurface` names.
 [target.'cfg(target_os = "macos")'.dependencies]
 # File dialogs, `NSOpenPanel`, named by `platform/macos/files.rs` alone. The default features
 # are Linux's portal backend and async-std; the macOS backend needs none. **Already in the
@@ -185,13 +187,6 @@ objc2-app-kit = { version = "0.3", default-features = false, features = [
     "NSPasteboard",
     "NSResponder",
 ] }
-
-# The picture windows are winit windows made inside eframe's own event loop, which
-# `render::picture::run` starts through `eframe::create_native` and wraps: the event loop, the
-# window, its events and `KeyCode` are winit's names, and eframe does not re-export them.
-# **Already in the binary** under eframe, at this version and with `rwh_06` already on, so
-# declaring it moves nothing in the lock. See `proposals/macos-windows.md`.
-winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
 
 # Screen capture: ScreenCaptureKit's own picker and stream (`platform/macos/screen.rs`), and a
 # `CVPixelBuffer` read as a frame (`platform/macos/pixels.rs`). Named in `platform/macos/`
@@ -282,6 +277,42 @@ block2 = { version = "0.6", default-features = false, features = ["std"] }
 # at this version and with `libc` on, which gates the registry calls; declaring it moves
 # nothing there but the manifest's own entry.
 objc2-io-kit = { version = "0.3.2", default-features = false, features = ["std", "libc"] }
+
+# macOS's and Windows': the picture windows are winit windows made inside eframe's own event
+# loop, which `render::picture::run` starts through `eframe::create_native` and wraps
+# (`render/picture/winit/`): the event loop, the window, its events and `KeyCode` are winit's
+# names, and eframe does not re-export them. **Already in the binary** under eframe, at this
+# version and with `rwh_06` already on, so declaring it moves nothing in the lock. See
+# `proposals/macos-windows.md`.
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
+
+# Windows' alone: what `platform/windows/` names, and nothing else does (see `src/platform/`).
+[target.'cfg(target_os = "windows")'.dependencies]
+# File dialogs and the error box, the shell's `IFileOpenDialog` and `MessageBoxW`, named by
+# `platform/windows/files.rs` and `alert.rs`. The default features are Linux's portal backend
+# and async-std; the Win32 backend needs none. **Already in the lock** with its Windows
+# dependency (`windows-sys`), so declaring it moves nothing there.
+rfd = { version = "0.15", default-features = false }
+# MIDI in through WinMM, named by `platform/windows/midi.rs` alone. Its default features are
+# none, which is WinMM on Windows. **Already in the lock**, with the `windows` it calls WinMM
+# through.
+midir = "0.11"
+# The Win32 calls the rest of `platform/windows/` makes: the thread's CPU times (`clock.rs`),
+# the Known Folders (`dirs.rs`), the kernel's version (`check.rs`) and DirectWrite's system font
+# collection (`fonts.rs`). **Already in the lock** at this version, under wgpu-hal, cpal,
+# gilrs, accesskit and midir; the features are the four APIs and the types they hand back, and
+# add no package.
+windows = { version = "0.62", default-features = false, features = [
+    "std",
+    "Wdk_System_SystemServices",
+    "Win32_Foundation",
+    "Win32_Graphics_DirectWrite",
+    "Win32_System_Com",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+] }
 
 [dev-dependencies]
 egui_kittest = { version = "0.36", features = ["eframe", "wgpu", "snapshot"] }

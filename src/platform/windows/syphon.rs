@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Syphon on Linux: there is none. The directory is empty, a server or a client is refused, and
-//! nothing here can be made, so every method is unreachable. PipeWire's video sources are the
-//! Linux counterpart, and a proposal of their own (`proposals/syphon.md`).
+//! Syphon on Windows: there is none, as on Linux. The directory is empty, a server or a client
+//! is refused, and nothing here can be made, so every method is unreachable. Spout, which
+//! shares a texture between apps on one Windows machine as Syphon does on a Mac, is the
+//! counterpart, and is not written.
 
 use crate::platform::syphon::{Described, Look, Stream};
 use std::time::Duration;
@@ -27,7 +28,7 @@ pub fn pump(time: Duration) {
     std::thread::sleep(time);
 }
 
-/// A shared surface, which no Linux build ever holds.
+/// A shared surface, which no Windows build ever holds.
 pub enum Surface {}
 
 impl Surface {

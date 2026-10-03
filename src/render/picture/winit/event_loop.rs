@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The main thread's side of the picture windows on macOS: winit's event loop, with eframe
-//! inside it, and every picture window's `Window`.
+//! The main thread's side of the picture windows on macOS and Windows: winit's event loop, with
+//! eframe inside it, and every picture window's `Window`.
 //!
-//! **Why the loop is ours.** AppKit makes and drives every window from the main thread, and
-//! winit permits one event loop per process, which eframe would otherwise own. So
-//! [`super::run`] builds the loop itself, hands it to `eframe::create_native`, and runs
-//! [`Loop`] around what comes back. `Loop` passes eframe every event that is not for a picture
-//! window, so the editor's life is the one `eframe::run_native` gives it: on macOS winit's
-//! `run` *is* `run_on_demand`, and both paths wrap eframe with the same `run_and_return` flag.
+//! **Why the loop is ours.** AppKit makes and drives every window from the main thread, Win32
+//! from the thread that made it, and winit permits one event loop per process, which eframe
+//! would otherwise own. So [`super::run`] builds the loop itself, hands it to
+//! `eframe::create_native`, and runs [`Loop`] around what comes back. `Loop` passes eframe every
+//! event that is not for a picture window, so the editor's life is the one `eframe::run_native`
+//! gives it: on macOS winit's `run` *is* `run_on_demand`, and both paths wrap eframe with the
+//! same `run_and_return` flag.
 //!
 //! **Every method is forwarded.** winit's `ApplicationHandler` gives each of its nine methods
 //! a default, so one left out here would compile and silently drop that event for eframe. An
@@ -24,7 +25,13 @@
 //! [`super::super::dragged`]: the middle moves the window, a 12-point band resizes it from that
 //! edge, with `Shift` or `Ctrl` holding the picture's aspect. The move is ours too, rather
 //! than AppKit's `performWindowDragWithEvent:`, which Apple documents for a mouse-down and which
-//! would take the second press of a double-click with it if it were called on one.
+//! would take the second press of a double-click with it if it were called on one. Windows
+//! takes the same gesture, so the aspect lock is the same on both.
+//!
+//! **Fullscreen differs by machine**: macOS's covers the screen in place with the menu bar and
+//! the Dock hidden, Windows' is winit's borderless fullscreen on the window's monitor.
+//! [`fullscreen`] has a body for each, and a Mac's window is made with two attributes of its
+//! own, no shadow and the menu bar's hiding.
 //!
 //! **This thread holds every window until the thread drawing it has ended.** A winit window
 //! dropped anywhere else closes itself by waiting on this thread, so a drawing thread that let
@@ -44,6 +51,7 @@ use winit::event::{
 };
 use winit::event_loop::ActiveEventLoop;
 use winit::keyboard::{KeyCode, ModifiersState, PhysicalKey};
+#[cfg(target_os = "macos")]
 use winit::platform::macos::{WindowAttributesExtMacOS as _, WindowExtMacOS as _};
 use winit::window::{CursorIcon, Window, WindowId, WindowLevel};
 
@@ -189,12 +197,14 @@ impl<'a> Loop<'a> {
         let attributes = Window::default_attributes()
             .with_title(title)
             // No decorations, which is the pop-out's whole shape: what is on screen is the
-            // picture and nothing else. Not resizable by AppKit, because the resize band is
-            // ours; AppKit's own edge would take presses meant for it.
+            // picture and nothing else. Not resizable by the window system, because the resize
+            // band is ours; its own edge would take presses meant for it.
             .with_decorations(false)
             .with_resizable(false)
             .with_inner_size(LogicalSize::new(width, height))
-            .with_min_inner_size(LogicalSize::new(MIN_SIZE.0, MIN_SIZE.1))
+            .with_min_inner_size(LogicalSize::new(MIN_SIZE.0, MIN_SIZE.1));
+        #[cfg(target_os = "macos")]
+        let attributes = attributes
             // No shadow, as on Linux: the edge of the picture is the edge of the window.
             .with_has_shadow(false)
             // Fullscreen hides the menu bar and the Dock outright, rather than on hover.
@@ -204,8 +214,8 @@ impl<'a> Loop<'a> {
                 .create_window(attributes)
                 .map_err(|e| format!("no window for the picture: {e}"))?,
         );
-        // Here, on the main thread: winit gives a window handle nowhere else, and the layer
-        // under it is made from the view, which AppKit allows nowhere else either.
+        // Here, on the main thread: winit gives a window handle nowhere else, and on a Mac the
+        // layer under it is made from the view, which AppKit allows nowhere else either.
         let surface = start
             .gpu
             .instance()
@@ -274,9 +284,9 @@ impl<'a> Loop<'a> {
     /// `retiring`, which drops it once the thread ends.
     fn retire(&mut self, windows: Vec<Win>) {
         for win in &windows {
-            // Out of fullscreen first, which puts the menu bar and the Dock back.
+            // Out of fullscreen first, which on a Mac puts the menu bar and the Dock back.
             if win.fullscreen {
-                win.window.set_simple_fullscreen(false);
+                fullscreen(&win.window, false);
             }
             let _ = win.draw.send(draw::Msg::Close);
         }
@@ -302,7 +312,7 @@ impl<'a> Loop<'a> {
         self.windows = open;
         for win in ended {
             if win.fullscreen {
-                win.window.set_simple_fullscreen(false);
+                fullscreen(&win.window, false);
             }
         }
     }
@@ -495,8 +505,8 @@ impl<'a> Loop<'a> {
             }
             KeyCode::KeyK => {
                 win.on_top = !win.on_top;
-                // AppKit's floating level, above every normal window whichever app is in
-                // front, and kept through fullscreen, which moves no level.
+                // The floating level, AppKit's or Win32's topmost band, above every normal
+                // window whichever app is in front, and kept through fullscreen.
                 win.window.set_window_level(if win.on_top {
                     WindowLevel::AlwaysOnTop
                 } else {
@@ -518,13 +528,27 @@ impl<'a> Loop<'a> {
     }
 }
 
-/// Fullscreen as decided: the window covers its screen at once, in place, with no
+/// Fullscreen, or not, as the window says it is after the ask.
+fn set_fullscreen(win: &mut Win, to: bool) {
+    win.fullscreen = fullscreen(&win.window, to);
+}
+
+/// Fullscreen as decided on a Mac: the window covers its screen at once, in place, with no
 /// animation and no Space of its own, and the menu bar and the Dock hidden outright —
 /// `set_simple_fullscreen`, on a window made with `with_borderless_game`.
-/// `proposals/macos-windows.md`, decision 1.
-fn set_fullscreen(win: &mut Win, to: bool) {
-    win.window.set_simple_fullscreen(to);
-    win.fullscreen = win.window.simple_fullscreen();
+/// `proposals/macos-windows.md`, decision 1. Whether the window is fullscreen after it.
+#[cfg(target_os = "macos")]
+fn fullscreen(window: &Window, to: bool) -> bool {
+    window.set_simple_fullscreen(to);
+    window.simple_fullscreen()
+}
+
+/// Fullscreen on Windows: a borderless window the size of the monitor it is on, which covers
+/// the taskbar and changes no display mode. Whether the window is fullscreen after it.
+#[cfg(target_os = "windows")]
+fn fullscreen(window: &Window, to: bool) -> bool {
+    window.set_fullscreen(to.then_some(winit::window::Fullscreen::Borderless(None)));
+    window.fullscreen().is_some()
 }
 
 /// Where a window is on screen and how big, in points. A picture window has no frame, so its
@@ -549,7 +573,7 @@ fn place(window: &Window, to: Bounds) {
 }
 
 /// The cursor for wherever the pointer is: a resize shape over a band, the arrow elsewhere.
-/// Set only when it changes. AppKit's own two-headed resize shapes, which winit names.
+/// Set only when it changes. The system's own two-headed resize shapes, which winit names.
 fn point(win: &mut Win, local: (f64, f64)) {
     // A fullscreen window has no bands, so it has no resize cursor either.
     let band = if win.fullscreen { 0.0 } else { BAND };

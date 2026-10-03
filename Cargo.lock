@@ -4840,6 +4840,7 @@ dependencies = [
  "wayland-backend",
  "wayland-client",
  "wgpu",
+ "windows",
  "winit",
 ]
 

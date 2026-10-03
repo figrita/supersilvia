@@ -470,10 +470,13 @@ staying live* — and the node's own marks still say what the window is doing an
 away. Its two keys are read as evdev positions rather than as letters, for the same kind of
 reason: an xkb keymap, and the `xkbcommon` crate with it, for one shortcut.
 
-### On macOS, a picture window is a winit window inside eframe's own loop
+### On macOS and Windows, a picture window is a winit window inside eframe's own loop
 
 **Chosen.** AppKit makes and drives windows from the main thread alone, so the Linux shape — a
-thread that owns its windows — cannot exist on a Mac. `render::picture::run` builds winit's
+thread that owns its windows — cannot exist on a Mac; nor on Windows, where Win32 hands a
+window's messages to the thread that made it and winit allows that to be the event loop's
+alone, so Windows takes the Mac's implementation, with winit's borderless fullscreen in place
+of `set_simple_fullscreen`. `render::picture::run` builds winit's
 event loop, starts eframe inside it through `eframe::create_native`, and wraps it in
 `picture::Loop`, which makes each picture window as a borderless winit window on the main thread
 and passes eframe every other event. Each window is drawn on a thread of its own in `Fifo`, on
@@ -6110,10 +6113,10 @@ the box is about the machine, as the tick rate is.
 
 ### The machine is one module per service, re-exported by target
 
-**Chosen.** Everything outside `render/` that is not the same on Linux and macOS is a service
-of `platform/`: an inline module in `platform/mod.rs` per service whose names are re-exported
-from `platform/linux/` or `platform/macos/` under `#[cfg(target_os)]`, the two lines side by
-side. A name one backend lacks is a build failure on that target; the call sites name one path
+**Chosen.** Everything outside `render/` that is not the same on Linux, macOS and Windows is a
+service of `platform/`: an inline module in `platform/mod.rs` per service whose names are
+re-exported from `platform/linux/`, `platform/macos/` or `platform/windows/` under
+`#[cfg(target_os)]`, a line per backend side by side. A name one backend lacks is a build failure on that target; the call sites name one path
 and never a `cfg`. The Linux backend is the implementation the app is built and tested on,
 and the macOS one compiles to refusals that read as a machine without the device. See
 [architecture.md](architecture.md#module-layering) and `proposals/platform.md`.

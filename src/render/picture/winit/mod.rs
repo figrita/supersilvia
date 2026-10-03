@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The picture windows on macOS: the editor's side of them, and the event loop they live in.
+//! The picture windows on macOS and Windows: the editor's side of them, and the event loop they
+//! live in.
 //!
-//! **Where each half runs.** AppKit makes and drives windows from the main thread only, so a
-//! thread that owns windows, as Linux's does, is not possible here. Each picture window is a
-//! winit window made on the main thread, by [`event_loop::Loop`], which sits around eframe
-//! inside the one event loop [`run`] starts. Each is drawn on a thread of its own, by
-//! [`draw`], on the one device. `proposals/macos-windows.md` is the argument.
+//! **Where each half runs.** AppKit makes and drives windows from the main thread only, and
+//! Win32 delivers a window's messages to the thread that made it, which winit allows to be the
+//! event loop's alone, so a thread that owns windows, as Linux's does, is not possible on
+//! either. Each picture window is a winit window made on the main thread, by
+//! [`event_loop::Loop`], which sits around eframe inside the one event loop [`run`] starts.
+//! Each is drawn on a thread of its own, by [`draw`], on the one device.
+//! `proposals/macos-windows.md` is the argument, written for the Mac.
 //!
 //! **How an ask crosses.** Every [`Ask`] comes from a mark, so it is sent from inside
 //! `App::ui`, which runs inside winit's `RedrawRequested` on the main thread; winit calls
@@ -60,7 +63,8 @@ thread_local! {
 /// Start eframe inside a winit event loop of our own, and run it until the app quits.
 ///
 /// `eframe::run_native`'s three arguments. The loop is ours so that [`event_loop::Loop`] can
-/// sit around eframe on the main thread, which is where AppKit makes windows.
+/// sit around eframe on the main thread, which is where AppKit and winit's Win32 backend make
+/// windows.
 ///
 /// # Errors
 /// What `eframe::run_native` returns: the event loop could not be made or run.
@@ -189,8 +193,8 @@ impl Host {
     }
 
     /// Let go of the loop. The windows themselves are closed by `Loop` on its way out, after
-    /// eframe's own exit, and nothing here waits: on macOS no window is made on anything the
-    /// editor tears down.
+    /// eframe's own exit, and nothing here waits: no window is made on anything the editor
+    /// tears down.
     pub fn stop(&mut self) {
         self.to_loop = None;
     }

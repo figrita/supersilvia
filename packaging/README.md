@@ -47,7 +47,7 @@ fall back to the desktop's unknown-window icon — which is what happened before
 | [`linux/`](linux/) | desktop entries — the app, and one each for the two kinds of picture window — MIME type for `.ssw`, AppStream metadata, the crates' notices, `install.sh` into any prefix, and [the page for testers](linux/TESTERS.md) | works |
 | [`appimage/`](appimage/) | `build.sh`: the binary built on Ubuntu 24.04 in a container (`Containerfile`), its glibc and linked libraries checked, the AppDir, `AppRun`, `.DirIcon`, appimagetool | built here; unpacked, resolved and `--check`ed in clean Fedora 44, Ubuntu 24.04 and Arch containers; never opened on a tester's desktop |
 | [`flatpak/`](flatpak/) | the Flathub manifest, `io.github.figrita.supersilvia` | skeleton; needs `cargo-sources.json`, a tag and a current runtime |
-| [`windows/`](windows/) | the `build.rs` that embeds the `.ico`, when there is a Windows build | not wired up |
+| [`windows/`](windows/) | `build.sh`: cross-compiled from Linux with cargo-xwin against GStreamer's MSVC release, the relocatable folder and its `.zip`; `wine.sh` to run it; the icon and version from `build.rs` | built here; `--check`ed and opened under Wine 11; never run on Windows |
 | [`macos/`](macos/) | `build-app.sh`: the `.app` with GStreamer and Syphon inside, its `.dmg` and `.zip`, signed ad hoc or with a Developer ID, and the page for testers | works; tested on one Apple Silicon Mac |
 
 ## The AppImage
@@ -110,12 +110,14 @@ Each holds `LICENSE`, `rust-crates.txt` and `assets/` — the `licenses/` folder
 `.app` adds Syphon's and GStreamer's, which it carries; no Linux package carries GStreamer.
 
 **The crates' notices are written by [`../scripts/crate-licenses.py`](../scripts/crate-licenses.py)**
-from `cargo metadata --offline`: for Linux into `linux/rust-crates.txt`, committed and compiled
-in, and for the Mac into the bundle by `build-app.sh`. When Cargo.lock moves,
-`tests/notices.rs` fails with the line that writes Linux's again:
+from `cargo metadata --offline`: for Linux into `linux/rust-crates.txt` and for Windows into
+`windows/rust-crates.txt`, each committed and compiled in, and for the Mac into the bundle by
+`build-app.sh`. When Cargo.lock moves, `tests/notices.rs` fails with the line that writes the
+file again:
 
 ```sh
 scripts/crate-licenses.py --target x86_64-unknown-linux-gnu > packaging/linux/rust-crates.txt
+scripts/crate-licenses.py --target x86_64-pc-windows-msvc > packaging/windows/rust-crates.txt
 ```
 
 ## The app id

@@ -33,7 +33,8 @@ pub const INTEGRATED: &str = "integrated";
 /// PCI vendor id of NVIDIA.
 pub const NVIDIA: u32 = 0x10de;
 
-/// The backends an instance is made with: Vulkan on Linux, Metal on macOS, nothing else.
+/// The backends an instance is made with: Vulkan on Linux and Windows, Metal on macOS, nothing
+/// else.
 pub const BACKENDS: wgpu::Backends = wgpu::Backends::VULKAN.union(wgpu::Backends::METAL);
 
 /// What the environment asks of [`choose`].

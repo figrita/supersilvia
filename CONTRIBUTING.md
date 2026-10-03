@@ -1,9 +1,9 @@
 # Contributing to supersilvia
 
 supersilvia is a native modular video synthesizer: Rust, egui/eframe 0.36 and wgpu, on Vulkan
-on Linux and Metal on macOS. This page is the working reference for changing it: how to build
-and test, the rules the code keeps, the traps the tests have, and how comments and docs are
-written.
+on Linux and Windows and Metal on macOS. This page is the working reference for changing it:
+how to build and test, the rules the code keeps, the traps the tests have, and how comments
+and docs are written.
 
 **Read [docs/](docs/) before changing anything structural.** It is the spec: what the system
 is and why. Start at [docs/README.md](docs/README.md) and
@@ -70,6 +70,7 @@ python3 scripts/demo-time.py            # the Time Gears demo project, into <doc
 packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-x86_64.AppImage
 packaging/macos/build-app.sh            # macOS: dist/supersilvia.app, its .dmg and .zip
 scripts/crate-licenses.py --target x86_64-unknown-linux-gnu > packaging/linux/rust-crates.txt   # after Cargo.lock moves
+scripts/crate-licenses.py --target x86_64-pc-windows-msvc > packaging/windows/rust-crates.txt    # and Windows' too
 ```
 
 `check.sh` runs the doctor, `cargo fmt --check`, `cargo clippy --all-targets --all-features
@@ -100,6 +101,10 @@ comment. These modules are allowed it, each where its parent module declares it:
 - `platform::macos::gpu` — the IORegistry's GPU statistics
 - `platform::macos::menu` — the menu bar's items and actions
 - `platform::macos::syphon` — Syphon's framework classes, declared by hand
+- `platform::windows::check` — the kernel's version, read by `RtlGetVersion`
+- `platform::windows::clock` — the thread's CPU times, read by `GetThreadTimes`
+- `platform::windows::dirs` — the shell's Known Folders, and the strings it hands back
+- `platform::windows::fonts` — DirectWrite's system font collection, through COM
 
 `tests/rules.rs` holds every `#[allow(unsafe_code)]` to this list. A new one fails the test
 until it is added there, here and in docs/invariants.md. Outside the crate,
@@ -116,7 +121,7 @@ The rest:
 | A `tick` never waits | device threads publish through a triple buffer, or a one-frame slot whose lock `tick` only tries; `tick` reads the newest and moves on |
 | `graph/`, `compile/`, `nodes/`, `audio/`, `video/` take no graphical dependency, named or reached through any path the crate offers (`tests/rules.rs`) | they are tested with plain `cargo test`; `emath` is fine, it is math not graphics; GStreamer core is bytes, not GL |
 | `ui/` never mutates: every surface draws and returns its actions — the canvas `Command`s, the menu `MenuAction`s, the tab bar `TabAction`s, the project tab `ProjectAction`s (`tests/rules.rs`) | the command bus is the only mutation path, and what the UI can ask for stays enumerable |
-| Anything that is not the same on Linux and macOS, outside `render/`, is a service of `platform/`, and an operating system's crates are named in its own backend alone (`tests/rules.rs`) | each backend answers the same names, so neither machine's build is surprised by the other's dependencies; `Cargo.toml` declares each crate for its own machine only |
+| Anything that is not the same on Linux, macOS and Windows, outside `render/`, is a service of `platform/`, and an operating system's crates are named in its own backend alone (`tests/rules.rs`) | each backend answers the same names, so no machine's build is surprised by another's dependencies; `Cargo.toml` declares each crate for its own machine only |
 | wgpu renders on the adapter `render::adapter::choose` picks, and nowhere else | the app, every GPU test, every bench and kittest's shared device go through it, so the software-adapter refusal and `SUPERSILVIA_ADAPTER` hold everywhere |
 | `vendor/wgpu-core` is wgpu-core 30.0.1 with one match arm changed, and nothing else in it is edited | a surface configures while the synth submits, which 30.0.1 refuses with a panic; the copy goes on the first release carrying gfx-rs/wgpu#10296 ([vendor/README.md](vendor/README.md)) |
 | A control value is never baked into generated WGSL | it is a uniform; see the recompile boundary in [docs/architecture.md](docs/architecture.md) |

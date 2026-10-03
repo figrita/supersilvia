@@ -537,6 +537,7 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
 
 /// **A projects folder that cannot be read says so beside its path**, in the Preferences window
 /// and in New project's, rather than standing in for another folder.
+#[cfg(unix)]
 #[test]
 fn a_projects_folder_that_cannot_be_read_says_so_in_both_windows() {
     use std::os::unix::fs::PermissionsExt as _;
@@ -583,6 +584,7 @@ fn a_projects_folder_that_cannot_be_read_says_so_in_both_windows() {
 /// the editor came up on an empty project in the temp folder, and `Ctrl+S` there puts the
 /// folder dialog up rather than writing into the temp folder. The project saved is the
 /// folder chosen, and the next `Ctrl+S` is an ordinary Save.
+#[cfg(unix)]
 #[test]
 fn saving_the_launchs_scratch_project_asks_for_a_folder() {
     use std::os::unix::fs::PermissionsExt as _;
@@ -7288,6 +7290,7 @@ fn the_confirm_closes_the_library_and_the_canvas_under_it_is_deaf() {
 }
 
 /// Every file and folder under `root` made read-only, or writable again.
+#[cfg(unix)]
 fn read_only(root: &std::path::Path, locked: bool) {
     use std::os::unix::fs::PermissionsExt as _;
     let dir = root.is_dir();
@@ -7319,6 +7322,7 @@ fn closed(h: &Harness<'_, App>) -> bool {
 /// A Save the confirm offers that does not save leaves the question up with the reason on
 /// it, and does none of what it stood in front of — Quit, Open project…, a Recent project
 /// or New project… — so the edits are still on screen and the answer is asked again.
+#[cfg(unix)]
 #[test]
 fn a_save_that_fails_under_the_confirm_keeps_the_question_and_the_edits() {
     let dir = std::env::temp_dir().join(format!("ssw-ui-failed-save-{}", std::process::id()));

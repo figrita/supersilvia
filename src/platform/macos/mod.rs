@@ -29,6 +29,7 @@ pub mod alert;
 #[allow(unsafe_code)]
 pub mod audio;
 pub mod check;
+pub mod clock;
 pub mod dirs;
 pub mod filedrop;
 pub mod files;

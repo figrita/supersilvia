@@ -1,6 +1,6 @@
 # Proposal: picture windows on macOS
 
-**Status: built.** [docs/rendering.md](../docs/rendering.md#on-macos),
+**Status: built.** [docs/rendering.md](../docs/rendering.md#on-macos-and-windows),
 [docs/ui.md](../docs/ui.md) and [docs/decisions.md](../docs/decisions.md) describe the system;
 what is kept here is the argument, what the source settled, and what is still to be checked by
 hand. Before it, every pop-out and fullscreen mark on the Mac was refused by

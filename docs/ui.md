@@ -622,8 +622,9 @@ start menu's from having to know about each other.
 
 What is remembered between runs lives in one file, `preferences.json`, in the machine's config
 directory (`platform::dirs`): on Linux `$XDG_CONFIG_HOME/supersilvia/preferences.json`, or
-`$HOME/.config/…` when the first is unset, and on macOS
-`~/Library/Application Support/supersilvia/preferences.json`. `SUPERSILVIA_PREFERENCES`
+`$HOME/.config/…` when the first is unset, on macOS
+`~/Library/Application Support/supersilvia/preferences.json`, and on Windows
+`%APPDATA%\supersilvia\preferences.json`, the roaming `AppData` Known Folder. `SUPERSILVIA_PREFERENCES`
 overrides the path, which is how a test keeps its hands off the real one. The Preferences
 window's Files section shows where it is.
 
@@ -2887,7 +2888,8 @@ something to send when it goes wrong
 
 **A log file, beside stderr.** `supersilvia.log` in `logs/` under the app's own folder in the
 data directory: `~/.local/share/supersilvia/logs/` on Linux (`$XDG_DATA_HOME` where it is
-set), `~/Library/Application Support/supersilvia/logs/` on macOS. `--check` names it at its
+set), `~/Library/Application Support/supersilvia/logs/` on macOS, `%LOCALAPPDATA%\supersilvia\logs\`
+on Windows. `--check` names it at its
 foot. stderr keeps env_logger's default, errors alone; the file takes `RUST_LOG` where it is
 set and `warn,supersilvia=info` where it is not, each record with its time to the millisecond
 in UTC. A panic is written there with its backtrace, on whichever thread it happens, and a
@@ -3642,7 +3644,7 @@ pair: the two sets are meant to read as one family of mark, and a family is only
 is a single place that draws it.
 
 **The window is a window of our own**, drawn on a thread of its own — on Linux a Wayland
-surface, on macOS a winit window made inside eframe's event loop; see
+surface, on macOS and Windows a winit window made inside eframe's event loop; see
 [rendering.md](rendering.md#picture-windows), `proposals/picture-windows.md` and
 `proposals/macos-windows.md`. It is not an egui viewport: eframe runs one winit event loop,
 that loop services every viewport in turn, and a minimized editor runs no passes, so an
@@ -3661,10 +3663,11 @@ first ([the confirm](#the-menu-bar)); `Escape` closing one does not.
 (`xdg_toplevel.move`, with the press's own serial — a compositor refuses any other), and `F`
 or a double-click is fullscreen. **On macOS, fullscreen covers the window's screen at once, in
 place** — no animation and no Space of its own, the menu bar and the Dock hidden outright while
-supersilvia is in front — and the window casts no shadow, as on Linux.
+supersilvia is in front — and the window casts no shadow, as on Linux. On Windows it is a
+borderless window the size of its monitor, over the taskbar.
 
-**`K` keeps a window on top, on macOS**: AppKit's floating level, above every other app's
-windows whichever app is in front, kept through fullscreen, and let go by a second `K`. Linux
+**`K` keeps a window on top, on macOS and Windows**: AppKit's floating level or Win32's
+topmost band, above every other app's windows whichever app is in front, kept through fullscreen, and let go by a second `K`. Linux
 has no key for it. Wayland gives a client no way to raise its own window above others, and
 KDE's own window menu, from the task bar entry's right-click, already has *Keep Above*.
 
@@ -3685,7 +3688,8 @@ nothing left to resize it to. The window keeps its minimum size, and a window na
 two bands still has two sides rather than one, because the band is never more than half of
 it.
 
-**On macOS the gesture is ours**, because winit there has no resize at all. A press is
+**On macOS and Windows the gesture is ours**, because winit on macOS has no resize at all and
+Windows shares the Mac's windows. A press is
 remembered, and once it has travelled the same four-point slop every motion sets the window's
 frame from `render::picture::dragged`, recomputed from where the press landed: the middle moves
 the window whole, and a band moves that edge or corner while the opposite side stays put, down
@@ -3706,7 +3710,7 @@ third in every xkb keymap, by inheritance from the core X protocol, which is a c
 not a guarantee. It is the same trade the two keys make: the alternative is an xkb keymap on
 the pictures thread and the `xkbcommon` crate with it. The mask is cleared when keyboard
 focus leaves, so a modifier held into another window does not lock a resize here. On macOS
-there is no proposal to answer: `dragged` takes the same `fit_aspect` rule, anchored on the same
+and Windows there is no proposal to answer: `dragged` takes the same `fit_aspect` rule, anchored on the same
 edge, and a locked size shrunk past the minimum grows back to it at its aspect. The modifiers
 there are winit's, by name.
 

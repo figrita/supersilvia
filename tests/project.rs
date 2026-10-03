@@ -1215,10 +1215,13 @@ struct Locked(PathBuf);
 
 impl Locked {
     fn new(name: &str) -> Option<Self> {
-        use std::os::unix::fs::PermissionsExt as _;
         let path = dir(name).join("locked");
         std::fs::create_dir_all(&path).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let Some(set) = set_mode(&path, 0o000) else {
+            eprintln!("no Unix permissions here; skipping");
+            return None;
+        };
+        set.unwrap();
         let locked = Self(path);
         if std::fs::read_dir(&locked.0).is_ok() {
             eprintln!("permissions do not bind here; skipping");
@@ -1230,9 +1233,26 @@ impl Locked {
 
 impl Drop for Locked {
     fn drop(&mut self) {
-        use std::os::unix::fs::PermissionsExt as _;
-        let _ = std::fs::set_permissions(&self.0, std::fs::Permissions::from_mode(0o755));
+        let _ = set_mode(&self.0, 0o755);
     }
+}
+
+/// A folder's Unix permissions set to `mode`. `None` off Unix, where a folder has no mode.
+// Always `Some` here; the Option is the signature both halves answer with.
+#[allow(clippy::unnecessary_wraps)]
+#[cfg(unix)]
+fn set_mode(path: &std::path::Path, mode: u32) -> Option<std::io::Result<()>> {
+    use std::os::unix::fs::PermissionsExt as _;
+    Some(std::fs::set_permissions(
+        path,
+        std::fs::Permissions::from_mode(mode),
+    ))
+}
+
+/// A folder's Unix permissions set to `mode`. `None` off Unix, where a folder has no mode.
+#[cfg(not(unix))]
+fn set_mode(_path: &std::path::Path, _mode: u32) -> Option<std::io::Result<()>> {
+    None
 }
 
 /// **A projects folder that cannot be read or made says so**, with its whole path and the

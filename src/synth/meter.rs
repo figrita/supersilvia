@@ -3,7 +3,7 @@
 //! Where a tick's milliseconds go, on the CPU and on the GPU, for the Status box.
 //!
 //! **Waiting is not work.** A tick is timed as a run of laps from the top of one to the top of
-//! the next, each on the thread's own CPU clock (`CLOCK_THREAD_CPUTIME_ID`, through `rustix`):
+//! the next, each on the thread's own CPU clock ([`crate::platform::clock`]):
 //! [`Laps::lap`] gives the CPU time since the previous lap to the [`Work`] named, and
 //! whatever no lap claimed is [`Work::Other`]. The one wall-clock span inside a tick is the
 //! sleep to the deadline, [`Laps::slept`]. What the wall saw and the CPU did not is time the
@@ -22,9 +22,9 @@
 //! when the box opens and no tick sorts a distribution nothing shows.
 //!
 //! The GPU half is the renderer's — see [`crate::render::timing`] — and beside it is the
-//! whole process's share of the render engine, read from the kernel's own DRM client counters
-//! in `/proc/self/fdinfo` through [`crate::platform::gpu`], which see the editor's painting
-//! and every picture window too.
+//! whole process's share of the render engine, read through [`crate::platform::gpu`]: on Linux
+//! from the kernel's own DRM client counters in `/proc/self/fdinfo`, which see the editor's
+//! painting and every picture window too; a Mac gives the whole GPU's, and Windows none.
 
 use crate::graph::NodeId;
 use crate::platform::gpu::Read;
@@ -74,13 +74,7 @@ impl Work {
 pub const WORKS: usize = Work::ALL.len();
 
 /// The calling thread's own CPU time: the clock that stands still while the thread is blocked.
-pub fn thread_cpu() -> Duration {
-    let t = rustix::time::clock_gettime(rustix::time::ClockId::ThreadCPUTime);
-    Duration::new(
-        u64::try_from(t.tv_sec).unwrap_or(0),
-        u32::try_from(t.tv_nsec).unwrap_or(0),
-    )
-}
+pub use crate::platform::clock::thread_cpu;
 
 /// How many tick intervals the pacing is over. Ten seconds at 60 Hz: long enough to hold a
 /// stall and short enough that a run of good ticks clears one.

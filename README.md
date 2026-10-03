@@ -34,7 +34,7 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.1.
   their first frame at the end of it.
 - **Live inputs.** Cameras, video files, still images and GIFs, screen capture, a
   microphone with band analysis, MIDI controllers, game controllers and the mouse.
-- **NDI®** to receive and send video over the local network, on Linux and macOS.
+- **NDI®** to receive and send video over the local network, on Linux, macOS and Windows.
 - **Syphon** to receive from and send to other apps on the same Mac.
 - **A two-deck mixer** with an A/B crossfade, Blackout and Freeze.
 - **Picture windows.** Any picture can pop out into its own window or go fullscreen on a

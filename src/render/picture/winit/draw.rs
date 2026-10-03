@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A picture window's drawing on macOS: a thread of its own per window, on the one device.
+//! A picture window's drawing on macOS and Windows: a thread of its own per window, on the one
+//! device.
 //!
 //! **Paced by its own display.** The surface presents in `Fifo`, which is Metal's display
-//! sync, with two drawables. The thread blocks in `get_current_texture` until one is free, so
+//! sync on a Mac and the swapchain's vertical blank under Vulkan on Windows, with two
+//! drawables. The thread blocks in `get_current_texture` until one is free, so
 //! it paints once per refresh of the display the window is on and is at most one refresh
 //! behind. A thread per window, rather than one for all, because that acquire blocks: on one
 //! thread a window on a 60 Hz projector would hold back one on a 120 Hz laptop screen. Metal
@@ -13,7 +15,7 @@
 //! occluded, the thread blocks on its channel with no timeout, so a hidden window costs no
 //! wake-ups. wgpu's own occlusion check answers `Occluded` at once for such a window rather
 //! than waiting for a drawable; the thread sleeps on that answer too, with a quarter-second
-//! timeout in case wgpu saw the occlusion before AppKit told winit.
+//! timeout in case wgpu saw the occlusion before the window system told winit.
 //!
 //! **It owns the surface and borrows everything else**: the one `Gpu`, the synth's `Live`,
 //! and a [`Viewer`] per surface format shared with the other windows. The surface holds an
@@ -39,14 +41,14 @@ const BACKOFF: Duration = Duration::from_millis(4);
 pub(super) enum Msg {
     /// The window's size in physical pixels.
     Resized((u32, u32)),
-    /// Whether the window can be seen, as AppKit says.
+    /// Whether the window can be seen, as the window system says.
     Occluded(bool),
     /// End: the window is going.
     Close,
 }
 
 /// One blit pipeline per surface format, shared by every window's thread. Made on a window's
-/// thread, never on the main thread, which is the editor's frame thread on a Mac.
+/// thread, never on the main thread, which is the editor's frame thread here.
 #[derive(Default)]
 pub(super) struct Viewers(Mutex<Vec<Arc<Viewer>>>);
 
@@ -88,7 +90,7 @@ pub(super) fn spawn(job: Job) -> std::io::Result<(Sender<Msg>, std::thread::Join
 /// Why the thread is not painting.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Hidden {
-    /// AppKit says the window cannot be seen: wait for it to say otherwise.
+    /// The window system says the window cannot be seen: wait for it to say otherwise.
     Occluded,
     /// wgpu said so first: wait, but not for ever.
     Unready,

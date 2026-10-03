@@ -80,7 +80,10 @@ default. The UID persists across boots, so it is what a saved `Device::Pulse` ho
 GStreamer's device monitor is never asked for audio on a Mac: its `osxaudio` provider binds an
 AudioUnit to each microphone to read its formats, which opens it, and from a session that could
 not show the permission prompt that probe never returned — and a listing that never returns
-leaves the lists empty and nothing else, since it runs on a thread of its own.
+leaves the lists empty and nothing else, since it runs on a thread of its own. **On Windows the
+list is WASAPI's**, through `wasapi2deviceprovider`, and the element `wasapi2src device=<ID>` on
+the endpoint ID, which persists across boots; the other providers that list the same endpoints
+again are left out.
 
 ### The loopback
 
@@ -102,7 +105,13 @@ proc, then destroys the aggregate device and the tap. `platform::audio::Tap::ope
 tap for `@DEFAULT_MONITOR@` and nothing for any other name, which GStreamer opens, and on Linux
 it answers nothing at all; `audio::Stream::Tap` holds it open.
 
-Two things differ from Linux. **The tap hears everything every process plays, to any output**,
+**On Windows the loopback is WASAPI's**, an output endpoint read backwards, through GStreamer
+as on Linux: `@DEFAULT_MONITOR@` is `wasapi2src loopback=true`, the default output, which
+follows the default when it changes, and every output is listed beside the inputs as a
+loopback of its own, named as PulseAudio names a monitor, its endpoint ID with `.monitor`
+after it. `Tap::open` answers nothing there too.
+
+Two things differ from Linux on a Mac. **The tap hears everything every process plays, to any output**,
 where a PulseAudio monitor is what goes to the default output. **It includes supersilvia**, as
 the monitor does on Linux, so monitoring the loopback can feed back on both. It needs only
 macOS's audio-capture permission, asked with `NSAudioCaptureUsageDescription` the first time a
@@ -161,6 +170,12 @@ after the line. Dropping the `Cast`
 stops the stream on the main queue and lets it go once its sample queue has drained. So
 `Stream::head` answers an element on Linux and the slots on the Mac, and a `Camera` over the
 slots builds no pipeline and only reads them; the panel and the node do not know which.
+
+**On Windows there is no picker**: Windows lets any application read the screen and has no
+desktop dialog for choosing one, so `ask`'s `Pending` answers on its first poll with the
+primary monitor, `d3d11screencapturesrc show-cursor=true ! d3d11download` — Direct3D 11's
+desktop duplication, the pointer drawn in as Linux asks the portal for it, copied into memory
+for the same bytes chain a camera's frames take. Another monitor or a window is not offered.
 
 ## Audio
 
@@ -426,7 +441,11 @@ to itself the camera settles on a texture no `videoconvert` can take and stops *
 before its first frame. The source is `avfvideosrc device-index=<n> ! video/x-raw`. The FaceTime
 HD camera lists a 1552x1552 square first, then 1328x1760, 640x480, 1760x1328, 1080x1920,
 1280x720 and 1920x1080, so *Auto* opens it at 1920x1080.
-**The Camera node's menu on a Mac is the cameras by name**, between *Auto* and the test
+On Windows a camera is `mfvideosrc device-path=<path>`, Media Foundation's, and the node saves
+the device's symbolic link, which Windows keeps across reboots; the device monitor lists it
+through `mfdeviceprovider`, opening none, and the DirectShow and kernel-streaming providers that
+list the same cameras again are left out.
+**The Camera node's menu on a Mac and on Windows is the cameras by name**, between *Auto* and the test
 pattern. It is the list the Main Input's listing made on its own thread, once at start and
 again on *Look for devices again* — at the foot of this menu as of the panel's — so drawing
 the menu never asks the machine.
@@ -541,15 +560,17 @@ bare-name open the object already loaded under that SONAME. So on Linux the runt
 installed by putting `libndi.so.6` in `/usr/local/lib` or `/usr/lib64`, with no variable to
 set; the app sets none either. `libloading`'s open, in `platform/linux/ndi.rs`, is the one
 `unsafe` in `platform/linux/`. On a Mac nothing is opened ahead of the plugin: dyld's fallback
-already searches `/usr/local/lib`, where the NDI 6 Runtime's installer puts `libndi.dylib`.
+already searches `/usr/local/lib`, where the NDI 6 Runtime's installer puts `libndi.dylib`, nor
+on Windows, where the plugin opens `Processing.NDI.Lib.x64.dll` from the folder
+`NDI_RUNTIME_DIR_V6` names, which NDI's installer sets.
 
 **Whether the runtime is there is asked once**, on a thread of its own at start-up
 (`video::ndi::start`), by starting an `ndisink` in a pipeline of its own as far as the plugin's
 own loading, after the preload. Where there is none, every place that offers NDI says *The
 NDI® runtime is not installed — get it at ndi.video* (`video::ndi::MISSING`) and where it
 looked — the folders the two variables name, where set, then the system's: `/usr/local/lib` and
-`/usr/lib` on a Mac, where NDI's installers put `libndi.dylib`, and the usual library folders on
-Linux. Where a runtime is in one of them and still would not load, it says so by its path, with
+`/usr/lib` on a Mac, where NDI's installers put `libndi.dylib`, NDI 6 Runtime's own folder in
+`Program Files` on Windows, and the usual library folders on Linux. Where a runtime is in one of them and still would not load, it says so by its path, with
 the loader's reason or the one the plugin posted, and `video::ndi::absent` tells that apart
 from none at all, which an Output's row says as *runtime won't load*. Nothing asks again: the plugin keeps its first answer
 for the life of the process, so a runtime installed while the app runs is found on the next
@@ -619,7 +640,9 @@ Baseline mean here what they mean there. Size goes into the pango description in
 The fonts are the machine's. The Font menu is every family the machine lists, by its first
 name, after pango's three generics — read once, the first time the menu is drawn, through the
 same library pango finds a family through, so a name on the menu is one it will draw: the
-`fontconfig` crate on Linux, and on macOS AppKit's `NSFontCollection`, which reads Core Text.
+`fontconfig` crate on Linux, on macOS AppKit's `NSFontCollection`, which reads Core Text, and
+on Windows DirectWrite's system font collection, each family by its English name where it has
+one.
 silvia's twenty faces stay declared as the node's choices: the default's home, and the menu on
 a machine that cannot list its fonts. The family goes into the pango description closed by a
 comma, `Times New Roman, Normal 64px`, since without it pango reads a last word such as
@@ -663,13 +686,17 @@ The transcode needs a hardware encoder and decoder pair. `src/video/clip.rs` pro
 the first installed triple of encoder, decoder and parser in the machine's `CODECS` — on Linux
 H.264, HEVC, AV1 over VA-API, then the same three over NVENC, so an Intel part without H.264
 encode lands on HEVC and an NVIDIA card on its own plugin; on a Mac H.264, then HEVC, over
-VideoToolbox (`vtenc_h264_hw`, `vtenc_h265_hw`, and `vtdec_hw` for both). `scripts/doctor.sh`
+VideoToolbox (`vtenc_h264_hw`, `vtenc_h265_hw`, and `vtdec_hw` for both); on Windows NVENC's
+three under Linux's `nv-` names, then Quick Sync's, AMF's — decoded by Direct3D 11's decoders,
+since AMF has none — and Direct3D 12's H.264, each registered by GStreamer only on a machine
+whose GPU and driver offer it. `scripts/doctor.sh`
 fails if no pair is present, because importing on the CPU is not a thing that finishes, and a
 node's status line names what the machine lacks: VA-API or NVENC on Linux, VideoToolbox on a
-Mac.
+Mac, NVENC, Quick Sync, AMF or Direct3D 12 on Windows.
 
 **Every frame a keyframe, at constant quality.** VA-API is `key-int-max=1 rate-control=cqp`,
-NVENC `gop-size=1 rc-mode=constqp`, VideoToolbox `max-keyframe-interval=1 quality=0.7`.
+NVENC `gop-size=1 rc-mode=constqp`, VideoToolbox `max-keyframe-interval=1 quality=0.7`, and
+Quick Sync, AMF and Direct3D 12 `gop-size=1 rate-control=cqp qp-i=26 qp-p=26`.
 VideoToolbox has no constant-QP mode; its `quality`, with the bitrate left automatic, holds a
 quality rather than a budget, and 0.7 lands where x264's QP 26 does. A test holds every
 available codec's intra chain to a keyframe on every buffer.
@@ -1080,7 +1107,8 @@ sequencer can reach too.
 
 `midi/`, and the same rule every other device keeps: **nothing waits on it from the frame
 thread**. A reader thread posts each message into a queue — on Linux one of this app's,
-blocked on the ALSA sequencer, and on macOS CoreMIDI's own, calling back into `midir` — and
+blocked on the ALSA sequencer, and on macOS and Windows CoreMIDI's or WinMM's own, calling
+back into `midir` — and
 the synth empties that queue at the top of every tick, before anything reads the graph.
 
 **Every message says which device sent it, and the queue says when a device goes.** What
@@ -1117,18 +1145,23 @@ nothing. The watcher sleeps on a client of its own, holds the
 connections' lock only for the pass, and ends when the handle is dropped; Rescan runs the same
 pass at once. Linux wires in at open and on Rescan.
 
+**Windows is macOS's shape over WinMM**: a connection and a client per source, known by its
+device interface path, and the same watcher. A WinMM input is one application's at a time, so
+a source another program holds is refused on every pass until it is let go, and the refusal is
+logged once rather than once a second.
+
 **Every source at once, and no device to choose.** Which box is on the table is the rig, and
 [the rig is written nowhere](architecture.md#three-tiers-of-saved-state). A binding names a
 channel and a number rather than a device, so a patch opens the same whichever controller is
 plugged in. The cost is that two controllers sending the same channel and CC drive the same
 control, which is what the channel is there to avoid.
 
-**`midir` on macOS, the sequencer directly on Linux.** `midir` is the portable wrapper and the
+**`midir` on macOS and Windows, the sequencer directly on Linux.** `midir` is the portable wrapper and the
 obvious choice. Through 0.10 it pins `alsa` 0.9 while cpal 0.18 needs 0.11 — and `alsa-sys`
 carries `links = "alsa"`, so only one of them may exist in a binary. 0.11 accepts `alsa` 0.11,
 and on Linux `midir` is a thin shell over `alsa::seq` anyway, which is what
-`platform/linux/midi.rs` uses directly. On macOS it is CoreMIDI, declared for macOS alone
-([proposals/platform.md](../proposals/platform.md)).
+`platform/linux/midi.rs` uses directly. On macOS it is CoreMIDI and on Windows WinMM, declared
+for those two alone ([proposals/platform.md](../proposals/platform.md)).
 
 ### What is read, and what is not
 

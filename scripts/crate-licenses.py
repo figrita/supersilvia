@@ -4,6 +4,7 @@
 
     scripts/crate-licenses.py --target x86_64-unknown-linux-gnu > packaging/linux/rust-crates.txt
     scripts/crate-licenses.py --target x86_64-unknown-linux-gnu --check packaging/linux/rust-crates.txt
+    scripts/crate-licenses.py --target x86_64-pc-windows-msvc > packaging/windows/rust-crates.txt
     scripts/crate-licenses.py --target aarch64-apple-darwin      # build-app.sh, into the .app
 
 The crates are the ones `cargo metadata` resolves for the target, followed from supersilvia
@@ -13,9 +14,10 @@ COPYRIGHT file its package carries follows it, with the few files deeper in a pa
 license data compiled in beside its code (`EXTRA`); a text shared word for word by several
 crates is printed once, under all of their names.
 
-Linux's output is committed as packaging/linux/rust-crates.txt and compiled into the binary
-for Help > Licences; `tests/notices.rs` runs `--check` against it, so a Cargo.lock that moves
-fails `cargo test` until it is written again. The Mac's is written into the bundle by
+Linux's output is committed as packaging/linux/rust-crates.txt and Windows' as
+packaging/windows/rust-crates.txt, each compiled into its binary for Help > Licences;
+`tests/notices.rs` runs `--check` against both, so a Cargo.lock that moves fails `cargo test`
+until they are written again. The Mac's is written into the bundle by
 build-app.sh. Needs nothing but python3 and cargo, never the network (`--offline`: every
 package it reads is one a build of the target has already fetched), and runs from anywhere.
 """
