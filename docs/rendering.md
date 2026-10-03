@@ -4,7 +4,7 @@ The app draws with `render/`, on wgpu: Vulkan on Linux, Metal on macOS, Direct3D
 Windows, one device for everything ([one device](#one-device)). `render/` is the renderer and what it shares with the
 rest of the crate — the job types, `render::adapter`, the picture windows. `unsafe` is allowed
 in `render::picture`, for the borrowed `wl_display` and the raw surface handle made on it, and
-in `render::dmabuf`, for the import through wgpu-hal, and outside `render/` only in the macOS services that call Apple's frameworks. `Renderer::draw` is a **safe** function: `app/` and
+in `render::dmabuf`, for the imports through wgpu-hal, and outside `render/` only in the platform services that call a system's own libraries. `Renderer::draw` is a **safe** function: `app/` and
 `ui/` never write `unsafe`.
 
 ## Zero flash
@@ -583,6 +583,30 @@ above. **An import that fails uploads the bytes**, which on a Mac are the same m
 so there is no flag to raise and no pipeline to reopen; the renderer says so once for that
 source. The `unsafe` is the `IOSurfaceRef` rebuilt from its integer, the hal device, and the
 texture made from raw and its wrap.
+
+**Windows has neither; its frames are Direct3D 12 textures, and the same file imports them on
+Direct3D 12.** A `Pixels::D3d12` names each texture a decoder's or an upload's sample is in, the
+array slice the frame is in, and the fence its writes are signalled on.
+`Imports::import_d3d12` wraps each texture whole with `wgpu_hal::dx12::Device::texture_from_raw`
+and `create_texture_from_hal` and views its planes — NV12 as wgpu's `NV12`, viewed as `R8Unorm`
+and `RG8Unorm` at its chroma's half size, as a Mac's planes are, or NV12 in a texture per plane
+where the producer's device holds no NV12 texture, or RGBA or BGRA — each view at the frame's
+array slice, since a decoder may hand out a slice of a texture array. **The renderer's queue
+waits on the producer's fence**: wgpu-hal's `add_wait_fence` stages a `Wait` ahead of the next
+submission on the one queue, so the conversion pass never samples a texture its producer's queue
+has not written, and nothing waits on the CPU. The pass always draws the frame into a texture of
+the source's own, and a transition after it hands each texture back in the common state
+GStreamer's queues expect of it. **The texture is the renderer's device's**: GStreamer is
+handed the renderer's adapter and Direct3D 12 hands a process one device per adapter, so its
+device is the renderer's; a texture of another device is opened on the renderer's through the NT
+handle it comes with, and one with none is refused before the driver is called. The checks
+before wgpu is called are the texture's own description — two-dimensional, one level and one
+sample, the DXGI format its layout names, the slice within its array and its size at least the
+frame's. The return rule is the same, and an import that fails raises the frame's `refused`
+flag, so a camera goes back to bytes. NV12 is `Features::TEXTURE_FORMAT_NV12`, which the device
+asks for on Windows where the adapter offers it. The `unsafe` is the resource and the fence
+rebuilt from their integers, their COM calls, the hal device and queue, and the textures made
+from raw and their wrap.
 
 ## Tap buffers
 

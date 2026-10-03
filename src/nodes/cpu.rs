@@ -40,6 +40,9 @@ pub enum Pixels {
     /// In an `IOSurface`, which the renderer samples where it lies, or uploads as the same
     /// memory mapped where it cannot.
     IoSurface(IoSurface),
+    /// In a Direct3D 12 texture on the renderer's own device, or shared from another, which the
+    /// renderer samples where it lies once the producer's fence says it is written.
+    D3d12(D3d12Texture),
 }
 
 /// How the bytes of a [`Mapped`] frame are arranged.
@@ -238,6 +241,65 @@ pub struct IoSurface {
     pub redrawn: Option<Redrawn>,
 }
 
+/// A frame in Direct3D 12 textures: a decoder's, or an upload's, made on the renderer's device
+/// or shared from another on its adapter. Integers and a layout, so `nodes/` names no graphics
+/// API.
+#[derive(Clone)]
+pub struct D3d12Texture {
+    /// The `ID3D12Device` the textures were made on, as an integer.
+    pub device: usize,
+    /// Each texture the frame is in: one where Direct3D 12 holds the format whole — NV12 as one
+    /// texture of two planes, RGBA, BGRA — or one per plane, NV12's luma and chroma in textures
+    /// of their own, where the producer's device holds no NV12 texture.
+    pub textures: Vec<D3d12Plane>,
+    /// `Nv12`, `Rgba` or `Bgra`.
+    pub layout: Layout,
+    pub yuv: Yuv,
+    /// Whatever owns the textures and the fences — the producer's buffer — held so they stay
+    /// valid while a texture samples them. Opaque, so `render/` sees no media type.
+    pub keep: Arc<dyn std::any::Any + Send + Sync>,
+    /// Raised by the renderer when it will not import the texture, so the source that made it
+    /// can go back to bytes. `None` for a source with nothing to fall back to.
+    pub refused: Option<Arc<AtomicBool>>,
+}
+
+/// One of a [`D3d12Texture`]'s textures. Every integer is valid while the frame's `keep` is
+/// alive, and none is owned here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct D3d12Plane {
+    /// The `ID3D12Resource`.
+    pub resource: usize,
+    /// An NT handle to it where the frame's device is not the renderer's, which the renderer
+    /// opens the texture on its own device through; zero on the renderer's device.
+    pub shared: usize,
+    /// The array slice the frame is in: zero for a texture of its own, any slice of a decoder's
+    /// texture array.
+    pub slice: u32,
+    /// The `ID3D12Fence` the producer signals once this texture is written, and the value it
+    /// signals; zero for a texture already written.
+    pub fence: usize,
+    pub fence_value: u64,
+}
+
+impl std::fmt::Debug for D3d12Texture {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("D3d12Texture")
+            .field("textures", &self.textures)
+            .field("layout", &self.layout)
+            .finish_non_exhaustive()
+    }
+}
+
+impl PartialEq for D3d12Texture {
+    fn eq(&self, other: &Self) -> bool {
+        self.device == other.device
+            && self.textures == other.textures
+            && self.layout == other.layout
+            && self.yuv == other.yuv
+            && Arc::ptr_eq(&self.keep, &other.keep)
+    }
+}
+
 /// How a surface that is drawn into again is laid out, for the copy that takes each frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Redrawn {
@@ -265,7 +327,7 @@ impl Frame {
             {
                 m.plane(0, self.width, self.height)
             }
-            Pixels::Mapped(_) | Pixels::IoSurface(_) | Pixels::DmaBuf(_) => None,
+            Pixels::Mapped(_) | Pixels::IoSurface(_) | Pixels::DmaBuf(_) | Pixels::D3d12(_) => None,
         }
     }
 }

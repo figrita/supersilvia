@@ -34,11 +34,19 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 /// Features the device takes where the adapter offers them, and goes without where it does
-/// not: pass timestamps for the GPU timer, and the DMA-BUF import.
+/// not: pass timestamps for the GPU timer, and the import a decoded frame comes in by.
 pub const WANTED_FEATURES: wgpu::Features = wgpu::Features::TIMESTAMP_QUERY
     .union(wgpu::Features::TIMESTAMP_QUERY_INSIDE_ENCODERS)
     .union(wgpu::Features::TIMESTAMP_QUERY_INSIDE_PASSES)
-    .union(wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF);
+    .union(IMPORT_FEATURES);
+
+/// What the import of a decoded frame needs: a DMA-BUF on Vulkan, and on Direct3D 12 an NV12
+/// texture, which a decoder's frame is (`render::dmabuf`).
+const IMPORT_FEATURES: wgpu::Features = if cfg!(target_os = "windows") {
+    wgpu::Features::TEXTURE_FORMAT_NV12
+} else {
+    wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF
+};
 
 /// A handle on the one device. Cheap to clone: every clone is the same device, queue and
 /// serial.

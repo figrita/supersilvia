@@ -553,25 +553,26 @@ pub mod audio {
 /// installed (`CODEC_HINT`) and what a pipeline of them needs before its stream ends
 /// (`settle_before_eos`), and the zero-copy path: whether there is one for a
 /// clip (`clip_dmabuf`) or a screen (`dmabuf_imports`, `dmabuf_caps`), the chain and format
-/// that export it (`dmabuf_chain`, `dmabuf_format`), and the frame a sample in that memory
-/// becomes (`dmabuf_frame`).
+/// that export it (`dmabuf_chain`, `dmabuf_format`), what a pipeline exporting it is handed
+/// (`dmabuf_context`: on Windows the renderer's Direct3D 12 device), and the frame a sample in
+/// that memory becomes (`dmabuf_frame`).
 pub mod video {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::video::{
         CODEC_HINT, CODECS, NAMED_CAMERAS, capture_devices, clip_dmabuf, device_caps,
-        device_element, dmabuf_caps, dmabuf_chain, dmabuf_format, dmabuf_frame, dmabuf_imports,
-        first_capture_device, prefer_hardware_jpeg, settle_before_eos,
+        device_element, dmabuf_caps, dmabuf_chain, dmabuf_context, dmabuf_format, dmabuf_frame,
+        dmabuf_imports, first_capture_device, prefer_hardware_jpeg, settle_before_eos,
     };
     #[cfg(target_os = "macos")]
     pub use crate::platform::macos::video::{
         CODEC_HINT, CODECS, NAMED_CAMERAS, capture_devices, clip_dmabuf, device_caps,
-        device_element, dmabuf_caps, dmabuf_chain, dmabuf_format, dmabuf_frame, dmabuf_imports,
-        first_capture_device, prefer_hardware_jpeg, settle_before_eos,
+        device_element, dmabuf_caps, dmabuf_chain, dmabuf_context, dmabuf_format, dmabuf_frame,
+        dmabuf_imports, first_capture_device, prefer_hardware_jpeg, settle_before_eos,
     };
     #[cfg(target_os = "windows")]
     pub use crate::platform::windows::video::{
         CODEC_HINT, CODECS, NAMED_CAMERAS, capture_devices, clip_dmabuf, device_caps,
-        device_element, dmabuf_caps, dmabuf_chain, dmabuf_format, dmabuf_frame, dmabuf_imports,
-        first_capture_device, prefer_hardware_jpeg, settle_before_eos,
+        device_element, dmabuf_caps, dmabuf_chain, dmabuf_context, dmabuf_format, dmabuf_frame,
+        dmabuf_imports, first_capture_device, prefer_hardware_jpeg, settle_before_eos,
     };
 }

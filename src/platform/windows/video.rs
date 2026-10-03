@@ -19,9 +19,17 @@
 //! own, so its rows decode with Direct3D 11's, as Quick Sync's AV1 does. Every row asks for a
 //! constant QP of 26, which is VA-API's default and x264's.
 //!
-//! **No zero-copy.** A decoder's frames reach the GPU through memory, as on a machine with no
-//! DMA-BUF import: the renderer's device is Vulkan, and sharing a Direct3D texture with it is
-//! not written.
+//! **A clip's frame reaches the GPU without a copy**, as Direct3D 12 textures on the
+//! renderer's adapter. The zero-copy chain ends in `videoconvert ! d3d12upload` and caps in
+//! `memory:D3D12Memory`, so a Direct3D 12 decoder's own textures go through both untouched, and
+//! any other decoder's frames are converted to a format the renderer samples and uploaded. The
+//! conversion is `videoconvert`'s on the CPU rather than `d3d12convert`'s, which compiles its
+//! shaders when it starts and so fails where the system's shader compiler cannot, as Wine's;
+//! a hardware decoder's frames need neither. [`dmabuf_context`] hands the pipeline the
+//! renderer's device, and [`dmabuf_frame`] finds the texture, its slice and its fence behind the
+//! sample (`super::d3d12`). Whether the renderer imports one is the renderer's to say, so
+//! [`dmabuf_imports`] asks it — the edge `tests/rules.rs` names, as Linux's and the Mac's are.
+//! A screen delivers bytes, so [`dmabuf_caps`] and [`dmabuf_format`] have nothing to say.
 
 use crate::nodes::Frame;
 use crate::video::clip::Codec;
@@ -186,24 +194,48 @@ pub fn settle_before_eos(_pipeline: &gst::Pipeline) {}
 
 // ----------------------------------------------------------------------------- zero-copy
 
+/// The element the zero-copy chain uploads with, where a frame is not in a texture already.
+const UPLOAD: &str = "d3d12upload";
+
 /// `None`: no DMA-BUF is exported here.
 pub fn dmabuf_format() -> Option<String> {
     None
 }
 
-/// False: a decoded clip reaches the GPU through memory.
+/// Can a decoded clip reach the GPU without a copy here: the renderer's device imports a
+/// Direct3D 12 texture, GStreamer makes a device on its adapter, and the chain's upload is
+/// installed.
 pub fn clip_dmabuf() -> bool {
-    false
+    dmabuf_imports()
+        && super::d3d12::context().is_some()
+        && gst::ElementFactory::find(UPLOAD).is_some()
 }
 
-/// False: the renderer imports no frame without a copy here.
+/// Can the renderer's device import a Direct3D 12 texture. False before there is a renderer.
 pub fn dmabuf_imports() -> bool {
-    false
+    crate::render::dmabuf::imports()
 }
 
-/// `None`: there is no zero-copy chain.
+/// The conversion that hands a decoder's or a source's frames to the sink as Direct3D 12
+/// textures, in a format the renderer samples: NV12 where its device takes NV12, and RGB.
 pub fn dmabuf_chain() -> Option<String> {
-    None
+    let here = crate::render::dmabuf::d3d12_here()?;
+    let formats = if here.nv12 {
+        "{NV12,RGBA,BGRA}"
+    } else {
+        "{RGBA,BGRA}"
+    };
+    Some(format!(
+        "videoconvert ! video/x-raw(ANY),format={formats} ! {UPLOAD} \
+         ! video/x-raw({}),format={formats}",
+        super::d3d12::MEMORY
+    ))
+}
+
+/// Hand a zero-copy pipeline the renderer's device, so its Direct3D 12 elements make their
+/// textures where the renderer samples them.
+pub fn dmabuf_context(pipeline: &gst::Pipeline) {
+    super::d3d12::hand_device(pipeline);
 }
 
 /// `None`: a screen capture delivers bytes.
@@ -211,12 +243,10 @@ pub fn dmabuf_caps() -> Option<gst::Caps> {
     None
 }
 
-/// `None`: every sample is mapped as bytes.
-pub fn dmabuf_frame(
-    _caps: &gst::CapsRef,
-    _buffer: &gst::BufferRef,
-) -> Option<Result<Frame, String>> {
-    None
+/// A sample in Direct3D 12 memory as a `Frame` the renderer imports, or as its bytes where it
+/// cannot; `None` for a sample in memory, which the caller maps as bytes.
+pub fn dmabuf_frame(caps: &gst::CapsRef, buffer: &gst::BufferRef) -> Option<Result<Frame, String>> {
+    super::d3d12::frame(caps, buffer)
 }
 
 #[cfg(test)]

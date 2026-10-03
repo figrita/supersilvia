@@ -701,6 +701,9 @@ impl Player {
             .downcast::<gst::Pipeline>()
             .map_err(|_| "not a pipeline".to_string())?;
         sink_other_streams(&pipeline, "dec");
+        if delivery == Delivery::DmaBuf {
+            crate::platform::video::dmabuf_context(&pipeline);
+        }
         crate::platform::video::settle_before_eos(&pipeline);
         stamp_decoder_input(&pipeline);
         let sink = pipeline
@@ -1096,7 +1099,7 @@ fn layout_of(format: gst_video::VideoFormat) -> Option<(Layout, bool)> {
 /// The matrix and range the caps name. GStreamer fills in its own default where the caps
 /// say nothing — BT.601 below HD and BT.709 above, studio range — so this reads what it
 /// decided.
-fn yuv_of(info: &gst_video::VideoInfo) -> Yuv {
+pub(crate) fn yuv_of(info: &gst_video::VideoInfo) -> Yuv {
     let colorimetry = info.colorimetry();
     Yuv {
         matrix: match colorimetry.matrix() {

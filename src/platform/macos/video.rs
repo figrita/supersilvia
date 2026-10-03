@@ -308,6 +308,9 @@ pub fn dmabuf_chain() -> Option<String> {
     ))
 }
 
+/// Nothing: the frames a zero-copy pipeline makes need no device handed to it here.
+pub fn dmabuf_context(_pipeline: &gst::Pipeline) {}
+
 /// `None`: a screen is not a pipeline here.
 pub fn dmabuf_caps() -> Option<gst::Caps> {
     None

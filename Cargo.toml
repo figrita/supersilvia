@@ -308,15 +308,19 @@ rfd = { version = "0.15", default-features = false }
 # through.
 midir = "0.11"
 # The Win32 calls the rest of `platform/windows/` makes: the thread's CPU times (`clock.rs`),
-# the Known Folders (`dirs.rs`), the kernel's version (`check.rs`) and DirectWrite's system font
-# collection (`fonts.rs`). **Already in the lock** at this version, under wgpu-hal, cpal,
-# gilrs, accesskit and midir; the features are the four APIs and the types they hand back, and
-# add no package.
+# the Known Folders (`dirs.rs`), the kernel's version (`check.rs`), DirectWrite's system font
+# collection (`fonts.rs`) and a decoded frame's Direct3D 12 fence (`d3d12.rs`); and the
+# Direct3D 12 texture and fence `render/dmabuf.rs` imports a frame through, which are the very
+# types wgpu-hal's Direct3D 12 backend takes. **Already in the lock** at this version, under
+# wgpu-hal, cpal, gilrs, accesskit and midir; the features are those APIs and the types they
+# hand back, wgpu-hal's own among them, and add no package.
 windows = { version = "0.62", default-features = false, features = [
     "std",
     "Wdk_System_SystemServices",
     "Win32_Foundation",
+    "Win32_Graphics_Direct3D12",
     "Win32_Graphics_DirectWrite",
+    "Win32_Graphics_Dxgi_Common",
     "Win32_System_Com",
     "Win32_System_SystemInformation",
     "Win32_System_Threading",

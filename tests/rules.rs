@@ -80,12 +80,15 @@ fn the_pure_modules_reach_no_graphical_crate_through_the_crate() {
     // each machine's video service, which `video/` and `audio/` reach through
     // `platform/mod.rs`, asks `render/dmabuf.rs` whether the renderer's device can import a
     // frame without a copy — Linux's a DMA-BUF, and in which formats, before a screen cast or a
-    // clip asks its source for one, the Mac's an `IOSurface`, before a clip does. The question
-    // needs the device, which only the renderer holds. Named by both files, so a second edge
-    // between the same two modules is still caught.
-    const KNOWN: [(&str, &str); 2] = [
+    // clip asks its source for one, the Mac's an `IOSurface`, before a clip does, and Windows' a
+    // Direct3D 12 texture, and on which device, before a clip asks for one and as each frame
+    // arrives. The question needs the device, which only the renderer holds. Named by both
+    // files, so a second edge between the same two modules is still caught.
+    const KNOWN: [(&str, &str); 4] = [
         ("src/platform/linux/video.rs", "src/render/dmabuf.rs"),
         ("src/platform/macos/video.rs", "src/render/dmabuf.rs"),
+        ("src/platform/windows/video.rs", "src/render/dmabuf.rs"),
+        ("src/platform/windows/d3d12.rs", "src/render/dmabuf.rs"),
     ];
 
     let crate_ = Crate::read();
@@ -136,7 +139,8 @@ fn the_pure_modules_reach_no_graphical_crate_through_the_crate() {
 /// last two, `rustix`, Linux's and macOS's thread clock, in the first two, and `rfd`, which is
 /// every machine's file dialogs, in all three. Apple's own bindings — every `objc2` crate,
 /// `dispatch2` and `block2` — are macOS's, and `render/` may name them too, since the Metal
-/// import of an `IOSurface` is the renderer's. `block2` is Syphon's, for the block a client is
+/// import of an `IOSurface` is the renderer's, as `render/` may name `windows` for the
+/// Direct3D 12 import of a decoder's texture. `block2` is Syphon's, for the block a client is
 /// handed its frames through, and `render/` names none. `gstndi`, the NDI® plugin, is every
 /// machine's and is named by `video/ndi.rs` alone, which registers it: everything else asks for
 /// its elements by name. A crate is named where its name begins a path, so `std::os::windows`
@@ -167,7 +171,7 @@ fn the_os_crates_are_named_only_in_their_backends() {
         ("rustix", &[LINUX, MACOS]),
         ("rfd", &[LINUX, MACOS, WINDOWS]),
         ("midir", &[MACOS, WINDOWS]),
-        ("windows", &[WINDOWS]),
+        ("windows", &[WINDOWS, RENDER]),
         ("objc2*", &[MACOS, RENDER]),
         ("dispatch2", &[MACOS, RENDER]),
         ("block2", &[MACOS]),
@@ -210,7 +214,7 @@ fn the_os_crates_are_named_only_in_their_backends() {
 /// is added to the list, and to CONTRIBUTING.md's and docs/invariants.md's.
 #[test]
 fn unsafe_is_allowed_only_where_the_rule_names() {
-    const ALLOWED: [&str; 15] = [
+    const ALLOWED: [&str; 16] = [
         "src/render/mod.rs: dmabuf",
         "src/render/picture/mod.rs: thread",
         "src/render/picture/mod.rs: wayland",
@@ -224,6 +228,7 @@ fn unsafe_is_allowed_only_where_the_rule_names() {
         "src/platform/macos/mod.rs: syphon",
         "src/platform/windows/mod.rs: check",
         "src/platform/windows/mod.rs: clock",
+        "src/platform/windows/mod.rs: d3d12",
         "src/platform/windows/mod.rs: dirs",
         "src/platform/windows/mod.rs: fonts",
     ];

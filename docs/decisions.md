@@ -179,7 +179,11 @@ would need the decoder's textures shared across APIs; nor Vulkan as a fallback b
 would be a second backend to test for a machine that has none. **Not taken: FXC**, the compiler
 that needs no library, which is slow and miscompiles the larger modules naga writes. **Not
 taken: DXC as `dxcompiler.dll` beside the binary**, two more files to carry and find for the
-same compiler; the cost of linking it is about 22 MB of binary.
+same compiler; the cost of linking it is about 22 MB of binary. **A decoded frame is the
+decoder's texture on the renderer's device**, since Direct3D 12 hands a process one device per
+adapter and GStreamer is handed the renderer's; **shared NT handles are the fallback** for a
+device that is another — vkd3d's, under Wine — **not the path**, since opening a handle per
+frame and waiting for its writes on the CPU buys nothing where the device is already one.
 
 ### The strongest GPU, with the variable choosing another
 

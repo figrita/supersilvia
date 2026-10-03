@@ -48,6 +48,9 @@ Vulkan driver, so what picks a GPU on Linux picks it there: `SUPERSILVIA_ADAPTER
 lists adapters only through Wine's own DXGI, so where the system's Wine installs DXVK's in its
 place, as Fedora's does, `wine.sh` puts Wine's in the prefix as a native library, prefers it,
 and has wined3d under it find the GPU through Vulkan rather than OpenGL. No video is decoded
-under Wine: it has no Direct3D 12 video decoder, so `--check` warns of it.
+in Direct3D 12 under Wine: it has no Direct3D 12 video decoder, so `--check` warns of it. And
+vkd3d makes a device per call and shares no texture by handle, so GStreamer's textures are
+another device's there and a clip's frames reach the renderer as bytes; the import itself is
+proven under Wine by `tests/gpu_d3d12.rs` on textures of the renderer's own device.
 
 **The installer** — MSI, NSIS, or the zip as it is — is not made yet.

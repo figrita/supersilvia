@@ -58,14 +58,33 @@
 //! surface a texture a blit renders into, the same way and with the same rule — the caller,
 //! not the texture, holds the surface.
 //!
+//! **Windows has neither; its frames are Direct3D 12 textures, and the same file imports them
+//! on Direct3D 12.** GStreamer's Direct3D 12 decoders and uploads make their textures on a
+//! `GstD3D12Device`, which `platform::windows::video` asks for on the renderer's adapter:
+//! `D3D12CreateDevice` hands one process one device per adapter, so it is the renderer's own
+//! `ID3D12Device`; where it is not — vkd3d, under Wine, makes a device per call — the texture
+//! comes with an NT handle and is opened on the renderer's device through it, its writes
+//! already waited for, and a texture of another device with no handle is refused. The
+//! texture is wrapped whole with `wgpu_hal::dx12::Device::texture_from_raw` — NV12 as wgpu's
+//! `NV12`, whose two planes are viewed as `R8Unorm` and `RG8Unorm`, as the macOS planes are, or
+//! RGBA or BGRA; or, where the producer's device holds no NV12 texture and gives each plane a
+//! texture of its own, each of those wrapped as `R8Unorm` and `RG8Unorm` — and its array slice
+//! is the views' layer, since a decoder may hand out a slice of a texture array. **The renderer's queue waits on the producer's fence**: the wait is
+//! staged with `add_wait_fence` for the next submission on the one queue, so nothing samples
+//! the texture before the decoder's or the upload's own queue has written it, and nothing on
+//! the CPU waits. The conversion pass always draws it into a texture of the source's own, and
+//! a transition after the pass hands the texture back in the common state GStreamer's queues
+//! expect of it. The return rule is the one above: the frame holds the producer's buffer.
+//!
 //! **This is the wgpu renderer's one `unsafe`**: a `dup` of a borrowed fd, the hal import, the
-//! wrap, and two Vulkan queries through the instance's own function table; and on macOS the
+//! wrap, and two Vulkan queries through the instance's own function table; on macOS the
 //! `IOSurfaceRef` rebuilt from its integer, the hal device, the texture made from raw and its
-//! wrap. Each block says why it holds. The queries' structures are mirrored here from
-//! `vulkan_core.h` because `ash`, which defines them, is wgpu-hal's dependency and not this
-//! crate's.
+//! wrap; and on Windows the resource and the fence rebuilt from their integers, their COM
+//! calls, the hal device and queue, and the texture made from raw and its wrap. Each block says
+//! why it holds. The queries' structures are mirrored here from `vulkan_core.h` because `ash`,
+//! which defines them, is wgpu-hal's dependency and not this crate's.
 
-use crate::nodes::{DmaBuf, Frame, IoSurface};
+use crate::nodes::{D3d12Texture, DmaBuf, Frame, IoSurface};
 use std::sync::{Arc, Mutex, PoisonError};
 
 /// `DRM_FORMAT_XRGB8888`: B, G, R and a padding byte in memory.
@@ -132,10 +151,38 @@ pub fn importable_here() -> Vec<(u32, u64)> {
 }
 
 /// Whether the device the renderer draws on imports frames without a copy: DMA-BUFs on a
-/// Vulkan device opened with the import, `IOSurface`s on a Metal one. Where it does not, every
-/// import is refused and [`importable`] is empty.
+/// Vulkan device opened with the import, `IOSurface`s on a Metal one, Direct3D 12 textures on a
+/// Direct3D 12 one. Where it does not, every import is refused and [`importable`] is empty.
 pub fn supported(device: &wgpu::Device) -> bool {
-    dmabufs(device) || metal::supported(device)
+    dmabufs(device) || metal::supported(device) || d3d12::supported(device)
+}
+
+/// The renderer's Direct3D 12 device, as a producer is made on it and checked against it:
+/// its `ID3D12Device` as an integer, its adapter's LUID as GStreamer writes one, and whether it
+/// samples NV12. `None` before there is a renderer, and off Direct3D 12.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct D3d12Device {
+    pub device: usize,
+    pub luid: i64,
+    pub nv12: bool,
+}
+
+/// [`D3d12Device`] for the device the renderer draws on.
+pub fn d3d12_here() -> Option<D3d12Device> {
+    let device = SERVED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .clone()?;
+    d3d12::device_of(&device)
+}
+
+/// One plane of an imported texture: the texture, the view a pass samples the plane through,
+/// and the plane's size in texels.
+pub struct ImportedPlane {
+    pub texture: wgpu::Texture,
+    pub view: wgpu::TextureView,
+    pub width: u32,
+    pub height: u32,
 }
 
 /// A texture drawn into `surface`, an 8-bit BGRA `IOSurface` of `width` by `height` another
@@ -310,6 +357,25 @@ impl Imports {
         height: u32,
     ) -> Result<Vec<wgpu::Texture>, String> {
         metal::import(device, frame, width, height)
+    }
+
+    /// The frame in `frame`'s Direct3D 12 textures as a plane per view, of a frame of `width` by
+    /// `height`, or why not: NV12's luma and chroma, or one RGB plane. Each texture is wrapped
+    /// whole and its planes view it, and `queue`'s next submission waits on the producer's
+    /// fences.
+    ///
+    /// The caller keeps the frame — and so `frame.keep`, which holds the textures — until
+    /// [`Imports::let_go`], samples it only after the submission the wait is staged for, and
+    /// hands the texture back in the common state once it has sampled it.
+    pub fn import_d3d12(
+        &mut self,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        frame: &D3d12Texture,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<ImportedPlane>, String> {
+        d3d12::import(device, queue, frame, width, height)
     }
 
     /// The claim a `Published` naming `frame`'s texture holds: one per frame, shared by every
@@ -1044,6 +1110,302 @@ mod metal {
         _height: u32,
     ) -> Result<wgpu::Texture, String> {
         Err("an IOSurface is macOS's".to_owned())
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod d3d12 {
+    //! The import of a frame's Direct3D 12 textures, a view per plane, on wgpu-hal's Direct3D
+    //! 12 device.
+
+    use super::{D3d12Device, ImportedPlane};
+    use crate::nodes::{D3d12Plane, D3d12Texture, Layout};
+    use std::ffi::c_void;
+    use wgpu::hal::api::Dx12;
+    use windows::Win32::Foundation::HANDLE;
+    use windows::Win32::Graphics::Direct3D12::{
+        D3D12_RESOURCE_DIMENSION_TEXTURE2D, ID3D12Fence, ID3D12Resource,
+    };
+    use windows::Win32::Graphics::Dxgi::Common::{
+        DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12, DXGI_FORMAT_R8_UNORM,
+        DXGI_FORMAT_R8G8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM,
+    };
+    use windows::core::Interface;
+
+    /// Whether the device is wgpu-hal's Direct3D 12 one.
+    pub(super) fn supported(device: &wgpu::Device) -> bool {
+        // SAFETY: the guard is only asked whether it exists, and dropped at once.
+        unsafe { device.as_hal::<Dx12>() }.is_some()
+    }
+
+    /// The device's `ID3D12Device`, its adapter's LUID and whether it samples NV12.
+    pub(super) fn device_of(device: &wgpu::Device) -> Option<D3d12Device> {
+        let nv12 = device
+            .features()
+            .contains(wgpu::Features::TEXTURE_FORMAT_NV12);
+        // SAFETY: the guard is only read through — the device's own handle — and nothing it
+        // names is destroyed here.
+        let hal = unsafe { device.as_hal::<Dx12>() }?;
+        let raw = hal.raw_device();
+        // SAFETY: a plain query of a live device, which the guard keeps alive.
+        let luid = unsafe { raw.GetAdapterLuid() };
+        Some(D3d12Device {
+            device: raw.as_raw() as usize,
+            luid: (i64::from(luid.HighPart) << 32) | i64::from(luid.LowPart),
+            nv12,
+        })
+    }
+
+    /// What each of a frame's textures must be, as wgpu names its format and as DXGI does, for
+    /// a frame of `layout` in `count` textures: NV12 whole, NV12's planes in two, or RGB.
+    fn wanted(
+        layout: Layout,
+        count: usize,
+    ) -> Option<&'static [(wgpu::TextureFormat, DXGI_FORMAT)]> {
+        Some(match (layout, count) {
+            (Layout::Nv12, 1) => &[(wgpu::TextureFormat::NV12, DXGI_FORMAT_NV12)],
+            (Layout::Nv12, 2) => &[
+                (wgpu::TextureFormat::R8Unorm, DXGI_FORMAT_R8_UNORM),
+                (wgpu::TextureFormat::Rg8Unorm, DXGI_FORMAT_R8G8_UNORM),
+            ],
+            (Layout::Rgba, 1) => &[(wgpu::TextureFormat::Rgba8Unorm, DXGI_FORMAT_R8G8B8A8_UNORM)],
+            (Layout::Bgra, 1) => &[(wgpu::TextureFormat::Bgra8Unorm, DXGI_FORMAT_B8G8R8A8_UNORM)],
+            _ => return None,
+        })
+    }
+
+    /// The import itself: each texture opened and wrapped, its fence waited on, and a view per
+    /// plane.
+    pub(super) fn import(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        frame: &D3d12Texture,
+        width: u32,
+        height: u32,
+    ) -> Result<Vec<ImportedPlane>, String> {
+        let layout = frame.layout;
+        let count = frame.textures.len();
+        let wanted = wanted(layout, count)
+            .ok_or_else(|| format!("{layout:?} in {count} textures is not a frame this imports"))?;
+        if wanted[0].0 == wgpu::TextureFormat::NV12
+            && !device
+                .features()
+                .contains(wgpu::Features::TEXTURE_FORMAT_NV12)
+        {
+            return Err("this device does not sample NV12".to_owned());
+        }
+        if width == 0 || height == 0 {
+            return Err(format!("a {width}×{height} frame has no pixels"));
+        }
+        let mut planes = Vec::with_capacity(2);
+        for (i, (plane, &(format, dxgi))) in frame.textures.iter().zip(wanted).enumerate() {
+            let resource = open(device, frame.device, plane)?;
+            // The plane's own size where the planes are textures of their own.
+            let (w, h) = if count == 1 {
+                (width, height)
+            } else {
+                layout.plane_size(i, width, height)
+            };
+            let texture = wrap(device, resource, format, dxgi, plane.slice, (w, h))?;
+            wait(queue, plane)?;
+            let view = |format, aspect| {
+                texture.create_view(&wgpu::TextureViewDescriptor {
+                    label: Some("d3d12"),
+                    format: Some(format),
+                    dimension: Some(wgpu::TextureViewDimension::D2),
+                    aspect,
+                    base_array_layer: plane.slice,
+                    array_layer_count: Some(1),
+                    ..Default::default()
+                })
+            };
+            let size = texture.size();
+            if format == wgpu::TextureFormat::NV12 {
+                planes.push((
+                    texture.clone(),
+                    view(wgpu::TextureFormat::R8Unorm, wgpu::TextureAspect::Plane0),
+                    (size.width, size.height),
+                ));
+                planes.push((
+                    texture.clone(),
+                    view(wgpu::TextureFormat::Rg8Unorm, wgpu::TextureAspect::Plane1),
+                    (size.width.div_ceil(2), size.height.div_ceil(2)),
+                ));
+            } else {
+                let all = view(format, wgpu::TextureAspect::All);
+                planes.push((texture, all, (size.width, size.height)));
+            }
+        }
+        Ok(planes
+            .into_iter()
+            .map(|(texture, view, (width, height))| ImportedPlane {
+                texture,
+                view,
+                width,
+                height,
+            })
+            .collect())
+    }
+
+    /// `plane`'s texture on `device`: the producer's own where it was made on this device, and
+    /// opened through its handle where it was made on another.
+    fn open(
+        device: &wgpu::Device,
+        made_on: usize,
+        plane: &D3d12Plane,
+    ) -> Result<ID3D12Resource, String> {
+        if plane.resource == 0 {
+            return Err("no Direct3D 12 texture".to_owned());
+        }
+        // SAFETY: the guard is only read through — the device's own handle — and dropped
+        // before any texture is handed to wgpu.
+        let hal = unsafe { device.as_hal::<Dx12>() }.ok_or("not a Direct3D 12 device")?;
+        let raw_device = hal.raw_device();
+        if raw_device.as_raw() as usize == made_on {
+            let raw = plane.resource as *mut c_void;
+            // SAFETY: a non-null `ID3D12Resource`, which the frame's `keep` holds for as long as
+            // the caller holds the frame; the clone takes a reference of its own, which the wgpu
+            // texture made from it releases.
+            return Ok(unsafe { ID3D12Resource::from_raw_borrowed(&raw) }
+                .ok_or("no Direct3D 12 texture")?
+                .clone());
+        }
+        if plane.shared == 0 {
+            return Err("the texture is on another Direct3D 12 device".to_owned());
+        }
+        let mut opened: Option<ID3D12Resource> = None;
+        // SAFETY: an NT handle the producer made for the texture, which the frame's `keep` holds
+        // open across this call; the resource opened is this device's own, with a reference the
+        // wgpu texture made from it releases.
+        unsafe {
+            raw_device.OpenSharedHandle(HANDLE(plane.shared as *mut c_void), &raw mut opened)
+        }
+        .map_err(|e| format!("the shared texture would not open: {e}"))?;
+        opened.ok_or_else(|| "the shared texture opened as nothing".to_owned())
+    }
+
+    /// `resource` as a wgpu texture in `format`, once its own description says it is one of
+    /// `dxgi`, two-dimensional, of one level and one sample, holding `slice`, and at least
+    /// `least` in size.
+    fn wrap(
+        device: &wgpu::Device,
+        resource: ID3D12Resource,
+        format: wgpu::TextureFormat,
+        dxgi: DXGI_FORMAT,
+        slice: u32,
+        least: (u32, u32),
+    ) -> Result<wgpu::Texture, String> {
+        // SAFETY: a plain query of a live resource.
+        let desc = unsafe { resource.GetDesc() };
+        let layers = u32::from(desc.DepthOrArraySize);
+        if desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D
+            || desc.Format != dxgi
+            || desc.MipLevels != 1
+            || desc.SampleDesc.Count != 1
+        {
+            return Err(format!(
+                "a texture in DXGI format {} of {} levels is not {format:?}",
+                desc.Format.0, desc.MipLevels
+            ));
+        }
+        if slice >= layers {
+            return Err(format!("slice {slice} is past the texture's {layers}"));
+        }
+        let size = wgpu::Extent3d {
+            width: u32::try_from(desc.Width).map_err(|_| "a texture wider than u32")?,
+            height: desc.Height,
+            depth_or_array_layers: layers,
+        };
+        if least.0 > size.width || least.1 > size.height {
+            return Err(format!(
+                "{}×{} is past the {}×{} texture",
+                least.0, least.1, size.width, size.height
+            ));
+        }
+        // SAFETY: a two-dimensional texture of one level and `layers` layers, in `format`, of
+        // `size`, as its own description says; dropping it releases the reference the caller
+        // took, and the frame, not the texture, keeps the producer's.
+        let hal_texture = unsafe {
+            wgpu::hal::dx12::Device::texture_from_raw(
+                resource,
+                format,
+                wgpu::TextureDimension::D2,
+                size,
+                1,
+                1,
+            )
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some("d3d12"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        // SAFETY: the texture is this device's own `ID3D12Device`'s, made on it or opened on it,
+        // respecting `desc`, and its memory holds the producer's frame once its fence has been
+        // waited on; a first barrier from `UNINITIALIZED` is one from the common state, which is
+        // the state a producer's queue leaves a texture in.
+        Ok(unsafe {
+            device.create_texture_from_hal::<Dx12>(
+                hal_texture,
+                &desc,
+                wgpu::TextureUses::UNINITIALIZED,
+            )
+        })
+    }
+
+    /// Stage a wait on `plane`'s fence for `queue`'s next submission, where it has one it has
+    /// not passed yet.
+    fn wait(queue: &wgpu::Queue, plane: &D3d12Plane) -> Result<(), String> {
+        if plane.fence == 0 {
+            return Ok(());
+        }
+        let raw = plane.fence as *mut c_void;
+        // SAFETY: a non-null `ID3D12Fence`, which the frame's `keep` holds for as long as the
+        // caller holds the frame; the clone takes a reference of its own, which the queue
+        // releases once it has waited.
+        let fence = unsafe { ID3D12Fence::from_raw_borrowed(&raw) }
+            .ok_or("no fence")?
+            .clone();
+        // SAFETY: a plain query of a live fence.
+        if unsafe { fence.GetCompletedValue() } >= plane.fence_value {
+            return Ok(());
+        }
+        // SAFETY: the guard is used to stage one wait on the queue and dropped at once; nothing
+        // it names is destroyed here.
+        let hal = unsafe { queue.as_hal::<Dx12>() }.ok_or("not a Direct3D 12 queue")?;
+        hal.add_wait_fence(fence, plane.fence_value);
+        Ok(())
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+mod d3d12 {
+    //! No Direct3D 12 off Windows: every import is refused.
+
+    use super::{D3d12Device, ImportedPlane};
+    use crate::nodes::D3d12Texture;
+
+    pub(super) fn supported(_device: &wgpu::Device) -> bool {
+        false
+    }
+
+    pub(super) fn device_of(_device: &wgpu::Device) -> Option<D3d12Device> {
+        None
+    }
+
+    pub(super) fn import(
+        _device: &wgpu::Device,
+        _queue: &wgpu::Queue,
+        _frame: &D3d12Texture,
+        _width: u32,
+        _height: u32,
+    ) -> Result<Vec<ImportedPlane>, String> {
+        Err("Direct3D 12 import is Windows'".to_owned())
     }
 }
 

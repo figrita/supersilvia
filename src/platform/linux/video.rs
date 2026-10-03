@@ -280,6 +280,9 @@ pub fn dmabuf_chain() -> Option<String> {
     ))
 }
 
+/// Nothing: the frames a zero-copy pipeline makes need no device handed to it here.
+pub fn dmabuf_context(_pipeline: &gst::Pipeline) {}
+
 /// The DMA-BUF caps a screen cast's appsink accepts: the RGB formats and tilings the
 /// renderer's device imports. `None` where nothing is importable here — there is no renderer
 /// yet, or none of its formats is one this reads.

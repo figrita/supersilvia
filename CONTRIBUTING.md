@@ -60,6 +60,7 @@ cargo test --test gpu_ring              # the renderer's ring: zero flash, feedb
 cargo test --test gpu_app               # the whole App on the GPU: Snap, the render job, a loop closing to the byte
 cargo test --test ndi                   # NDI®: a picture sent and received in one process; skips without the NDI runtime
 cargo test --test syphon                # macOS: a picture published over Syphon and received by its own client
+cargo xwin test --target x86_64-pc-windows-msvc --no-run --test gpu_d3d12   # Windows: the Direct3D 12 import, run under Wine or on Windows
 cargo build --profile dist              # the shipping binary: lto, one codegen unit, function names kept
 cargo run --release --example graph_bench   # what the graph costs per frame, by graph size
 cargo run --release --example tick_bench -- <project> <tab>   # one tab ticked at 100 Hz, headless
@@ -89,7 +90,7 @@ on you noticing.
 The crate root denies `unsafe_code`, and `clippy::undocumented_unsafe_blocks` requires the
 comment. These modules are allowed it, each where its parent module declares it:
 
-- `render::dmabuf` — the DMA-BUF import through wgpu-hal
+- `render::dmabuf` — the DMA-BUF, `IOSurface` and Direct3D 12 imports through wgpu-hal
 - `render::picture`, its Linux half: `thread` and `wayland` — the picture windows' borrowed
   `wl_display` and the raw surface handle made on it
 - `platform::linux::filedrop` — file drops on Wayland, on a queue of its own on eframe's
@@ -105,11 +106,12 @@ comment. These modules are allowed it, each where its parent module declares it:
 - `platform::windows::clock` — the thread's CPU times, read by `GetThreadTimes`
 - `platform::windows::dirs` — the shell's Known Folders, and the strings it hands back
 - `platform::windows::fonts` — DirectWrite's system font collection, through COM
+- `platform::windows::d3d12` — GStreamer's Direct3D 12 library, declared by hand
 
 `tests/rules.rs` holds every `#[allow(unsafe_code)]` to this list. A new one fails the test
 until it is added there, here and in docs/invariants.md. Outside the crate,
-`examples/queue_contention.rs`'s hal device and `tests/gpu_surface.rs`'s bare `CAMetalLayer`
-are the only others.
+`examples/queue_contention.rs`'s hal device, `tests/gpu_surface.rs`'s bare `CAMetalLayer` and
+`tests/gpu_d3d12.rs`'s textures reached through wgpu-hal are the only others.
 
 The rest:
 

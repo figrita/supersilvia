@@ -9,14 +9,16 @@
 //! families are DirectWrite's system collection, the cameras are Media Foundation's through
 //! `mfvideosrc`, the named audio inputs and the loopback are WASAPI's through `wasapi2src`,
 //! screen capture is `d3d11screencapturesrc` on the primary monitor, and the hardware codecs
-//! are NVENC, Quick Sync, AMF and Direct3D 12's through GStreamer. Like Linux it has no native
-//! menu bar, no Syphon and no zero-copy path, and like a Mac it opens nothing ahead of the
-//! NDI® plugin. The GPU's per-process counters are not read: `gpu` says so.
+//! are NVENC, Quick Sync, AMF and Direct3D 12's through GStreamer, whose Direct3D 12 textures
+//! the renderer samples with no copy. Like Linux it has no native menu bar and no Syphon, and
+//! like a Mac it opens nothing ahead of the NDI® plugin. The GPU's per-process counters are not
+//! read: `gpu` says so.
 //!
 //! **`unsafe` is allowed file by file**, where each is declared below: `clock`, whose
 //! `GetThreadTimes` is `unsafe` by its binding; `dirs`, whose `SHGetKnownFolderPath` hands back
 //! a string the caller frees; `check`, whose `RtlGetVersion` fills a structure it is handed;
-//! and `fonts`, whose DirectWrite calls are COM methods, `unsafe` by their bindings. Every
+//! `fonts`, whose DirectWrite calls are COM methods, `unsafe` by their bindings; and `d3d12`,
+//! GStreamer's Direct3D 12 library, declared by hand and called in C. Every
 //! block carries a `// SAFETY:` line. The crate root denies it everywhere else.
 
 pub mod alert;
@@ -25,6 +27,8 @@ pub mod audio;
 pub mod check;
 #[allow(unsafe_code)]
 pub mod clock;
+#[allow(unsafe_code)]
+pub mod d3d12;
 #[allow(unsafe_code)]
 pub mod dirs;
 pub mod filedrop;

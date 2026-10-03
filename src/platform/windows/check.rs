@@ -3,7 +3,8 @@
 //! What `--check` asks of a Windows machine: every GStreamer element the app makes, which the
 //! folder carries from GStreamer's official release, the Direct3D 12 runtime every picture is
 //! drawn through, which Windows carries, and whether this machine's GPU decodes video in
-//! Direct3D 12. GStreamer registers a Direct3D 12 decoder only for a device that has video decode, so the
+//! Direct3D 12, which is what a clip's frame reaching the renderer without a copy needs.
+//! GStreamer registers a Direct3D 12 decoder only for a device that has video decode, so the
 //! registry is the answer and no device is opened for it.
 //!
 //! **The version is the kernel's own**, from `RtlGetVersion`, which reports it whatever
@@ -83,6 +84,11 @@ pub const GROUPS: &[Group] = &[
         what: "screen capture",
         required: false,
         elements: &[el("d3d11screencapturesrc", BAD), el("d3d11download", BAD)],
+    },
+    Group {
+        what: "zero-copy video",
+        required: false,
+        elements: &[el("d3d12upload", BAD)],
     },
     Group {
         what: "clip formats",

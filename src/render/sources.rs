@@ -48,6 +48,11 @@
 //! DMA-BUF is. One that does not import goes up as its own bytes, which on a Mac are the same
 //! memory mapped, so there is nothing to fall back to and no flag to raise.
 //!
+//! **A Direct3D 12 frame goes to [`Imports`] as well**, a view per plane of its textures, and
+//! is always drawn by the pass into the source's own texture, after which a transition hands
+//! each texture back in the common state its producer's queues expect. It is held and let go as a
+//! DMA-BUF is, and one that does not import raises its `refused` flag as a DMA-BUF does.
+//!
 //! What the renderer calls, and when, is fixed in `mod.rs`: [`Sources::sync`] in the prelude
 //! after the `UploadsFrom` mark, [`Sources::views`] for every draw's texture bindings,
 //! [`Sources::submitted`] with the prelude's submission, [`Sources::publish`] into a
@@ -55,7 +60,7 @@
 
 use super::Published;
 use super::Texture;
-use super::dmabuf::{Imports, alpha_is_padding};
+use super::dmabuf::{ImportedPlane, Imports, alpha_is_padding};
 use super::gpu::{Gpu, Ticket};
 use super::queue::Recording;
 use super::shared::{self, Shared};
@@ -219,6 +224,33 @@ struct Plane {
     format: wgpu::TextureFormat,
 }
 
+impl Plane {
+    /// An imported texture sampled whole, as its one plane.
+    fn whole(texture: wgpu::Texture) -> Self {
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        Self {
+            width: texture.width(),
+            height: texture.height(),
+            format: texture.format(),
+            target: Target { texture, view },
+        }
+    }
+}
+
+impl From<ImportedPlane> for Plane {
+    fn from(plane: ImportedPlane) -> Self {
+        Self {
+            format: plane.texture.format(),
+            width: plane.width,
+            height: plane.height,
+            target: Target {
+                texture: plane.texture,
+                view: plane.view,
+            },
+        }
+    }
+}
+
 /// The conversion pass: its pipeline, its group's layout and the sampler chroma is read
 /// through. Made with the renderer.
 struct Convert {
@@ -307,6 +339,53 @@ impl Sources {
                 _ => None,
             };
             let result = match (&frame.pixels, surface) {
+                (Pixels::D3d12(t), _) => {
+                    match self.imports.import_d3d12(
+                        gpu.device(),
+                        gpu.queue(),
+                        t,
+                        frame.width,
+                        frame.height,
+                    ) {
+                        Ok(planes) => {
+                            let mut textures: Vec<wgpu::Texture> = Vec::new();
+                            for plane in &planes {
+                                if !textures.contains(&plane.texture) {
+                                    textures.push(plane.texture.clone());
+                                }
+                            }
+                            let old = self.convert.imported(
+                                gpu,
+                                shared,
+                                recording,
+                                source,
+                                planes.into_iter().map(Plane::from).collect(),
+                                (frame.width, frame.height),
+                                &convert_block(t.layout, t.yuv, false),
+                            );
+                            recording.encoder().transition_resources(
+                                std::iter::empty(),
+                                textures.iter().map(|texture| wgpu::TextureTransition {
+                                    texture,
+                                    selector: None,
+                                    state: wgpu::TextureUses::PRESENT,
+                                }),
+                            );
+                            source.imported = Some(Arc::clone(frame));
+                            if let Some(old) = old {
+                                self.imports.let_go(old);
+                                self.letting_go = true;
+                            }
+                            Ok(())
+                        }
+                        Err(e) => {
+                            if let Some(refused) = &t.refused {
+                                refused.store(true, Ordering::Relaxed);
+                            }
+                            Err(e)
+                        }
+                    }
+                }
                 (_, Some(Ok((s, planes)))) => {
                     let size = (frame.width, frame.height);
                     // A surface its producer draws into again is copied, however it is
@@ -321,6 +400,7 @@ impl Sources {
                     } else {
                         let bottom_first = s.redrawn.is_some_and(|r| r.bottom_first);
                         let block = convert_block(s.mapped.layout, s.mapped.yuv, bottom_first);
+                        let planes = planes.into_iter().map(Plane::whole).collect();
                         self.convert
                             .imported(gpu, shared, recording, source, planes, size, &block)
                     };
@@ -348,7 +428,7 @@ impl Sources {
                                     shared,
                                     recording,
                                     source,
-                                    vec![texture],
+                                    vec![Plane::whole(texture)],
                                     (frame.width, frame.height),
                                     &convert_block(Layout::Rgbx, any, false),
                                 )
@@ -531,6 +611,7 @@ fn parts(frame: &Frame) -> Result<Parts<'_>, String> {
             Ok(Parts::Converted { m, planes })
         }
         Pixels::DmaBuf(_) => Err("a DMA-BUF is imported, not uploaded".to_owned()),
+        Pixels::D3d12(_) => Err("a Direct3D 12 texture is imported, not uploaded".to_owned()),
     }
 }
 
@@ -769,11 +850,11 @@ impl Convert {
         }
     }
 
-    /// Put a frame imported as `imports`, one texture per plane, into `source`'s own texture
+    /// Put a frame imported as `imports`, one view per plane, into `source`'s own texture
     /// through the pass with `block`: a padded fourcc's one plane, whose alpha the pass writes
-    /// one, or an `IOSurface`'s NV12 or padded BGR. The imports are the planes, kept for as
-    /// long as the frame is. Returns the import the source held before, which the caller lets
-    /// go.
+    /// one, an `IOSurface`'s NV12 or padded BGR, or a Direct3D 12 texture's NV12 or RGB. The
+    /// imports are the planes, kept for as long as the frame is. Returns the import the source
+    /// held before, which the caller lets go.
     #[allow(clippy::too_many_arguments)]
     fn imported(
         &self,
@@ -781,23 +862,14 @@ impl Convert {
         shared: &Shared,
         recording: &mut Recording,
         source: &mut Source,
-        imports: Vec<wgpu::Texture>,
+        imports: Vec<Plane>,
         size: (u32, u32),
         block: &[u8; CONVERT_BLOCK as usize],
     ) -> Option<Arc<Frame>> {
         let old = source.own_target(gpu.device(), size, wgpu::TextureFormat::Rgba8Unorm);
         let mut planes = [None, None, None];
         for (plane, import) in planes.iter_mut().zip(imports) {
-            let view = import.create_view(&wgpu::TextureViewDescriptor::default());
-            *plane = Some(Plane {
-                width: import.width(),
-                height: import.height(),
-                format: import.format(),
-                target: Target {
-                    texture: import,
-                    view,
-                },
-            });
+            *plane = Some(import);
         }
         source.planes = planes;
         source.planar_import = true;

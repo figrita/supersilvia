@@ -108,8 +108,8 @@ pub use action::{Edge, Event, Gate};
 pub use area::{Buttons, Heading, Picture, Region, Settings};
 pub use bridge::{Bridge, bridges, can_bridge, can_bridge_within};
 pub use cpu::{
-    Assets, CpuDef, CpuNode, DmaBuf, Frame, IoSurface, Layout, MainInputFeed, Mapped, NodeNote,
-    Pixels, Planes, Redrawn, TickContext, Yuv, YuvMatrix,
+    Assets, CpuDef, CpuNode, D3d12Plane, D3d12Texture, DmaBuf, Frame, IoSurface, Layout,
+    MainInputFeed, Mapped, NodeNote, Pixels, Planes, Redrawn, TickContext, Yuv, YuvMatrix,
 };
 pub use sim::{Domain, Kernel, Pass, Simulation};
 

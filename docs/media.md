@@ -968,6 +968,23 @@ a decoded frame is named by the stamp on the compressed buffer it came from, whi
 the sample whichever way the frame goes, so zero copy changes nothing about which frame is
 shown. `Player::open` asks for it once the renderer's device can import one.
 
+**On Windows a clip's frame is a Direct3D 12 texture.** The zero-copy chain is `videoconvert
+! d3d12upload` into caps in `memory:D3D12Memory`: a Direct3D 12 decoder, which GStreamer ranks
+above every other on Windows 10 and later, hands out its own textures, which both pass through
+untouched, and any other decoder's frames are converted on the CPU and uploaded. The pipeline is
+handed the renderer's adapter as a `GstContext` (`platform::video::dmabuf_context`), so its
+Direct3D 12 elements make their textures there, and the decoders made for that adapter are
+ranked above the others, for a machine with two GPUs. `platform::video::dmabuf_frame` answers
+`Pixels::D3d12`: each texture of the sample's memory, its array slice and the fence its writes
+are signalled on, with the buffer held behind them. On Windows GStreamer's device is the
+renderer's own, since Direct3D 12 hands a process one device per adapter, and the renderer's
+queue waits on the fence; where it is another, as vkd3d's is under Wine, a texture crosses as an
+NT handle, its writes waited for on GStreamer's streaming thread, and a texture that cannot be
+shared — vkd3d shares none — is mapped as its bytes, which GStreamer copies down, so the clip
+plays either way. NV12 is one texture of two planes where the device holds NV12 and a texture per
+plane where it does not, which the renderer takes alike
+([rendering.md](rendering.md#dma-buf-import)). A screen on Windows delivers bytes.
+
 **A screen on a Mac is its `IOSurface` too**, one BGR plane, which ScreenCaptureKit's own
 pixel buffer carries, so the capture publishes `Pixels::IoSurface` from its sample queue with
 no pipeline to choose a delivery. Its fourth byte is padding, so the renderer draws the one
@@ -1039,7 +1056,9 @@ picker either: a test makes its own `CVPixelBuffer`, backed by an `IOSurface` as
 ScreenCaptureKit's are, and reads it back as a frame at its own stride, and another writes a
 `Camera`'s slots by hand where the stream's output would. `tests/gpu_iosurface.rs` encodes
 the pattern through the H.264 row, decodes it into VideoToolbox's own surfaces, and imports
-them.
+them. On Windows `tests/gpu_d3d12.rs` writes textures on the renderer's own device and imports
+them, and runs the pattern through `d3d12upload` into GStreamer's, since a test machine — Wine
+among them — may have no Direct3D 12 video decode.
 
 The clip tests are the exception to "layer 1 is sub-second". They drive the real hardware
 encoder, because the thing worth testing is that this machine's codec actually produces a

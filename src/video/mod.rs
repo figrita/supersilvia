@@ -11,7 +11,8 @@
 //! device's own layout — YUY2, NV12, I420, or the planes an MJPEG decoder writes — and are
 //! held as they are, mapped rather than copied; `render/` uploads them as they lie and
 //! converts to RGB in a shader. A screen cast and a decoded file are exported as DMA-BUF
-//! descriptors where the machine can, and `render/dmabuf.rs` imports them. Neither held
+//! descriptors where the machine can, a decoded file as Direct3D 12 textures on Windows, and
+//! `render/dmabuf.rs` imports them. Neither held
 //! buffer reaches `render/` as a GStreamer type: a mapped one is behind
 //! [`Planes`](crate::nodes::Planes), and the keep-alive behind a descriptor is an opaque
 //! `Arc`.
@@ -140,15 +141,18 @@ pub enum Delivery {
     /// pixels of its own — a poster, the letters of a string — and not for anything uploaded
     /// every frame.
     Rgba,
-    /// A DMA-BUF in GPU memory, never copied; the renderer samples it directly. From a
-    /// decoder it is converted to RGBA by `vapostproc`, which needs VA-API. From a screen
-    /// cast it is the compositor's own buffer, in whichever RGB format and tiling it and
-    /// the renderer's device agree on, and the cast falls back to bytes when they agree on none.
+    /// A frame in GPU memory, never copied; the renderer samples it directly. On Linux a
+    /// DMA-BUF: from a decoder converted to RGBA by `vapostproc`, which needs VA-API, and from a
+    /// screen cast the compositor's own buffer, in whichever RGB format and tiling it and the
+    /// renderer's device agree on, the cast falling back to bytes when they agree on none. On
+    /// a Mac a decoder's `IOSurface`, and on Windows a Direct3D 12 texture on the renderer's
+    /// own device.
     DmaBuf,
 }
 
 /// How a delivery reads where a person sees it, a node's line in the Status box: the GPU's own
-/// buffer is "Zero copy" on both systems, a DMA-BUF on Linux and an `IOSurface` on a Mac.
+/// buffer is "Zero copy" on every system, a DMA-BUF on Linux, an `IOSurface` on a Mac and a
+/// Direct3D 12 texture on Windows.
 impl std::fmt::Display for Delivery {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -413,8 +417,10 @@ impl Camera {
 
     /// Build and start a pipeline with the given delivery.
     ///
-    /// `DmaBuf` from a device or a test pattern moves the conversion onto the video engine
-    /// through `vapostproc`; it exists so the import can be tested against the test pattern.
+    /// `DmaBuf` from a device or a test pattern moves the conversion onto the GPU through the
+    /// machine's zero-copy chain — `vapostproc` on Linux, `d3d12upload` on Windows — and hands
+    /// the pipeline what that chain needs; it exists so the import can be tested against the
+    /// test pattern.
     /// From a screen it asks the compositor for its own buffers and takes bytes if it has
     /// none to give. A screen whose capture writes its frames itself builds no pipeline, and
     /// `size` and `delivery` are the capture's. Only a pipeline delivering bytes is shared.
@@ -500,6 +506,9 @@ impl Camera {
             .map_err(|e| format!("{description}: {e}"))?
             .downcast::<gst::Pipeline>()
             .map_err(|_| "not a pipeline".to_string())?;
+        if delivery == Delivery::DmaBuf {
+            platform::video::dmabuf_context(&pipeline);
+        }
         let sink = pipeline
             .by_name("sink")
             .ok_or("no appsink")?
@@ -529,8 +538,14 @@ impl Camera {
                     let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
                     match frame_from(&sample, delivery) {
                         Ok(mut frame) => {
-                            if let Pixels::DmaBuf(buf) = &mut frame.pixels {
-                                buf.refused = Some(Arc::clone(&sink_refused));
+                            match &mut frame.pixels {
+                                Pixels::DmaBuf(buf) => {
+                                    buf.refused = Some(Arc::clone(&sink_refused));
+                                }
+                                Pixels::D3d12(texture) => {
+                                    texture.refused = Some(Arc::clone(&sink_refused));
+                                }
+                                _ => {}
                             }
                             let frame = Arc::new(frame);
                             let readers =

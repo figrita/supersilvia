@@ -178,7 +178,9 @@ exports it for the doctor. By area: `gpu_ring.rs` (the ring, zero
 flash, feedback, the throttle, a saturated GPU, churn read off wgpu's own counters, a viewer on
 another thread reading the frame it holds),
 `gpu_readback.rs`, `gpu_upload.rs`, `gpu_mixer.rs` (the mix and the viewer's blit),
-`gpu_sims.rs`, `gpu_link.rs`, `gpu_timing.rs`, `gpu_dmabuf.rs`, `gpu_nodes.rs`,
+`gpu_sims.rs`, `gpu_link.rs`, `gpu_timing.rs`, `gpu_dmabuf.rs`, `gpu_d3d12.rs` (Windows: the
+Direct3D 12 import, built with `cargo xwin` and run under Wine, where vkd3d reports an iGPU as
+discrete, so `SUPERSILVIA_ADAPTER=intel` names it), `gpu_nodes.rs`,
 `gpu_render.rs`, `gpu_surface.rs` (a surface configured while the synth submits, on a Mac,
 where a bare `CAMetalLayer` needs no window) and `gpu_lost.rs` (an uncaptured error logged
 rather than fatal, and a loss forced with `Device::destroy` reaching the callback); `gpu_nodes.rs` holds Offset
