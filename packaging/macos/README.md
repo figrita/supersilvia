@@ -8,8 +8,8 @@ GStreamer, in one archive ([below](#the-source-offer)). What a tester reads is [
 ```sh
 packaging/macos/build-app.sh
 # dist/supersilvia.app
-# dist/supersilvia-<version>-arm64.dmg
-# dist/supersilvia-<version>-arm64.zip
+# dist/supersilvia-<version>-macos-arm64.dmg
+# dist/supersilvia-<version>-macos-arm64.zip
 # dist/gstreamer-1.28.7-source.tar
 ```
 

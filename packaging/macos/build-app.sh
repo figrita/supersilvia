@@ -86,7 +86,7 @@ version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
 [[ -n $version ]] || die "no version in Cargo.toml"
 dist=$root/dist
 app=$dist/supersilvia.app
-name=supersilvia-$version-arm64
+name=supersilvia-$version-macos-arm64
 dmg=$dist/$name.dmg
 zip=$dist/$name.zip
 

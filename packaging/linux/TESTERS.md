@@ -76,11 +76,11 @@ name, such as `intel`, `radeon` or `nvidia`. `--check` names the GPU it picked. 
 
 ## Run it
 
-1. Download `supersilvia-<version>-x86_64.AppImage`.
+1. Download `supersilvia-<version>-linux-x86_64.AppImage`.
 2. Make it executable — in a terminal in the folder you downloaded it to:
 
    ```sh
-   chmod +x supersilvia-*-x86_64.AppImage
+   chmod +x supersilvia-*-linux-x86_64.AppImage
    ```
 
    or in the file manager: right-click it, **Properties ▸ Permissions ▸ Allow executing as a
@@ -88,7 +88,7 @@ name, such as `intel`, `radeon` or `nvidia`. `--check` names the GPU it picked. 
 3. **Run the check first:**
 
    ```sh
-   ./supersilvia-*-x86_64.AppImage --check
+   ./supersilvia-*-linux-x86_64.AppImage --check
    ```
 
 4. Then open it by double-clicking, or from the terminal without `--check`.
@@ -99,7 +99,7 @@ it); without either, only the terminal and the log say it.
 
 If it prints a line about **FUSE** and stops, install the `fuse3` package, or run it without
 FUSE by adding `--appimage-extract-and-run` straight after the file name
-(`./supersilvia-*-x86_64.AppImage --appimage-extract-and-run --check`).
+(`./supersilvia-*-linux-x86_64.AppImage --appimage-extract-and-run --check`).
 
 ## What `--check` says
 

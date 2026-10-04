@@ -53,7 +53,7 @@ fall back to the desktop's unknown-window icon — which is what happened before
 ## The AppImage
 
 ```sh
-packaging/appimage/build.sh     # target/supersilvia-<version>-x86_64.AppImage
+packaging/appimage/build.sh     # target/supersilvia-<version>-linux-x86_64.AppImage
 ```
 
 It needs podman or docker — or, inside a distrobox, the host's podman, which it reaches through

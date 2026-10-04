@@ -229,7 +229,7 @@ packaging/macos/build-app.sh
 ```
 
 It builds the `dist` profile against GStreamer's official release and writes
-`dist/supersilvia.app`, `dist/supersilvia-<version>-arm64.dmg` and the same as a `.zip`, for
+`dist/supersilvia.app`, `dist/supersilvia-<version>-macos-arm64.dmg` and the same as a `.zip`, for
 Apple Silicon Macs on 14.2 or later with nothing installed. The first run downloads the
 release's two `.pkg`s (about 900 MB) into `~/Library/Caches/supersilvia-packaging/` and unpacks
 them there with `pkgutil`; it installs nothing, needs no `sudo`, and leaves Homebrew's GStreamer

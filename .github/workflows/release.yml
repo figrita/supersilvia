@@ -205,8 +205,8 @@ jobs:
         with:
           name: macos
           path: |
-            dist/supersilvia-*-arm64.dmg
-            dist/supersilvia-*-arm64.zip
+            dist/supersilvia-*-macos-arm64.dmg
+            dist/supersilvia-*-macos-arm64.zip
             dist/gstreamer-*-source.tar
           if-no-files-found: error
 

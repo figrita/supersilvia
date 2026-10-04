@@ -16,7 +16,7 @@ uses is inside it.
 
 ## Install
 
-1. Download `supersilvia-<version>-arm64.dmg` (or the `.zip`, if that is what you were sent).
+1. Download `supersilvia-<version>-macos-arm64.dmg` (or the `.zip`, if that is what you were sent).
 2. Open the `.dmg` and drag **supersilvia** onto the **Applications** folder beside it. From a
    `.zip`, double-click it and drag the app it unpacks into Applications.
 3. Eject the disk image.

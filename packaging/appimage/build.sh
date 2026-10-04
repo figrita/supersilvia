@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# Build target/supersilvia-<version>-<arch>.AppImage. An AppDir is a prefix like any other, so
+# Build target/supersilvia-<version>-linux-<arch>.AppImage. An AppDir is a prefix like any other, so
 # this is packaging/linux/install.sh pointed at a staging directory, plus the three things an
 # AppImage wants at the top level: AppRun, the .desktop file, and .DirIcon.
 #
@@ -45,7 +45,7 @@ version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
 [[ -n $version ]] || die "no version in Cargo.toml"
 arch=$(uname -m)
 appdir=${APPDIR:-$root/target/AppDir}
-out=$root/target/supersilvia-$version-$arch.AppImage
+out=$root/target/supersilvia-$version-linux-$arch.AppImage
 
 # ------------------------------------------------------------------------------ the binary
 
