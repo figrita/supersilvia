@@ -436,7 +436,9 @@ impl CpuNode for VideoNode {
                     let time = sum - offset;
                     let to = f64::from(to).clamp(0.0, 1.0);
                     let offset = if hold {
-                        (to - time).clamp(0.0, 1.0)
+                        // A clip on Hold never comes back: its Offset reaches a play either way.
+                        let reach = crate::nodes::timing::offset_range(None);
+                        (to - time).clamp(f64::from(reach.min), f64::from(reach.max))
                     } else {
                         crate::nodes::phasor::fraction(to - time, 1.0)
                     };

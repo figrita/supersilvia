@@ -136,9 +136,11 @@ that does not.
 ### Offset, added, in the node's own cycles
 
 **Chosen: Speed or a gear sets the rate, Offset sets where it is.** Beside Time and Speed
-every moving node has **Offset**, key `phaseOffset` (`nodes::timing::OFFSET`), with a small
-knob: 0 to 1 is exactly one of the node's cycles, it is **added** every frame in either mode,
-and it wraps. It is a varying circle
+every moving node has **Offset**, key `phaseOffset` (`nodes::timing::OFFSET`): 1 is exactly one
+of the node's cycles, it is **added** every frame in either mode, and its knob reaches **one
+whole period either way**, `−P` to `P` by the period the node's options give it now — −1 to 1
+on a periodic node, −4 to 4 on a Perlin at Repeat 4, −64 to 64 on the tunnel — or one cycle
+either way where the picture never comes back. It is a varying circle
 wherever the node draws, so the distance from the middle into it is a ripple with one cable,
 and a uniform number on the CPU nodes, whose tick has no pixel. It is the generators' and
 transforms' old Time, `video`'s and `imagegif`'s Position and the oscillator's Phase under one
@@ -146,6 +148,12 @@ name and one unit. A node's cycle is its longest period: Rotozoom and Shaky Cam 
 every one of their periods divides, so an Offset of one brings both motions back together. A
 node with no period takes its natural unit — a lattice cell on a noise, a roll on Static, a
 unit of depth on the Tunnel — and there Offset does not wrap unless the node's Repeat is on.
+**Rejected: 0 to 1**, one cycle and only forwards, as first built: on a Perlin at Repeat 16 it
+reached a sixteenth of the loop, and placing a node a little behind meant dialing nearly a
+whole period ahead. **Rejected: Offset in periods**, 0 to 1 of the node's whole loop, which
+would move a node's place every time its Repeat changed and give a Phase cabled into Offset a
+different meaning on each node. A period that shrinks takes a stored Offset round it rather
+than clamping it to an end, since round the period is the same picture.
 
 **The name is Offset**, because it is what the input does: it is added. The gears publish
 **Phase**, the 0 to 1 reading of a cycle, so a Phase cabled into an Offset places the node at

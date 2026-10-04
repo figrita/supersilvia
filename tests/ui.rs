@@ -9769,6 +9769,105 @@ fn the_time_rows_fold_under_a_closed_timing_heading() {
     );
 }
 
+/// **A Time row in Loop mode carries a loop meter where the Speed knob stands in Free mode**,
+/// in the knob's own place. Held at 5.25 seconds: a Perlin at Repeat 4, half a cell a second,
+/// is 2.625 cells in, the third of four; one at Repeat Never is two whole cells in, its end
+/// open; an Oscillator, a CPU node a cycle a second, is in its one cycle. A gear's Cycles
+/// cabled in is what it reads, and Free mode puts the knob back where the meter was.
+#[test]
+fn a_loop_meter_stands_where_the_speed_knob_does() {
+    use supersilvia::graph::PortRef;
+    let mut h = tall_harness();
+    h.step();
+    h.state_mut()
+        .transport(supersilvia::transport::Command::Pause);
+    h.state_mut()
+        .transport(supersilvia::transport::Command::Seek(5.25));
+    let workspace = h.state().graph().default_workspace();
+    for (slug, at) in [
+        ("perlin", Pos2::new(40.0, 40.0)),
+        ("perlin", Pos2::new(300.0, 40.0)),
+        ("oscillator", Pos2::new(40.0, 520.0)),
+    ] {
+        h.state_mut()
+            .apply(Command::AddNode {
+                slug,
+                at,
+                workspace,
+            })
+            .unwrap();
+    }
+    let ids: Vec<_> = h.state().graph().iter().map(|(id, _)| id).collect();
+    let (looped, open, osc) = (ids[0], ids[1], ids[2]);
+    h.state_mut()
+        .apply(Command::SetOption {
+            node: looped,
+            key: "repeat",
+            value: "4".to_string(),
+        })
+        .unwrap();
+    for id in [looped, open, osc] {
+        for (key, value) in [("clockMode", "loop"), ("timing", "on")] {
+            h.state_mut()
+                .apply(Command::SetOption {
+                    node: id,
+                    key,
+                    value: value.to_string(),
+                })
+                .unwrap();
+        }
+    }
+    h.run_steps(4);
+    assert!(
+        h.query_by_label(&format!("perlin{looped}.clock 3/4"))
+            .is_some()
+    );
+    assert!(h.query_by_label(&format!("perlin{open}.clock 2")).is_some());
+    assert!(
+        h.query_by_label(&format!("oscillator{osc}.clock 1/1"))
+            .is_some()
+    );
+    h.snapshot("loop_meter");
+
+    // A Ratio Gear with nothing in it counts ambient seconds: 5.25, the second of four.
+    add_node(&mut h, ADD_PHASE);
+    let gear = h
+        .state()
+        .graph()
+        .iter()
+        .map(|(id, _)| id)
+        .find(|id| ![looped, open, osc].contains(id))
+        .unwrap();
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(gear, "cycles"),
+            to: PortRef::new(looped, "clock"),
+        })
+        .unwrap();
+    h.run_steps(4);
+    assert!(
+        h.query_by_label(&format!("perlin{looped}.clock 2/4"))
+            .is_some(),
+        "the gear's Cycles is what it reads"
+    );
+
+    // Free: the Speed knob stands exactly where the meter stood.
+    let meter = h.get_by_label(&format!("perlin{open}.clock 2")).rect();
+    h.state_mut()
+        .apply(Command::SetOption {
+            node: open,
+            key: "clockMode",
+            value: "free".to_string(),
+        })
+        .unwrap();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label(&format!("perlin{open}.clock 2")).is_none(),
+        "no meter in Free mode"
+    );
+    assert_eq!(rect_of(&h, &format!("perlin{open}.speed 1")), meter);
+}
+
 /// The trace nodes widen for the trace on their body, the same 300 the audio scope already
 /// uses — end to end from `NodeDef::trace` through `canvas::node_width` to what the body
 /// ground actually measures.

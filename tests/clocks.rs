@@ -835,13 +835,16 @@ fn a_seek_moves_an_oscillator_by_its_rate_times_the_jump_and_pause_holds_it() {
     assert!((moved - 0.2).abs() < 1e-4, "0.5 Hz over 0.4 s: {moved}");
 }
 
-/// **Offset is added to Time**, in waves: a sine a quarter of a wave on is a cosine, and at
-/// zero the wave is silvia's, a wave a second on ambient time.
+/// **Offset is added to Time**, in waves, either way: a sine a quarter of a wave on is a
+/// cosine, and so is one three quarters of a wave back; at zero the wave is silvia's, a wave a
+/// second on ambient time.
 #[test]
 fn the_oscillators_offset_is_added_to_its_time() {
     let mut app = App::headless();
     let sine = add(&mut app, "oscillator");
     set(&mut app, sine, "phaseOffset", 0.25);
+    let back = add(&mut app, "oscillator");
+    set(&mut app, back, "phaseOffset", -0.75);
     let cosine = add(&mut app, "oscillator");
     choose(&mut app, cosine, "waveform", "cosine");
     let plain = add(&mut app, "oscillator");
@@ -849,6 +852,8 @@ fn the_oscillators_offset_is_added_to_its_time() {
         app.tick(FRAME);
         let (a, b) = (read(&app, sine, "output"), read(&app, cosine, "output"));
         assert!((a - b).abs() < 1e-4, "{a} against {b}");
+        let c = read(&app, back, "output");
+        assert!((c - b).abs() < 1e-4, "{c} against {b}, from behind");
     }
     let t = app.transport_state().playhead;
     let expected = (t * std::f64::consts::TAU).sin() as f32;

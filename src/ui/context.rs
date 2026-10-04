@@ -133,11 +133,13 @@ impl CanvasFrame<'_> {
         let node = self.graph.get(id)?;
         let timing = node.def.timing?;
         let time = PortRef::new(id, crate::nodes::TIME);
-        let at = self.graph.source_of(time).unwrap_or(time);
-        let clock = self
-            .uniforms
-            .count(at)
-            .or_else(|| self.uniforms.get(at).map(f64::from))?;
+        let source = self.graph.source_of(time);
+        // A CPU node with nothing in its Time says where it is itself, `CpuNode::playhead`, and
+        // a sequencer at rest has no playhead to fall back to.
+        if source.is_none() && node.def.cpu.is_some() {
+            return None;
+        }
+        let clock = self.uniforms.time(time, source)?;
         let clock = crate::nodes::phasor::fraction(clock, timing.wrap(node)) as f32;
         let offset = PortRef::new(id, crate::nodes::timing::OFFSET);
         let knob = match (self.graph.source_of(offset), node.controls.get(offset.key)) {

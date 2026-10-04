@@ -1403,19 +1403,29 @@ pub fn declared_range(def: &NodeDef, key: &str) -> Option<ControlRange> {
     }
 }
 
-/// The range a control actually has: the node's own if it has one, else its definition's.
+/// What a number control's range is on `node` before a hand changed it: its definition's, or
+/// where the node's own settings decide its ends — a time-driven node's Offset, one period
+/// either way — what they make it now ([`timing::range`]). What a range editor's Default column
+/// shows and what clearing a node's own range hands back.
+///
+/// `None` for an input that is not a number.
+pub fn default_range(node: &Node, key: &str) -> Option<ControlRange> {
+    let declared = declared_range(node.def, key)?;
+    Some(timing::range(node, key).unwrap_or(declared))
+}
+
+/// The range a control actually has: the node's own if it has one, else its
+/// [default](default_range).
 ///
 /// **The one place this question is answered.** The scrub control, the command bus, the file
 /// loader and anything that later maps a fader into a knob all ask here, so a range cannot be
 /// two different things depending on who looked.
 pub fn control_range(def: &NodeDef, node: &Node, key: &str) -> Option<ControlRange> {
-    let declared = declared_range(def, key)?;
-    Some(
-        node.values
-            .get(key)
-            .and_then(crate::graph::Value::range)
-            .unwrap_or(declared),
-    )
+    declared_range(def, key)?;
+    node.values
+        .get(key)
+        .and_then(crate::graph::Value::range)
+        .or_else(|| default_range(node, key))
 }
 
 /// The ranges that follow a control that just changed: each dependent input's key, and the

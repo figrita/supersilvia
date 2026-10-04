@@ -591,8 +591,8 @@ pub fn row_height(node: &Node, measured: &[f32], row: Row) -> f32 {
 /// Whether this input is a Time standing where its Speed stands in the other mode, and so as
 /// tall as the Speed's knob makes it: a mode switched swaps one row for the other in place,
 /// and the node keeps its height. A Speed in Loop mode takes no cable, so its knob is always
-/// there to measure by.
-fn speed_tall(node: &Node, index: usize) -> bool {
+/// there to measure by. The loop meter stands where the knob would (`ui::loop_meter`).
+pub fn speed_tall(node: &Node, index: usize) -> bool {
     node.def.timing.is_some()
         && node
             .inputs

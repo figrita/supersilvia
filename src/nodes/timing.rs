@@ -30,17 +30,25 @@
 //! Either way the synth publishes where the node is as a **count** under the Time key —
 //! `u_count_{slug}{id}_clock`, split into a whole part and a fraction (`phasor::split`) — so
 //! a body reads Time and never Speed, and a count is as precise a million cycles on as at the
-//! first. Switching mode drops the cable in the row that goes away in the same step
+//! first; a CPU node's own reading is published there by `TickContext::cycle`. Switching mode
+//! drops the cable in the row that goes away in the same step
 //! (`Graph::drop_inactive`), since a gear's Cycles, a growing count, would race off as a
 //! speed; a cable can never land on the row a mode puts away ([`is_inactive`]).
 //!
-//! **Offset** ([`OFFSET`]) is added on top in both modes: 0 to 1 is one of the node's cycles,
-//! a varying number on a node that draws, so a field ripples it, and a uniform number on a CPU
-//! node, whose tick has no pixel.
+//! **Offset** ([`OFFSET`]) is added on top in both modes, in the node's own cycles: 1 is one
+//! cycle. A varying number on a node that draws, so a field ripples it, and a uniform number on
+//! a CPU node, whose tick has no pixel. Its knob reaches one whole period either way, `−P` to
+//! `P`, from the period the node's options give it now, or one cycle either way where its
+//! picture never comes back ([`range`], which `nodes::control_range` asks), stepping by about a
+//! thousandth of it so a drag across ±1 and one across ±64 are as long. An edit that shrinks
+//! the period takes a stored Offset round it ([`fit_offsets`]), which on a picture that comes
+//! back every `P` is the same picture; a cable into Offset is added as it arrives.
 //!
 //! **The rows** are Time, Speed and Offset per axis, folded under one Timing heading
 //! ([`HEADING`]) that starts closed; the mode is two segments on the heading's bar. The mode
-//! shows one of Time and Speed and puts the other away in place, so the node keeps its height.
+//! shows one of Time and Speed and puts the other away in place, so the node keeps its height,
+//! and where Speed's knob stands the Time row carries the loop meter (`ui::loop_meter`): where
+//! the node is in its period, by [`Progress`].
 //! `node!` writes them for a shader node from its `timing:` (`timing_xy:` for two axes), and
 //! [`inputs!`] and [`options!`] for a hand-written one.
 //!
@@ -54,7 +62,7 @@
 //! the node is with its Offset added, or `cycle_at` for a clip, whose pace is one play over its
 //! own length.
 
-use crate::graph::{Node, PortType};
+use crate::graph::{ControlRange, ControlValue, Node, PortType, Value};
 use crate::nodes::{Control, InputDef, OptionDef, OptionKind, phasor};
 use crate::transport::Time;
 
@@ -236,14 +244,88 @@ pub const fn speed_row(t: Timing, axis: usize) -> InputDef {
     }
 }
 
-/// Axis `axis`'s **Offset**: a knob at zero that adds nothing, 0 to 1 one cycle — `ty` a
-/// varying number on a node that draws and a uniform number on a CPU node.
+/// Axis `axis`'s **Offset**: a knob at zero that adds nothing, in cycles — `ty` a varying
+/// number on a node that draws and a uniform number on a CPU node. The range declared here is
+/// the one a node with no period has, −1 to 1; a node's own is [`range`].
 pub const fn offset_row(t: Timing, axis: usize, ty: PortType) -> InputDef {
+    let reach = offset_range(None);
     InputDef {
         key: if axis == 0 { OFFSET } else { OFFSET_Y },
         label: label(t, axis, "Offset", ["Offset X", "Offset Y"]),
         ty,
-        control: Control::num(0.0, 0.0, 1.0, 0.001, ""),
+        control: Control::num(0.0, reach.min, reach.max, reach.step, ""),
+    }
+}
+
+/// The steps an Offset knob takes, finest first: what the number control's readout shows, up
+/// to a whole cycle.
+const OFFSET_STEPS: [f32; 4] = [0.001, 0.01, 0.1, 1.0];
+
+/// Offset's range on a node whose picture comes back every `period` of its cycles: one whole
+/// period either way, or one cycle either way where `period` is `None` or not above zero. The
+/// step is the finest of [`OFFSET_STEPS`] at least a thousandth of the period.
+pub const fn offset_range(period: Option<f64>) -> ControlRange {
+    let reach = match period {
+        Some(p) if p.is_finite() && p > 0.0 => p,
+        _ => 1.0,
+    };
+    let mut i = 0;
+    while i + 1 < OFFSET_STEPS.len() && (OFFSET_STEPS[i] as f64) * 1000.0 < reach * (1.0 - 1e-6) {
+        i += 1;
+    }
+    ControlRange {
+        min: -reach as f32,
+        max: reach as f32,
+        step: OFFSET_STEPS[i],
+    }
+}
+
+/// The range `node`'s input `key` has before a hand changed it, where its timing decides it:
+/// an Offset's, by the period the node's options give it now ([`offset_range`]). `None` for
+/// every other input, and on a node that does not move with time.
+pub fn range(node: &Node, key: &str) -> Option<ControlRange> {
+    let t = node.def.timing?;
+    (key == OFFSET || key == OFFSET_Y).then(|| offset_range((t.period)(node)))
+}
+
+/// An Offset of `v` fitted to the range a `period` gives it: as it is inside, taken round the
+/// period outside — the remainder keeps its sign, so it lands inside `−P` to `P` — and clamped
+/// to one cycle either way where there is no period.
+pub fn fit_offset(v: f32, period: Option<f64>) -> f32 {
+    let r = offset_range(period);
+    if (r.min..=r.max).contains(&v) {
+        return v;
+    }
+    match period.filter(|p| p.is_finite() && *p > 0.0) {
+        Some(p) => ((f64::from(v) % p) as f32).clamp(r.min, r.max),
+        None => v.clamp(r.min, r.max),
+    }
+}
+
+/// Bring each of `node`'s Offsets back inside its range after an edit that may have moved its
+/// period — a Repeat, a depth wrap, a clip's Loop, a lane's length — by [`fit_offset`]. An
+/// Offset whose range is the node's own, set by a hand, is left alone: that range did not move.
+pub fn fit_offsets(node: &mut Node) {
+    let Some(t) = node.def.timing else {
+        return;
+    };
+    let period = (t.period)(node);
+    for axis in t.axes() {
+        if node
+            .values
+            .get(axis.offset)
+            .and_then(Value::range)
+            .is_some()
+        {
+            continue;
+        }
+        if let Some(ControlValue::Float(v)) = node.controls.get(axis.offset).copied() {
+            let fitted = fit_offset(v, period);
+            if fitted.to_bits() != v.to_bits() {
+                node.controls
+                    .insert(axis.offset, ControlValue::Float(fitted));
+            }
+        }
     }
 }
 
@@ -315,6 +397,79 @@ pub fn is_inactive(node: &Node, key: &str) -> bool {
         is_time(key)
     } else {
         is_speed(key)
+    }
+}
+
+/// The most cycles a loop is cut into on its loop meter: a longer loop draws its fill and no
+/// dividers.
+pub const MAX_DIVIDED: u64 = 16;
+
+/// The span a loop meter draws: the node's whole loop, or the one cycle it is in where its
+/// picture never comes back.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Span {
+    /// A loop `period` of the node's cycles long, `cycles` of them counted whole — a period
+    /// that is not whole rounded up — and the cycle within it the node is in, from zero.
+    Loop {
+        cycle: u64,
+        cycles: u64,
+        period: f64,
+    },
+    /// No loop: `count` whole cycles behind the node, and the span's right end open.
+    Open { count: f64 },
+}
+
+/// Where a node is in its loop, from its Time reading and its period: what the loop meter on a
+/// Time row draws.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Progress {
+    /// How far across the span, 0 up to 1, left to right.
+    pub fill: f64,
+    pub span: Span,
+}
+
+impl Progress {
+    /// Where a Time reading of `time` is in a loop of `period` of the node's cycles, or in its
+    /// current cycle where `period` is `None` or not above zero. Wrapped as a body takes Time
+    /// round ([`phasor::fraction`]), so a Time a whole loop on reads as zero.
+    pub fn of(time: f64, period: Option<f64>) -> Self {
+        let time = if time.is_finite() { time } else { 0.0 };
+        let Some(period) = period.filter(|p| p.is_finite() && *p > 0.0) else {
+            let fill = phasor::fraction(time, 1.0);
+            return Self {
+                fill,
+                span: Span::Open {
+                    count: (time - fill).round(),
+                },
+            };
+        };
+        let at = phasor::fraction(time, period);
+        let cycles = (period - phasor::REACH).ceil().max(1.0) as u64;
+        let cycle = ((at + phasor::REACH).floor().max(0.0) as u64).min(cycles - 1);
+        Self {
+            fill: at / period,
+            span: Span::Loop {
+                cycle,
+                cycles,
+                period,
+            },
+        }
+    }
+
+    /// Whether the span has no end to come back to.
+    pub fn open(&self) -> bool {
+        matches!(self.span, Span::Open { .. })
+    }
+
+    /// Where the hairlines between a loop's cycles go, as fractions of its width: one at each
+    /// whole cycle inside the loop, and none on a loop of more than [`MAX_DIVIDED`] cycles or
+    /// on an open span.
+    pub fn dividers(&self) -> impl Iterator<Item = f64> {
+        let (cycles, period) = match self.span {
+            Span::Loop { cycles, period, .. } if cycles <= MAX_DIVIDED => (cycles, period),
+            _ => (0, 1.0),
+        };
+        (1..cycles).map(move |k| k as f64 / period)
     }
 }
 
@@ -473,8 +628,103 @@ mod tests {
         assert_eq!(at(1.5, -2.0), at(1.5, -2.0));
     }
 
-    /// The rows a timing expands into: Time with no knob, Speed from 1 or 0, Offset one cycle
-    /// from zero, labelled by axis where there are two.
+    fn loop_of(p: Progress) -> (u64, u64) {
+        match p.span {
+            Span::Loop { cycle, cycles, .. } => (cycle, cycles),
+            Span::Open { .. } => panic!("a loop, not {p:?}"),
+        }
+    }
+
+    /// A Repeat of 4: four cycles, the one the node is in counted from zero, filled by how far
+    /// it is through all four, and three hairlines at the quarters.
+    #[test]
+    fn a_loop_is_cut_into_its_cycles_and_filled_across_them() {
+        let p = Progress::of(2.5, Some(4.0));
+        assert_eq!(loop_of(p), (2, 4));
+        assert!((p.fill - 0.625).abs() < 1e-12, "{}", p.fill);
+        assert!(!p.open());
+        assert_eq!(p.dividers().collect::<Vec<_>>(), [0.25, 0.5, 0.75]);
+        let start = Progress::of(0.0, Some(4.0));
+        assert_eq!((loop_of(start), start.fill), ((0, 4), 0.0));
+        let last = Progress::of(3.99, Some(4.0));
+        assert_eq!(loop_of(last), (3, 4));
+    }
+
+    /// It wraps where the node comes back: a loop on, and before zero, read as a body reads
+    /// them, and a whole loop on a hair either side is the loop's start.
+    #[test]
+    fn a_loop_wraps_where_the_node_comes_back() {
+        let a = Progress::of(1.25, Some(4.0));
+        assert_eq!(Progress::of(1.25 + 4.0 * 1000.0, Some(4.0)), a);
+        let back = Progress::of(-0.5, Some(4.0));
+        assert_eq!(loop_of(back), (3, 4));
+        assert!((back.fill - 0.875).abs() < 1e-12);
+        for hair in [8.0 - 1e-12, 8.0, 8.0 + 1e-12] {
+            let p = Progress::of(hair, Some(4.0));
+            assert_eq!((loop_of(p), p.fill), ((0, 4), 0.0), "{hair}");
+        }
+        let edge = Progress::of(2.0 - 1e-12, Some(4.0));
+        assert_eq!(
+            loop_of(edge),
+            (2, 4),
+            "a hair under a whole cycle is that cycle"
+        );
+    }
+
+    /// A periodic node's loop is its one cycle: no hairline, filled by the cycle.
+    #[test]
+    fn a_periodic_loop_is_one_cycle() {
+        let p = Progress::of(7.3, Some(1.0));
+        assert_eq!(loop_of(p), (0, 1));
+        assert!((p.fill - 0.3).abs() < 1e-9);
+        assert_eq!(p.dividers().count(), 0);
+    }
+
+    /// Up to sixteen cycles take hairlines; the tunnel's 64 is a fill alone, still counted.
+    #[test]
+    fn no_dividers_above_the_cap() {
+        let sixteen = Progress::of(0.0, Some(MAX_DIVIDED as f64));
+        assert_eq!(sixteen.dividers().count(), 15);
+        let tunnel = Progress::of(40.5, Some(64.0));
+        assert_eq!(loop_of(tunnel), (40, 64));
+        assert_eq!(tunnel.dividers().count(), 0);
+    }
+
+    /// A period that is not whole counts its last, short cycle and puts a hairline at each
+    /// whole cycle inside it.
+    #[test]
+    fn a_period_that_is_not_whole_rounds_its_cycles_up() {
+        let p = Progress::of(2.2, Some(2.5));
+        assert_eq!(loop_of(p), (2, 3));
+        assert_eq!(p.dividers().collect::<Vec<_>>(), [0.4, 0.8]);
+    }
+
+    /// A picture that never comes back has no loop: the cycle it is in, filled, with the
+    /// whole cycles behind it, and nothing to divide.
+    #[test]
+    fn no_period_is_an_open_span_over_the_current_cycle() {
+        for period in [None, Some(0.0), Some(-3.0), Some(f64::NAN)] {
+            let p = Progress::of(12.25, period);
+            assert!(p.open(), "{period:?}");
+            assert_eq!(p.span, Span::Open { count: 12.0 });
+            assert!((p.fill - 0.25).abs() < 1e-12);
+            assert_eq!(p.dividers().count(), 0);
+        }
+        assert_eq!(
+            Progress::of(-0.25, None).span,
+            Span::Open { count: -1.0 },
+            "before zero, the whole cycle under it"
+        );
+        let hair = Progress::of(3.0 - 1e-12, None);
+        assert_eq!((hair.span, hair.fill), (Span::Open { count: 3.0 }, 0.0));
+        assert_eq!(
+            Progress::of(f64::INFINITY, None).span,
+            Span::Open { count: 0.0 }
+        );
+    }
+
+    /// The rows a timing expands into: Time with no knob, Speed from 1 or 0, Offset from zero
+    /// declared one cycle either way, labelled by axis where there are two.
     #[test]
     fn a_timing_expands_into_its_rows() {
         let moving = Timing::periodic(0.5);
@@ -496,7 +746,8 @@ mod tests {
         assert_eq!((offset.key, offset.ty), (OFFSET, PortType::VaryingNumber));
         assert!(matches!(
             offset.control,
-            Control::Number { default, min, max, .. } if default == 0.0 && min == 0.0 && max == 1.0
+            Control::Number { default, min, max, step, .. }
+                if default == 0.0 && min == -1.0 && max == 1.0 && step == 0.001
         ));
         let labels: Vec<_> = (0..2)
             .flat_map(|a| {
@@ -525,6 +776,162 @@ mod tests {
             HEADING.default,
             crate::nodes::OFF,
             "the heading starts closed"
+        );
+    }
+    /// Offset reaches one whole period either way: ±1 on a periodic node, ±4 at Repeat 4, ±64
+    /// on the tunnel, and one cycle either way with no period. Its step is the finest that is a
+    /// thousandth of the period or more, so both ends take a drag of about the same length.
+    #[test]
+    fn offset_reaches_a_period_either_way() {
+        let r = |period| {
+            let r = offset_range(period);
+            (r.min, r.max, r.step)
+        };
+        assert_eq!(r(Some(1.0)), (-1.0, 1.0, 0.001));
+        assert_eq!(r(Some(2.0)), (-2.0, 2.0, 0.01));
+        assert_eq!(r(Some(4.0)), (-4.0, 4.0, 0.01));
+        assert_eq!(r(Some(16.0)), (-16.0, 16.0, 0.1));
+        assert_eq!(r(Some(64.0)), (-64.0, 64.0, 0.1));
+        assert_eq!(r(Some(128.0)), (-128.0, 128.0, 1.0));
+        assert_eq!(r(Some(3.0)), (-3.0, 3.0, 0.01), "a sequencer's three bars");
+        for none in [
+            None,
+            Some(0.0),
+            Some(-4.0),
+            Some(f64::NAN),
+            Some(f64::INFINITY),
+        ] {
+            assert_eq!(r(none), (-1.0, 1.0, 0.001), "{none:?}");
+        }
+    }
+
+    /// An Offset outside its range is taken round the period, keeping its sign, so a picture
+    /// that comes back every period is the same picture; with no period it is clamped to one
+    /// cycle. Inside, ends included, it is left as it is.
+    #[test]
+    fn an_offset_outside_is_taken_round_its_period() {
+        assert_eq!(fit_offset(10.0, Some(4.0)), 2.0);
+        assert_eq!(fit_offset(-10.0, Some(4.0)), -2.0);
+        assert_eq!(fit_offset(-9.5, Some(4.0)), -1.5);
+        assert_eq!(fit_offset(12.0, Some(4.0)), 0.0);
+        for inside in [-4.0, -3.25, 0.0, 2.5, 4.0] {
+            assert_eq!(fit_offset(inside, Some(4.0)), inside);
+        }
+        assert_eq!(fit_offset(2.5, Some(1.0)), 0.5);
+        assert_eq!(fit_offset(3.0, None), 1.0);
+        assert_eq!(fit_offset(-3.0, None), -1.0);
+        assert_eq!(fit_offset(-0.4, None), -0.4);
+    }
+
+    /// Every node that moves with time has an Offset whose range is its period either way,
+    /// read from its options and controls as they stand: a Perlin by its Repeat, the tunnel by
+    /// its depth wrap, a clip by its Loop, a Euclidean Rhythm by where its lanes meet again.
+    #[test]
+    fn every_moving_nodes_offset_reaches_its_own_period() {
+        let mut g = crate::graph::Graph::new();
+        for def in crate::nodes::REGISTRY {
+            let Some(t) = def.timing else { continue };
+            let id = crate::nodes::add_to_graph(&mut g, def.slug, emath::Pos2::ZERO).unwrap();
+            let node = g.get(id).unwrap();
+            for axis in t.axes() {
+                assert_eq!(
+                    crate::nodes::control_range(def, node, axis.offset),
+                    Some(offset_range((t.period)(node))),
+                    "{} {}",
+                    def.slug,
+                    axis.offset
+                );
+            }
+        }
+        let reach = |g: &crate::graph::Graph, id| {
+            let node = g.get(id).unwrap();
+            crate::nodes::control_range(node.def, node, OFFSET)
+                .unwrap()
+                .max
+        };
+        let set = |g: &mut crate::graph::Graph, id, key: &'static str, value: &str| {
+            g.get_mut(id)
+                .unwrap()
+                .options
+                .insert(key, value.to_string());
+        };
+        let perlin = crate::nodes::add_to_graph(&mut g, "perlin", emath::Pos2::ZERO).unwrap();
+        assert_eq!(reach(&g, perlin), 1.0, "Repeat Never: one cycle either way");
+        for (repeat, want) in [("4", 4.0), ("16", 16.0), ("1", 1.0)] {
+            set(&mut g, perlin, "repeat", repeat);
+            assert_eq!(reach(&g, perlin), want, "Repeat {repeat}");
+        }
+        let tunnel = crate::nodes::add_to_graph(&mut g, "tunnel3d", emath::Pos2::ZERO).unwrap();
+        assert_eq!(reach(&g, tunnel), 64.0);
+        set(&mut g, tunnel, "wrap", "none");
+        assert_eq!(reach(&g, tunnel), 1.0);
+        let clip = crate::nodes::add_to_graph(&mut g, "video", emath::Pos2::ZERO).unwrap();
+        assert_eq!(reach(&g, clip), 1.0);
+        set(&mut g, clip, "loop", "hold");
+        assert_eq!(reach(&g, clip), 1.0);
+        let euclid =
+            crate::nodes::add_to_graph(&mut g, "euclideanrhythm", emath::Pos2::ZERO).unwrap();
+        assert_eq!(reach(&g, euclid), 1.0, "four lanes of 16 meet every bar");
+        g.get_mut(euclid)
+            .unwrap()
+            .controls
+            .insert("lane2steps", ControlValue::Float(12.0));
+        assert_eq!(reach(&g, euclid), 3.0, "16 and 12 meet every three bars");
+    }
+
+    /// Fitting a node's Offsets after its period shrank: taken round the new period on each
+    /// axis, and left alone where a hand gave the Offset a range of its own.
+    #[test]
+    fn fitting_a_nodes_offsets_takes_them_round_its_period() {
+        let mut g = crate::graph::Graph::new();
+        let perlin = crate::nodes::add_to_graph(&mut g, "perlin", emath::Pos2::ZERO).unwrap();
+        let node = g.get_mut(perlin).unwrap();
+        node.options.insert("repeat", "16".to_string());
+        node.controls.insert(OFFSET, ControlValue::Float(10.0));
+        fit_offsets(node);
+        assert_eq!(
+            node.controls[OFFSET],
+            ControlValue::Float(10.0),
+            "inside ±16"
+        );
+        node.options.insert("repeat", "4".to_string());
+        fit_offsets(node);
+        assert_eq!(
+            node.controls[OFFSET],
+            ControlValue::Float(2.0),
+            "10 is 2 round 4"
+        );
+        node.options.insert("repeat", "never".to_string());
+        node.controls.insert(OFFSET, ControlValue::Float(-3.5));
+        fit_offsets(node);
+        assert_eq!(
+            node.controls[OFFSET],
+            ControlValue::Float(-1.0),
+            "no period: clamped"
+        );
+
+        let shaky = crate::nodes::add_to_graph(&mut g, "shakycam", emath::Pos2::ZERO).unwrap();
+        let node = g.get_mut(shaky).unwrap();
+        node.controls.insert(OFFSET, ControlValue::Float(1.5));
+        node.controls.insert(OFFSET_Y, ControlValue::Float(-2.25));
+        fit_offsets(node);
+        assert_eq!(node.controls[OFFSET], ControlValue::Float(0.5));
+        assert_eq!(node.controls[OFFSET_Y], ControlValue::Float(-0.25), "Y too");
+
+        node.values.insert(
+            OFFSET,
+            Value::Range(ControlRange {
+                min: -8.0,
+                max: 8.0,
+                step: 0.01,
+            }),
+        );
+        node.controls.insert(OFFSET, ControlValue::Float(6.0));
+        fit_offsets(node);
+        assert_eq!(
+            node.controls[OFFSET],
+            ControlValue::Float(6.0),
+            "a hand's own range did not move"
         );
     }
 }

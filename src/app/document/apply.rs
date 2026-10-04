@@ -282,6 +282,7 @@ impl Document {
                     .ok_or(CommandError::NoSuchNode(node))?;
                 n.controls.insert(key, value);
                 recap(n, key);
+                crate::nodes::timing::fit_offsets(n);
                 // Deliberately no recompile: a parameter edit sets a uniform. That
                 // asymmetry is what makes the instrument playable during a performance.
             }
@@ -296,6 +297,7 @@ impl Document {
                 for (key, _) in values {
                     recap(n, key);
                 }
+                crate::nodes::timing::fit_offsets(n);
             }
             Command::SetRange { node, key, range } => {
                 // Already fitted to the definition's range by `coerce`.
@@ -325,12 +327,14 @@ impl Document {
                 {
                     return Err(CommandError::NoSuchKey(node, key));
                 }
-                let Some(range) = crate::nodes::declared_range(n.def, key) else {
+                let Some(range) = crate::nodes::default_range(n, key) else {
                     return Err(CommandError::NoSuchKey(node, key));
                 };
                 // This is what hands the range back: a guard that only looked would leave
                 // the node's own range exactly where it was.
                 n.values.remove(key);
+                // An Offset goes round its period rather than to an end of it.
+                crate::nodes::timing::fit_offsets(n);
                 refit(n, key, range);
             }
             Command::SetValue {
@@ -365,6 +369,8 @@ impl Document {
                 }
                 let def = n.def;
                 n.options.insert(key, value.clone());
+                // A period that shrank takes its Offset round it, in the same step.
+                crate::nodes::timing::fit_offsets(n);
                 // A time mode puts one row away, and the cable into it goes in the same step,
                 // so the switch and the disconnect are one undo.
                 if !self.graph_mut().drop_inactive(node).is_empty() {
@@ -403,6 +409,7 @@ impl Document {
                 for (key, _) in controls {
                     recap(n, key);
                 }
+                crate::nodes::timing::fit_offsets(n);
                 // And its time mode's: the cable into a row put away goes with it.
                 if !self.graph_mut().drop_inactive(node).is_empty() {
                     self.mark(&mut out, node);

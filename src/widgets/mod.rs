@@ -250,7 +250,7 @@ impl RegionUi<'_> {
         let &ControlValue::Float(value) = self.node.controls.get(key)? else {
             return None;
         };
-        let declared = crate::nodes::declared_range(def, key)?;
+        let declared = crate::nodes::default_range(self.node, key)?;
         let range = crate::nodes::control_range(def, self.node, key)?;
         let spec = crate::ui::number::NumberSpec {
             value,

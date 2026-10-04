@@ -526,8 +526,8 @@ fn a_two_frame_gif_advances_at_its_own_delays() {
     assert_eq!(app.uniform(PortRef::new(id, "frame")), Some(0.0));
 }
 
-/// Offset is added to Time, 0 to 1 across the GIF's frames' own delays: with Time at zero it
-/// is the whole position, and past the end it wraps as a GIF does.
+/// Offset is added to Time, 1 across the GIF's frames' own delays: with Time at zero it is the
+/// whole position, and past either end it wraps as a GIF does, so −0.5 is half of it.
 #[test]
 fn a_gifs_position_is_added_over_its_own_delays() {
     let dir = scratch("position");
@@ -568,6 +568,9 @@ fn a_gifs_position_is_added_over_its_own_delays() {
     );
     assert_eq!(frame(&mut app, 0.75), 2.0);
     assert_eq!(frame(&mut app, 0.95), 3.0);
+    assert_eq!(frame(&mut app, -0.5), 1.0, "half back is half on");
+    assert_eq!(frame(&mut app, -0.05), 3.0, "a hair back is the last");
+    assert_eq!(frame(&mut app, -1.0), 0.0, "a whole play back is the start");
 
     // Played on top of a half: three tenths in, and fifteen hundredths of a second on.
     set(&mut app, id, "phaseOffset", 0.5);

@@ -60,8 +60,9 @@ pub struct NumberSpec {
     pub default: f32,
     /// The ends and quantum this control actually has — the instance's where it has one.
     pub range: ControlRange,
-    /// What the definition declares, which is what `R` puts back and what the range editor
-    /// may not exceed.
+    /// What the range is before a hand changed it — the definition's, or what the node's own
+    /// settings make it (`nodes::default_range`) — which is what `R` puts back and what the
+    /// range editor prints as its default.
     pub declared: ControlRange,
     pub unit: &'static str,
     /// Scrub in log space. A zoom of 0.01 to 100 spends its whole linear travel below 1.
@@ -383,7 +384,7 @@ pub(crate) fn bevel_border(painter: &eframe::egui::Painter, rect: Rect, zoom: f3
 /// field a typed edit opens. One function, because the readout and the field must sit on the
 /// same baseline — a field whose text is a hair larger makes the number jump the moment it is
 /// clicked, which is the one frame the eye is already on it.
-fn value_font(zoom: f32) -> FontId {
+pub(crate) fn value_font(zoom: f32) -> FontId {
     FontId::monospace(theme::font_size(theme::FONT_BASE * 0.9, zoom))
 }
 

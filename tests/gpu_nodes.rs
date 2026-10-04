@@ -455,10 +455,10 @@ fn differ(a: &[[u8; 4]], b: &[[u8; 4]]) -> usize {
         .count()
 }
 
-/// **Offset adds.** A node whose Time reads 0.3 with its Offset at 0.4 draws what one whose
-/// Time reads 0.7 draws with no Offset, and not what 0.3 alone draws: the two are one sum, in
-/// the node's own cycles. Held on a noise, a palette, the two transforms that keep time and
-/// the tunnel.
+/// **Offset adds, either way.** A node whose Time reads 0.3 with its Offset at 0.4 draws what
+/// one whose Time reads 0.7 draws with no Offset, and not what 0.3 alone draws: the two are one
+/// sum, in the node's own cycles. An Offset of −0.4 on 0.7 is 0.3 the same way. Held on a
+/// noise, a palette, the two transforms that keep time and the tunnel.
 #[test]
 fn offset_adds_to_time() {
     const SIZE: u32 = 64;
@@ -491,6 +491,12 @@ fn offset_adds_to_time() {
         assert!(
             differ(&summed, &alone) * 20 > pixels,
             "{slug}: and the Offset moved it"
+        );
+        let back = draw(0.7, -0.4);
+        assert!(
+            differ(&back, &alone) * 1000 <= pixels,
+            "{slug}: 0.7 and an Offset of −0.4 is 0.3, but {} of {pixels} pixels differ",
+            differ(&back, &alone)
         );
     }
 }
@@ -682,6 +688,94 @@ fn static_under_repeat_comes_back_with_a_field_in_its_offset() {
         "256 Repeats on is the same picture"
     );
     assert!(differ(&start, &next) > 0, "and a roll on is not");
+}
+
+/// **A negative Offset comes back with the period too.** Time is taken round the period
+/// before Offset is added, whatever its sign, so a Perlin at Repeat 4 with its Offset at −2.7
+/// draws at a Time of 1024.5 exactly what it draws at 0.5, as does the tunnel at −5.3 a flight
+/// of 64 on, and Static at Repeat 4 with a field a hair over −0.5 in its Offset. An Offset of
+/// −1.5 at Repeat 4 is 2.5 there: one period apart, the same picture.
+#[test]
+fn a_negative_offset_comes_back_with_the_period() {
+    const SIZE: u32 = 64;
+    let draw = |slug: &'static str, root, options: &[(&'static str, &str)], offset, time| {
+        let (mut g, out, under) = timed(slug, root, offset);
+        for (key, value) in options {
+            g.get_mut(under)
+                .unwrap()
+                .options
+                .insert(key, (*value).to_string());
+        }
+        rendered_publishing(&g, out, SIZE, &move |port| {
+            if port.node == under && port.key == nodes::TIME {
+                time
+            } else {
+                0.0
+            }
+        })
+    };
+    let four = [("repeat", "4")];
+    let start = draw("perlin", "color", &four, -2.7, 0.5);
+    assert_eq!(
+        differ(&start, &draw("perlin", "color", &four, -2.7, 1024.5)),
+        0,
+        "perlin: 256 Repeats on is the same picture"
+    );
+    assert!(
+        differ(&start, &draw("perlin", "color", &four, -2.7, 1.5)) > 0,
+        "perlin: and a cell on is not"
+    );
+    let tunnel = draw("tunnel3d", "output", &[], -5.3, 0.0);
+    assert_eq!(
+        differ(&tunnel, &draw("tunnel3d", "output", &[], -5.3, 64.0)),
+        0,
+        "tunnel: a flight on is the same picture"
+    );
+    let below = draw("perlin", "color", &four, -1.5, 0.25);
+    let above = draw("perlin", "color", &four, 2.5, 0.25);
+    assert!(
+        differ(&below, &above) * 1000 <= below.len(),
+        "−1.5 is 2.5 round 4, but {} pixels differ",
+        differ(&below, &above)
+    );
+
+    let field = |time: f32| {
+        let (mut g, out, under) = timed("static", "color", 0.0);
+        g.get_mut(under)
+            .unwrap()
+            .options
+            .insert("repeat", "4".to_string());
+        // Offset −0.5 + x / 10⁴: across the frame, within a ten-thousandth of a half back.
+        let world = add(&mut g, "worldcoordinates");
+        let scale = add(&mut g, "multiply");
+        let shift = add(&mut g, "add");
+        set(&mut g, scale, "b", 1e-4);
+        set(&mut g, shift, "b", -0.5);
+        for (from, to) in [
+            (PortRef::new(world, "x"), PortRef::new(scale, "a")),
+            (PortRef::new(scale, "output"), PortRef::new(shift, "a")),
+            (
+                PortRef::new(shift, "output"),
+                PortRef::new(under, nodes::timing::OFFSET),
+            ),
+        ] {
+            g.connect(from, to).unwrap();
+        }
+        rendered_publishing(&g, out, SIZE, &move |port| {
+            if port.node == under && port.key == nodes::TIME {
+                time
+            } else {
+                0.0
+            }
+        })
+    };
+    let (start, round, next) = (field(0.5), field(1024.5), field(1.5));
+    assert_eq!(
+        differ(&start, &round),
+        0,
+        "static: 256 Repeats on is the same"
+    );
+    assert!(differ(&start, &next) > 0, "static: and a roll on is not");
 }
 
 #[test]

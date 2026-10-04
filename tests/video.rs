@@ -284,6 +284,37 @@ fn offset_is_added_to_time_in_either_direction() {
     assert!(picture(&app, id) != before, "and the picture moves with it");
 }
 
+/// **A negative Offset on a clip.** With a gear at ×0 in Time the Offset is the whole
+/// position: on Loop −0.25 wraps to three quarters through, and on Hold, where the clip never
+/// comes back, the sum is held at the first frame until the Time has made the Offset up.
+#[test]
+fn a_negative_offset_wraps_on_loop_and_waits_on_hold() {
+    let Some(file) = clip("behind") else { return };
+    let (mut app, id) = app_with_video(&file);
+    tick_until_playing(&mut app, id);
+    geared(&mut app, id, 0.0);
+    app.apply(Command::SetControl {
+        node: id,
+        key: supersilvia::nodes::timing::OFFSET,
+        value: ControlValue::Float(-0.25),
+    })
+    .unwrap();
+    settle(&mut app, 10);
+    assert!(
+        (position(&app, id) - 0.75).abs() < 1e-3,
+        "a quarter back on Loop: {}",
+        position(&app, id)
+    );
+    app.apply(Command::SetOption {
+        node: id,
+        key: "loop",
+        value: "hold".to_string(),
+    })
+    .unwrap();
+    settle(&mut app, 10);
+    assert_eq!(position(&app, id), 0.0, "on Hold, the first frame");
+}
+
 /// Where the clip is, 0 to 1, as the node's own report line says it.
 fn position(app: &App, id: NodeId) -> f64 {
     let report = app.cpu_report(id);

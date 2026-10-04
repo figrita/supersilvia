@@ -1636,6 +1636,49 @@ fn lane_edges(app: &mut App, id: NodeId, frames: usize) -> [Vec<(Edge, f32)>; 4]
     out
 }
 
+/// **A negative Offset puts the steps later, on the same grid.** A step sequencer whose one
+/// lit step is its first, on a bar-long Master Gear, opens lane 1 on each bar's downbeat; at an
+/// Offset of −0.25 of a bar each downbeat falls a quarter of a bar later, half a second, and at
+/// +0.75, a bar away from −0.25, at the very same moments.
+#[test]
+fn a_negative_offset_puts_the_steps_later_on_the_same_grid() {
+    let downs = |offset: f32| {
+        let (mut app, id) = sequencer_with(&["x..............."]);
+        app.apply(Command::SetControl {
+            node: id,
+            key: supersilvia::nodes::timing::OFFSET,
+            value: ControlValue::Float(offset),
+        })
+        .unwrap();
+        driven(&mut app, id);
+        let [lane1, ..] = lane_edges(&mut app, id, 300);
+        lane1
+            .into_iter()
+            .filter(|(edge, _)| *edge == Edge::Down)
+            .map(|(_, at)| at)
+            .collect::<Vec<f32>>()
+    };
+    let near = |have: &[f32], want: &[f32]| {
+        have.len() == want.len() && have.iter().zip(want).all(|(a, b)| (a - b).abs() < 1e-3)
+    };
+    // The first downbeat is the landing, at the top of the first frame.
+    let on = downs(0.0);
+    assert!(
+        near(&on[on.len() - 2..], &[2.0, 4.0]),
+        "on the downbeats: {on:?}"
+    );
+    let back = downs(-0.25);
+    assert!(
+        near(&back, &[0.5, 2.5, 4.5]),
+        "a quarter of a bar later: {back:?}"
+    );
+    let ahead = downs(0.75);
+    assert!(
+        near(&ahead, &back),
+        "a bar apart, the same steps: {ahead:?}"
+    );
+}
+
 /// **Running free, a sequencer steps forwards and backwards on its Speed, and never across a
 /// seek.** At Speed 1, a bar every two seconds, step 0 then step 1 open lanes 1 and 2 in that
 /// order, each closed a gate later; at Speed −1 the steps come back in reverse, lane 2's step

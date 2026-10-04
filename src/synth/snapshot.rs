@@ -369,6 +369,17 @@ impl<'a> Uniforms<'a> {
         self.numbers.get(&port).copied()
     }
 
+    /// What the Time at `at` reads, with `source` the output cabled into it: that output's
+    /// count, or else its one `f32`, as `UniformProvider::NodeCount` and
+    /// `TickContext::count` resolve it; and with nothing cabled in, the reading published
+    /// under the Time's own key. `None` where nothing has been published.
+    pub fn time(self, at: PortRef, source: Option<PortRef>) -> Option<f64> {
+        match source {
+            Some(src) => self.count(src).or_else(|| self.get(src).map(f64::from)),
+            None => self.count(at),
+        }
+    }
+
     /// What a uniform color port published, on the same terms as [`Self::get`].
     pub fn color(self, port: PortRef) -> Option<[f32; 4]> {
         self.colors.get(&port).copied()

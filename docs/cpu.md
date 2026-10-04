@@ -163,7 +163,9 @@ rest of the app:
   unwrapped, its Offset added: in Loop mode what is cabled into its Time, read as a count, or
   the playhead at its rate; in Free mode its own playhead at its pace, which the synth
   integrated from its Speed. `ctx.cycle_at(id, rate)` is the same at a rate the node works out
-  itself, and `ctx.runs_free(id)` says which mode it is in. See [ambient time](#ambient-time).
+  itself, and `ctx.runs_free(id)` says which mode it is in. With nothing cabled into its
+  Time, either publishes the reading before Offset as a count under the Time key, which the
+  loop meter on the row reads. See [ambient time](#ambient-time).
 - `ctx.count(id, key)` — what arrives at an input read as a **count**, in `f64`: a count its
   source published whole, unbounded, or else the one `f32` `ctx.input` reads.
   `ctx.counted(id, key)` says which. `ctx.publish_count(id, port, count, one)` publishes a
@@ -388,16 +390,19 @@ Time as that published count, `vec2f(whole, fraction)`, cannot tell the two mode
 
 A body takes its Time round its period through the prelude's helpers — `time_periodic`,
 `time_repeat` and `time_unbounded` — by reducing the whole part first, adding the fraction, then
-adding **Offset**, `nodes::timing::OFFSET` (key `phaseOffset`), 0 to 1 of the node's cycles,
-added in both modes. Offset is a varying input on a node that draws, where a field makes a
-ripple, and a uniform number on a CPU node.
+adding **Offset**, `nodes::timing::OFFSET` (key `phaseOffset`), in the node's cycles, added in
+both modes; its knob reaches one period either way, −P to P (`nodes::timing::range`). Offset is
+a varying input on a node that draws, where a field makes a ripple, and a uniform number on a
+CPU node.
 
 **A CPU node reads where it is through `TickContext::cycle(id)`**, its Offset added: in Loop
 mode what is cabled into its Time, read as a count in `f64`, or the playhead times its rate;
 in Free mode its own playhead times its pace, handed to the tick by the synth
 (`TickContext::running_free`). `ctx.cycle_at(id, rate)` is the same at a rate the node works
 out itself — a clip's one play over its own length, which is its pace too. `ctx.runs_free(id)`
-says which mode it is in.
+says which mode it is in. With nothing cabled into its Time, either publishes the reading
+before Offset under the Time key, as the synth does for a node that draws, so the loop meter
+on the Time row ([ui.md](ui.md#the-loop-meter)) reads a CPU node as it reads any other.
 
 ### The oscillator, the sequencers and the clips
 
@@ -438,9 +443,9 @@ see what it crossed: an edge detector, not an accumulator.
   clock — a tap, a threshold — is not a gear. Gate is how much of a step a lane's gate stays
   open.
 - **`video` and `imagegif`** read where they are in plays, `ctx.cycle_at(id, 1 ÷ length)`, so
-  at rest and at Speed 1 a clip plays at its native speed and a GIF at its own delays. Offset is added, 0 to 1 across
-  the clip; `video`'s Loop option wraps the sum and Hold clamps it to one play, and a GIF
-  wraps. The frame is a function of the sum, so the node keeps no position: a hand on the
+  at rest and at Speed 1 a clip plays at its native speed and a GIF at its own delays. Offset is added, 1 a play
+  and its knob −1 to 1; `video`'s Loop option wraps the sum and Hold clamps it to one play, and
+  a GIF wraps. The frame is a function of the sum, so the node keeps no position: a hand on the
   scrubber writes Offset through `write_control`, so the sum lands where it was dropped and
   Time plays on from there. Reverse is Speed −1, or a Ratio Gear at `-×1` in Loop mode, and
   twice as fast Speed 2 or a gear at ×2. A

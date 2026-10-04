@@ -14,6 +14,7 @@ pub mod context;
 pub mod history;
 pub mod keycap;
 pub mod layout;
+pub mod loop_meter;
 pub mod maininput;
 pub mod menu;
 pub mod midi;
@@ -2404,7 +2405,7 @@ fn range_editor(
     let graph = pass.frame.graph;
     let spec = graph.get(node).and_then(|n| {
         let def = n.def;
-        let declared = crate::nodes::declared_range(def, key)?;
+        let declared = crate::nodes::default_range(n, key)?;
         let value = match n.controls.get(key)? {
             crate::graph::ControlValue::Float(v) => *v,
             crate::graph::ControlValue::Color(_) => return None,

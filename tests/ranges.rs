@@ -479,3 +479,184 @@ fn source_segment_follows_the_segment_count() {
         "the range and the value it dragged are one step"
     );
 }
+
+/// A headless app holding one Perlin with nothing changed.
+fn perlin() -> (App, NodeId) {
+    let mut app = App::headless();
+    app.apply(Command::AddNode {
+        slug: "perlin",
+        at: Pos2::ZERO,
+        workspace: app.graph().default_workspace(),
+    })
+    .unwrap();
+    let id = app.graph().iter().next().expect("just added").0;
+    (app, id)
+}
+
+fn choose(app: &mut App, id: NodeId, key: &'static str, value: &str) {
+    app.apply(Command::SetOption {
+        node: id,
+        key,
+        value: value.to_string(),
+    })
+    .unwrap();
+}
+
+fn offset(app: &mut App, id: NodeId, v: f32) {
+    app.apply(Command::SetControl {
+        node: id,
+        key: nodes::timing::OFFSET,
+        value: ControlValue::Float(v),
+    })
+    .unwrap();
+}
+
+/// **Offset reaches one period either way, and follows the Repeat as it changes.** A Perlin at
+/// Repeat Never reaches one cycle either way, at 16 it reaches ±16 and at 4 ±4, at once; a
+/// value is fitted to the range it has now, so −20 at 16 is −16.
+#[test]
+fn an_offsets_range_follows_its_period() {
+    let (mut app, id) = perlin();
+    let key = nodes::timing::OFFSET;
+    let ends = |app: &App| {
+        let r = range(app, id, key);
+        (r.min, r.max)
+    };
+    assert_eq!(ends(&app), (-1.0, 1.0));
+    choose(&mut app, id, "repeat", "16");
+    assert_eq!(ends(&app), (-16.0, 16.0));
+    offset(&mut app, id, -20.0);
+    assert_eq!(value(&app, id, key), -16.0);
+    choose(&mut app, id, "repeat", "4");
+    assert_eq!(ends(&app), (-4.0, 4.0));
+    assert!(
+        app.graph().get(id).is_some_and(|n| n.values.is_empty()),
+        "the range is the period's, not one stored on the node"
+    );
+}
+
+/// **A period that shrinks takes the Offset round it, in the same step.** 10 at Repeat 16 is
+/// 2 at Repeat 4, the same picture; one undo puts both back; and with no period left, at
+/// Repeat Never, it is clamped to one cycle, since no other value draws the same.
+#[test]
+fn a_shrinking_period_takes_the_offset_round_it() {
+    let (mut app, id) = perlin();
+    let key = nodes::timing::OFFSET;
+    choose(&mut app, id, "repeat", "16");
+    offset(&mut app, id, 10.0);
+    choose(&mut app, id, "repeat", "4");
+    assert_eq!(value(&app, id, key), 2.0, "10 round 4");
+    assert!(app.undo());
+    assert_eq!(
+        value(&app, id, key),
+        10.0,
+        "the Repeat and the Offset are one step"
+    );
+    assert_eq!(range(&app, id, key).max, 16.0);
+    offset(&mut app, id, -10.0);
+    choose(&mut app, id, "repeat", "4");
+    assert_eq!(value(&app, id, key), -2.0, "the sign is kept");
+    choose(&mut app, id, "repeat", "never");
+    assert_eq!(value(&app, id, key), -1.0);
+    choose(&mut app, id, "repeat", "16");
+    assert_eq!(
+        value(&app, id, key),
+        -1.0,
+        "a period that grows moves nothing"
+    );
+}
+
+/// A Euclidean Rhythm's period is where its lanes meet again, so a lane's length moves it:
+/// at 16 and 12 it is three bars, and back at 16 an Offset of 2.5 bars is half a bar.
+#[test]
+fn a_lanes_length_moves_a_rhythms_offset_range() {
+    let mut app = App::headless();
+    app.apply(Command::AddNode {
+        slug: "euclideanrhythm",
+        at: Pos2::ZERO,
+        workspace: app.graph().default_workspace(),
+    })
+    .unwrap();
+    let id = app.graph().iter().next().expect("just added").0;
+    let key = nodes::timing::OFFSET;
+    let steps = |app: &mut App, v: f32| {
+        app.apply(Command::SetControl {
+            node: id,
+            key: "lane2steps",
+            value: ControlValue::Float(v),
+        })
+        .unwrap();
+    };
+    steps(&mut app, 12.0);
+    assert_eq!(range(&app, id, key).max, 3.0);
+    offset(&mut app, id, 2.5);
+    steps(&mut app, 16.0);
+    assert_eq!(range(&app, id, key).max, 1.0);
+    assert_eq!(value(&app, id, key), 0.5);
+}
+
+/// **A file's Offset is fitted to the period its own settings give it**, not to a new node's:
+/// a Perlin saved at Repeat 16 with its Offset at 10 opens with both, and a Euclidean Rhythm
+/// whose lanes meet every three bars opens with its Offset at 2.5.
+#[test]
+fn a_saved_offset_opens_against_its_own_period() {
+    let (mut app, id) = perlin();
+    choose(&mut app, id, "repeat", "16");
+    offset(&mut app, id, 10.0);
+    app.apply(Command::AddNode {
+        slug: "euclideanrhythm",
+        at: Pos2::new(300.0, 0.0),
+        workspace: app.graph().default_workspace(),
+    })
+    .unwrap();
+    let euclid = app.graph().iter().map(|(id, _)| id).max().unwrap();
+    app.apply(Command::SetControl {
+        node: euclid,
+        key: "lane2steps",
+        value: ControlValue::Float(12.0),
+    })
+    .unwrap();
+    offset(&mut app, euclid, 2.5);
+    let json = serde_json::to_string(&file_of(app.graph())).expect("a workspace serializes");
+    let (graph, warnings) = supersilvia::workspace::from_str(&json).expect("and reads back");
+    assert!(warnings.is_empty(), "{warnings:?}");
+    for (id, want) in [(id, 10.0), (euclid, 2.5)] {
+        let node = graph.get(id).expect("the node round-tripped");
+        assert_eq!(
+            node.controls.get(nodes::timing::OFFSET),
+            Some(&ControlValue::Float(want)),
+            "{}",
+            node.def.slug
+        );
+    }
+}
+
+/// A hand's own range on an Offset stays where it was put whatever the period does, and
+/// clearing it hands back the period's, the value taken round it.
+#[test]
+fn clearing_an_offsets_own_range_hands_back_its_period() {
+    let (mut app, id) = perlin();
+    let key = nodes::timing::OFFSET;
+    choose(&mut app, id, "repeat", "4");
+    let own = ControlRange {
+        min: -20.0,
+        max: 20.0,
+        step: 0.1,
+    };
+    app.apply(Command::SetRange {
+        node: id,
+        key,
+        range: own,
+    })
+    .unwrap();
+    offset(&mut app, id, 9.0);
+    choose(&mut app, id, "repeat", "2");
+    assert_eq!(range(&app, id, key), own, "a hand's range does not follow");
+    assert_eq!(value(&app, id, key), 9.0);
+    app.apply(Command::ClearRange { node: id, key }).unwrap();
+    assert_eq!(
+        (range(&app, id, key).min, range(&app, id, key).max),
+        (-2.0, 2.0)
+    );
+    assert_eq!(value(&app, id, key), 1.0, "9 round 2");
+}

@@ -1217,8 +1217,8 @@ fn a_loop_as_long_as_its_master_gear_says_closes() {
 
 /// **A noise under Repeat closes, Offset and all.** A Perlin repeating every two cells on a
 /// Ratio Gear at ×2 under a one-second Master Gear walks its circle once in a second, and with
-/// its Offset at 0.3 frame 20 is still frame zero to the byte: Time is taken round its circle
-/// before Offset is added, so a whole turn is no turn at all to the bit.
+/// its Offset at −1.7 frame 20 is still frame zero to the byte: Time is taken round its circle
+/// before Offset is added, whatever its sign, so a whole turn is no turn at all to the bit.
 #[test]
 fn a_noise_under_repeat_closes_with_its_offset() {
     use supersilvia::Command;
@@ -1241,7 +1241,7 @@ fn a_noise_under_repeat_closes_with_its_offset() {
     app.apply(Command::SetControl {
         node: perlin,
         key: supersilvia::nodes::timing::OFFSET,
-        value: ControlValue::Float(0.3),
+        value: ControlValue::Float(-1.7),
     })
     .unwrap();
     app.publish_plan();

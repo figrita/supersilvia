@@ -929,7 +929,7 @@ impl<'a> TickContext<'a> {
     /// Loop mode its Time — what is cabled in, read as a count ([`Self::count`]), or ambient
     /// time at its rest rate, from the `f64` playhead — and in Free mode its own playhead at
     /// its pace. See [`crate::nodes::timing`].
-    pub fn cycle(&self, id: NodeId) -> f64 {
+    pub fn cycle(&mut self, id: NodeId) -> f64 {
         let timing = self.graph.get(id).and_then(|n| n.def.timing);
         let rate = timing.map_or(0.0, |t| if self.runs_free(id) { t.pace } else { t.rate });
         self.cycle_at(id, rate)
@@ -937,11 +937,24 @@ impl<'a> TickContext<'a> {
 
     /// The same at a rate the node works out itself — a clip's one play over its length, which
     /// is both its rate at rest and its pace.
-    pub fn cycle_at(&self, id: NodeId, rate: f64) -> f64 {
-        let time = match self.free {
-            Some((node, at)) if node == id => at * rate,
-            _ if self.connected(id, crate::nodes::TIME) => self.count(id, crate::nodes::TIME),
-            _ => self.time.playhead * rate,
+    ///
+    /// Where nothing is cabled into its Time, the reading before Offset is published as a count
+    /// under the Time key, as the synth publishes a drawing node's: what the loop meter on the
+    /// Time row reads.
+    pub fn cycle_at(&mut self, id: NodeId, rate: f64) -> f64 {
+        let own = match self.free {
+            Some((node, at)) if node == id => Some(at * rate),
+            _ if self.connected(id, crate::nodes::TIME) => None,
+            _ => Some(self.time.playhead * rate),
+        };
+        let time = match own {
+            Some(time) => {
+                let time = if time.is_finite() { time } else { 0.0 };
+                self.counts
+                    .insert(PortRef::new(id, crate::nodes::TIME), time);
+                time
+            }
+            None => self.count(id, crate::nodes::TIME),
         };
         time + f64::from(self.input(id, crate::nodes::timing::OFFSET))
     }

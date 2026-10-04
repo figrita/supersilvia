@@ -96,6 +96,50 @@ fn unplugged_time_is_the_playhead_at_the_nodes_rate() {
     }
 }
 
+/// **A CPU node's unplugged Time is published too**, under its own key, before its Offset:
+/// the playhead at its rate in Loop mode, its own playhead at its pace in Free mode — what the
+/// loop meter on its Time row reads.
+#[test]
+fn a_cpu_nodes_unplugged_time_is_published_under_its_key() {
+    let mut app = App::headless();
+    let osc = add(&mut app, "oscillator");
+    let seq = add(&mut app, "stepsequencer");
+    for id in [osc, seq] {
+        option(&mut app, id, "clockMode", "loop");
+    }
+    app.apply(Command::SetControl {
+        node: osc,
+        key: nodes::timing::OFFSET,
+        value: supersilvia::graph::ControlValue::Float(0.25),
+    })
+    .unwrap();
+    app.transport(Transport::Seek(37.25));
+    app.tick(FRAME);
+    let playhead = app.transport_state().playhead;
+    let at = |app: &App, id| app.count(PortRef::new(id, TIME)).unwrap();
+    assert!(
+        (at(&app, osc) - playhead).abs() < 1e-9,
+        "a cycle a second, Offset left out"
+    );
+    assert_eq!(
+        at(&app, seq),
+        0.0,
+        "a sequencer sits still in Loop mode with nothing in it"
+    );
+    option(&mut app, seq, "clockMode", "free");
+    app.apply(Command::SetControl {
+        node: seq,
+        key: nodes::timing::SPEED,
+        value: supersilvia::graph::ControlValue::Float(1.0),
+    })
+    .unwrap();
+    app.tick(FRAME);
+    assert!(
+        (at(&app, seq) - app.transport_state().playhead * 0.5).abs() < 1e-6,
+        "free at Speed 1, its playhead at its pace of half a bar a second"
+    );
+}
+
 /// **A node that moves with time keeps no state**: sought to a moment, played through to it,
 /// or sought away and back, its Time reads the same there — so its picture is the same, since
 /// nothing else of it moved.

@@ -315,7 +315,7 @@ impl Transport {
     /// (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's motion,
     /// and a jump, or a cable plugged in, let go or moved onto another output, puts it back
     /// at the reading as published, and is a jump.
-    fn time(&mut self, id: NodeId, ctx: &TickContext<'_>) -> f64 {
+    fn time(&mut self, id: NodeId, ctx: &mut TickContext<'_>) -> f64 {
         let source = ctx.source(id, crate::nodes::TIME);
         self.moved = self.last.is_some() && source != self.source;
         self.source = source;

@@ -469,13 +469,19 @@ of its own, `.paced(pace)` gives a node resting at zero a pace, and `.xy()` a se
   the node's own cycles. Unplugged it is ambient time, `playhead × rate`. Plugged, whatever
   arrives **replaces** it — usually a gear's Cycles, which drives the node exactly and closes
   a loop to the bit. Time is one moment per node, which the CPU reads as well as the shader,
-  so a field cabled into it is an ordinary type mismatch.
+  so a field cabled into it is an ordinary type mismatch. Where Speed's knob stands in Free
+  mode, the row carries a **loop meter**: the node's period cut into its cycles and filled by
+  how far through it the node's Time is, `3/4` in its middle, or on a picture that never comes
+  back the cycle it is in with its right end open (`nodes::timing::Progress`,
+  [ui.md](ui.md#the-loop-meter)).
 
 **Time reads a count whole.** In both modes the synth publishes where the node is under the
 Time key, `u_count_{slug}{id}_clock`: a gear's Cycles, the Time node's Seconds, the ambient
 reading and a free-running playhead are counts, which a CPU node reads in `f64` and a shader
 as its whole part and its fraction ([cpu.md](cpu.md#gears)), so a Time is as precise a
-million cycles on as at the first. Anything else in a Time — a Phase, an oscillator, a count
+million cycles on as at the first. A CPU node's own reading, with nothing cabled in, is
+published under its Time key by `TickContext::cycle`, before its Offset and at a clip's own
+rate, for the loop meter to read. Anything else in a Time — a Phase, an oscillator, a count
 through a Math node — is the one `f32` that arrives. A body never reads Speed.
 
 **Switching mode** puts one row away and shows the other in place, at the same height, so the
@@ -485,12 +491,28 @@ left in a Speed would race off as a rate. A cable can never land on the row a mo
 (`nodes::timing::is_inactive`, which `Graph::can_connect` refuses as `ConnectError::Inactive`),
 from a hand or from a file.
 
-**Offset** (key `phaseOffset`, `nodes::timing::OFFSET`) is 0 to 1 of the node's own cycles —
-units, on a node whose picture never repeats — from a knob at zero that adds nothing, and it
-is **added** in both modes: to Time in Loop mode, to the node's own playhead in Free mode. On
-a node that draws it is a varying number, so a field makes a ripple with one cable: a radial
-into Offset spreads the picture outward as rings. On a CPU node, whose tick has no pixel, it
-is a uniform number.
+**Offset** (key `phaseOffset`, `nodes::timing::OFFSET`) is in the node's own cycles — 1 is one
+cycle, or one unit on a node whose picture never repeats — from a knob at zero that adds
+nothing, and it is **added** in both modes: to Time in Loop mode, to the node's own playhead in
+Free mode. On a node that draws it is a varying number, so a field makes a ripple with one
+cable: a radial into Offset spreads the picture outward as rings. On a CPU node, whose tick has
+no pixel, it is a uniform number.
+
+**Its knob reaches one whole period either way**, `−P` to `P`, by the period `P` the node's
+options give it now (`Timing::period`, read by `nodes::timing::range`, which
+`nodes::control_range` asks): −1 to 1 on a periodic node, −4 to 4 on a Perlin at Repeat 4 and
+−16 to 16 at 16, −64 to 64 on the tunnel while its depth wraps, a sequencer's bars where its
+lanes meet again, and −1 to 1 where the picture never comes back — Repeat Never, Depth Wrap
+None, a clip on Hold. The range follows the options live, with nothing stored on the node, so
+the range editor's Default column says it too and a hand's own range, once set, stays where it
+was put. Its step is the finest of 0.001, 0.01, 0.1 and 1 that is at least a thousandth of `P`,
+so a drag across ±1 and one across ±64 are about as long. **An edit that shrinks the period**
+— a Repeat lowered, a depth wrap turned off, a lane shortened — takes a stored Offset round the
+new period in the same undo step (`nodes::timing::fit_offsets`), keeping its sign: 10 at
+Repeat 16 is 2 at Repeat 4, which draws the same picture; with no period left it is clamped to
+one cycle either way, since nothing else draws the same. A value typed or loaded outside the
+range is clamped, as every control's is. A field cabled into Offset is added as it arrives,
+whatever the knob's range.
 
 The time rows are adjacent — Time, Speed, Offset, one of the first two shown — folded under a
 **Timing** heading (`nodes::timing::HEADING`, key `timing`) that starts closed, with the mode
@@ -545,7 +567,8 @@ and `domainwarp` carry a **Repeat** option: Never, the default and silvia's look
 its roll modulo `N`. Every `N` divides the 40320 the whole part wraps at, so a noise on a gear
 never meets a seam. It is a `Code` option and rebuilds, and a person chooses it, because a
 circle through four dimensions is not the line through three and the picture changes. Offset
-on a noise does not wrap unless Repeat is on, and then it wraps at `N`. At rest, Perlin at
+on a noise does not wrap unless Repeat is on, and then it wraps at `N`, which is also how far
+its knob reaches either way. At rest, Perlin at
 Repeat 4 comes back every 8 s; driven by a gear at a cell a cycle, Repeat 1 comes back every
 cycle.
 
@@ -1342,7 +1365,7 @@ One cycle is one play of the clip. **Time** counts plays: unplugged, it is ambie
 clip's native speed, a play every clip length, read through `TickContext::cycle_at`, and
 running free its Speed is a multiple of that native speed, so Speed 2 plays it twice as fast and
 −1 backwards; in Loop mode a gear cabled in replaces Time, so a Ratio Gear at ×2 plays it twice
-as fast and one at −×1 plays it backwards. **Offset**, 0 to 1 across the clip, is **added**; `loop` wraps the sum, or at Hold
+as fast and one at −×1 plays it backwards. **Offset**, 1 a play and −1 to 1 on its knob, is **added**; `loop` wraps the sum, or at Hold
 clamps it to one play, and the frame is `round(position × frames)`. The node keeps no position
 of its own, so the same sum is the same frame however it was reached. A slow wave on Offset
 scratches around the playing clip, and a Ratio Gear at ×0 into Time leaves a cable on Offset
@@ -1374,7 +1397,7 @@ how many frames have arrived, across the picture band, which is a count and not 
 because a GIF's header does not say how long it is. **Time counts plays of the animation**, by
 `video`'s rule: unplugged, ambient time at the GIF's own pace, a play every length of the
 delays it was authored with; a gear cabled in replaces it, a Ratio Gear at ×2 twice as fast and
-one at −×1 backwards. Offset, 0 to 1 across the animation laid over those delays, is added,
+one at −×1 backwards. Offset, 1 across the animation laid over those delays and −1 to 1 on its knob, is added,
 the sum wrapping as a GIF does, and the frame shown is the one whose delay the sum falls
 inside, so the node keeps no playhead of its own. `frame` and `frames` publish where the sum
 is and how many there are. A still is one frame and Time does nothing to it. Sampled outside its own picture it mirrors out to

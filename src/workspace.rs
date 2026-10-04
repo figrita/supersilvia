@@ -344,6 +344,17 @@ impl WorkspaceFile {
             nodes::apply_defaults(graph, id);
 
             let node = graph.get_mut(id).expect("just inserted");
+            // Options first, since a control's range can follow them: an Offset reaches one
+            // period either way, and the period is the node's Repeat.
+            for (key, value) in saved.options {
+                match def.options.iter().find(|o| o.key == key) {
+                    Some(option) if nodes::option_is_valid(def, option.key, &value) => {
+                        node.options.insert(option.key, value);
+                    }
+                    Some(_) => warnings.push(LoadWarning::WrongValue { id, key }),
+                    None => warnings.push(LoadWarning::UnknownOption { id, key }),
+                }
+            }
             // Ranges before controls, so a control is fitted to the range this node has
             // rather than to the one it is about to stop having.
             for (key, value) in saved.values {
@@ -373,7 +384,13 @@ impl WorkspaceFile {
                     None => warnings.push(LoadWarning::UnknownControl { id, key }),
                 }
             }
-            for (key, value) in saved.controls {
+            // An Offset last, since its range follows the node's other controls too: a
+            // Euclidean Rhythm's period is where its lanes' lengths meet.
+            let (offsets, controls): (Vec<_>, Vec<_>) =
+                saved.controls.into_iter().partition(|(key, _)| {
+                    key == nodes::timing::OFFSET || key == nodes::timing::OFFSET_Y
+                });
+            for (key, value) in controls.into_iter().chain(offsets) {
                 // The key has to become the definition's `&'static str`: that is what makes
                 // a bogus key from a file unrepresentable rather than merely unlikely. The
                 // *value* goes through the same coercion the command bus uses, so a file
@@ -390,15 +407,6 @@ impl WorkspaceFile {
                         node.controls.insert(key, value);
                     }
                     None => warnings.push(LoadWarning::WrongValue { id: saved.id, key }),
-                }
-            }
-            for (key, value) in saved.options {
-                match def.options.iter().find(|o| o.key == key) {
-                    Some(option) if nodes::option_is_valid(def, option.key, &value) => {
-                        node.options.insert(option.key, value);
-                    }
-                    Some(_) => warnings.push(LoadWarning::WrongValue { id, key }),
-                    None => warnings.push(LoadWarning::UnknownOption { id, key }),
                 }
             }
         }

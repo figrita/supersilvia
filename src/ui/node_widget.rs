@@ -865,7 +865,7 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
         let room = label_room(
             band.width(),
             is_output,
-            node.controls.contains_key(port.key),
+            node.controls.contains_key(port.key) || (!is_output && canvas::speed_tall(node, index)),
             taken,
             zoom,
         );
@@ -1800,7 +1800,7 @@ fn number_spec(node: &Node, key: &str, value: f32, varying: bool) -> crate::ui::
             _ => None,
         })
         .unwrap_or((0.0, "", false));
-    let declared = crate::nodes::declared_range(def, key).unwrap_or(crate::graph::ControlRange {
+    let declared = crate::nodes::default_range(node, key).unwrap_or(crate::graph::ControlRange {
         min: f32::MIN,
         max: f32::MAX,
         step: 1.0,
@@ -1956,6 +1956,7 @@ fn input_controls(
     for (index, port) in node.inputs.iter().enumerate() {
         let Some(current) = node.controls.get(port.key) else {
             press_row(ui, cx, fx, index, port.key);
+            loop_meter(ui, cx, index, port.key);
             continue;
         };
         let Some(band) = cx.block(canvas::Row::Input(index)) else {
@@ -2024,6 +2025,38 @@ fn input_controls(
             }
         }
     }
+}
+
+/// The loop meter on a Time row, where the Speed knob stands in the other mode: the node's
+/// Time as the node reads it, through its period. The row is drawn only in Loop mode under an
+/// open Timing heading, so the meter is too.
+fn loop_meter(ui: &mut Ui, cx: &NodeCtx<'_>, index: usize, key: &'static str) {
+    let Some(timing) = cx
+        .node
+        .def
+        .timing
+        .filter(|_| canvas::speed_tall(cx.node, index))
+    else {
+        return;
+    };
+    let Some(band) = cx.block(canvas::Row::Input(index)) else {
+        return;
+    };
+    let at = PortRef::new(cx.id, key);
+    let progress = cx
+        .frame
+        .uniforms
+        .time(at, cx.frame.graph.source_of(at))
+        .map(|time| crate::nodes::timing::Progress::of(time, (timing.period)(cx.node)));
+    let zoom = cx.zoom();
+    crate::ui::loop_meter::meter(
+        ui,
+        control_slot(band, zoom),
+        cx.control(key),
+        progress,
+        cx.theme(),
+        zoom,
+    );
 }
 
 /// An action input holds no value, so it has no control of its own. What it may have is a
@@ -3979,7 +4012,7 @@ mod tests {
             // painter hands `label_room` at zoom 1.
             let width = canvas::node_width(node) - canvas::ROW_BLOCK_INSET;
 
-            for input in def.inputs {
+            for (index, input) in def.inputs.iter().enumerate() {
                 // An action input with a press button captions the button that is drawn over
                 // this row instead; the row label is never painted under it.
                 if matches!(input.control, crate::nodes::Control::Press) {
@@ -3988,7 +4021,7 @@ mod tests {
                 let room = label_room(
                     width,
                     false,
-                    node.controls.contains_key(input.key),
+                    node.controls.contains_key(input.key) || canvas::speed_tall(node, index),
                     0.0,
                     1.0,
                 );
