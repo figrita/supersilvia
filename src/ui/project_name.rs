@@ -1,43 +1,74 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Project ▸ New project…: a name, and the projects folder it goes in.
+//! Project ▸ New project… and Save as…: a name, and the projects folder it goes in.
 //!
-//! A small modal rather than a folder dialog, because a new project is almost always one more
-//! folder in the same place: the name field is filled with the next free *Untitled N* and
-//! selected, so Enter makes it and typing replaces it. **Choose location…** keeps the folder
-//! dialog for a project anywhere else. Why a name cannot be had — none, a character this
-//! machine's folders cannot hold, a name already there — is said in the window on a line of
-//! its own that is there whether or not it says anything, so typing never moves the buttons.
+//! A small modal rather than a folder dialog, because a new project or a copy of one is almost
+//! always one more folder in the same place, and a folder dialog that has to be handed an
+//! empty folder makes the person make one first, in a dialog that was not built for it. The
+//! name field is filled — the next free *Untitled N* for a new project, the project's own name
+//! or the next free one after it for a copy — and selected, so Enter takes it and typing
+//! replaces it. **Choose location…** keeps the folder dialog for anywhere else. Why a name
+//! cannot be had — none, a character this machine's folders cannot hold, a name already there
+//! — is said in the window on a line of its own that is there whether or not it says anything,
+//! so typing never moves the buttons.
 //!
 //! It draws and returns, as every surface in `ui/` does: `App` checks the name each frame and
-//! makes the project.
+//! makes the project, or the copy.
 
 use super::theme::Theme;
 use eframe::egui::{self, Button, Context, Key, Modal, RichText, TextEdit};
 use std::path::{Path, PathBuf};
 
+/// What the name is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Purpose {
+    /// Project ▸ New project…: an empty project in the folder.
+    New,
+    /// Project ▸ Save as…: this project copied into the folder, and carried on in there.
+    SaveAs,
+}
+
+impl Purpose {
+    fn heading(self) -> &'static str {
+        match self {
+            Self::New => "New project",
+            Self::SaveAs => "Save project as",
+        }
+    }
+
+    /// The button that takes the name.
+    pub fn button(self) -> &'static str {
+        match self {
+            Self::New => "Create",
+            Self::SaveAs => "Save",
+        }
+    }
+}
+
 /// What the window asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NewProjectAction {
-    /// Make the project in this folder, which the name was checked to give.
-    Create(PathBuf),
+pub enum ProjectNameAction {
+    /// Make the project, or the copy, in this folder, which the name was checked to give.
+    Chosen(PathBuf),
     /// Put the folder dialog up instead.
     ChooseLocation,
     Cancel,
 }
 
-/// The window's state across frames: the name being typed.
+/// The window's state across frames: what it is for, and the name being typed.
 #[derive(Debug, Clone)]
-pub struct NewProjectState {
+pub struct ProjectNameState {
+    pub purpose: Purpose,
     pub name: String,
     /// Whether the field has had the keyboard handed to it, which it is once, on opening.
     focused: bool,
 }
 
-impl NewProjectState {
+impl ProjectNameState {
     /// The window, opening with this name in its field.
-    pub fn new(name: String) -> Self {
+    pub fn new(purpose: Purpose, name: String) -> Self {
         Self {
+            purpose,
             name,
             focused: false,
         }
@@ -45,7 +76,7 @@ impl NewProjectState {
 }
 
 /// What the window draws beside the name.
-pub struct NewProjectView<'a> {
+pub struct ProjectNameView<'a> {
     /// The projects folder, or `None` where there is nowhere to keep one.
     pub dir: Option<&'a Path>,
     /// The folder the name gives, or why it gives none.
@@ -58,14 +89,15 @@ pub const NAME: &str = "Project name";
 /// Draw the window. Returns what was asked of it this frame.
 pub fn show(
     ctx: &Context,
-    state: &mut NewProjectState,
-    view: &NewProjectView<'_>,
+    state: &mut ProjectNameState,
+    view: &ProjectNameView<'_>,
     theme: &Theme,
-) -> Option<NewProjectAction> {
+) -> Option<ProjectNameAction> {
     let mut asked = None;
-    let modal = Modal::new(egui::Id::new("new-project")).show(ctx, |ui| {
+    let purpose = state.purpose;
+    let modal = Modal::new(egui::Id::new("project-name")).show(ctx, |ui| {
         ui.set_width(WIDTH);
-        ui.heading("New project");
+        ui.heading(purpose.heading());
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             let label = ui.label(NAME);
@@ -85,7 +117,7 @@ pub fn show(
                 && ui.input(|i| i.key_pressed(Key::Enter))
                 && let Ok(root) = view.verdict
             {
-                asked = Some(NewProjectAction::Create(root.clone()));
+                asked = Some(ProjectNameAction::Chosen(root.clone()));
             }
         });
         ui.horizontal(|ui| {
@@ -118,22 +150,22 @@ pub fn show(
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(view.verdict.is_ok(), Button::new("Create"))
+                .add_enabled(view.verdict.is_ok(), Button::new(purpose.button()))
                 .clicked()
                 && let Ok(root) = view.verdict
             {
-                asked = Some(NewProjectAction::Create(root.clone()));
+                asked = Some(ProjectNameAction::Chosen(root.clone()));
             }
             if ui.button("Choose location…").clicked() {
-                asked = Some(NewProjectAction::ChooseLocation);
+                asked = Some(ProjectNameAction::ChooseLocation);
             }
             if ui.button("Cancel").clicked() {
-                asked = Some(NewProjectAction::Cancel);
+                asked = Some(ProjectNameAction::Cancel);
             }
         });
     });
     if modal.should_close() && asked.is_none() {
-        asked = Some(NewProjectAction::Cancel);
+        asked = Some(ProjectNameAction::Cancel);
     }
     asked
 }

@@ -1176,6 +1176,58 @@ fn save_as_copies_the_folder_and_switches_to_it() {
     assert!(original.is_empty(), "last week's set is untouched");
 }
 
+/// **Save as refuses a folder inside the project's own**, before writing anything: the copy
+/// would find itself in the folder it is reading and nest `friday/friday/friday…` until the
+/// path was too long. The project's own folder is refused too, and so is a path that reaches
+/// inside it by `..`.
+#[test]
+fn save_as_refuses_a_folder_inside_the_project() {
+    let base = dir("save-as-inside");
+    let root = base.join("friday");
+    let mut app = App::headless();
+    app.new_project(root.clone());
+
+    for inside in [
+        root.join("friday"),
+        root.join("workspaces").join("copy"),
+        base.join("saturday").join("..").join("friday").join("copy"),
+    ] {
+        app.save_project_as(inside.clone());
+        assert_eq!(app.project().root(), root, "{}", inside.display());
+        assert!(
+            app.file_status().contains("its own folder"),
+            "{}",
+            app.file_status()
+        );
+        assert!(
+            !inside.exists(),
+            "nothing was written at {}",
+            inside.display()
+        );
+    }
+
+    let beside = base.join("friday copy");
+    app.save_project_as(beside.clone());
+    assert_eq!(app.project().root(), beside, "{}", app.file_status());
+}
+
+/// Save as… offers the project's own name where it is free, and otherwise the next free count
+/// after it, counting on from a number already on the end.
+#[test]
+fn save_as_offers_the_next_free_copy_of_the_name() {
+    let projects = dir("copy-names");
+    assert_eq!(project::next_copy(&projects, "Friday"), "Friday");
+    std::fs::create_dir_all(projects.join("Friday")).unwrap();
+    assert_eq!(project::next_copy(&projects, "Friday"), "Friday 2");
+    std::fs::create_dir_all(projects.join("Friday 2")).unwrap();
+    assert_eq!(project::next_copy(&projects, "Friday 2"), "Friday 3");
+    std::fs::create_dir_all(projects.join("Friday 3")).unwrap();
+    assert_eq!(project::next_copy(&projects, "Friday"), "Friday 4");
+    assert_eq!(project::next_copy(&projects, "Route 66"), "Route 66");
+    std::fs::create_dir_all(projects.join("Route 66")).unwrap();
+    assert_eq!(project::next_copy(&projects, "Route 66"), "Route 67");
+}
+
 /// An app whose projects folder is `projects`, and whose preferences touch no disk.
 fn app_keeping_projects_in(projects: &std::path::Path) -> App {
     let mut app = App::headless();

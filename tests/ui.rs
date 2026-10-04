@@ -657,7 +657,7 @@ fn new_project_asks_for_a_name_and_makes_it_in_the_projects_folder() {
     h.run_steps(3);
 
     assert!(h.state().asking_project_name());
-    let field = h.get_by_label(supersilvia::ui::new_project::NAME);
+    let field = h.get_by_label(supersilvia::ui::project_name::NAME);
     assert_eq!(field.value().as_deref(), Some("Untitled 2"));
     h.snapshot("new_project");
 
@@ -692,6 +692,57 @@ fn new_project_asks_for_a_name_and_makes_it_in_the_projects_folder() {
         &projects.join("Friday")
     ));
     std::fs::remove_dir_all("/tmp/supersilvia-ui-new").ok();
+}
+
+/// **Project ▸ Save as… asks for a name too**, the same window as New project's under its own
+/// heading, offering the project's own name or the next free one after it, and copies the
+/// project into the projects folder under the name typed, carrying on there. `Ctrl`+Shift+S
+/// puts it up as the menu entry does.
+#[test]
+fn save_as_asks_for_a_name_and_copies_into_the_projects_folder() {
+    let projects = std::path::PathBuf::from("/tmp/supersilvia-ui-save-as/Documents/supersilvia");
+    std::fs::remove_dir_all("/tmp/supersilvia-ui-save-as").ok();
+    std::fs::create_dir_all(&projects).unwrap();
+    let mut h = harness_with(supersilvia::preferences::Preferences {
+        projects_dir: Some(projects.clone()),
+        ..Default::default()
+    });
+    h.step();
+    h.state_mut().new_project(projects.join("Friday"));
+    h.step();
+    h.key_press_modifiers(
+        egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+        egui::Key::S,
+    );
+    h.run_steps(3);
+
+    assert!(h.state().asking_project_name());
+    assert!(
+        h.query_by_label("Save project as").is_some(),
+        "its own heading"
+    );
+    let field = h.get_by_label(supersilvia::ui::project_name::NAME);
+    assert_eq!(field.value().as_deref(), Some("Friday 2"));
+
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
+    h.step();
+    h.input_mut()
+        .events
+        .push(egui::Event::Text("Saturday".to_string()));
+    h.run_steps(2);
+    h.get_by_label("Save").click();
+    h.run_steps(2);
+
+    assert!(!h.state().asking_project_name(), "the window is down");
+    assert_eq!(h.state().project().root(), projects.join("Saturday"));
+    assert!(supersilvia::project::Project::is_project(
+        &projects.join("Saturday")
+    ));
+    assert!(
+        supersilvia::project::Project::is_project(&projects.join("Friday")),
+        "and Friday is where it was"
+    );
+    std::fs::remove_dir_all("/tmp/supersilvia-ui-save-as").ok();
 }
 
 /// **A file just written says so where a person sees it**: a Snap's or a render's toast, at

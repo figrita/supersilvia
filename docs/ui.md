@@ -386,14 +386,19 @@ desktop's file manager. Open project… asks for a *folder*, starting in the pro
 project is one. Its entries are shown **disabled** while a folder dialog is up rather than
 hidden — the shape of the menu is part of what it communicates.
 
-**New project… asks for a name**, in a small modal (`ui/new_project.rs`): a *Project name*
-field holding the next free *Untitled N* in the projects folder — `Untitled`, then `Untitled
-2`, `Untitled 3` — selected, so Enter makes it and typing replaces it; the projects folder it
-goes in, in monospace and cut in the middle; and **Create**, **Choose location…** and
-**Cancel**. Create makes `<projects folder>/<name>` itself, one empty video workspace in it.
-Choose location… puts the folder dialog up instead, starting in the projects folder, for a
-project anywhere else — and there a folder that already has anything in it is refused rather
-than written into. The name is checked every frame against the folder, and a name that cannot
+**New project… and Save as… ask for a name**, in one small modal (`ui/project_name.rs`): a
+*Project name* field, selected, so Enter takes it and typing replaces it; the projects folder
+it goes in, in monospace and cut in the middle; and the button that takes the name, **Choose
+location…** and **Cancel**. Under *New project* the field holds the next free *Untitled N* in
+the projects folder — `Untitled`, then `Untitled 2`, `Untitled 3` — and **Create** makes
+`<projects folder>/<name>` itself, one empty video workspace in it. Under *Save project as* it
+holds the project's own name where the projects folder has no folder of that name, and
+otherwise the next free count after it — `Friday 2` for `Friday`, `Friday 3` for `Friday 2` —
+and **Save** copies the project to `<projects folder>/<name>` and carries on there. Choose
+location… puts the folder dialog up instead, starting in the projects folder for a new project
+and beside this one for a copy, for anywhere else — and there a folder that already has
+anything in it is refused rather than written into, as is a copy's folder inside the project's
+own. The name is checked every frame against the folder, and a name that cannot
 be had says why on a line of its own under the folder, in the error color, with Create off:
 *Give the project a name.*, *A name cannot hold /* — and `:` on the Mac, which the Finder
 shows as `/` — or *There is already a folder called Friday here.* The line is there whether

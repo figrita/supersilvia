@@ -179,8 +179,8 @@ pub struct App {
     home: Home,
     /// **Test hook.** Every file dialog answered at once with this, rather than put up.
     dialog_answer: Option<Canned>,
-    /// Project ▸ New project…'s window while it is up: the name being typed.
-    new_project_ask: Option<crate::ui::new_project::NewProjectState>,
+    /// Project ▸ New project…'s or Save as…'s window while it is up: the name being typed.
+    project_name_ask: Option<crate::ui::project_name::ProjectNameState>,
     /// The unsaved edits written into `.autosave/`, off the frame thread.
     autosave: autosave::Autosave,
     /// The window is closing and the confirm has been answered, so the close guard lets the
@@ -424,7 +424,7 @@ impl App {
             confirm: None,
             waiting: None,
             recovery: None,
-            new_project_ask: None,
+            project_name_ask: None,
             home: Home::Folder,
             dialog_answer: None,
             autosave: autosave::Autosave::default(),
@@ -1317,7 +1317,7 @@ impl App {
                 ui.send_viewport_cmd(egui::ViewportCommand::Close);
             }
             Pending::OpenDialog => self.ask_for_file(FileAsk::OpenProject),
-            Pending::NewDialog => self.ask_project_name(),
+            Pending::NewDialog => self.ask_project_name(crate::ui::project_name::Purpose::New),
             Pending::Open(root) => self.open_project(root),
         }
     }
@@ -1328,27 +1328,34 @@ impl App {
             || self.crashlog.notice_up()
             || self.recovery.is_some()
             || self.offer_arrange
-            || self.new_project_ask.is_some()
+            || self.project_name_ask.is_some()
     }
 
-    /// Put Project ▸ New project…'s window up, its name the next free *Untitled N* in the
-    /// projects folder.
-    fn ask_project_name(&mut self) {
+    /// Put Project ▸ New project…'s or Save as…'s window up: its name the next free *Untitled
+    /// N* in the projects folder for a new project, and for a copy this project's own name, or
+    /// the next free one after it.
+    fn ask_project_name(&mut self, purpose: crate::ui::project_name::Purpose) {
+        use crate::ui::project_name::{ProjectNameState, Purpose};
         // Made now if it is not there, so the window says at once if it cannot be.
         if let Some(dir) = self.projects_dir() {
             let _ = project::projects_dir_problem(&dir, true);
         }
-        let name = self
-            .projects_dir()
-            .map_or_else(|| "Untitled".to_owned(), |dir| project::next_untitled(&dir));
-        self.new_project_ask = Some(crate::ui::new_project::NewProjectState::new(name));
+        let dir = self.projects_dir();
+        let name = match (purpose, dir) {
+            (Purpose::New, Some(dir)) => project::next_untitled(&dir),
+            (Purpose::New, None) => "Untitled".to_owned(),
+            (Purpose::SaveAs, Some(dir)) => project::next_copy(&dir, &self.project.name()),
+            (Purpose::SaveAs, None) => self.project.name(),
+        };
+        self.project_name_ask = Some(ProjectNameState::new(purpose, name));
     }
 
-    /// Project ▸ New project…'s window, while it is up: the name checked against the projects
-    /// folder every frame, so the reason it cannot be had is on screen as it is typed.
-    fn new_project_window(&mut self, ctx: &egui::Context) {
-        use crate::ui::new_project::{self, NewProjectAction, NewProjectView};
-        let Some(mut state) = self.new_project_ask.take() else {
+    /// Project ▸ New project…'s or Save as…'s window, while it is up: the name checked against
+    /// the projects folder every frame, so the reason it cannot be had is on screen as it is
+    /// typed.
+    fn project_name_window(&mut self, ctx: &egui::Context) {
+        use crate::ui::project_name::{self, ProjectNameAction, ProjectNameView, Purpose};
+        let Some(mut state) = self.project_name_ask.take() else {
             return;
         };
         let dir = self.projects_dir();
@@ -1362,15 +1369,22 @@ impl App {
                 crate::platform::dirs::DOCUMENTS_UNSET
             )),
         };
-        let view = NewProjectView {
+        let view = ProjectNameView {
             dir: dir.as_deref(),
             verdict: &verdict,
         };
-        match new_project::show(ctx, &mut state, &view, &self.theme) {
-            None => self.new_project_ask = Some(state),
-            Some(NewProjectAction::Create(root)) => self.new_project(root),
-            Some(NewProjectAction::ChooseLocation) => self.ask_for_file(FileAsk::NewProject),
-            Some(NewProjectAction::Cancel) => {}
+        let purpose = state.purpose;
+        match project_name::show(ctx, &mut state, &view, &self.theme) {
+            None => self.project_name_ask = Some(state),
+            Some(ProjectNameAction::Chosen(root)) => match purpose {
+                Purpose::New => self.new_project(root),
+                Purpose::SaveAs => self.save_project_as(root),
+            },
+            Some(ProjectNameAction::ChooseLocation) => self.ask_for_file(match purpose {
+                Purpose::New => FileAsk::NewProject,
+                Purpose::SaveAs => FileAsk::SaveAs,
+            }),
+            Some(ProjectNameAction::Cancel) => {}
         }
     }
 
@@ -1387,10 +1401,10 @@ impl App {
         self.home == Home::Scratch
     }
 
-    /// **Test accessor.** Whether Project ▸ New project…'s window is up.
+    /// **Test accessor.** Whether Project ▸ New project…'s or Save as…'s window is up.
     #[doc(hidden)]
     pub fn asking_project_name(&self) -> bool {
-        self.new_project_ask.is_some()
+        self.project_name_ask.is_some()
     }
 
     /// The unsaved-edits confirm.
@@ -1609,7 +1623,9 @@ impl App {
             MenuAction::Save => {
                 let _ = self.save_project();
             }
-            MenuAction::SaveAs => self.ask_for_file(FileAsk::SaveAs),
+            MenuAction::SaveAs => {
+                self.ask_project_name(crate::ui::project_name::Purpose::SaveAs);
+            }
             MenuAction::ShowProjectFolder => self.show_project_folder(),
             MenuAction::Quit => self.guarded(ui, Pending::Quit),
             MenuAction::OpenPreferences => {

@@ -795,7 +795,16 @@ impl Project {
     ///
     /// A project whose folder was never written — the launch's scratch one, saved for the
     /// first time — has nothing to copy, and the copy is the save alone.
+    ///
+    /// A root that is this project's folder or inside it is refused before anything is
+    /// written.
     pub fn fork_to(&self, root: PathBuf) -> Result<Self, LoadError> {
+        if inside(&root, &self.root) {
+            return Err(LoadError::Io(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "a project cannot be copied into its own folder",
+            )));
+        }
         if self.root.exists() {
             copy_dir(&self.root, &root, &[AUTOSAVE, CACHE]).map_err(LoadError::Io)?;
         } else {
@@ -1579,6 +1588,31 @@ fn same_folder(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// Is `path` the folder `dir` or somewhere under it? Compared after resolving both: `path` by
+/// the longest part of it that is there, since it need not exist yet, and the rest of it by
+/// its names, a `..` stepping up.
+fn inside(path: &Path, dir: &Path) -> bool {
+    use std::path::Component;
+    let dir = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
+    let parts: Vec<Component> = path.components().collect();
+    for there in (1..=parts.len()).rev() {
+        let Ok(mut resolved) = parts[..there].iter().collect::<PathBuf>().canonicalize() else {
+            continue;
+        };
+        for part in &parts[there..] {
+            match part {
+                Component::ParentDir => {
+                    resolved.pop();
+                }
+                Component::CurDir => {}
+                name => resolved.push(name),
+            }
+        }
+        return resolved.starts_with(&dir);
+    }
+    path.starts_with(&dir)
+}
+
 /// A file name that nothing in `assets/` already has. `clip.webm` becomes `clip-2.webm`.
 fn unique_asset_name(dir: &Path, name: &str) -> String {
     let mut candidate = name.to_string();
@@ -1687,6 +1721,29 @@ pub fn next_untitled(dir: &Path) -> String {
         name = format!("Untitled {n}");
     }
     name
+}
+
+/// The name Save as… offers a project called `name`: `name` where it is not in `dir`, and
+/// otherwise the next free count after it — `Friday 2` for `Friday`, and `Friday 3` rather than
+/// `Friday 2 2` for `Friday 2`.
+pub fn next_copy(dir: &Path, name: &str) -> String {
+    if !dir.join(name).exists() {
+        return name.to_owned();
+    }
+    let (base, from) = match name.rsplit_once(' ') {
+        Some((base, n)) if !base.is_empty() => {
+            n.parse::<u32>().map_or((name, 1), |n| (base, u64::from(n)))
+        }
+        _ => (name, 1),
+    };
+    let mut n = from;
+    loop {
+        n += 1;
+        let candidate = format!("{base} {n}");
+        if !dir.join(&candidate).exists() {
+            return candidate;
+        }
+    }
 }
 
 /// The folder a new project called `name` is made in, inside `dir`, or why it cannot be: no

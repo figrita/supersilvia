@@ -2303,9 +2303,9 @@ It is where an application keeps what it manages itself, and a project is the pe
 work: it is what they back up, zip, send and open from a file manager, and a hidden folder is
 the one place a person does not look for it.
 
-**Chosen: New project asks for a name** and makes the folder in the projects folder itself,
-with **Choose location…** for anywhere else. **Rejected: a folder dialog for every new
-project.** A new project is almost always one more folder in the same place, and a dialog
+**Chosen: New project and Save as… ask for a name** and make the folder in the projects folder
+themselves, with **Choose location…** for anywhere else. **Rejected: a folder dialog for every
+new project or copy.** Either is almost always one more folder in the same place, and a dialog
 that asks for an empty folder makes the person make one first, in a dialog that was not
 built for it.
 

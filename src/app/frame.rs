@@ -893,7 +893,7 @@ impl eframe::App for App {
         }
 
         self.confirm_window(ui);
-        self.new_project_window(ui.ctx());
+        self.project_name_window(ui.ctx());
         self.crashlog_frame(ui);
         self.recovery_window(ui);
         self.show_preferences(ui.ctx());
