@@ -1345,6 +1345,22 @@ element the Mac uses at the same version.
 
 **Rejected: embedding the whole framework**, 680 MB of both architectures and every plugin.
 
+### A version tag builds the downloads on GitHub, with the scripts a person runs
+
+**Chosen.** `.github/workflows/release.yml` runs on a tag `v<version>` and nothing else, calls
+`packaging/appimage/build.sh`, `packaging/windows/build.sh` and `packaging/macos/build-app.sh`
+as they are, starts each download once on its own operating system, and leaves a draft release
+([packaging/README.md](../packaging/README.md#releases)). A script that builds on the machine
+it builds on is one that builds on GitHub's, so there is one recipe per platform and not two.
+
+**Rejected: `check.sh` on every push.** GitHub's machines have no GPU but a software one, which
+the GPU tests refuse, and no hardware codec pair, which the clip tests need; a gate that skips
+both is not the gate, and a green run would say less than it looks.
+
+**Rejected: building the Windows `.exe` on a Windows machine.** It would be a second recipe
+beside `packaging/windows/build.sh`'s cross-compile, which is the one a developer runs; the
+Windows machine starts the folder that script made instead.
+
 ### cpal for the microphone, analyzed in the callback
 
 **Chosen.** The device's own callback mixes to mono, runs a 1024-point Hann FFT with a DC

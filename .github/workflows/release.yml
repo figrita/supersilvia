@@ -1,0 +1,239 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# A version tag builds the three downloads and puts them on a draft release, which a person
+# checks and publishes. Each one is built by the same script a developer runs by hand —
+# packaging/appimage/build.sh, packaging/windows/build.sh, packaging/macos/build-app.sh — and
+# started once on its own operating system with --version, before the release is made.
+#
+# check.sh does not run here: its GPU tests need a real GPU and its clip tests a hardware codec
+# pair, and these machines have neither. The gate stays on the developer's machines; a tag is
+# pushed from a commit that passed it. packaging/README.md has the secrets the Mac build signs
+# and notarizes with, and what happens without them.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+
+env:
+  CARGO_TERM_COLOR: never
+
+jobs:
+  version:
+    name: Tag matches Cargo.toml
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
+          if [[ "v$version" != "$GITHUB_REF_NAME" ]]; then
+            echo "::error::the tag is $GITHUB_REF_NAME and Cargo.toml says $version"
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux AppImage
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: appimagetool
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/appimagetool" \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >>"$GITHUB_ENV"
+      - name: Build
+        run: packaging/appimage/build.sh
+      - name: Start it
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 gstreamer1.0-plugins-base \
+            libasound2t64 libudev1 libfontconfig1
+          image=$(ls target/supersilvia-*.AppImage)
+          APPIMAGE_EXTRACT_AND_RUN=1 "$image" --version
+          APPIMAGE_EXTRACT_AND_RUN=1 "$image" --check || echo "--check exited $?"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: target/supersilvia-*.AppImage
+          if-no-files-found: error
+
+  windows:
+    name: Windows zip
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Tools
+        # wine32 as well: GStreamer's installer is Inno Setup, whose setup program is 32-bit.
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-18 clang-tools-18 lld-18 llvm-18 \
+            wine wine64 wine32:i386 xvfb zip
+          echo /usr/lib/llvm-18/bin >>"$GITHUB_PATH"
+          rustup target add x86_64-pc-windows-msvc
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: GStreamer's installer and the MSVC CRT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/supersilvia-windows/gstreamer-1.0-msvc-*.exe
+            ~/.cache/supersilvia-windows/xwin
+          key: windows-${{ hashFiles('packaging/windows/build.sh') }}
+      - name: Build
+        # Wine installs GStreamer, and Wine wants a display even for a silent installer.
+        run: xvfb-run -a packaging/windows/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/windows/supersilvia-*-windows-x86_64.zip
+          if-no-files-found: error
+
+  windows-start:
+    name: Windows zip starts on Windows
+    needs: windows
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+      - name: Start it
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem supersilvia-*-windows-x86_64.zip | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath unpacked
+          $exe = "unpacked\supersilvia\bin\supersilvia.exe"
+          & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "supersilvia --version exited $LASTEXITCODE" }
+          & $exe --check
+          "--check exited $LASTEXITCODE"
+          exit 0
+
+  macos:
+    name: macOS app
+    needs: version
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: GStreamer's release and source
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/supersilvia-packaging/*.pkg
+            ~/Library/Caches/supersilvia-packaging/sources-*
+          key: macos-${{ hashFiles('packaging/macos/build-app.sh', 'packaging/macos/sources.sh') }}
+      - name: Signing keychain
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER: ${{ secrets.MACOS_NOTARY_ISSUER }}
+        run: |
+          if [[ -z $MACOS_CERTIFICATE_P12 ]]; then
+            echo "::warning::no MACOS_CERTIFICATE_P12: the app is signed ad hoc and not notarized"
+            exit 0
+          fi
+          keychain=$RUNNER_TEMP/signing.keychain-db
+          password=$(uuidgen)
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode >"$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" \
+            -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" >/dev/null
+          # The keychain first in the search list and the default, where codesign and notarytool look.
+          others=()
+          while read -r other; do others+=("${other//\"/}"); done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain" "${others[@]}"
+          security default-keychain -s "$keychain"
+          identity=$(security find-identity -v -p codesigning "$keychain" |
+            sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -n 1)
+          if [[ -z $identity ]]; then
+            echo "::error::MACOS_CERTIFICATE_P12 holds no Developer ID Application identity"
+            exit 1
+          fi
+          echo "SUPERSILVIA_SIGN_IDENTITY=$identity" >>"$GITHUB_ENV"
+          if [[ -z $MACOS_NOTARY_KEY ]]; then
+            echo "::warning::no MACOS_NOTARY_KEY: the app is signed and not notarized"
+            exit 0
+          fi
+          printf '%s\n' "$MACOS_NOTARY_KEY" >"$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials supersilvia-ci --keychain "$keychain" \
+            --key "$RUNNER_TEMP/notary.p8" --key-id "$MACOS_NOTARY_KEY_ID" --issuer "$MACOS_NOTARY_ISSUER"
+          rm "$RUNNER_TEMP/notary.p8"
+          echo "SUPERSILVIA_NOTARY_PROFILE=supersilvia-ci" >>"$GITHUB_ENV"
+      - name: Build
+        run: packaging/macos/build-app.sh
+      - name: Start it
+        run: |
+          dist/supersilvia.app/Contents/MacOS/supersilvia --version
+          dist/supersilvia.app/Contents/MacOS/supersilvia --check || echo "--check exited $?"
+      - name: Remove the signing keychain
+        if: always()
+        run: |
+          if [[ -f $RUNNER_TEMP/signing.keychain-db ]]; then
+            security delete-keychain "$RUNNER_TEMP/signing.keychain-db"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: |
+            dist/supersilvia-*-arm64.dmg
+            dist/supersilvia-*-arm64.zip
+            dist/*.tar.*
+            dist/SOURCE-OFFER.txt
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    needs: [version, linux, windows, windows-start, macos]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Draft the release, or replace its files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          ls -l out
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" out/* --clobber
+          else
+            prerelease=()
+            [[ $VERSION == *-* ]] && prerelease=(--prerelease)
+            gh release create "$GITHUB_REF_NAME" out/* --draft --verify-tag "${prerelease[@]}" \
+              --title "supersilvia $VERSION" --generate-notes
+          fi

@@ -92,6 +92,48 @@ server and MIDI lines warn, as a container has none, and pass the session with W
 variable set. On Ubuntu 22.04 the binary refuses to start: its glibc is 2.35. Not tried: a
 window, a picture, a camera, a microphone, an imported clip, NDI, FUSE, AMD or NVIDIA.
 
+## Releases
+
+**A tag `v<version>` pushed to GitHub builds all three** —
+[`../.github/workflows/release.yml`](../.github/workflows/release.yml) — and nothing else does:
+
+```sh
+git tag v0.9.0-alpha.1 && git push origin v0.9.0-alpha.1
+```
+
+The tag has to be Cargo.toml's version with a `v` before it, or the run stops at its first job.
+Then each download is built on GitHub's machines by the same script as by hand: the AppImage
+and the Windows folder on Ubuntu 24.04, the Windows one with Wine there for GStreamer's
+installer alone, and the `.app` on an Apple Silicon Mac. Each is started once on its own
+operating system — the AppImage on the Ubuntu machine, the Windows `.zip` unpacked on Windows
+Server 2025, the `.app` on the Mac — and has to answer `--version`. `--check` runs after it and
+is printed, not judged: these machines have no GPU worth the name and no hardware codec pair,
+so its FAILs there say nothing about a tester's. When all of that passes, the AppImage, the
+Windows `.zip`, the `.dmg`, the Mac `.zip`, GStreamer's source tarballs and `SOURCE-OFFER.txt`
+go on a **draft** release, marked a pre-release where the version has a `-`, for a person to
+look over and publish. A run again for the same tag replaces the draft's files.
+
+`check.sh` is not run there. Its GPU tests need a real GPU and its clip tests a hardware codec
+pair, so the gate stays on a developer's machine, and a tag is put on a commit that passed it.
+
+**The Mac build signs and notarizes with five repository secrets**, set under Settings ▸
+Secrets and variables ▸ Actions:
+
+| secret | what it holds |
+| --- | --- |
+| `MACOS_CERTIFICATE_P12` | the *Developer ID Application* certificate with its private key, exported from Keychain Access as a `.p12`, base64: `base64 -i certificate.p12 \| pbcopy` |
+| `MACOS_CERTIFICATE_PASSWORD` | the password the `.p12` was exported with |
+| `MACOS_NOTARY_KEY` | an App Store Connect API key's `.p8` file, its text as it is: Users and Access ▸ Integrations ▸ App Store Connect API, a Team key with the Developer role |
+| `MACOS_NOTARY_KEY_ID` | that key's Key ID |
+| `MACOS_NOTARY_ISSUER` | the Issuer ID above the list of keys |
+
+The run puts the certificate in a keychain of its own, finds the identity in it, stores the key
+as a `notarytool` profile there and hands both to `build-app.sh` as
+`SUPERSILVIA_SIGN_IDENTITY` and `SUPERSILVIA_NOTARY_PROFILE`; the keychain is deleted when the
+job ends. Without the certificate the `.app` is signed ad hoc, as a build by hand is, and
+without the key it is signed and not notarized — each said as a warning on the run. Nothing on
+Windows or Linux is signed.
+
 ## Licences and notices
 
 The binary carries its own: **Help ▸ About supersilvia** and **Help ▸ Licences…** show
