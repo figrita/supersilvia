@@ -207,8 +207,7 @@ jobs:
           path: |
             dist/supersilvia-*-arm64.dmg
             dist/supersilvia-*-arm64.zip
-            dist/*.tar.*
-            dist/SOURCE-OFFER.txt
+            dist/gstreamer-*-source.tar
           if-no-files-found: error
 
   release:

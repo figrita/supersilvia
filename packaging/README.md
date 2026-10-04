@@ -109,8 +109,9 @@ operating system — the AppImage on the Ubuntu machine, the Windows `.zip` unpa
 Server 2025, the `.app` on the Mac — and has to answer `--version`. `--check` runs after it and
 is printed, not judged: these machines have no GPU worth the name and no hardware codec pair,
 so its FAILs there say nothing about a tester's. When all of that passes, the AppImage, the
-Windows `.zip`, the `.dmg`, the Mac `.zip`, GStreamer's source tarballs and `SOURCE-OFFER.txt`
-go on a **draft** release, marked a pre-release where the version has a `-`, for a person to
+Windows `.zip`, the `.dmg`, the Mac `.zip` and `gstreamer-<version>-source.tar` — GStreamer's
+source and `SOURCE-OFFER.txt`, which the LGPL has go with the downloads that carry it — go on a
+**draft** release, marked a pre-release where the version has a `-`, for a person to
 look over and publish. A run again for the same tag replaces the draft's files.
 
 `check.sh` is not run there. Its GPU tests need a real GPU and its clip tests a hardware codec

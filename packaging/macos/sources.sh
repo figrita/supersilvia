@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# The source offer that travels beside the Mac download: GStreamer's own source for the
-# release the .app carries, cerbero's tree at that release — the recipes naming the source of
-# every other library in it, with the patches cerbero applies — and SOURCE-OFFER.txt saying
-# so. The .app carries GStreamer's LGPL libraries, whose source the LGPL has accompany it.
+# The source offer that travels beside the Mac download, as one archive,
+# gstreamer-<version>-source.tar: GStreamer's own source for the release the .app carries,
+# cerbero's tree at that release — the recipes naming the source of every other library in it,
+# with the patches cerbero applies — and SOURCE-OFFER.txt saying so. The .app carries
+# GStreamer's LGPL libraries, whose source the LGPL has accompany it. One file beside the
+# download rather than eight, so a release page lists the downloads and their source.
 #
 #   packaging/macos/sources.sh <GStreamer version> <folder>
 #
 # build-app.sh calls it with its own GST_VERSION and dist/. Every file is checked before it is
-# copied: each tarball against the SHA-256 written below, cerbero against the commit its tag
+# archived: each tarball against the SHA-256 written below, cerbero against the commit its tag
 # names. Downloads are kept in SUPERSILVIA_PACKAGING_CACHE (as build-app.sh's are) and reused.
-# Nothing here is Mac-only: bash, curl, git and shasum or sha256sum.
+# Nothing here is Mac-only: bash, curl, git, tar and shasum or sha256sum.
 set -euo pipefail
 
 die() { echo "sources: $*" >&2; exit 1; }
@@ -40,13 +42,19 @@ CERBERO_URL=https://gitlab.freedesktop.org/gstreamer/cerbero.git
 # The commit cerbero's tag $GST_VERSION points at.
 CERBERO_COMMIT=e0e7007e210dab3e2f3e898939e2cfe1fd02f123
 
-for tool in curl git; do command -v "$tool" >/dev/null || die "$tool not found"; done
+for tool in curl git tar; do command -v "$tool" >/dev/null || die "$tool not found"; done
 sha256() {
   if command -v shasum >/dev/null; then shasum -a 256 "$1"; else sha256sum "$1"; fi | awk '{print $1}'
 }
 
 cache=${SUPERSILVIA_PACKAGING_CACHE:-$HOME/Library/Caches/supersilvia-packaging}/sources-$GST_VERSION
+name=gstreamer-$GST_VERSION-source
+archive=$out/$name.tar
 mkdir -p "$cache" "$out"
+stage=$(mktemp -d "${TMPDIR:-/tmp}/supersilvia-sources.XXXXXX")
+trap 'rm -rf "$stage"' EXIT
+src=$stage/$name
+mkdir -p "$src"
 
 tarballs=()
 for entry in "${MODULES[@]}"; do
@@ -59,7 +67,7 @@ for entry in "${MODULES[@]}"; do
     mv "$cache/$file.part" "$cache/$file"
   fi
   [[ $(sha256 "$cache/$file") == "$want" ]] || die "$file does not match its checksum"
-  cp "$cache/$file" "$out/$file"
+  cp "$cache/$file" "$src/$file"
   tarballs+=("$file")
 done
 
@@ -78,7 +86,7 @@ if [[ ! -f $cache/$cerbero || ! -f $cache/$cerbero.commit ||
   echo "$CERBERO_COMMIT" >"$cache/$cerbero.commit"
   rm -rf "$cache/cerbero"
 fi
-cp "$cache/$cerbero" "$out/$cerbero"
+cp "$cache/$cerbero" "$src/$cerbero"
 
 say "writing SOURCE-OFFER.txt"
 {
@@ -92,12 +100,12 @@ say "writing SOURCE-OFFER.txt"
   echo "licence texts and GStreamer-libraries.txt, the list of every file carried."
   echo
   echo "GStreamer's source, and the build description of everything else, accompany this"
-  echo "download in these files beside it:"
+  echo "download in $name.tar, as these files beside this one:"
   echo
   for file in "${tarballs[@]}"; do
-    printf '  %-36s %s\n' "$file" "$(sha256 "$out/$file")"
+    printf '  %-36s %s\n' "$file" "$(sha256 "$src/$file")"
   done
-  printf '  %-36s %s\n' "$cerbero" "$(sha256 "$out/$cerbero")"
+  printf '  %-36s %s\n' "$cerbero" "$(sha256 "$src/$cerbero")"
   echo
   echo "The six .tar.xz files are GStreamer's own release tarballs, exactly as published"
   echo "at $SRC_URL/<module>/. $cerbero is cerbero, GStreamer's"
@@ -115,4 +123,10 @@ say "writing SOURCE-OFFER.txt"
   echo
   echo "supersilvia's own source, under the GNU AGPL 3.0 or later, is at"
   echo "https://github.com/figrita/supersilvia."
-} >"$out/SOURCE-OFFER.txt"
+} >"$src/SOURCE-OFFER.txt"
+
+say "writing $name.tar"
+# Uncompressed: everything in it is compressed already. COPYFILE_DISABLE keeps macOS's tar from
+# adding a ._ file of extended attributes beside each one.
+rm -f "$archive"
+COPYFILE_DISABLE=1 tar -C "$stage" -cf "$archive" "$name"

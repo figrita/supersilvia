@@ -113,8 +113,9 @@ to keep them; **Discard** throws them away. At most the last 30 seconds of work 
 
 **supersilvia ▸ About supersilvia** in the menu bar names the licences, and the app carries their texts
 in `supersilvia.app/Contents/Resources/licenses/`. The download may come with
-`SOURCE-OFFER.txt` and several `.tar.xz` and `.tar.gz` files beside the `.dmg`: those are the
-source code of GStreamer, which the app carries, offered as its licence asks. You do not need
+`gstreamer-1.28.7-source.tar` beside the `.dmg`: that is the source code of GStreamer, which
+the app carries, offered as its licence asks, with a `SOURCE-OFFER.txt` inside saying what each
+file is. You do not need
 them to run supersilvia.
 
 ## Sending a bug report

@@ -3,14 +3,14 @@
 `build-app.sh` makes `dist/supersilvia.app`, a `.dmg` with an Applications link and a `.zip`,
 for Apple Silicon Macs on macOS 14.2 or later that have nothing installed — no Homebrew, no
 GStreamer — and beside them the source offer the LGPL asks of a download that carries
-GStreamer ([below](#the-source-offer)). What a tester reads is [TESTERS.md](TESTERS.md).
+GStreamer, in one archive ([below](#the-source-offer)). What a tester reads is [TESTERS.md](TESTERS.md).
 
 ```sh
 packaging/macos/build-app.sh
 # dist/supersilvia.app
 # dist/supersilvia-<version>-arm64.dmg
 # dist/supersilvia-<version>-arm64.zip
-# dist/SOURCE-OFFER.txt, dist/gst*-1.28.7.tar.xz, dist/cerbero-1.28.7.tar.gz
+# dist/gstreamer-1.28.7-source.tar
 ```
 
 It needs Xcode's command-line tools, rustup's toolchain and a network connection the first
@@ -22,7 +22,7 @@ the `dist` profile from scratch in `target/app/`; later runs reuse both.
 | | |
 | --- | --- |
 | `build-app.sh` | the whole build, from the download to the `.zip` |
-| `sources.sh` | GStreamer's source and cerbero's recipes beside the download, checked, and `SOURCE-OFFER.txt`; `build-app.sh` runs it last |
+| `sources.sh` | GStreamer's source and cerbero's recipes, checked, and `SOURCE-OFFER.txt`, in one archive beside the download; `build-app.sh` runs it last |
 | `Info.plist` | the bundle's; the script writes `Cargo.toml`'s version into its copy |
 | `entitlements.plist` | what the hardened runtime is asked to allow, below |
 | `Credits.rtf` | the standard About panel's text: the licences in brief and the NDI® line |
@@ -110,7 +110,9 @@ font. Then every Mach-O in the bundle is audited with `otool`: arm64 alone, link
 ## The source offer
 
 The bundle carries GStreamer's LGPL libraries, so their source goes with every download of it.
-`sources.sh`, the last step of `build-app.sh`, puts beside the `.dmg` and the `.zip`:
+`sources.sh`, the last step of `build-app.sh`, puts one archive beside the `.dmg` and the `.zip`,
+`gstreamer-1.28.7-source.tar`, uncompressed since everything in it is compressed already, and
+holding a folder of the same name with:
 
 | | |
 | --- | --- |
@@ -177,10 +179,6 @@ SDK documentation names for discovery on Apple platforms
 ## What is left
 
 - Tried on a Mac that has never had Homebrew or GStreamer, by a person.
-- A Developer ID and the notarized build, when the account exists.
-- Uploading `SOURCE-OFFER.txt`, the six GStreamer tarballs and cerbero's beside the `.dmg`
-  wherever it is published, which is the publisher's step: the build writes them into `dist/`
-  and uploads nothing.
 - The third-party libraries' own tarballs — glib, pango, cairo, fribidi, FFmpeg, mpg123 and
   the rest the release is built with — are named by cerbero's recipes and mirrored at
   gstreamer.freedesktop.org/src/mirror/, not carried beside the download. Carrying them means

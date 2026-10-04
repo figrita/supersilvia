@@ -3,7 +3,8 @@
 #
 # Build dist/supersilvia.app, with GStreamer and Syphon inside it, and the .dmg and .zip that
 # carry it to a Mac with nothing installed. Apple Silicon, macOS 14.2 or later. Beside them,
-# sources.sh puts GStreamer's source and SOURCE-OFFER.txt, which travel with the download.
+# sources.sh puts GStreamer's source and SOURCE-OFFER.txt in one archive,
+# gstreamer-<version>-source.tar, which travels with the download.
 #
 #   packaging/macos/build-app.sh
 #
@@ -296,7 +297,7 @@ python3 "$root/scripts/crate-licenses.py" --target aarch64-apple-darwin >"$lic/r
   echo "by cerbero's recipes at tag $GST_VERSION:"
   echo "  https://gitlab.freedesktop.org/gstreamer/cerbero/-/tree/$GST_VERSION/recipes"
   echo "and GStreamer's own at https://gstreamer.freedesktop.org/src/. Both accompany the"
-  echo "download, as SOURCE-OFFER.txt beside it says."
+  echo "download in gstreamer-$GST_VERSION-source.tar, as the SOURCE-OFFER.txt inside it says."
   echo "You may replace any of these libraries with your own build of the same version."
   echo
   echo "Plugins (lib/gstreamer-1.0):"
@@ -451,10 +452,10 @@ else
   make_zip
 fi
 
-# GStreamer's source and cerbero's recipes beside the download, with SOURCE-OFFER.txt: the LGPL
-# has the source of the libraries the bundle carries accompany it.
+# GStreamer's source and cerbero's recipes beside the download, with SOURCE-OFFER.txt, in one
+# archive: the LGPL has the source of the libraries the bundle carries accompany it.
 "$here/sources.sh" "$GST_VERSION" "$dist"
 
 say "built"
 du -sh "$app" "$dmg" "$zip"
-du -ch "$dist"/*.tar.* | tail -n 1 | sed 's/total$/source beside them (SOURCE-OFFER.txt)/'
+du -h "$dist/gstreamer-$GST_VERSION-source.tar"
