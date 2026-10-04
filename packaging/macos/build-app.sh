@@ -281,6 +281,9 @@ cp "$root/vendor/syphon/LICENSE" "$lic/Syphon-BSD.txt"
 cp "$here/LGPL-2.1.txt" "$lic/GStreamer-LGPL-2.1.txt"
 mkdir -p "$lic/assets"
 cp "$root"/licenses/*.txt "$lic/assets/"
+# crate-licenses.py reads `cargo metadata --offline`, which needs every crate Cargo.lock names,
+# every platform's, and the build above downloaded only this one's.
+cargo fetch --locked
 python3 "$root/scripts/crate-licenses.py" --target aarch64-apple-darwin >"$lic/rust-crates.txt"
 {
   echo "GStreamer $GST_VERSION, as carried in Contents/Frameworks/GStreamer"
