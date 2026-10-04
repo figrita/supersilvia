@@ -6255,6 +6255,28 @@ should show. A machine without Syphon (`platform::syphon::available`) draws no S
 row, no mark, no source in the list and no node in the library, and keeps every saved value, so
 a Mac's project opens whole and publishes again on a Mac; its Syphon options read as off here.
 
+### No internet, and the network only for NDI
+
+**Chosen: supersilvia never connects to the internet. It uses the local network only for
+NDI®, and only when a person sends, receives or lists NDI sources.** A tool for live shows runs
+on venue machines, gallery installations and laptops on a stranger's Wi-Fi, where a program
+that phones out is one more thing to ask about, firewall or explain; one that never does needs
+no answer. So there is no update check, no analytics, no crash upload and no account: a
+tester's log is pasted by the tester ([ui.md](ui.md)), and a new release is heard of where it
+is published. Links in the app — the bug channel, ndi.video, GStreamer's source — are opened
+in the browser by a click, never fetched. `tests/rules.rs` holds the internet half: no crate
+that speaks HTTP or TLS in Cargo.lock, no socket named in `src/`. The NDI half is
+`video::ndi`'s: the runtime probe at launch takes an `ndisrc` to Ready, which loads the runtime
+and connects to nothing, where an `ndisink` would announce a sender for an instant at every
+launch; `tests/ndi_probe.rs` listens for one.
+
+**Rejected: an update check at launch**, or one behind a preference. Either makes the promise
+"never, unless" — and an HTTP and TLS stack is the largest dependency the app would carry for
+the smallest feature. **Rejected, for now: Check for updates… in a menu**, a request only when
+clicked. It keeps the promise as "never without you asking", but costs the same stack, and
+GitHub's release notifications and the Discord already tell a tester. A self-updater
+(Sparkle, Velopack) is the same question with installers attached, and waits on it.
+
 ### NDI sends by reading the Syphon blit back, on the same thread, into GStreamer's plugin
 
 **Chosen**, in `proposals/ndi.md` (route A): the publisher's thread, which sends over Syphon,

@@ -15,7 +15,11 @@
 //! says so, naming where it looked, and where it is there and still will not load, its path and
 //! why ([`absent`] tells the two apart); found once off every thread that draws and never asked
 //! again: the plugin remembers its first answer for the life of the process, so a runtime
-//! installed while the app runs is found on its next run.
+//! installed while the app runs is found on its next run. **The probe puts nothing on the
+//! network**: it takes an `ndisrc` to Ready, where the plugin loads the runtime and does no more,
+//! since a receiver connects only on the way to Paused. An `ndisink` there would announce a
+//! sender to the local network at every launch, and supersilvia uses the network only for NDI
+//! that someone is using (`docs/decisions.md`, *No internet, and the network only for NDI*).
 //! `proposals/ndi.md` is the argument, and the licence's additional permission for the runtime
 //! is at the head of `LICENSE`.
 //!
@@ -138,21 +142,21 @@ pub fn start() {
     });
 }
 
-/// Whether the NDI runtime loads, found by starting an `ndisink` as far as the plugin's own
-/// loading, once [`preloaded`] has opened the runtime wherever it is. Blocks for as long as
-/// loading the library takes, so it is [`start`]'s thread that asks.
+/// Whether the NDI runtime loads, found by taking an `ndisrc` to Ready, where the plugin loads
+/// it, once [`preloaded`] has opened the runtime wherever it is. Blocks for as long as loading
+/// the library takes, so it is [`start`]'s thread that asks.
 fn probe() -> u8 {
     if let Err(e) = register() {
         log::warn!("ndi: {e}");
         return ABSENT;
     }
     let preload = preloaded();
-    let Ok(sink) = gst::ElementFactory::make("ndisink").build() else {
+    let Ok(src) = gst::ElementFactory::make("ndisrc").build() else {
         return ABSENT;
     };
     // In a pipeline of its own, for the bus the plugin posts its reason on.
     let pipeline = gst::Pipeline::new();
-    if pipeline.add(&sink).is_err() {
+    if pipeline.add(&src).is_err() {
         return ABSENT;
     }
     let loads = pipeline.set_state(gst::State::Ready).is_ok();

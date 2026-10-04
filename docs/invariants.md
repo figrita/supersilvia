@@ -20,6 +20,8 @@ the table below is that the second list is short, and that you know exactly what
 | A node in the graph is never looked up by its slug: its kind is `Node::def`, and `nodes::find` is for a slug arriving from a file or the library | `tests/rules.rs` | `cargo test`, naming the file |
 | `ui/` never mutates: no `&mut` to `App`, `Graph` or `Node` crosses into it | `tests/rules.rs` | `cargo test`, naming the file and line |
 | No preference reaches the shader: `graph/`, `compile/`, `nodes/`, `render/`, `audio/`, `video/` never name one | `tests/rules.rs` | `cargo test`, naming the file and line |
+| supersilvia never connects to the internet: no crate that speaks HTTP or TLS is in Cargo.lock, and nothing in `src/` names a socket | `tests/rules.rs` | `cargo test`, naming the crate, or the file and line |
+| A launch puts nothing on the network: the NDI® runtime probe takes an `ndisrc` to Ready, which loads the runtime and connects to nothing, and makes no sender | `video::ndi`'s probe | `tests/ndi_probe.rs`, on a machine with the NDI runtime |
 | A collapsed node, and an output row a tick hides, keeps its cables | a collapsed node's every port, and a hidden output that carries a cable, gathers on the header, in `Layouts::push` | `tests/ui.rs` |
 | A port lights and takes a cable only where it can be seen: on the canvas itself, under no window, panel or tab bar, and under no node's body painted after its own | `ui::on_canvas` and `node_widget::port_at`, the one test the hover and the drop share | `tests/ui.rs`, `ui`'s own tests |
 | A cable with one end on another workspace is a tag on the port that is here, and not a cable | `ui::show` draws a tag where `from_elsewhere` has an entry | `tests/ui.rs` |

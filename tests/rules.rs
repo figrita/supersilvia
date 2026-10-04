@@ -736,6 +736,69 @@ fn ui_never_takes_a_mutable_reference_to_the_model() {
     );
 }
 
+/// supersilvia never connects to the internet, and uses the network only for NDI®.
+///
+/// The two halves of that a text can show. No crate that speaks HTTP or TLS is in Cargo.lock,
+/// for any machine, so nothing the app links could make a request without one arriving here
+/// first; and nothing in `src/` names the standard library's sockets or tokio's, so the app
+/// opens none of its own. NDI's traffic is the runtime's, reached through `video/ndi.rs` when a
+/// person sends, receives or lists sources; that a launch's runtime probe announces nothing is
+/// `tests/ndi_probe.rs`'s. The promise itself is in `docs/decisions.md`, *No internet, and the
+/// network only for NDI*.
+#[test]
+fn nothing_speaks_to_the_internet() {
+    const CRATES: [&str; 18] = [
+        "reqwest",
+        "ureq",
+        "hyper",
+        "h2",
+        "isahc",
+        "attohttpc",
+        "curl",
+        "surf",
+        "ehttp",
+        "minreq",
+        "rustls",
+        "native-tls",
+        "openssl",
+        "tokio-rustls",
+        "hyper-tls",
+        "webpki-roots",
+        "security-framework",
+        "schannel",
+    ];
+    const SOCKETS: [&str; 5] = [
+        "std::net",
+        "tokio::net",
+        "TcpStream",
+        "TcpListener",
+        "UdpSocket",
+    ];
+
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lock = std::fs::read_to_string(root.join("Cargo.lock")).unwrap();
+    let mut found: Vec<String> = lock
+        .lines()
+        .filter_map(|l| l.strip_prefix("name = \"")?.strip_suffix('"'))
+        .filter(|name| CRATES.contains(name))
+        .map(|name| format!("Cargo.lock: {name}"))
+        .collect();
+    for file in rust_files(&root.join("src")) {
+        let text = std::fs::read_to_string(&file).unwrap();
+        for (n, line) in production_lines(&text) {
+            let code = line.split("//").next().unwrap_or("");
+            if SOCKETS.iter().any(|s| code.contains(s)) {
+                found.push(format!("{}:{}: {}", file.display(), n, line.trim()));
+            }
+        }
+    }
+    assert!(
+        found.is_empty(),
+        "supersilvia makes no connection but NDI's, and this would:\n{}",
+        found.join("\n")
+    );
+}
+
 /// A file's lines, numbered from 1, stopping at its test module.
 ///
 /// Crude on purpose: it is looking at source text, and the alternative is a parser. A
