@@ -98,7 +98,7 @@ window, a picture, a camera, a microphone, an imported clip, NDI, FUSE, AMD or N
 [`../.github/workflows/release.yml`](../.github/workflows/release.yml) — and nothing else does:
 
 ```sh
-git tag v0.9.0-alpha.1 && git push origin v0.9.0-alpha.1
+git tag v0.9.0-alpha.2 && git push origin v0.9.0-alpha.2
 ```
 
 The tag has to be Cargo.toml's version with a `v` before it, or the run stops at its first job.

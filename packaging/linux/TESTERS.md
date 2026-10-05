@@ -108,7 +108,7 @@ for each. On an Ubuntu 24.04 machine with an Intel GPU and the packages above, t
 looks like this:
 
 ```
-supersilvia 0.9.0-alpha.1 --check
+supersilvia 0.9.0-alpha.2 --check
 
   PASS  GStreamer         1.24.2
   PASS  pipelines         all 16
