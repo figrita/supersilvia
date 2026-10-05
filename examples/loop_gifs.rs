@@ -15,9 +15,10 @@
 //! printed and fails the run. Each workspace is then the one open tab, as a person would look
 //! at it, and its Output is rendered through `App::render_settings_of` and
 //! `App::start_render`. **The length is the Master Gear's**: of the Master Gears upstream of the
-//! Output, the only one, or else the first by id, for as many of its cycles as the Ratio Gears
-//! below it need to come back whole (`nodes::chain::master_length`); a workspace with none, or
-//! whose chains never close, takes `--length` seconds, or else the Output's own Duration. The
+//! Output, the only one, or else the first by id, for as many of its cycles as everything
+//! downstream of it needs to come back whole (`nodes::chain::master_length`); a workspace with
+//! none, or whose loop never closes or cannot be told, takes `--length` seconds, or else the
+//! Output's own Duration. The
 //! render is that length in whole frames at the Output's FPS, `F`, after `--pre-roll` loops of
 //! warm-up at negative time, three by default — an echo dimmed by 0.94 a frame leaves 8-bit
 //! crumbs that take that long to settle onto the loop — and one frame more: frame `F` is compared with frame zero for the seam, and only frames

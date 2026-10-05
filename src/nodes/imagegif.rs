@@ -44,8 +44,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
 
 /// A play a cycle, at the animation's own pace — one over its length, which the node reads
-/// off its delays and hands to `TickContext::cycle_at`.
-const TIMING: crate::nodes::Timing = crate::nodes::Timing::periodic(1.0);
+/// off its delays and hands to `TickContext::cycle_at`, and which the graph does not hold
+/// (`Timing::clip`).
+const TIMING: crate::nodes::Timing = crate::nodes::Timing::periodic(1.0).clip();
 
 pub static DEF: NodeDef = NodeDef {
     slug: "imagegif",

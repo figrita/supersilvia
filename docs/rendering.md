@@ -982,7 +982,8 @@ FPS. There is no loop export, no seam measured in the app and no loop badge —
 
 **`examples/loop_gifs` renders a loop through it.** For each workspace it takes the Output's
 ordinary render for as long as its Master Gear says a loop is (`nodes::chain::master_length`:
-the gear's length times the least common multiple of its chains' denominators), from the only
+the gear's length times the least common multiple of what everything downstream of it asks
+for, and none where something never closes or cannot be told), from the only
 Master Gear upstream of the Output, else the first by id, else `--length`, 8 s; with a loop of
 Run warm-up and one frame more. The example compares frame `F` with frame zero itself, its own
 seam check, and writes frames `0` to `F − 1` as a GIF on one shared palette.

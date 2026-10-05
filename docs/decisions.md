@@ -1592,9 +1592,9 @@ phase the change landed at, and the output's downbeat stays on the input's — w
 listening expects of a gear change. **Rejected: a ratio that bends**, as a speed does, or a
 glide to it, which `phase` had: either leaves the downbeat wherever the change ended. **A
 chain of fractions closes**: its ratios multiply, and a loop of the Master Gear is as many of
-its cycles as the least common multiple of the chains' denominators, so a ÷4 below asks for
-four. A ratio that is no fraction with a denominator up to 64, or has a cable in it, runs and
-never closes, and the caption counts it.
+its cycles as what the chains drive needs, so a sawtooth on a ÷4 below asks for four. A ratio
+that is no fraction with a denominator up to 64 runs and never closes, one with a cable in it
+cannot be told, and the caption says which.
 
 **Hold, Reset, and a seek.** Hold is a toggle that freezes the gear where it stands and closes
 any gate it left open; Reset puts it at the start of a cycle and is a beat. A seek — the
@@ -1727,13 +1727,35 @@ fraction times 64, so Time 1 draws Time 0 and a gear flies it once a turn. The w
 slower, which nobody sees. Depth Wrap None never repeats.
 
 **When a loop closes.** A node on a chain from Master Gear `M` advances `m × Πr ÷ P` of its own
-periods over `m` cycles of `M` — `Πr` the product of the chain's ratios, `P` the node's period —
-and closes when that is whole; a node on its own clock closes over a length `L` when its rate,
-or its Speed times its pace, times `L ÷ P` is whole (`nodes::chain::closes_alone`), and a clock
-cabled into a Speed never closes. A Master Gear's loop is its length times the least common multiple of
-its chains' denominators (`nodes::chain::master_length`), which its caption says: "loops in 4
-cycles · 8.000 s (÷4 on ratiogear12)", or "2 nodes will not close". An unconnected color
-input's hue wheel stands still, so it never holds a loop open. **Rejected: silvia's turning
+periods over `m` cycles of `M` — `Πr` the product of the chain's ratios, `P` the node's period,
+any positive fraction — and closes when that is whole; a node on its own clock closes over a
+length `L` when its rate, or its Speed times its pace, times `L ÷ P` is whole
+(`nodes::chain::closes_alone`), and beside a master where `L` is also whole cycles of it; a
+clock cabled into a Speed never closes. A Master Gear's loop is its length times the least
+common multiple of what every node downstream of it asks for (`nodes::chain::master_length`),
+counted in its cycles as exact fractions, which its caption says: "loops in 4 cycles · 8.000 s
+(÷4 on ratiogear12)", "2 nodes will not close (perlin5)", or "can't tell when 1 node closes
+(multiply3)". **A claim is exact and the shortest that is true, or it is not made**: anything
+an export trusts — a node's period, the caption, the loop meter — is a loop that comes back to
+the bit and no sooner as far as the graph says, and where the walk cannot follow a cable, the
+caption says it cannot tell. [nodes.md](nodes.md#when-a-loop-closes) has the rules. An
+unconnected color input's hue wheel stands still, so it never holds a loop open.
+**Rejected: guessing past what the walk cannot read**, as the caption once did, saying a node
+reached through a Math node never closes and counting nothing for a count in an Amplitude or a
+node on its own clock beside the master: a Multiply by two closes, an Amplitude that grows does
+not, and an LFO at Speed 0.3 beside a two-second master closes in five cycles, not one.
+**Rejected: whole bars for a sequencer**, the lanes' lengths and the bar's sixteen steps
+meeting again: four on the floor on a ÷4 gear came back every master cycle while the caption
+said four, and lanes of E(3, 5) beside sixteens every two and a half bars while it said
+fifteen. A sequencer's period is the least shift its lanes' figures come back at.
+**Rejected: counting a gear's own turn when something reads it**: a gear is in the loop through
+what it drives, so four on the floor on a ÷4 gear loops in one cycle; a gear nothing reads is
+counted at its own turn, so a ÷4 left alone still says four. **Rejected: Noise's true period**,
+2³⁰ waves, where its key wraps: no loop is that long, so it claims none. **Rejected: a clip's
+length kept on the node** for the arithmetic to read: the tick would write it as a value, an
+undo step a hand could undo and the tick write straight back, past which there is no undoing,
+so a clip on its own clock cannot be told and one on a gear closes with it.
+**Rejected: silvia's turning
 hue wheel**, once every 20 s of `u_time`: no loop that was not a multiple of 20 s closed on it.
 **Rejected: a loop form declared on every node** (`Loops`: Period, Circle,
 Settles, CarriesAcross, Live) and a **loop badge** reading them: only the loop export's badge

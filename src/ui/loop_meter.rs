@@ -6,7 +6,8 @@
 //! **Its look is its meaning.** The box is the loop, `period` of the node's own cycles long,
 //! cut by a hairline at each whole cycle — four segments on a noise at Repeat 4, one on a
 //! periodic node — and filled left to right by how far through the loop the node's Time is,
-//! wrapping when the picture comes back. The text in its middle counts: the cycle it is in and
+//! wrapping when the picture comes back: a loop shorter than a cycle, four on the floor's
+//! quarter of a bar, is one box filled four times a cycle. The text in its middle counts: the cycle it is in and
 //! how many the loop has, `3/4`. A picture that never comes back has no loop, so the box spans
 //! the one cycle it is in, says the whole cycles behind it, and leaves its right end open,
 //! dashed: a solid end means it loops.
@@ -39,11 +40,31 @@ pub fn caption(p: &Progress) -> String {
     }
 }
 
-/// What a hover over the meter says.
+/// What a hover over the meter says: the cycle in the loop, and a loop that is not a whole
+/// number of cycles as the fraction it is.
 pub fn tooltip(p: &Progress) -> String {
     match p.span {
+        Span::Loop { period, .. } if period < 1.0 => {
+            format!("back every {} of a cycle", fraction(period))
+        }
+        Span::Loop { cycle, period, .. } if (period - period.round()).abs() > 1e-9 => {
+            format!(
+                "cycle {} of a loop {} cycles long",
+                cycle + 1,
+                fraction(period)
+            )
+        }
         Span::Loop { cycle, cycles, .. } => format!("cycle {} of {cycles}", cycle + 1),
         Span::Open { count } => format!("{:.0} whole cycles; never comes back", count + 0.0),
+    }
+}
+
+/// A period as a hover writes it: `1/4`, `5/2`, or three decimals where it is no small
+/// fraction.
+fn fraction(period: f64) -> String {
+    match crate::nodes::chain::Fraction::near(period) {
+        Some(f) => format!("{}/{}", f.p, f.q),
+        None => format!("{period:.3}"),
     }
 }
 
@@ -166,5 +187,19 @@ mod tests {
             tooltip(&Progress::of(12.25, None)),
             "12 whole cycles; never comes back"
         );
+    }
+
+    /// A loop shorter than a cycle is one box, filled as often as it comes back, and a hover
+    /// says how often; one that is not whole counts its cycles rounded up and says its length.
+    #[test]
+    fn a_loop_that_is_not_whole_says_its_fraction() {
+        let quarter = Progress::of(0.3, Some(0.25));
+        assert_eq!(caption(&quarter), "1/1");
+        assert_eq!(tooltip(&quarter), "back every 1/4 of a cycle");
+        let tenth = Progress::of(0.3, Some(0.1));
+        assert_eq!(tooltip(&tenth), "back every 1/10 of a cycle");
+        let long = Progress::of(2.2, Some(2.5));
+        assert_eq!(caption(&long), "3/3");
+        assert_eq!(tooltip(&long), "cycle 3 of a loop 5/2 cycles long");
     }
 }
