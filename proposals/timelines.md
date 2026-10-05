@@ -17,7 +17,8 @@ model, the tab, the jump rule, and today's A/B practice mapped onto it.
 Three things a performer cannot do today, and one object that gives all three:
 
 - **Compose.** Arrange several Outputs on one frame with position, rotation, scale, opacity
-  and a blend mode, by dragging handles on a picture rather than typing numbers.
+  and a blend mode, by dragging handles on a picture rather than typing numbers. Change what
+  is under a clip, the way an adjustment layer does, by putting one node in its graph.
 - **Make videos.** Render a show against an audio file, frame-accurate and repeatable, for a
   music video or a visualizer. silvia's offline renderer does this today with `_prepareForTime`
   driven in topological order; supersilvia already runs that model live, with the wall clock
@@ -92,6 +93,47 @@ graph; a front-first `Vec<Clip>` says it plainly, and reordering is a list edit.
 An Output whose clip is not under the playhead **does not render**. Cost is bounded by what
 is on stage now. An Output on no timeline renders as it does today, a buffer other graphs may
 sample.
+
+### Below: a clip that changes what is under it
+
+**`below`** is a Source node whose picture is everything the compositor has laid down under
+its clip this frame. Cabled through any chain into an Output, it makes that Output's clip an
+adjustment layer: an `invert` between `below` and the Output inverts what is beneath, a blur
+blurs it, a Rotozoom spins it. There is no adjustment flag on a clip and no second kind of
+layer. **Putting `below` in the graph is what makes a clip one.**
+
+The clip's own controls then mean what they mean on an adjustment layer elsewhere, with
+nothing added. Opacity at 0.5 blends the adjusted picture halfway over the untouched one. A
+blend mode blends the adjusted picture into what it came from. A clip scaled down and turned
+adjusts the region it covers and leaves the rest alone.
+
+**`below` is sampled in its clip's frame.** Its uv runs through the inverse of the clip's
+transform onto the stage, so after the compositor places the Output, every pixel lands on the
+stage pixel it was taken from. A rotated adjustment clip lines up with what it adjusts to the
+pixel. Stage outside every clip under it is transparent black.
+
+**It is premultiplied**, as every color in the graph is: the composite so far is
+premultiplied already, and `below` hands it over unconverted. Stage no clip covers is
+`vec4(0.0)`, not opaque black.
+
+Four rulings settle what `below` means everywhere it could be ambiguous:
+
+1. **It is this frame's composite, not the last one.** A `below` one frame late would show
+   the picture under a clip at partial opacity twice, a frame apart, on anything moving, and
+   the edge of a partly covering clip would tear the same way. So the compositor interleaves
+   for it, as [the compositor](#the-compositor) says.
+2. **An Output that reaches `below` is placed once**: one clip, on one timeline. A second
+   placement is refused with the reason, and so is the cable that would bring `below` into an
+   Output already placed twice. One placement is one picture under it. A `below` fanned out to
+   two Outputs is not a conflict: each Output's program compiles its own, bound to its own
+   clip.
+3. **Off stage, `below` is transparent black.** An Output on no timeline, or whose clip is
+   not under the playhead, still previews in the graph, and the chain has nothing to work on.
+4. **Another graph sampling that Output gets the adjusted picture of the last frame**, as
+   sampling any Output does today. Nothing new.
+
+`below` costs no reproducibility. It is made only from other clips, so a render is the same
+twice when they are, and it carries nothing across a loop's wrap that they do not.
 
 ### Tracks
 
@@ -359,6 +401,13 @@ silvia's main mixer with n channels and z-order instead of two channels and a cr
 its eight wipes are blend modes here. It samples published textures, so it is **one frame
 late**, which is what a delayed port already means and what the mixer already accepted.
 
+**A clip whose Output reaches [`below`](#below-a-clip-that-changes-what-is-under-it) breaks
+the pass in two.** The compositor resolves the composite so far into a texture, renders that
+Output then, with the texture bound as its `below`, and composites the result before going on
+up the list. Each Output is already its own pass, so this changes the order of passes, not the
+compiler. It costs one resolve per adjustment clip on stage, which is bounded the way the rest
+of the compositor is.
+
 It lives in `render/` beside `OutputRenderer`, is not a node, and needs no compile step: a
 clip added or reordered changes a list the pass walks, not a shader.
 
@@ -382,7 +431,8 @@ reaches the tab the way a transcode reaches a `video` node's button.
 | `command.rs` | clip and lane edits; `SetClipControl`; transport commands are app state, not edits |
 | `clock.rs` | *(from [offline-render.md](offline-render.md))* `set_elapsed` and the render stepper |
 | `nodes/mod.rs`, `nodes/cpu.rs` | *(from [offline-render.md](offline-render.md))* the *integrates* bit and `CpuNode::reset` |
-| `render/composite.rs` | new; the only new `unsafe` |
+| `render/composite.rs` | new; the only new `unsafe`; the resolve and the interleaved render for a clip that reaches `below` |
+| `nodes/` | `below`, a Source sampling a texture the renderer binds per Output program, as a camera's is |
 | `render/` | track textures, uploaded once per program, keyed by `TrackId` beside the node-keyed source textures |
 | `ui/timeline.rs`, `ui/viewport.rs` | new; return actions, never mutate |
 | `ui/node_widget.rs` | the tag on a track-bound control, naming the track, with its mode |
@@ -404,6 +454,10 @@ reaches the tab the way a transcode reaches a `video` node's button.
   the Output's control shows a lane tag after a lane is drawn; clicking the tag switches
   tabs. The viewport gizmo emits one coalesced command per drag.
 - **Layer 3.** Two Outputs composited at known transforms and blend; read the pixels back.
+  A `below` through `invert` at opacity 0.5 over a checkerboard clip reads back as the half
+  mix. A `below` clip scaled and rotated over a checkerboard, with nothing between `below`
+  and its Output, reads back identical to the checkerboard alone. A `below` off stage is
+  `vec4(0.0)`. A second placement of an Output that reaches `below` is refused.
 - **Layer 4.** A rendered file of a checkerboard against a click track has the frame count
   the length and fps say, and frame *n* rendered twice is identical.
 
@@ -413,6 +467,8 @@ reaches the tab the way a transcode reaches a `video` node's button.
    `elapsed`. Play, pause, scrub. Nothing on it yet; every Output still renders.
 2. Clips. Drag an Output onto the tab; extent gates its render; the compositor; the
    viewport with gizmos. This alone is the composition goal.
+2b. **`below`.** The node, the interleaved compositor and the placed-once rule. Small on top
+   of step 2, and it touches no compiler case: `below` is a source texture.
 3. Owned tracks: automation and color, the `Address` enum, the sixth compile case, the tag
    with Read/Off/Write. This is the automation goal in its live form.
 4. The audio track as a source, from a file.
@@ -431,6 +487,8 @@ any node.
 
 ## Open questions
 
+- **What `below` is called.** The name is a working one. It says where the picture comes
+  from, which is the thing to know when reading a graph, but it has not been chosen.
 - **Is `Cycle` a track kind, or a mode any number control can be put into?** As a track it
   fits the model with no new concept, and it is proposed that way. But a cycle is small,
   needs no lane to draw, and a performer may want one on a knob without a timeline existing
