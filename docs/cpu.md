@@ -532,7 +532,7 @@ node reads it in `f64`, unbounded, through `ctx.count` and `ctx.cycle`. A shader
 part wrapped at `phasor::WHOLE_WRAP`, 40320, centered on zero, −20160 up to 20160, and the
 `f32` of the fraction, zero within `phasor::REACH` of a whole number. 40320 is the least common
 multiple of 2520 and 128, so every period a body takes its Time round — one cycle, a noise's
-Repeat to 16, Static's to 128, the tunnel's 64 — divides it, and an `f32` holds every whole
+Repeat to 16, Static's to 128 — divides it, and an `f32` holds every whole
 number to 2²⁴ exactly: a body reduces the whole part by its period, which is exact, then adds
 the fraction and Offset, so a gear a million cycles on draws what it drew near zero, to the
 bit. A picture that never repeats adds the two parts, an `f32` that resolves 2⁻⁹ of a cycle at
@@ -593,7 +593,7 @@ nodes will not close"; the node shows it up to its " (" and the whole of it on h
 **When a loop closes.** A node on a chain from a Master Gear `M` advances `m × Πr ÷ P` of its
 own periods over `m` cycles of `M`, where `Πr` is the chain's product and `P` the node's period
 (`Timing::period`) — one for a periodic node and a looping clip, `N` under a noise's or
-Static's Repeat, 64 for the tunnel while its depth wraps, a sequencer's lanes and the bar's
+Static's Repeat, a quarter on the tunnel's Helix, a sequencer's lanes and the bar's
 sixteen steps meeting again, `lcm(16, lanes) ÷ 16` bars, and none for a clip on Hold — and it
 closes when that is whole. A gear's Phase in a Time comes back every cycle of that gear, `P`
 one, except in a sequencer, which reads it unwrapped as a count. A node

@@ -2326,7 +2326,7 @@ shows — at a rate of its own, and a cable, usually a gear's Cycles, replaces i
 land on either, since each is one number per node. **Offset** is an ordinary s-number in the
 node's own cycles, added every frame in both modes, whose ends are one whole period either way
 and follow the node's options as they change — −1 to 1 on a periodic node, −4 to 4 on a Perlin
-at Repeat 4 and −16 to 16 at 16, −64 to 64 on the tunnel, −1 to 1 where the picture never comes
+at Repeat 4 and −16 to 16 at 16, a quarter either way on the tunnel's Helix, −1 to 1 where the picture never comes
 back ([nodes.md](nodes.md#timing)) — with no accent ring, since that range is the node's
 default rather than one a hand chose; on a node that draws it takes a field too, so a radial
 cabled into it makes a ripple. A stateful node — a simulation, a
@@ -2378,13 +2378,12 @@ walk.
 (`ui::loop_meter`), in the knob's own place and size — `control_slot`, `number::WIDTH` by
 `number::HEIGHT` — so switching the mode swaps the knob for the meter without either moving.
 Its look is its meaning: the box is the node's own loop, its period `P` in its own cycles
-(`Timing::period`: one on a periodic node, a noise's Repeat, the tunnel's 64 while its depth
-wraps, a sequencer's bars), cut by a hairline at each whole cycle — four segments on a Perlin
+(`Timing::period`: one on a periodic node, a noise's Repeat, a sequencer's bars), cut by a hairline at each whole cycle — four segments on a Perlin
 at Repeat 4, one on a periodic node, and no hairlines at all past sixteen
 (`timing::MAX_DIVIDED`) — and filled left to right by how far through the loop the node is,
 `fraction(Time, P) ÷ P`, wrapping as the picture comes back. In its middle, in the number
 control's font, is the cycle it is in counted from one and the loop's length: `3/4`, `1/1` on
-a periodic node, `41/64` on the tunnel; a hairline parts around the caption rather than
+a periodic node, `11/16` on a Perlin at Repeat 16; a hairline parts around the caption rather than
 crossing it. **A picture that never comes back** — a noise at Repeat Never, the tunnel at
 Depth Wrap None, a clip on Hold — has no loop, so the box spans the one cycle it is in, says
 the whole cycles behind it, `12`, and leaves its right end open: the bevel stops short of the

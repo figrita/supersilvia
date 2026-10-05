@@ -3,8 +3,10 @@
 //! The loop claims of every node that draws and moves with time, held on the GPU.
 //!
 //! A node's `Timing::period` says after how many of its own cycles its picture comes back, or
-//! `None` for never. Two promises follow from it, and both are held here for every option a
-//! node offers and across the range of every control it has:
+//! `None` for never, by its options and its controls — read again for each setting swept, and
+//! on Shaky Cam for each axis, whose Y keeps a cycle of its own. Two promises follow from it,
+//! and both are held here for every option a node offers and across the range of every control
+//! it has:
 //!
 //! - **No false claim.** With a period `P`, the frame at Time `t + P` is the frame at `t`, at
 //!   any `t` — zero, a fraction, a thousand cycles on, behind zero, across the 40320 the
@@ -137,6 +139,20 @@ impl Rig {
             .insert(key, ControlValue::Float(value));
     }
 
+    /// The node's period on `axis` as it is set now, read from its controls as a setting left
+    /// them: on both axes at once, the least that both come back after.
+    fn period(&self, axis: Axis) -> Option<f64> {
+        let node = self.g.get(self.under).expect("in the graph");
+        let t = node.def.timing.expect("moves with time");
+        let x = t.period_of(node, timing::Axis::X);
+        let y = t.period_of(node, timing::Axis::Y);
+        match axis {
+            Axis::X => x,
+            Axis::Y => y,
+            Axis::Both => x.zip(y).map(|(x, y)| lcm(x, y)),
+        }
+    }
+
     /// Every probe's frame as RGBA floats, rows bottom first, in order.
     fn frames(&mut self, probes: &[Probe]) -> Vec<Vec<f32>> {
         let mut all = Vec::with_capacity(probes.len());
@@ -224,6 +240,15 @@ fn values(
             Some((Arc::clone(name), value))
         })
         .collect()
+}
+
+/// The least common multiple of two periods, each a whole number or a whole fraction of a
+/// cycle: the first multiple of `a` that `b` divides.
+fn lcm(a: f64, b: f64) -> f64 {
+    (1..=10_000)
+        .map(|k| a * f64::from(k))
+        .find(|m| ((m / b) - (m / b).round()).abs() < 1e-9)
+        .expect("the two meet")
 }
 
 /// How two frames differ: the share of pixels off by more than [`LEVEL`] in some channel, and
@@ -724,9 +749,11 @@ impl Audit {
 
     /// `check` on every option set and every setting, the rig set to it: every failure,
     /// named. `check` returns failures; the summary line is printed for the audit's report.
+    /// The period is the node's own on `axis` under each setting, which a control can move.
     fn run(
         &self,
         what: &str,
+        axis: Axis,
         mut check: impl FnMut(&mut Rig, &Setting, Option<f64>) -> Vec<String>,
     ) -> Vec<String> {
         let mut failures = Vec::new();
@@ -738,8 +765,6 @@ impl Audit {
             .chain(self.light.iter().map(|s| (s, false)));
         for (options, full) in sets {
             let (g, out, under) = build(&self.spec, options);
-            let node = g.get(under).unwrap();
-            let period = (node.def.timing.expect("moves with time").period)(node);
             let all = settings(&self.spec, &g, under, full, if full { 3 } else { 2 });
             let defaults: Vec<_> = swept(&g, under)
                 .into_iter()
@@ -763,6 +788,7 @@ impl Audit {
                     rig.set(key, *value);
                 }
                 cases += 1;
+                let period = rig.period(axis);
                 for f in check(&mut rig, setting, period) {
                     failures.push(format!("{options:?} {}: {f}", setting.name));
                 }
@@ -779,10 +805,14 @@ impl Audit {
 
     /// No false claim, on `axis`.
     fn claims(&self, axis: Axis) -> Vec<String> {
-        self.run(&format!("claim {axis:?}"), |rig, _, period| match period {
-            Some(p) => claim_failures(rig, p, axis),
-            None => Vec::new(),
-        })
+        self.run(
+            &format!("claim {axis:?}"),
+            axis,
+            |rig, _, period| match period {
+                Some(p) => claim_failures(rig, p, axis),
+                None => Vec::new(),
+            },
+        )
     }
 
     /// No early loop, on `axis`, printing the settings that stood still and the step that
@@ -790,7 +820,7 @@ impl Audit {
     fn early(&self, axis: Axis, whole: bool) -> Vec<String> {
         let mut stood = Vec::new();
         let mut nearest = (f64::NAN, f32::INFINITY, String::new());
-        let failures = self.run(&format!("early {axis:?}"), |rig, setting, period| {
+        let failures = self.run(&format!("early {axis:?}"), axis, |rig, setting, period| {
             let e = early(rig, period, axis, whole);
             if e.still {
                 stood.push(setting.name.clone());
@@ -963,7 +993,7 @@ fn static_comes_back_after_its_repeat() {
 }
 
 #[test]
-fn tunnel3d_comes_back_after_64() {
+fn tunnel3d_comes_back_after_its_period() {
     assert_none(
         "tunnel3d",
         &tunnel(&["mirror", "repeat"]).claims(Axis::Both),
@@ -1039,7 +1069,7 @@ fn static_does_not_come_back_before_its_repeat() {
 }
 
 #[test]
-fn tunnel3d_does_not_come_back_before_64() {
+fn tunnel3d_does_not_come_back_before_its_period() {
     assert_none(
         "tunnel3d",
         &tunnel(&["mirror", "repeat"]).early(Axis::Both, false),

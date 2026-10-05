@@ -28,11 +28,13 @@
 //! timeSpeed`, and its `tunnel3d` drives the camera from a CPU phase accumulator with a
 //! Start/Stop button on the node. Here each reads **Time** — its Speed integrated, ambient time
 //! or a gear's — with **Offset** added: the warp in lattice cells, still on a new node as
-//! silvia's is, with a Repeat like the noises'; the tunnel in units of camera depth, at
-//! silvia's half a unit a second. **The tunnel's path is retuned so
-//! the flight repeats**: every path frequency is silvia's times 5π/16, so Sine and Lissajous
-//! come back every 64 units and the Helix every 16 — each a whole number of both depth wraps,
-//! so the whole flight comes back every 64 under Mirror or Repeat. Depth Wrap None never does.
+//! silvia's is, with a Repeat like the noises'; the tunnel in flights of 64 units of camera
+//! depth, at silvia's half a unit a second. **The tunnel's path is retuned so the flight
+//! repeats**: every path frequency is silvia's times 5π/16, so Sine and Lissajous come back
+//! every 64 units and the Helix every 16 — each a whole number of both depth wraps — and one
+//! cycle is the 64, the least the tunnel comes back after as it opens. Its period is what its
+//! path and its wall's wrap come back after together: a cycle, a quarter on the Helix, and with
+//! Twist at zero the wrap's own 8 or 4 units. Depth Wrap None never comes back.
 //!
 //! **`domainwarp` publishes `value`, not `mask`.** The length of its warp vector is the raw
 //! quantity the picture was made from, not coverage, and `mask` means coverage.
@@ -103,24 +105,66 @@ fn tunnelPathLissajous(z: f32, tw: f32) -> vec2f {
     return vec2f(sin(z * 0.29452431) * tw, sin(z * 0.49087385 + 1.5708) * tw);
 }";
 
-/// How far the tunnel flies before its picture comes back, while its depth wraps.
-pub const TUNNEL_REPEAT: f64 = 64.0;
+/// How far the tunnel flies in one of its cycles, in units of depth: the 64 in which Sine and
+/// Lissajous come back.
+pub const TUNNEL_FLIGHT: f64 = 64.0;
 
-/// The tunnel's period: [`TUNNEL_REPEAT`] while its depth wraps, and none with Depth Wrap None,
-/// whose wall is never the same twice.
-fn tunnel_period(node: &crate::graph::Node) -> Option<f64> {
-    (node.options.get("wrap").map(String::as_str) != Some("none")).then_some(TUNNEL_REPEAT)
+/// How far each path flies before it comes back, in units of depth.
+fn tunnel_path_repeat(path: &str) -> f64 {
+    if path == "helix" { 16.0 } else { TUNNEL_FLIGHT }
 }
 
-/// The camera's depth: Time + Offset, and while the depth wraps, Time's whole part taken
-/// modulo [`TUNNEL_REPEAT`] and its fraction added before Offset is, and the sum wrapped again
-/// after, where the flight comes back — so a gear's Time at 64 draws the frame at zero to the
-/// bit, and a long flight keeps the precision of a short one.
+/// How far the wall's texture runs before it comes back, in units of depth: Mirror reads the
+/// input forward and back over 8, Repeat across 4.
+fn tunnel_wrap_repeat(wrap: &str) -> Option<f64> {
+    match wrap {
+        "none" => None,
+        "repeat" => Some(4.0),
+        _ => Some(8.0),
+    }
+}
+
+/// The tunnel's period, in cycles: what its path and its wall's wrap both come back after, a
+/// cycle on Sine and Lissajous and a quarter on the Helix, or the wrap's alone with Twist at
+/// zero, where the tube runs straight — an eighth under Mirror, a sixteenth under Repeat. None
+/// with Depth Wrap None, whose wall is never the same twice. A Twist a cable drives is read as
+/// one that bends the tube, the period every Twist shares.
+fn tunnel_period(node: &crate::graph::Node) -> Option<f64> {
+    let option = |key: &str| node.options.get(key).map_or("", String::as_str);
+    let wrap = tunnel_wrap_repeat(option("wrap"))?;
+    let straight = crate::nodes::timing::known(node, "twist") == Some(0.0);
+    // Every repeat here divides the flight, so the one that is longer is a whole number of the
+    // other.
+    let units = if straight {
+        wrap
+    } else {
+        tunnel_path_repeat(option("path")).max(wrap)
+    };
+    Some(units / TUNNEL_FLIGHT)
+}
+
+/// The camera's depth: the fraction of a cycle Time + Offset is at, times the flight, which
+/// every path comes back after — so a long flight keeps the precision of a short one and a
+/// gear's Time a cycle on draws the frame at zero to the bit. With Depth Wrap None the wall
+/// reads on from where the camera is, the cycles behind it a whole number of flights `reach`
+/// further.
 fn tunnel_flight_wgsl(wrap: &str) -> &'static str {
     if wrap == "none" {
-        "    let camZ = time_unbounded({clock}, {phaseOffset});\n"
+        "    let flight = time_periodic({clock}, {phaseOffset});
+    let camZ = fract(flight) * 64.0;
+    let reach = ({clock}.x + floor(flight)) * 64.0;
+"
     } else {
-        "    let flight = time_repeat({clock}, 64.0, {phaseOffset});\n    let camZ = flight - 64.0 * floor(flight / 64.0);\n"
+        "    let camZ = fract(time_periodic({clock}, {phaseOffset})) * 64.0;\n"
+    }
+}
+
+/// Where along the wall a hit is, in the texture's depth before it wraps.
+fn tunnel_depth_wgsl(wrap: &str) -> &'static str {
+    if wrap == "none" {
+        "    var depth = (hit.z + reach) * 0.5;\n"
+    } else {
+        "    var depth = hit.z * 0.5;\n"
     }
 }
 
@@ -775,10 +819,11 @@ node! {
     label: "Tunnel",
     category: Transform,
     tooltip: "Flies a camera down a curving tube with the input wrapped around its inside, \
-              half a unit a second times its Speed, or as a gear cabled into Time flies it; \
-              Offset moves it along. The flight comes back every 64 units while the depth \
-              wraps. Twist is how far the tube wanders and zoom is the lens.",
-    timing: Timing::repeating(0.5, tunnel_period),
+              half a unit a second times its Speed. A cycle of its Time is a flight of 64 \
+              units, after which it comes back while the depth wraps, so a gear cabled into \
+              Time flies it once a turn; Offset moves it along. Twist is how far the tube \
+              wanders and zoom is the lens.",
+    timing: Timing::repeating(0.5 / TUNNEL_FLIGHT, tunnel_period),
     inputs: [
         VaryingColor "input" "Texture" at "tunnelUV" = Control::None,
     ],
@@ -841,14 +886,64 @@ node! {
     let hit = origin + ray * marched;
     let axis = {path}(hit.z, twist);
     let wallAngle = atan2(hit.x - axis.x, hit.y - axis.y);
-    var depth = hit.z * 0.5;
-{wrap}{mapping}    var wall = {{input}};
+{depth}{wrap}{mapping}    var wall = {{input}};
 {shading}    return wall;",
                 flight = tunnel_flight_wgsl(ctx.option(node, "wrap")),
+                depth = tunnel_depth_wgsl(ctx.option(node, "wrap")),
                 wrap = tunnel_wrap_wgsl(ctx.option(node, "wrap")),
                 mapping = tunnel_mapping_wgsl(ctx.option(node, "mapping")),
                 shading = tunnel_shading_wgsl(ctx.option(node, "shading")),
             )
         }),
     ],
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::graph::{ControlValue, Graph, PortRef};
+    use crate::nodes::timing::{Axis, period_in};
+
+    /// **The tunnel comes back in a cycle of 64 units, or as soon as its path and wall both
+    /// do**: Sine and Lissajous a cycle, the Helix a quarter, and a straight tube — Twist at
+    /// zero — when its wall's wrap does, an eighth under Mirror and a sixteenth under Repeat.
+    /// Depth Wrap None never comes back, and a cabled Twist bends the tube.
+    #[test]
+    fn the_tunnels_period_is_its_path_and_wall_together() {
+        let mut g = Graph::new();
+        let mut period = |path: &str, wrap: &str, twist: f32| {
+            let id = crate::nodes::add_to_graph(&mut g, "tunnel3d", emath::Pos2::ZERO).unwrap();
+            let n = g.get_mut(id).unwrap();
+            n.options.insert("path", path.to_string());
+            n.options.insert("wrap", wrap.to_string());
+            n.controls.insert("twist", ControlValue::Float(twist));
+            period_in(&g, id, Axis::X)
+        };
+        for (path, wrap, twist, want) in [
+            ("sine", "mirror", 1.5, Some(1.0)),
+            ("lissajous", "repeat", 0.01, Some(1.0)),
+            ("helix", "mirror", 1.5, Some(0.25)),
+            ("helix", "repeat", 4.0, Some(0.25)),
+            ("sine", "mirror", 0.0, Some(0.125)),
+            ("helix", "mirror", 0.0, Some(0.125)),
+            ("lissajous", "repeat", 0.0, Some(0.0625)),
+            ("sine", "none", 1.5, None),
+            ("helix", "none", 0.0, None),
+        ] {
+            assert_eq!(period(path, wrap, twist), want, "{path} {wrap} {twist}");
+        }
+
+        let tunnel = crate::nodes::add_to_graph(&mut g, "tunnel3d", emath::Pos2::ZERO).unwrap();
+        g.get_mut(tunnel)
+            .unwrap()
+            .controls
+            .insert("twist", ControlValue::Float(0.0));
+        assert_eq!(period_in(&g, tunnel, Axis::X), Some(0.125));
+        let number = crate::nodes::add_to_graph(&mut g, "number", emath::Pos2::ZERO).unwrap();
+        g.connect(
+            PortRef::new(number, "output"),
+            PortRef::new(tunnel, "twist"),
+        )
+        .unwrap();
+        assert_eq!(period_in(&g, tunnel, Axis::X), Some(1.0), "a cabled Twist");
+    }
 }

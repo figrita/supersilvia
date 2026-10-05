@@ -16,6 +16,14 @@
 //! is what silvia never had either. **Time and Offset shift the palette**, in cycles of it:
 //! still on a new node, as silvia's Cycle of zero is, with Offset placing it and a Speed turned
 //! up, a shift every ten seconds at 1, or a gear cabled into Time drifting it.
+//!
+//! **Frequency is a whole number, 1 to 4**, where silvia's runs 0 to 4 in hundredths. A shift
+//! moves each channel's wave along the number's 0 to 1, and only whole waves in that span meet
+//! themselves at its ends: at 0.37 the strip shows a seam at its edge, and a picture fed a
+//! number that wraps shows it too, while the shape between the ends changes through the cycle.
+//! A flat channel is an Amp of 0. The shader and [`eval`] both round what is stored, half up,
+//! and clamp it to 1 to 4 ([`whole_frequency`]), so a value loaded or set past the knob draws
+//! what the knob would.
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::node;
@@ -32,6 +40,11 @@ pub const ROWS: [(&str, [&str; 3]); 4] = [
     ("Phase", ["phaseR", "phaseG", "phaseB"]),
 ];
 
+/// A stored Frequency as the palette reads it: the nearest whole number, half up, from 1 to 4.
+pub fn whole_frequency(freq: f32) -> f32 {
+    (freq + 0.5).floor().clamp(1.0, 4.0)
+}
+
 /// The palette at `t`, drifted by `phase`: Iñigo Quílez's form, in Rust.
 ///
 /// The same expression the output's WGSL body is, so the strip and the curves on the node
@@ -42,7 +55,7 @@ pub fn eval(coefficients: &[[f32; 3]; 4], phase: f32, t: f32) -> [f32; 3] {
         let [bias, amp, freq, offset] = [
             coefficients[0][c],
             coefficients[1][c],
-            coefficients[2][c],
+            whole_frequency(coefficients[2][c]),
             coefficients[3][c],
         ];
         (bias + amp * (std::f32::consts::TAU * (freq * t + offset + phase)).cos()).clamp(0.0, 1.0)
@@ -71,9 +84,9 @@ node! {
         "ampR" "Amp R" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
         "ampG" "Amp G" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
         "ampB" "Amp B" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
-        "freqR" "Freq R" = Control::num(1.0, 0.0, 4.0, 0.01, "x"),
-        "freqG" "Freq G" = Control::num(1.0, 0.0, 4.0, 0.01, "x"),
-        "freqB" "Freq B" = Control::num(1.0, 0.0, 4.0, 0.01, "x"),
+        "freqR" "Freq R" = Control::num(1.0, 1.0, 4.0, 1.0, "x"),
+        "freqG" "Freq G" = Control::num(1.0, 1.0, 4.0, 1.0, "x"),
+        "freqB" "Freq B" = Control::num(1.0, 1.0, 4.0, 1.0, "x"),
         "phaseR" "Phase R" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
         "phaseG" "Phase G" = Control::num(0.33, 0.0, 1.0, 0.01, ""),
         "phaseB" "Phase B" = Control::num(0.67, 0.0, 1.0, 0.01, ""),
@@ -83,9 +96,47 @@ node! {
         VaryingColor "output" "Output" = "    let t = {t};
     let bias = vec3f({biasR}, {biasG}, {biasB});
     let amp = vec3f({ampR}, {ampG}, {ampB});
-    let freq = vec3f({freqR}, {freqG}, {freqB});
+    let freq = clamp(floor(vec3f({freqR}, {freqG}, {freqB}) + 0.5), vec3f(1.0), vec3f(4.0));
     let phase = vec3f({phaseR}, {phaseG}, {phaseB}) + time_periodic({clock}, {phaseOffset});
     let rgb = bias + amp * cos(2.0 * PI * (freq * t + phase));
     return vec4f(clamp(rgb, vec3f(0.0), vec3f(1.0)), 1.0);",
     ],
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **Frequency is whole, 1 to 4**: each knob steps by one from 1, and a stored value off a
+    /// whole number is read as the nearest one, half up, within 1 to 4 — by [`eval`] as by the
+    /// shader.
+    #[test]
+    fn frequency_is_whole_from_one_to_four() {
+        for key in ROWS[2].1 {
+            let input = COSINEGRADIENT.input(key).unwrap();
+            assert!(
+                matches!(
+                    input.control,
+                    Control::Number { default, min, max, step, .. }
+                        if (default, min, max, step) == (1.0, 1.0, 4.0, 1.0)
+                ),
+                "{key}"
+            );
+        }
+        for (stored, read) in [
+            (0.0, 1.0),
+            (0.37, 1.0),
+            (1.49, 1.0),
+            (1.5, 2.0),
+            (2.5, 3.0),
+            (3.99, 4.0),
+            (7.0, 4.0),
+            (-2.0, 1.0),
+        ] {
+            assert_eq!(whole_frequency(stored), read, "{stored}");
+        }
+        let at = |freq: f32, t: f32| eval(&[[0.5; 3], [0.5; 3], [freq; 3], [0.1; 3]], 0.3, t);
+        assert_eq!(at(2.37, 0.2), at(2.0, 0.2));
+        assert_eq!(at(0.0, 0.7), at(1.0, 0.7));
+    }
 }

@@ -70,13 +70,13 @@ fn vignette8_mask(uv: vec2f) -> f32 {
 }
 
 fn shakycam1_output(uv: vec2f) -> vec4f {
-    let tx = fract(time_periodic(u.u_count_shakycam1_clock, vignette4_mask(uv))) * 20.0 * PI;
-    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, vignette5_mask(uv))) * 20.0 * PI;
+    let tx = fract(time_periodic(u.u_count_shakycam1_clock, vignette4_mask(uv))) * 2.0 * PI;
+    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, vignette5_mask(uv))) * 2.0 * PI;
     let amplitude = vignette8_mask(uv);
-    var xOffset = sin(tx) * (vignette6_mask(uv)) * amplitude;
-    xOffset += cos(tx * 0.7) * (vignette7_mask(uv)) * amplitude * 0.5;
-    var yOffset = sin(ty * 0.8) * (vignette6_mask(uv)) * amplitude;
-    yOffset += cos(ty * 1.2) * (vignette7_mask(uv)) * amplitude * 0.5;
+    var xOffset = sin(tx * 10.0) * (vignette6_mask(uv)) * amplitude;
+    xOffset += cos(tx * 7.0) * (vignette7_mask(uv)) * amplitude * 0.5;
+    var yOffset = sin(ty * 2.0) * (vignette6_mask(uv)) * amplitude;
+    yOffset += cos(ty * 3.0) * (vignette7_mask(uv)) * amplitude * 0.5;
     let shakenUV = uv + vec2f(xOffset, yOffset);
     return checkerboard3_output(shakenUV);
 }

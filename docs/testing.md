@@ -185,10 +185,10 @@ discrete, so `SUPERSILVIA_ADAPTER=intel` names it), `gpu_nodes.rs`,
 where a bare `CAMetalLayer` needs no window) and `gpu_lost.rs` (an uncaptured error logged
 rather than fatal, and a loss forced with `Device::destroy` reaching the callback); `gpu_nodes.rs` holds Offset
 adding to Time, a field into Offset making a ripple, a gear in Time being the node at the
-gear's reading and the tunnel coming back after 64 units; `gpu_app.rs` is the whole `App` on
+gear's reading and the tunnel coming back after its period; `gpu_app.rs` is the whole `App` on
 the GPU — a Snap into `snaps/`, the render job, a time-driven picture the same at one moment
 whatever came before, a loop as long as its Master Gear says closing to the byte, the tunnel's
-flight closing every 64 units, a clip rendered for its whole play coming back to its first
+flight closing every cycle, a clip rendered for its whole play coming back to its first
 frame, the slime mold's app half, idle Outputs drawn on demand, egui_wgpu painting the editor's
 own frame to the pixel, the editor timing its own painting, and a workspace pass
 thumbnailing ports that reach no Output, each cell its own coordinate to the bit, while it

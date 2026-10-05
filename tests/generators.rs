@@ -365,8 +365,8 @@ fn a_gear_in_time_replaces_the_ambient_reading() {
 }
 
 /// **Shaky Cam has a Time per axis.** Unplugged, X and Y both read ambient time, each under its
-/// own key, so the shake is what it was; a gear in Y's Time drives Y alone and leaves X on
-/// ambient time, and the other way round.
+/// own key and at its own pace, Y's cycle a quarter of X's; a gear in Y's Time drives Y alone
+/// and leaves X on ambient time, and the other way round.
 #[test]
 fn shaky_cam_has_a_time_per_axis() {
     let mut app = App::headless();
@@ -381,8 +381,13 @@ fn shaky_cam_has_a_time_per_axis() {
     app.tick(FRAME);
     let x = app.count(PortRef::new(shaky, TIME));
     let y = app.count(PortRef::new(shaky, nodes::TIME_Y));
-    assert!(x.is_some(), "X reads ambient time");
-    assert_eq!(x, y, "unplugged, Y reads the same ambient time as X");
+    let (x, y) = (x.expect("X reads ambient time"), y.expect("and so does Y"));
+    let playhead = app.transport_state().playhead;
+    assert!(
+        (x - playhead / 60.0).abs() < 1e-9,
+        "X a cycle a minute: {x}"
+    );
+    assert!((y - 4.0 * x).abs() < 1e-9, "Y four a minute: {y}");
     let body = |app: &App| supersilvia::compile::wgsl::build(app.graph(), out).unwrap();
     let shader = body(&app);
     for key in [TIME, nodes::TIME_Y] {
@@ -433,7 +438,8 @@ fn shaky_cam_has_a_time_per_axis() {
 
 /// **Repeat and the tunnel's depth wrap bring Time round**: a Perlin at half a cell a
 /// second, repeating every four, reads 0.5 at nine seconds where Never reads 4.5; a tunnel
-/// whose depth mirrors reads modulo 64, and one whose depth does not wrap goes on.
+/// whose depth mirrors reads round its cycle, a flight of 64 units at half a unit a second,
+/// and one whose depth does not wrap goes on.
 #[test]
 fn repeat_and_the_tunnels_wrap_bring_time_round() {
     let mut app = App::headless();
@@ -449,8 +455,11 @@ fn repeat_and_the_tunnels_wrap_bring_time_round() {
     assert!((time(&app, four) - 0.5).abs() < 1e-5);
     app.transport(Transport::Seek(140.0));
     app.tick_at(140.0);
-    assert!((time(&app, mirror) - 6.0).abs() < 1e-4, "70 is 6 past 64");
-    assert!((time(&app, open) - 70.0).abs() < 1e-4);
+    assert!(
+        (time(&app, mirror) - 6.0 / 64.0).abs() < 1e-6,
+        "70 units is 6 past a flight"
+    );
+    assert!((time(&app, open) - 70.0 / 64.0).abs() < 1e-6);
 }
 
 /// **Repeat is a rebuild**: the line through three dimensions becomes the circle through

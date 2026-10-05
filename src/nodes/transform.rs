@@ -18,11 +18,14 @@
 //! silvia's. **`mirror` and `polarcoords` guard what silvia leaves open** — the polar scale
 //! divides, and a control's range excludes zero where a cabled field does not.
 //! **`rotozoom` and `shakycam` read Time and Offset in their own cycle**, where silvia reads
-//! `u_time` inside the body: one cycle is the 20π over which silvia's rates line up — one set of
-//! zoom waves, one X wave and four Y waves — and Speed 1 or ambient time runs it at one a minute,
-//! silvia's speeds of one rounded to whole seconds. Rotozoom's **Turns**, a whole number, is how
-//! many turns one cycle makes, so the node still comes back on every cycle; a sign turns it the
-//! other way and zero is zoom alone. See
+//! `u_time` inside the body, and a cycle is the least time in which every wave she runs comes
+//! back: on Rotozoom and on Shaky Cam's X the 20π over which her rates line up, which Speed 1 or
+//! ambient time runs at one a minute, her speeds of one rounded to whole seconds; on Shaky Cam's
+//! Y the quarter of that over which her 0.8 and 1.2 line up, at four a minute, so the shake on
+//! screen is hers. Rotozoom's **Turns**, a whole number, is how many turns one cycle makes, so
+//! the node still comes back on every cycle; a sign turns it the other way and zero is zoom
+//! alone. A coefficient at zero stills its waves, and what moves then may come back within a
+//! cycle, which the period says: half a cycle on Rotozoom with its cosines off and Turns even. See
 //! `docs/decisions.md#silvias-other-seven-transforms-and-the-two-that-keep-time`.
 
 use crate::graph::PortType::{UniformNumber, VaryingColor, VaryingNumber};
@@ -468,7 +471,7 @@ node! {
               so a larger one pulls the picture away — the opposite sense of the Zoom node.",
     // "Sin Coefficient" does not fit the default 200.
     width: 240.0,
-    timing: Timing::periodic(1.0 / 60.0),
+    timing: Timing::repeating(1.0 / 60.0, |n| Some(rotozoom_period(n))),
     inputs: [
         VaryingColor "input" "Input" at "rotozoomedUV" = Control::None,
     ],
@@ -505,7 +508,52 @@ node! {
     ],
 }
 
+/// How many times a cycle each of Rotozoom's four waves runs: the angle's sine and cosine,
+/// then the zoom's, the sines under Sin Coefficient and the cosines under Cos Coefficient.
+const ROTOZOOM_WAVES: [u64; 4] = [10, 7, 8, 12];
+
+/// Rotozoom's period: one cycle, or a half where the cosines are off and Turns is even, or
+/// `1 / |Turns|` where both coefficients are — the least shift that brings back every wave that
+/// moves and the turn. Turns is read rounded as the shader rounds it, half to even, and a
+/// Turns a cable drives as any whole number.
+fn rotozoom_period(node: &crate::graph::Node) -> f64 {
+    use crate::nodes::timing::{known, period_of_waves};
+    let [sin_angle, cos_angle, sin_zoom, cos_zoom] = ROTOZOOM_WAVES;
+    let mut waves = Vec::with_capacity(5);
+    if known(node, "sinCoeff") != Some(0.0) {
+        waves.extend([sin_angle, sin_zoom]);
+    }
+    if known(node, "cosCoeff") != Some(0.0) {
+        waves.extend([cos_angle, cos_zoom]);
+    }
+    waves.push(known(node, "turns").map_or(1, |t| t.round_ties_even().abs() as u64));
+    period_of_waves(&waves)
+}
+
 // ------------------------------------------------------------------------------- shaky cam
+
+/// How many times a cycle each of Shaky Cam's waves runs on its own axis, sine then cosine: X's
+/// silvia's 1 and 0.7 over 20π, Y's her 0.8 and 1.2 over a quarter of that, where they line up.
+const SHAKY_X_WAVES: [u64; 2] = [10, 7];
+const SHAKY_Y_WAVES: [u64; 2] = [2, 3];
+
+/// An axis of Shaky Cam's period: one of its cycles, or the sine's or the cosine's own where the
+/// other's coefficient is zero. Standing still — no amplitude, both coefficients zero — it
+/// claims one cycle.
+fn shaky_period(node: &crate::graph::Node, [sine, cosine]: [u64; 2]) -> f64 {
+    use crate::nodes::timing::{known, period_of_waves};
+    if known(node, "amplitude") == Some(0.0) {
+        return 1.0;
+    }
+    let mut waves = Vec::with_capacity(2);
+    if known(node, "sinCoeff") != Some(0.0) {
+        waves.push(sine);
+    }
+    if known(node, "cosCoeff") != Some(0.0) {
+        waves.push(cosine);
+    }
+    period_of_waves(&waves)
+}
 
 node! {
     /// A handheld wobble: four fixed waves, two per axis, under one amplitude.
@@ -520,7 +568,8 @@ node! {
               Offset of its own, so Y can shake alone, at a speed or on a gear of its own.",
     // "Sin Coefficient" does not fit the default 200.
     width: 240.0,
-    timing_xy: Timing::periodic(1.0 / 60.0),
+    timing_xy: Timing::repeating(1.0 / 60.0, |n| Some(shaky_period(n, SHAKY_X_WAVES)))
+        .y(1.0 / 15.0, |n| Some(shaky_period(n, SHAKY_Y_WAVES))),
     inputs: [
         VaryingColor "input" "Input" at "shakenUV" = Control::None,
     ],
@@ -529,20 +578,149 @@ node! {
         VaryingNumber "cosCoeff" "Cos Coefficient" = Control::num(1.0, -2.0, 2.0, 0.01, ""),
         VaryingNumber "amplitude" "Amplitude" = Control::num(0.1, 0.0, 1.0, 0.01, ""),
     ],
-    // One cycle is silvia's 20π of time at her equal speeds. The four rates — 1 and 0.7 on X,
-    // 0.8 and 1.2 on Y — are silvia's, and they are what the shake sounds like. Each axis
-    // reads a Time and an Offset of its own, so Y can run alone or on a gear of its own;
-    // unplugged, both read the one ambient time and the shake is hers.
-    wgsl_common: "    let tx = fract(time_periodic({clock}, {phaseOffset})) * 20.0 * PI;
-    let ty = fract(time_periodic({clockY}, {phaseOffsetY})) * 20.0 * PI;
+    // Each axis turns through its own cycle, the waves running whole times in it: X 10 and 7,
+    // Y 2 and 3 (`SHAKY_X_WAVES`, `SHAKY_Y_WAVES`). Each axis reads a Time and an Offset of
+    // its own, so Y can run alone or on a gear of its own.
+    wgsl_common: "    let tx = fract(time_periodic({clock}, {phaseOffset})) * 2.0 * PI;
+    let ty = fract(time_periodic({clockY}, {phaseOffsetY})) * 2.0 * PI;
     let amplitude = {amplitude};
-    var xOffset = sin(tx) * ({sinCoeff}) * amplitude;
-    xOffset += cos(tx * 0.7) * ({cosCoeff}) * amplitude * 0.5;
-    var yOffset = sin(ty * 0.8) * ({sinCoeff}) * amplitude;
-    yOffset += cos(ty * 1.2) * ({cosCoeff}) * amplitude * 0.5;
+    var xOffset = sin(tx * 10.0) * ({sinCoeff}) * amplitude;
+    xOffset += cos(tx * 7.0) * ({cosCoeff}) * amplitude * 0.5;
+    var yOffset = sin(ty * 2.0) * ({sinCoeff}) * amplitude;
+    yOffset += cos(ty * 3.0) * ({cosCoeff}) * amplitude * 0.5;
     let shakenUV = uv + vec2f(xOffset, yOffset);
 ",
     outputs: [
         VaryingColor "output" "Output" = "    return {input};",
     ],
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::graph::{ControlValue, Graph, PortRef};
+    use crate::nodes::timing::{Axis, period_in};
+
+    fn node(g: &mut Graph, slug: &str, controls: &[(&'static str, f32)]) -> crate::graph::NodeId {
+        let id = crate::nodes::add_to_graph(g, slug, emath::Pos2::ZERO).unwrap();
+        for (key, value) in controls {
+            g.get_mut(id)
+                .unwrap()
+                .controls
+                .insert(key, ControlValue::Float(*value));
+        }
+        id
+    }
+
+    fn period(g: &Graph, id: crate::graph::NodeId, axis: Axis) -> Option<f64> {
+        let n = g.get(id).unwrap();
+        n.def.timing.unwrap().period_of(n, axis)
+    }
+
+    /// **Rotozoom comes back every cycle**, and sooner where a coefficient at zero stills its
+    /// waves: with the cosines off its sines run 10 and 8 a cycle, so an even Turns brings it
+    /// back in half a cycle and an odd one does not; with both off it is the turn alone,
+    /// `1 / |Turns|`. Turns is read as the shader rounds it, half to even.
+    #[test]
+    fn rotozoom_reports_the_shorter_repeat_a_coefficient_at_zero_leaves() {
+        let mut g = Graph::new();
+        for (controls, want) in [
+            (&[][..], 1.0),
+            (&[("turns", 0.0)][..], 1.0),
+            (&[("sinCoeff", 0.0)][..], 1.0),
+            (&[("cosCoeff", 0.0)][..], 1.0),
+            (&[("cosCoeff", 0.0), ("turns", 0.0)][..], 0.5),
+            (&[("cosCoeff", 0.0), ("turns", 2.0)][..], 0.5),
+            (&[("cosCoeff", 0.0), ("turns", -4.0)][..], 0.5),
+            (&[("cosCoeff", 0.0), ("turns", 2.5)][..], 0.5),
+            (&[("cosCoeff", 0.0), ("turns", 3.5)][..], 0.5),
+            (
+                &[("sinCoeff", 0.0), ("cosCoeff", 0.0), ("turns", 3.0)][..],
+                1.0 / 3.0,
+            ),
+            (
+                &[("sinCoeff", 0.0), ("cosCoeff", 0.0), ("turns", -10.0)][..],
+                0.1,
+            ),
+            (
+                &[("sinCoeff", 0.0), ("cosCoeff", 0.0), ("turns", 1.0)][..],
+                1.0,
+            ),
+            (
+                &[("sinCoeff", 0.0), ("cosCoeff", 0.0), ("turns", 0.0)][..],
+                1.0,
+            ),
+        ] {
+            let id = node(&mut g, "rotozoom", controls);
+            assert_eq!(period(&g, id, Axis::X), Some(want), "{controls:?}");
+        }
+    }
+
+    /// **Each of Shaky Cam's axes comes back every cycle of its own**, and with one coefficient
+    /// at zero after the other's wave alone: X's sine every tenth and its cosine every seventh,
+    /// Y's every half and every third.
+    #[test]
+    fn shaky_cam_reports_each_axis_its_own_shorter_repeat() {
+        let mut g = Graph::new();
+        for (controls, x, y) in [
+            (&[][..], 1.0, 1.0),
+            (&[("cosCoeff", 0.0)][..], 0.1, 0.5),
+            (&[("sinCoeff", 0.0)][..], 1.0 / 7.0, 1.0 / 3.0),
+            (&[("sinCoeff", 0.0), ("cosCoeff", 0.0)][..], 1.0, 1.0),
+            (&[("amplitude", 0.0)][..], 1.0, 1.0),
+            (&[("sinCoeff", -2.0), ("cosCoeff", 0.37)][..], 1.0, 1.0),
+        ] {
+            let id = node(&mut g, "shakycam", controls);
+            assert_eq!(
+                (period(&g, id, Axis::X), period(&g, id, Axis::Y)),
+                (Some(x), Some(y)),
+                "{controls:?}"
+            );
+        }
+        let t = crate::nodes::find("shakycam").unwrap().timing.unwrap();
+        assert_eq!(t.pace_of(Axis::X), 1.0 / 60.0, "X a cycle a minute");
+        assert_eq!(t.pace_of(Axis::Y), 1.0 / 15.0, "Y four");
+    }
+
+    /// **A control a cable drives is any value it could be**: Rotozoom's cosines cabled with
+    /// their knob at zero may move, so `period_in` claims the cycle that holds for every value
+    /// where the knob alone says half; a cabled Turns may be odd.
+    #[test]
+    fn a_cabled_coefficient_claims_the_period_every_value_shares() {
+        let mut g = Graph::new();
+        let turn = node(&mut g, "rotozoom", &[("cosCoeff", 0.0), ("turns", 2.0)]);
+        assert_eq!(
+            period_in(&g, turn, Axis::X),
+            Some(0.5),
+            "unplugged, the knob"
+        );
+        let number = crate::nodes::add_to_graph(&mut g, "number", emath::Pos2::ZERO).unwrap();
+        g.connect(
+            PortRef::new(number, "output"),
+            PortRef::new(turn, "cosCoeff"),
+        )
+        .unwrap();
+        assert_eq!(period_in(&g, turn, Axis::X), Some(1.0), "cabled, any value");
+        assert_eq!(period(&g, turn, Axis::X), Some(0.5), "the knob it replaced");
+
+        let both = node(
+            &mut g,
+            "rotozoom",
+            &[("sinCoeff", 0.0), ("cosCoeff", 0.0), ("turns", 4.0)],
+        );
+        assert_eq!(period_in(&g, both, Axis::X), Some(0.25));
+        g.connect(PortRef::new(number, "output"), PortRef::new(both, "turns"))
+            .unwrap();
+        assert_eq!(period_in(&g, both, Axis::X), Some(1.0), "any whole Turns");
+
+        let shaky = node(&mut g, "shakycam", &[("cosCoeff", 0.0)]);
+        g.connect(
+            PortRef::new(number, "output"),
+            PortRef::new(shaky, "cosCoeff"),
+        )
+        .unwrap();
+        assert_eq!(
+            (period_in(&g, shaky, Axis::X), period_in(&g, shaky, Axis::Y)),
+            (Some(1.0), Some(1.0))
+        );
+    }
 }

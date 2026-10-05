@@ -63,7 +63,7 @@
 //! the node is with its Offset added, or `cycle_at` for a clip, whose pace is one play over its
 //! own length.
 
-use crate::graph::{ControlRange, ControlValue, Node, PortType, Value};
+use crate::graph::{ControlRange, ControlValue, Graph, Node, NodeId, PortRef, PortType, Value};
 use crate::nodes::{Control, InputDef, OptionDef, OptionKind, phasor};
 use crate::transport::Time;
 
@@ -131,11 +131,18 @@ pub struct Timing {
     /// Whether a new node stands still: its Speed starts at 0 rather than 1, as silvia's sits
     /// still at rest. Free mode alone; Loop mode always moves with its Time.
     pub still: bool,
-    /// How long the picture takes to come back, in its own units, by what its options say:
-    /// one for a periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps, and
-    /// `None` for a picture that never repeats.
+    /// How long the picture takes to come back, in its own cycles, by what its options and
+    /// controls say: one for a periodic node, a noise's Repeat, a fraction of a cycle where a
+    /// setting brings the picture back sooner — the tunnel's Helix every quarter — and `None`
+    /// for a picture that never repeats. A control a cable drives is missing from the node it
+    /// is handed ([`period_in`]), and is read as any value it could be.
     pub period: fn(&Node) -> Option<f64>,
     pub axes: Axes,
+    /// Y's pace and period on a node with two axes, where its cycle is its own: Shaky Cam's Y,
+    /// whose waves come back four times as often as X's. The same as X's unless [`Timing::y`]
+    /// sets them, and never read on one axis.
+    pub pace_y: f64,
+    pub period_y: fn(&Node) -> Option<f64>,
     /// Whether the node's pace is one play over a length of its own — a clip's, a GIF's — that
     /// the node reads off its file and hands to `TickContext::cycle_at`, so [`Self::pace`] is
     /// a play and nothing outside the node knows how long one is.
@@ -155,6 +162,8 @@ impl Timing {
             still: false,
             period,
             axes: Axes::One,
+            pace_y: pace,
+            period_y: period,
             clip: false,
         }
     }
@@ -180,6 +189,31 @@ impl Timing {
         self
     }
 
+    /// The same on two axes, Y at a pace and with a period of its own.
+    #[must_use]
+    pub const fn y(mut self, pace: f64, period: fn(&Node) -> Option<f64>) -> Self {
+        self.pace_y = pace;
+        self.period_y = period;
+        self.xy()
+    }
+
+    /// How many of `axis`'s own cycles one second is.
+    pub const fn pace_of(&self, axis: Axis) -> f64 {
+        match (self.axes, axis.index) {
+            (Axes::Two, 1) => self.pace_y,
+            _ => self.pace,
+        }
+    }
+
+    /// How long `node`'s picture takes to come back on `axis`, by [`Timing::period`] or Y's
+    /// own, reading every control as the node holds it.
+    pub fn period_of(&self, node: &Node, axis: Axis) -> Option<f64> {
+        match (self.axes, axis.index) {
+            (Axes::Two, 1) => (self.period_y)(node),
+            _ => (self.period)(node),
+        }
+    }
+
     /// Where a new node's Speed starts: 1, or 0 on one that stands still.
     pub const fn speed_default(&self) -> f32 {
         if self.still { 0.0 } else { 1.0 }
@@ -200,6 +234,51 @@ impl Timing {
             .filter(|p| *p > 0.0)
             .unwrap_or(phasor::WRAP)
     }
+}
+
+/// How long `id`'s picture takes to come back on `axis`, as the graph has it: its period with
+/// every control a cable drives taken off the node first, so a period that a control's value
+/// moves — a coefficient at zero, Twist at zero — holds for whatever the cable brings. A
+/// period read straight off the node ([`Timing::period_of`]) reads the knob a cable has
+/// replaced. `None` for a node that does not move with time or never comes back.
+pub fn period_in(graph: &Graph, id: NodeId, axis: Axis) -> Option<f64> {
+    let node = graph.get(id)?;
+    let t = node.def.timing?;
+    let cabled: Vec<&'static str> = node
+        .controls
+        .keys()
+        .copied()
+        .filter(|key| graph.source_of(PortRef::new(id, key)).is_some())
+        .collect();
+    if cabled.is_empty() {
+        return t.period_of(node, axis);
+    }
+    let mut unknown = node.clone();
+    for key in cabled {
+        unknown.controls.remove(key);
+    }
+    t.period_of(&unknown, axis)
+}
+
+/// A number control as a period reads it: its value, or `None` where the node does not hold
+/// one — a cable drives it — and any value may arrive.
+pub fn known(node: &Node, key: &str) -> Option<f32> {
+    match node.controls.get(key) {
+        Some(ControlValue::Float(v)) if v.is_finite() => Some(*v),
+        _ => None,
+    }
+}
+
+/// The period of a picture made of waves that run `waves` whole times a cycle each: one over
+/// their greatest common divisor, the least shift that brings every one of them back. A wave
+/// at zero stands still and counts for nothing; with none moving, one cycle.
+pub fn period_of_waves(waves: &[u64]) -> f64 {
+    let g = waves.iter().fold(0u64, |a, &b| gcd(a, b));
+    if g == 0 { 1.0 } else { 1.0 / g as f64 }
+}
+
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 /// One axis's three rows.
@@ -295,7 +374,8 @@ pub const fn offset_range(period: Option<f64>) -> ControlRange {
 /// every other input, and on a node that does not move with time.
 pub fn range(node: &Node, key: &str) -> Option<ControlRange> {
     let t = node.def.timing?;
-    (key == OFFSET || key == OFFSET_Y).then(|| offset_range((t.period)(node)))
+    let axis = axis_of(key).filter(|a| a.offset == key)?;
+    Some(offset_range(t.period_of(node, axis)))
 }
 
 /// An Offset of `v` fitted to the range a `period` gives it: as it is inside, taken round the
@@ -319,8 +399,8 @@ pub fn fit_offsets(node: &mut Node) {
     let Some(t) = node.def.timing else {
         return;
     };
-    let period = (t.period)(node);
     for axis in t.axes() {
+        let period = t.period_of(node, *axis);
         if node
             .values
             .get(axis.offset)
@@ -874,7 +954,8 @@ mod tests {
 
     /// Every node that moves with time has an Offset whose range is its period either way,
     /// read from its options and controls as they stand: a Perlin by its Repeat, the tunnel by
-    /// its depth wrap, a clip by its Loop, a Euclidean Rhythm by where its lanes meet again.
+    /// its path and depth wrap, a clip by its Loop, a Euclidean Rhythm by where its lanes meet
+    /// again.
     #[test]
     fn every_moving_nodes_offset_reaches_its_own_period() {
         let mut g = crate::graph::Graph::new();
@@ -885,7 +966,7 @@ mod tests {
             for axis in t.axes() {
                 assert_eq!(
                     crate::nodes::control_range(def, node, axis.offset),
-                    Some(offset_range((t.period)(node))),
+                    Some(offset_range(t.period_of(node, *axis))),
                     "{} {}",
                     def.slug,
                     axis.offset
@@ -911,7 +992,9 @@ mod tests {
             assert_eq!(reach(&g, perlin), want, "Repeat {repeat}");
         }
         let tunnel = crate::nodes::add_to_graph(&mut g, "tunnel3d", emath::Pos2::ZERO).unwrap();
-        assert_eq!(reach(&g, tunnel), 64.0);
+        assert_eq!(reach(&g, tunnel), 1.0, "a flight of 64 units");
+        set(&mut g, tunnel, "path", "helix");
+        assert_eq!(reach(&g, tunnel), 0.25, "the Helix's 16");
         set(&mut g, tunnel, "wrap", "none");
         assert_eq!(reach(&g, tunnel), 1.0);
         let clip = crate::nodes::add_to_graph(&mut g, "video", emath::Pos2::ZERO).unwrap();

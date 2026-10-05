@@ -139,15 +139,16 @@ that does not.
 every moving node has **Offset**, key `phaseOffset` (`nodes::timing::OFFSET`): 1 is exactly one
 of the node's cycles, it is **added** every frame in either mode, and its knob reaches **one
 whole period either way**, `−P` to `P` by the period the node's options give it now — −1 to 1
-on a periodic node, −4 to 4 on a Perlin at Repeat 4, −64 to 64 on the tunnel — or one cycle
-either way where the picture never comes back. It is a varying circle
+on a periodic node, −4 to 4 on a Perlin at Repeat 4, a quarter either way on the tunnel's
+Helix — or one cycle either way where the picture never comes back. It is a varying circle
 wherever the node draws, so the distance from the middle into it is a ripple with one cable,
 and a uniform number on the CPU nodes, whose tick has no pixel. It is the generators' and
 transforms' old Time, `video`'s and `imagegif`'s Position and the oscillator's Phase under one
-name and one unit. A node's cycle is its longest period: Rotozoom and Shaky Cam take the 20π
-every one of their periods divides, so an Offset of one brings both motions back together. A
-node with no period takes its natural unit — a lattice cell on a noise, a roll on Static, a
-unit of depth on the Tunnel — and there Offset does not wrap unless the node's Repeat is on.
+name and one unit. A node's cycle is the least it comes back after at its defaults: Rotozoom
+takes the 20π every one of its waves divides, so an Offset of one brings every motion back
+together, and the Tunnel a flight of 64 units. A node with no period takes its natural unit —
+a lattice cell on a noise, a roll on Static — and there Offset does not wrap unless the node's
+Repeat is on.
 **Rejected: 0 to 1**, one cycle and only forwards, as first built: on a Perlin at Repeat 16 it
 reached a sixteenth of the loop, and placing a node a little behind meant dialing nearly a
 whole period ahead. **Rejected: Offset in periods**, 0 to 1 of the node's whole loop, which
@@ -1693,10 +1694,9 @@ shader holding a noise for the few that repeat.
 
 **The Tunnel's path is retuned so its flight repeats.** Every path frequency is multiplied by
 5π/16, so Sine and Lissajous repeat every 64 units of depth and Helix every 16 — whole numbers
-of both depth wraps — and the camera's depth is taken modulo 64 while the wall wraps: Time 64
-draws Time 0. The wiggle is 1.8% slower, which nobody sees. Depth Wrap None never repeats. A
-gear's count reaches it whole, its whole part wrapped at 40320, which 64 divides, so a tunnel
-on a gear never meets a seam.
+of both depth wraps — and a cycle is the flight of 64: the camera's depth is the cycle's
+fraction times 64, so Time 1 draws Time 0 and a gear flies it once a turn. The wiggle is 1.8%
+slower, which nobody sees. Depth Wrap None never repeats.
 
 **When a loop closes.** A node on a chain from Master Gear `M` advances `m × Πr ÷ P` of its own
 periods over `m` cycles of `M` — `Πr` the product of the chain's ratios, `P` the node's period —
@@ -1810,6 +1810,28 @@ that is nothing more specific says `value`.
 at `uv - 0.5` while their other three outputs sample at `uv`. Here both publish `mask` for
 the set and `smooth` for the count, which is what made the vocabulary worth fixing first: the mistake
 is invisible until two nodes disagree, and by then there are seventy.
+
+### A loop claim is exact and the least, or it is not made
+
+**Chosen.** A node's period is the least time its picture comes back after, judged as a
+person sees it, or none. **One cycle is the least the node comes back after at its defaults**,
+so a gear's turn, the loop meter and the picture agree: Shaky Cam's Y runs silvia's 0.8 and
+1.2 as 2 and 3 waves in a cycle of its own at four times X's pace, and the Tunnel's cycle is
+its flight of 64 units, each at the speed on screen it had. **A setting that brings the picture
+back sooner shortens the period to a fraction of a cycle** — a coefficient at zero, Twist at
+zero, the Helix — and the period reads the node's controls to say so. A cable can bring any
+value, so the loop arithmetic asks `timing::period_in`, which reads a cabled control as any
+value it could be. **Cosine Gradient's Freq is whole, 1 to 4**: a shift scrolls each wave
+through the number's 0 to 1, and only whole waves meet themselves at its ends.
+
+**Rejected: keeping silvia's units and reporting a fraction or a multiple at the defaults** —
+Shaky Cam's Y every quarter cycle, the Tunnel every 64 — which is exact, but a gear's turn then
+is not the node's loop and the meter counts laps the picture does not make. **Rejected: one
+pace for Shaky Cam's two axes**: at silvia's rates no cycle holds a whole number of every wave
+on both axes with neither coming back early. **Rejected: Freq in hundredths, silvia's**: the
+frame comes back every cycle at any Freq, but at 0.37 the strip and any picture fed a number
+that wraps show a seam at the window's edge, and the shape inside it changes through the
+cycle.
 
 ### A distortion is a `Transform`, not a category of its own
 
@@ -4340,9 +4362,11 @@ a patch carried across reads the same; each node's tooltip says so instead.
 
 **The two that keep time read Time and Offset in one cycle, and Rotozoom counts its turns.**
 silvia multiplies wall time by two speeds inside each body — Rotozoom's rotation and zoom,
-Shaky Cam's X and Y. Here neither has a speed. One cycle of each is the 20π over which
-silvia's rates line up — one set of zoom waves; one X wave and four Y waves — and ambient time
-runs it at one a minute, silvia's speeds of one rounded to whole seconds. **Turns**, a whole
+Shaky Cam's X and Y. Here neither has a speed. One cycle is the least time over which
+silvia's rates line up — on Rotozoom and on Shaky Cam's X the 20π of one set of zoom waves and
+one X wave, which ambient time runs at one a minute, silvia's speeds of one rounded to whole
+seconds; on Shaky Cam's Y the quarter of it in which her 0.8 and 1.2 line up, at four a
+minute. **Turns**, a whole
 number from −10 to 10, default 5, is how many turns Rotozoom makes a cycle — silvia's equal
 speeds give 5 — so the node still comes back on every cycle; zero is zoom alone and a sign
 reverses it. Shaky Cam reads a Time and an Offset per axis, so Y can shake alone or on a gear
