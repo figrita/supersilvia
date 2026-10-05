@@ -15,9 +15,9 @@ of it is. Every Output renders at 25 fps as a GIF for the length its loop takes.
 
 Each patch is the first time system's (`git show c62a43d:scripts/demo-time.py`) on gears, so
 its GIF is the old one frame for frame where the model allows: a speed Loop mode ran at n
-whole cycles of its node's period a loop is a Ratio Gear at ×n under a four-second Master
-Gear, a speed of zero is a gear at ×0, a field cabled into Time is Offset divided by the
-node's period, and every other knob is the same.
+whole cycles of its node's period a loop is a Ratio Gear at Teeth n : 1 under a four-second
+Master Gear, a speed of zero is a node running free at Speed 0, a field cabled into Time is
+Offset divided by the node's period, and every other knob is the same.
 
 The node definitions come from `cargo run --release --example registry`, which this runs
 unless --registry names a dump. Every cable is checked against them: the same port type, or
@@ -170,9 +170,10 @@ class Workspace:
             options={"display": display},
         )
 
-    def gear(self, x, y, ratio, clock=None, display="rosette"):
-        """A Ratio Gear at `ratio`, its Clock In from `clock`'s Cycles where one is named."""
-        g = self.add("ratiogear", x, y, controls={"ratio": ratio}, options={"display": display})
+    def gear(self, x, y, p, q=1, clock=None, display="rosette"):
+        """A Ratio Gear at Teeth `p : q`, its Clock In from `clock`'s Cycles where one is
+        named."""
+        g = self.add("ratiogear", x, y, controls={"p": p, "q": q}, options={"display": display})
         if clock is not None:
             self.cable(clock, "cycles", g, "clock")
         return g
@@ -319,7 +320,7 @@ def seamless_noise(p):
         "a loop.\n\n"
         "Try:\n"
         "- Set the Fractal's Repeat to Never. It drifts forever and the loop no longer closes.\n"
-        "- Put a Ratio Gear at ×2 into the Fractal's Time and set its Repeat to 2: a wider "
+        "- Put a Ratio Gear at 2 : 1 into the Fractal's Time and set its Repeat to 2: a wider "
         "circle, twice as fast, and still seamless.\n"
         "- Turn the Fractal's Offset: it moves along the circle, and comes back at 1.\n\n"
         "The One clock tab plays this loop as a GIF.",
@@ -358,25 +359,25 @@ def one_beat(p):
         40,
         40,
         "One Master Gear half a second long counts beats at 120 BPM, drawn as gears. Ratio Gears "
-        "under it count the rest: ÷4 is a bar, ÷8 is a two-bar phrase.\n\n"
+        "under it count the rest: Teeth of 1 : 4 are a bar, 1 : 8 a two-bar phrase.\n\n"
         "The bar drives the Step Sequencer's Time — sixteen steps a bar — turns the picture "
-        "once and moves the palette. A ×3 gear on the phrase sways the Kaleidoscope through "
+        "once and moves the palette. A 3 : 1 gear on the phrase sways the Kaleidoscope through "
         "the Oscillator, three times a phrase, and the phrase moves the Simplex a cell. The "
         "sequencer's lanes kick the zoom and flash the colour.\n\n"
-        "The Master Gear's caption says the loop closes in 8 cycles, 4 s: the ÷8 asks for "
+        "The Master Gear's caption says the loop closes in 8 cycles, 4 s: the 1 : 8 asks for "
         "eight beats.\n\n"
         "Try:\n"
         "- Turn the Master Gear's Length, slower or faster. Everything bends to the new "
         "tempo together, with no jump.\n"
         "- Press the Master Gear's Hold: the sequencer stops where it is. Press it again.\n"
-        "- Set the phrase gear to ÷16: the caption says 16 cycles.\n"
+        "- Set the phrase gear's Teeth to 1 : 16: the caption says 16 cycles.\n"
         "- Click cells in the sequencer's grid.",
         width=420,
     )
     beat = ws.master(500, 40, length=0.5, display="gears")
-    bar = ws.gear(500, 380, 0.25, clock=beat)
-    phrase = ws.gear(500, 640, 0.125, clock=beat)
-    sway = ws.gear(500, 900, 3.0, clock=phrase)
+    bar = ws.gear(500, 380, 1, 4, clock=beat)
+    phrase = ws.gear(500, 640, 1, 8, clock=beat)
+    sway = ws.gear(500, 900, 3, clock=phrase)
     seq = ws.add(
         "stepsequencer",
         780,
@@ -432,36 +433,30 @@ def one_beat(p):
 
 
 def bend(p):
-    ws = p.workspace("Bend, don't jump", "An Oscillator swings a Ratio Gear, and each change lands on a whole cycle")
+    ws = p.workspace("Bend on Speed, lock on Teeth", "A gear locked to the master beside an Oscillator bending a Speed")
     ws.note(
         40,
         40,
-        "A Ratio Gear never jumps. When its ratio changes, the old ratio runs on until its input "
-        "finishes a cycle, and the new one starts there: the gear's display shows the change "
-        "pending until then. So the picture bends and never skips.\n\n"
-        "Here an Oscillator, once a loop, swings the Spin gear between one, two and three turns "
-        "a loop, rounded by the Floor. The Spin gear counts twelfths of a turn off a ×12 gear, "
-        "so each change lands on the next third of a second, and a ÷12 gear turns its "
-        "twelfths back into turns for the Rotate. The spin speeds up and slows down, and "
-        "comes round twice a loop.\n\n"
-        "Rotozoom's Time is on a gear at ×0, so its waves hold still, and Shaky Cam shakes once "
-        "a loop on the Master Gear.\n\n"
-        "A ratio with a cable in it is one the caption cannot read ahead, so it says the chain "
-        "will not close; this one does, every four seconds, the Output's Duration.\n\n"
+        "A Ratio Gear is its parent times its Teeth, every frame: it never drifts and never "
+        "bends. Change its Teeth and the layer jumps to where it would be had it always run at "
+        "the new ratio. To bend a pace instead, run the node free and cable into its Speed.\n\n"
+        "Here the dots turn on the Spin gear, Teeth 2 : 1 under the four-second Master Gear: "
+        "twice a loop, locked to it. Rotozoom runs free, and an Oscillator once a loop swings "
+        "its Speed between a half and one and a half, so its waves speed up and slow down and "
+        "never skip. Shaky Cam shakes once a loop on the Master Gear.\n\n"
+        "A cable in a Speed is one the caption cannot read ahead, so it says it can't tell; the "
+        "Output's Duration, four seconds, is the render.\n\n"
         "Try:\n"
-        "- Pull the cable out of the Spin gear's Ratio and drag the ratio yourself, fast. Each "
-        "change waits for the next third of a second.\n"
-        "- Set the ×0 gear to ×1: Rotozoom's waves breathe, and it turns once a loop itself.",
+        "- Set the Spin gear's Teeth to 3 : 1. The dots jump to where three turns a loop puts "
+        "them, and turn three times a loop from there.\n"
+        "- Pull the cable out of Rotozoom's Speed and drag the Speed yourself: the waves bend, "
+        "and never jump.",
         width=420,
     )
     master = ws.master(500, 700)
-    swing = ws.add("oscillator", 760, 700, controls={"amplitude": 1.0, "offset": 2.5})
-    steps = ws.add("floor", 1020, 700)
-    thirds = ws.gear(760, 960, 12.0, clock=master)
-    spin = ws.gear(1020, 960, 2.0, clock=thirds, display="gears")
-    turns = ws.gear(1280, 960, 1.0 / 12.0, clock=spin)
+    swing = ws.add("oscillator", 760, 700, controls={"amplitude": 0.5, "offset": 1.0})
+    spin = ws.gear(1020, 960, 2, clock=master, display="gears")
     twice = ws.add("multiply", 1540, 960, controls={"b": 1.0})
-    still = ws.gear(1280, 700, 0.0, clock=master)
     dots = ws.add(
         "phyllotaxis",
         500,
@@ -483,11 +478,9 @@ def bend(p):
     ab = ws.add("chromaticaberration", 1840, 40, controls={"offset": 0.012})
     out = ws.output(2100, 40)
     ws.cable(master, "cycles", swing, "clock")
-    ws.cable(swing, "output", steps, "input")
-    ws.cable(steps, "output", spin, "ratio")
-    ws.cable(turns, "wrapped", twice, "a")
+    ws.cable(swing, "output", roto, "speed")
+    ws.cable(spin, "wrapped", twice, "a")
     ws.cable(twice, "output", turn, "angle")
-    ws.cable(still, "cycles", roto, "clock")
     ws.cable(master, "cycles", shaky, "clock")
     ws.cable(master, "cycles", shaky, "clockY")
     ws.cable(master, "cycles", tint, "clock")
@@ -516,13 +509,13 @@ def field(p):
         "height goes into Shaky Cam's Offset X and Offset Y, so the shake travels down the picture like a flag. "
         "Everything runs on one Master Gear, so the field is the only difference between one "
         "pixel and the next.\n\n"
-        "Rotozoom's Time is on a gear at ×0: its waves hold still and only the field moves "
-        "them, since Turns ties its turn to its waves. The steady turn is the Rotate's.\n\n"
+        "Rotozoom runs free at Speed 0: its waves hold still and only the field moves them, "
+        "since Turns ties its turn to its waves. The steady turn is the Rotate's.\n\n"
         "Try:\n"
         "- Change the Multiply numbers: more lag, a tighter spiral. At 1 the top edge is a "
         "whole cycle ahead of the middle.\n"
-        "- Set the ×0 gear to ×1: the waves breathe, and Rotozoom turns five more times a "
-        "loop.\n"
+        "- Cable the Master Gear's Cycles into Rotozoom's Time: the waves breathe, and "
+        "Rotozoom turns five more times a loop.\n"
         "- Cable the distance into Shaky Cam's Offset X and Offset Y instead of the height: a ripple from the "
         "middle.\n"
         "- Pause: the twist stays, since the field is in Offset and not in the time.\n\n"
@@ -531,7 +524,6 @@ def field(p):
         width=420,
     )
     master = ws.master(500, 700)
-    still = ws.gear(760, 860, 0.0, clock=master)
     stripes = ws.add(
         "stripes",
         500,
@@ -550,7 +542,7 @@ def field(p):
         "rotozoom",
         1020,
         40,
-        controls={"turns": 5.0, "baseZoom": 0.7, "sinCoeff": 0.5, "cosCoeff": 0.5},
+        controls={"turns": 5.0, "baseZoom": 0.7, "sinCoeff": 0.5, "cosCoeff": 0.5, "speed": 0.0},
     )
     shaky = ws.add("shakycam", 1300, 40, controls={"amplitude": 0.06})
     grad = ws.add("cosinegradient", 1580, 420, controls=OCEAN)
@@ -558,7 +550,6 @@ def field(p):
     out = ws.output(1840, 40)
     ws.cable(master, "wrapped", turn, "a")
     ws.cable(turn, "output", spin, "angle")
-    ws.cable(still, "cycles", roto, "clock")
     ws.cable(master, "cycles", shaky, "clock")
     ws.cable(master, "cycles", shaky, "clockY")
     ws.cable(master, "cycles", grad, "clock")
@@ -586,19 +577,19 @@ def one_clock(p):
         "show is paused, sought or retimed.\n\n"
         "The Image/GIF plays the loop the Seamless noise tab renders. Its Time is the gear's "
         "Ping-pong, which plays it forward and back once a loop, kept a hair inside 0 to 1 by "
-        "the Multiply and the Add, since a Time of exactly 1 is the first frame again. A ×1.5 "
+        "the Multiply and the Add, since a Time of exactly 1 is the first frame again. A 3 : 2 "
         "gear on the same gear runs the Oscillator three waves a loop, bending the ripple, and "
         "the gear's Phase turns the hue twice.\n\n"
         "Try:\n"
-        "- Set the gear to ×1: clip, ripple and hue all go half speed, together.\n"
-        "- Set it to -×2: all three run backwards, still in step.\n"
+        "- Set the gear's Teeth to 1 : 1: clip, ripple and hue all go half speed, together.\n"
+        "- Set them to 4 : 1: all three twice as fast, still in step.\n"
         "- Turn the GIF's Offset: it scrubs through the clip, on top of the gear.\n"
         "- Pull the cable out of the GIF's Time: it plays at its own speed.",
         width=420,
     )
     master = ws.master(500, 620)
-    clock = ws.gear(500, 360, 2.0, clock=master, display="gears")
-    waves = ws.gear(780, 620, 1.5, clock=clock)
+    clock = ws.gear(500, 360, 2, clock=master, display="gears")
+    waves = ws.gear(780, 620, 3, 2, clock=clock)
     gif = ws.add("imagegif", 500, 40, options={"file": "assets/seamless-noise.gif"})
     lfo = ws.add("oscillator", 780, 360, controls={"amplitude": 0.06}, options={"waveform": "triangle"})
     wave = ws.add(
@@ -630,27 +621,29 @@ def one_clock(p):
 
 
 def reverse(p):
-    ws = p.workspace("Reverse the show", "Feedback trails that settle, and a gear to run the triangle backwards")
+    ws = p.workspace("Reverse the show", "Feedback trails that settle, and a Speed to run the breathing backwards")
     ws.note(
         40,
         40,
         "A triangle turns and breathes, and leaves echoes: the Output's own last frame, turned, "
         "zoomed, shifted in hue and dimmed, under the new one.\n\n"
-        "The triangle runs on the Show gear, ×1 of a four-second Master Gear: a ×2 gear on it "
-        "breathes the Oscillator twice a loop, and its Phase turns the triangle once.\n\n"
+        "The triangle runs on the Show gear, 1 : 1 of a four-second Master Gear: a 2 : 1 gear on "
+        "it breathes the Oscillator twice a loop, and its Phase turns the triangle once.\n\n"
         "Try:\n"
-        "- Set the Show gear to -×1. The triangle turns and breathes backwards, and the echoes "
-        "still grow and fade forwards: feedback runs once a frame, whatever the gears say.\n"
-        "- Set it to ×0: the triangle holds still and the echoes stream out of it.\n"
-        "- Try ÷4: a slow-motion replay. The caption says four cycles.\n"
+        "- Switch the Oscillator to Free and set its Speed to -2. The triangle breathes "
+        "backwards, and the echoes still grow and fade forwards: feedback runs once a frame, "
+        "whatever the clocks say.\n"
+        "- Set its Speed to 0: the triangle holds its size and the echoes stream out of it.\n"
+        "- Set the Show gear's Teeth to 1 : 4: a slow-motion replay. The caption says four "
+        "cycles.\n"
         "- Pause (Space): everything holds, the echoes too.\n\n"
         "The trails fade to nothing within a loop, so after a loop of warm-up the render comes "
         "back to its first frame.",
         width=420,
     )
     master = ws.master(500, 700)
-    show = ws.gear(760, 700, 1.0, clock=master, display="gears")
-    breathe = ws.gear(1020, 700, 2.0, clock=show)
+    show = ws.gear(760, 700, 1, clock=master, display="gears")
+    breathe = ws.gear(1020, 700, 2, clock=show)
     pulse = ws.add("oscillator", 500, 400, controls={"amplitude": 0.07, "offset": 0.17})
     spin2 = ws.add("multiply", 760, 520, controls={"b": 1.0})
     shape = ws.add(
@@ -689,14 +682,14 @@ def wont_loop(p):
         "takes, thirty times a second; it keeps no Time.\n"
         "- The XY Pad steers the porthole. It throws its puck with physics, and its Temperature "
         "keeps it wandering.\n"
-        "- The Tunnel flies on a Ratio Gear at ÷128 with nothing in its Clock In: ambient "
-        "time, a 128th of its cycle a second, half a unit. Its cycle is a flight of 64 units, "
-        "which comes back only every two minutes.\n\n"
+        "- The Tunnel flies on ambient time, Loop mode with nothing in its Time: a 128th of its "
+        "cycle a second, half a unit. Its cycle is a flight of 64 units, which comes back only "
+        "every two minutes.\n\n"
         "No Master Gear here at all, so the render is the Output's Duration, four seconds, and "
         "it does not close.\n\n"
         "Try:\n"
-        "- Put a four-second Master Gear into the tunnel gear's Clock In and set it to ÷4: its "
-        "flight now closes every sixteen seconds. The mold and the pad still do not.",
+        "- Cable a four-second Master Gear through a Ratio Gear at 1 : 4 into the Tunnel's "
+        "Time: its flight now closes every sixteen seconds. The mold and the pad still do not.",
         width=420,
     )
     mold = ws.add(
@@ -722,18 +715,16 @@ def wont_loop(p):
         560,
         controls={"temperature": 1.5, "drag": 0.01, "minX": -0.5, "maxX": 0.5, "minY": -0.25, "maxY": 0.25},
     )
-    fly = ws.gear(800, 800, 1.0 / 128.0)
     tunnel = ws.add(
         "tunnel3d",
         800,
         40,
         controls={"twist": 0.8, "radius": 1.0, "zoom": 1.0},
-        options={"mapping": "cartesian_mirror", "shading": "light"},
+        options={"mapping": "cartesian_mirror", "shading": "light", "clockMode": "loop"},
     )
     hole = ws.add("circle", 800, 560, controls={"radius": 0.42, "softness": 0.04})
     porthole = ws.add("mix", 1100, 40)
     out = ws.output(1360, 40)
-    ws.cable(fly, "cycles", tunnel, "clock")
     ws.cable(mold, "color", tunnel, "input")
     ws.cable(pad, "x", hole, "centerX")
     ws.cable(pad, "y", hole, "centerY")
