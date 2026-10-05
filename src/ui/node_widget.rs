@@ -2027,26 +2027,24 @@ fn input_controls(
 }
 
 /// The loop meter on a Time row, where the Speed knob stands in the other mode: the node's
-/// Time as the node reads it, through its period. The row is drawn only in Loop mode under an
-/// open Timing heading, so the meter is too.
+/// Time as the node reads it, through its axis's period (`timing::period_in`). The row is
+/// drawn only in Loop mode under an open Timing heading, so the meter is too.
 fn loop_meter(ui: &mut Ui, cx: &NodeCtx<'_>, index: usize, key: &'static str) {
-    let Some(timing) = cx
-        .node
-        .def
-        .timing
-        .filter(|_| canvas::speed_tall(cx.node, index))
-    else {
+    if cx.node.def.timing.is_none() || !canvas::speed_tall(cx.node, index) {
         return;
-    };
+    }
     let Some(band) = cx.block(canvas::Row::Input(index)) else {
         return;
     };
     let at = PortRef::new(cx.id, key);
+    // The axis's period as the graph gives it: a control a cable drives read as anything.
+    let period = crate::nodes::timing::axis_of(key)
+        .and_then(|axis| crate::nodes::timing::period_in(cx.frame.graph, cx.id, axis));
     let progress = cx
         .frame
         .uniforms
         .time(at, cx.frame.graph.source_of(at))
-        .map(|time| crate::nodes::timing::Progress::of(time, (timing.period)(cx.node)));
+        .map(|time| crate::nodes::timing::Progress::of(time, period));
     let zoom = cx.zoom();
     crate::ui::loop_meter::meter(
         ui,

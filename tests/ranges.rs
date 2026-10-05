@@ -566,8 +566,9 @@ fn a_shrinking_period_takes_the_offset_round_it() {
     );
 }
 
-/// A Euclidean Rhythm's period is where its lanes meet again, so a lane's length moves it:
-/// at 16 and 12 it is three bars, and back at 16 an Offset of 2.5 bars is half a bar.
+/// A Euclidean Rhythm's period is where its lanes' figures come round together, so a lane's
+/// length moves it: E(5, 12) beside sixteens is three bars, and back at 16 an Offset of 2.5
+/// bars is half a bar.
 #[test]
 fn a_lanes_length_moves_a_rhythms_offset_range() {
     let mut app = App::headless();
@@ -587,6 +588,12 @@ fn a_lanes_length_moves_a_rhythms_offset_range() {
         })
         .unwrap();
     };
+    app.apply(Command::SetControl {
+        node: id,
+        key: "lane2pulses",
+        value: ControlValue::Float(5.0),
+    })
+    .unwrap();
     steps(&mut app, 12.0);
     assert_eq!(range(&app, id, key).max, 3.0);
     offset(&mut app, id, 2.5);
@@ -597,7 +604,7 @@ fn a_lanes_length_moves_a_rhythms_offset_range() {
 
 /// **A file's Offset is fitted to the period its own settings give it**, not to a new node's:
 /// a Perlin saved at Repeat 16 with its Offset at 10 opens with both, and a Euclidean Rhythm
-/// whose lanes meet every three bars opens with its Offset at 2.5.
+/// whose lanes' figures meet every three bars opens with its Offset at 2.5.
 #[test]
 fn a_saved_offset_opens_against_its_own_period() {
     let (mut app, id) = perlin();
@@ -610,12 +617,14 @@ fn a_saved_offset_opens_against_its_own_period() {
     })
     .unwrap();
     let euclid = app.graph().iter().map(|(id, _)| id).max().unwrap();
-    app.apply(Command::SetControl {
-        node: euclid,
-        key: "lane2steps",
-        value: ControlValue::Float(12.0),
-    })
-    .unwrap();
+    for (key, v) in [("lane2pulses", 5.0), ("lane2steps", 12.0)] {
+        app.apply(Command::SetControl {
+            node: euclid,
+            key,
+            value: ControlValue::Float(v),
+        })
+        .unwrap();
+    }
     offset(&mut app, euclid, 2.5);
     let json = serde_json::to_string(&file_of(app.graph())).expect("a workspace serializes");
     let (graph, warnings) = supersilvia::workspace::from_str(&json).expect("and reads back");

@@ -15,15 +15,16 @@
 //!
 //! - **A Ratio Gear** multiplies its Clock In's rate by its ratio; a Trigger in its Reset makes
 //!   its count `rate × (m mod T)`, and in its Hold freezes it every other `T` ([`Clock`]).
-//! - **A node that moves with time** is where its Time and Offset put it, a rate and things
-//!   that come back on their own, read round its period `P` (`Timing::period`, any positive
-//!   fraction): a count at rate `r` comes back every `P ÷ r`; a Phase every gear cycle, or
-//!   every `P ÷ r` where `P` divides one; a Ping-pong every two; a sequencer reads a Phase as a
-//!   count, and with Step cabled advances a sixteenth of a bar a beat. Its own clock — Loop
-//!   mode unplugged, or running free on its Speed's knob — is a rate in seconds over the
-//!   master's seconds, read as a fraction ([`Fraction::near`]); a clip's, whose length the
-//!   graph does not hold, cannot be told. Every other input it reads adds what it comes back
-//!   in. A count in Speed never closes, and anything else in one cannot be told.
+//! - **A node that moves with time** is where each axis's Time and Offset put it, a rate and
+//!   things that come back on their own, read round that axis's period `P` as the graph gives
+//!   it (`timing::period_in`, any positive fraction): a count at rate `r` comes back every
+//!   `P ÷ r`; a Phase every gear cycle, or every `P ÷ r` where `P` divides one; a Ping-pong
+//!   every two; a sequencer reads a Phase as a count, and with Step cabled advances a
+//!   sixteenth of a bar a beat. Its own clock — Loop mode unplugged, or running free on its
+//!   Speed's knob, at the axis's pace — is a rate in seconds over the master's seconds, read as
+//!   a fraction ([`Fraction::near`]); a clip's, whose length the graph does not hold, cannot be
+//!   told. Every other input it reads adds what it comes back in. A count in Speed never
+//!   closes, and anything else in one cannot be told.
 //! - **A Clock Divider** at ÷n turns beats every `T` into beats every `nT`.
 //! - **A node with no CPU half** — arithmetic, a shader, an Output — is a function of its
 //!   inputs, and comes back when all of them have. Any other CPU node keeps state the walk
@@ -31,12 +32,12 @@
 //!   back, and otherwise it cannot be told.
 //!
 //! The loop is the least common multiple of what every node downstream of the master comes
-//! back in, and the master's own cycle, so whole master cycles: [`master_loop`]. A gear is
+//! back in, and of the master's own cycle, so whole master cycles: [`master_loop`]. A gear is
 //! counted through what reads it — four on the floor on a ÷4 gear loops in one cycle, not four
-//! — and a gear nothing reads by its own turn. A period
-//! comes back sooner than a guess only where the node's picture has a symmetry the walk does
-//! not know of — a cosine on a Ping-pong — and a sum that overflows is a loop no practical
-//! length closes, and is said not to close.
+//! — and a gear nothing reads by its own turn. A loop that overflows the arithmetic is one no
+//! practical length closes, and is said not to close. What is claimed is the shortest the
+//! graph can tell: a picture with a symmetry no declaration states — a cosine on a Ping-pong,
+//! which is back every cycle and not every two — comes back sooner.
 
 use crate::graph::{ControlValue, Graph, Node, NodeId, PortRef};
 use crate::nodes::{sequencer, timing};
@@ -652,13 +653,6 @@ impl<'g> Walk<'g> {
     /// period, and everything else it reads.
     fn timed(&mut self, id: NodeId, node: &Node, t: timing::Timing) -> Motion {
         let graph = self.graph;
-        let period = match (t.period)(node) {
-            Some(p) => match Fraction::near(p).filter(|f| f.p > 0) {
-                Some(f) => Some(f),
-                None => return Motion::Unknown(id),
-            },
-            None => None,
-        };
         let sequencer = sequencer::is_sequencer(node.def);
         let stepped = sequencer
             && graph
@@ -667,6 +661,14 @@ impl<'g> Walk<'g> {
                 .is_some();
         let mut g = Gather::default();
         for axis in t.axes() {
+            // Its period on this axis, with what a cable drives read as anything it could be.
+            let given = timing::period_in(graph, id, *axis);
+            let period = given.and_then(|p| Fraction::near(p).filter(|f| f.p > 0));
+            if given.is_some() && period.is_none() {
+                g.fail(Motion::Unknown(id));
+                continue;
+            }
+            let pace = t.pace_of(*axis);
             // The rate it moves at, in its cycles a master cycle, and what comes back on its
             // own.
             let mut rate = Fraction::ZERO;
@@ -695,14 +697,14 @@ impl<'g> Walk<'g> {
                         },
                         None => match node.controls.get(axis.speed) {
                             Some(ControlValue::Float(speed)) => {
-                                self.own(id, t, f64::from(*speed) * t.pace)
+                                self.own(id, t, f64::from(*speed) * pace)
                             }
                             _ => Ok(Fraction::ZERO),
                         },
                     }
                 } else {
                     match graph.source_of(PortRef::new(id, axis.time)) {
-                        None => self.own(id, t, t.pace),
+                        None => self.own(id, t, pace),
                         Some(src) => {
                             let m = self.port(src);
                             Self::place(m, period, sequencer, id, &mut rate, &mut every);
@@ -879,8 +881,8 @@ pub fn master_loop(graph: &Graph, master: NodeId) -> MasterLoop {
 }
 
 /// How many of its own cycles a second `node`'s Time runs at on its own clock, on one axis:
-/// in Loop mode with nothing in that Time, its pace; running free with nothing in that
-/// Speed, its Speed's knob times its pace (`nodes::timing`). `None` where a cable drives it,
+/// in Loop mode with nothing in that Time, the axis's pace; running free with nothing in that
+/// Speed, its Speed's knob times that pace (`nodes::timing`). `None` where a cable drives it,
 /// and on a clip, whose pace is one play over a length the graph does not hold.
 pub fn own_rate(graph: &Graph, node: NodeId, axis: timing::Axis) -> Option<f64> {
     let n = graph.get(node)?;
@@ -890,20 +892,21 @@ pub fn own_rate(graph: &Graph, node: NodeId, axis: timing::Axis) -> Option<f64> 
             return None;
         }
         match n.controls.get(axis.speed) {
-            Some(ControlValue::Float(speed)) => Some(f64::from(*speed) * t.pace),
+            Some(ControlValue::Float(speed)) => Some(f64::from(*speed) * t.pace_of(axis)),
             _ => None,
         }
     } else {
         graph
             .source_of(PortRef::new(node, axis.time))
             .is_none()
-            .then_some(t.pace)
+            .then_some(t.pace_of(axis))
     }
 }
 
 /// Whether `node`, on its own clock, comes back after `seconds`: on every axis
-/// `own_rate × seconds ÷ period` is whole, which a node standing still always is and a moving
-/// picture that never repeats never is. `None` for a node that does not move with time, a
+/// `own_rate × seconds ÷ period` is whole, by the period the graph gives that axis
+/// (`timing::period_in`) — which a node standing still always is and a moving picture that
+/// never repeats never is. `None` for a node that does not move with time, a
 /// clip, and one a cable drives, whose loop is its chain's.
 pub fn closes_alone(graph: &Graph, node: NodeId, seconds: f64) -> Option<bool> {
     let n = graph.get(node)?;
@@ -914,7 +917,7 @@ pub fn closes_alone(graph: &Graph, node: NodeId, seconds: f64) -> Option<bool> {
         if rate == 0.0 {
             continue;
         }
-        closes &= (t.period)(n).is_some_and(|p| {
+        closes &= timing::period_in(graph, node, *axis).is_some_and(|p| {
             let turns = rate * seconds / p;
             (turns - turns.round()).abs() < 1e-6
         });
@@ -1113,15 +1116,12 @@ mod tests {
     fn a_node_on_its_own_clock_closes_where_its_rate_comes_round() {
         let mut g = Graph::new();
         let fractal = crate::nodes::add_to_graph(&mut g, "mandelbrot", emath::Pos2::ZERO).unwrap();
-        let p = (g.get(fractal).unwrap().def.timing.unwrap().period)(g.get(fractal).unwrap());
         assert_eq!(own_rate(&g, fractal, timing::Axis::X), Some(0.5));
-        if p == Some(1.0) {
-            assert_eq!(closes_alone(&g, fractal, 2.0), Some(true));
-            assert_eq!(closes_alone(&g, fractal, 3.0), Some(false));
-            set(&mut g, fractal, timing::SPEED, 1.5);
-            assert_eq!(closes_alone(&g, fractal, 2.0), Some(false));
-            assert_eq!(closes_alone(&g, fractal, 4.0), Some(true));
-        }
+        assert_eq!(closes_alone(&g, fractal, 2.0), Some(true));
+        assert_eq!(closes_alone(&g, fractal, 3.0), Some(false));
+        set(&mut g, fractal, timing::SPEED, 1.5);
+        assert_eq!(closes_alone(&g, fractal, 2.0), Some(false));
+        assert_eq!(closes_alone(&g, fractal, 4.0), Some(true));
         loops(&mut g, fractal);
         assert_eq!(
             own_rate(&g, fractal, timing::Axis::X),
@@ -1259,17 +1259,25 @@ mod tests {
         );
     }
 
-    /// **The tunnel flies 64 units before it comes back**, so on a ×32 gear it loops in two of
-    /// the master's cycles, and with its depth unwrapped it never does.
+    /// **The tunnel comes back every flight, its Helix every quarter of one**: a cycle is one
+    /// flight of 64 units, so on a ×32 gear it comes back 32 times a master cycle and a loop
+    /// is the master's one; on a ÷2 gear two; the Helix on a ÷8, a quarter of a flight every
+    /// two; and with its depth unwrapped it never does.
     #[test]
-    fn a_tunnel_on_times_thirty_two_loops_in_two() {
+    fn a_tunnel_comes_back_every_flight() {
+        for (ratio, path, want) in [(32.0, "sine", 1), (0.5, "sine", 2), (0.125, "helix", 2)] {
+            let mut g = Graph::new();
+            let (master, tunnel) = driving(&mut g, ratio, "tunnel3d", "cycles");
+            g.get_mut(tunnel)
+                .unwrap()
+                .options
+                .insert("path", path.to_string());
+            let l = master_loop(&g, master);
+            let why = (want > 1).then_some((tunnel, want as i64));
+            assert_eq!((l.cycles, l.why), (want, why), "{path} at ×{ratio}");
+        }
         let mut g = Graph::new();
         let (master, tunnel) = driving(&mut g, 32.0, "tunnel3d", "cycles");
-        let p = (g.get(tunnel).unwrap().def.timing.unwrap().period)(g.get(tunnel).unwrap());
-        if p == Some(64.0) {
-            let l = master_loop(&g, master);
-            assert_eq!((l.cycles, l.why), (2, Some((tunnel, 2))));
-        }
         g.get_mut(tunnel)
             .unwrap()
             .options
@@ -1603,10 +1611,10 @@ mod tests {
         );
     }
 
-    /// **Every Time a node has is followed**, Shaky Cam's Time Y as well as its Time X: Y on a
-    /// ×½ gear and X on the master a second long ask for two of the master's cycles. With X
-    /// left on ambient time it drifts at its own pace, which the loop counts too; through a
-    /// Multiply off the master it cannot be told.
+    /// **Every Time a node has is followed, each at its own pace and period**: Shaky Cam's Y
+    /// on a ×½ gear comes back every two of its periods' worth of master cycles, and X left on
+    /// ambient time drifts at X's own pace, which the loop counts too; with X on the master as
+    /// well, the two meet where both do. Through a Multiply off the master it cannot be told.
     #[test]
     fn a_shaky_cams_time_y_on_a_half_gear_loops_in_two() {
         let mut g = Graph::new();
@@ -1617,19 +1625,20 @@ mod tests {
         connect(&mut g, (master, "cycles"), (half, "clock"));
         connect(&mut g, (half, "cycles"), (shaky, crate::nodes::TIME_Y));
         let t = g.get(shaky).unwrap().def.timing.unwrap();
-        let period = Fraction::near((t.period)(g.get(shaky).unwrap()).unwrap()).unwrap();
-        // X on ambient time, a cycle every 1/pace seconds.
-        let drift = period.over(Fraction::near(t.pace).unwrap()).unwrap();
-        let both = drift
-            .lcm(period.over(Fraction::new(1, 2)).unwrap())
+        let period = |axis| Fraction::near(timing::period_in(&g, shaky, axis).unwrap()).unwrap();
+        let (x, y) = (period(timing::Axis::X), period(timing::Axis::Y));
+        let on_half = y.over(Fraction::new(1, 2)).unwrap();
+        // X on ambient time, a cycle every 1 ÷ its pace seconds, a master cycle being one.
+        let drift = x
+            .over(Fraction::near(t.pace_of(timing::Axis::X)).unwrap())
             .unwrap();
+        let both = drift.lcm(on_half).unwrap();
         assert_eq!(master_loop(&g, master).cycles, both.p as u64, "X drifts");
         connect(&mut g, (master, "cycles"), (shaky, crate::nodes::TIME));
-        let x_and_y = period
-            .lcm(period.over(Fraction::new(1, 2)).unwrap())
-            .unwrap();
+        let x_and_y = x.lcm(on_half).unwrap();
         let l = master_loop(&g, master);
         assert_eq!((l.cycles, l.open.len()), (x_and_y.p as u64, 0));
+        assert_eq!(l.cycles, 2, "Y's own period, one cycle, twice on the ×½");
 
         let mut g = Graph::new();
         let master = gear(&mut g, "mastergear", None);

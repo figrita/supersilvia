@@ -412,7 +412,8 @@ see what it crossed: an edge detector, not an accumulator.
 - **`oscillator`** is a wave at `ctx.cycle`, one wave a second at rest and at Speed 1,
   silvia's 1 Hz. A frequency is its Speed, or a gear's Ratio in Loop mode, where a stop and a
   restart are the gear's Hold and Reset, and a one-shot is `animation`'s. The Noise waveform draws one value a cycle, keyed by `floor(Time + Offset)`
-  and the node's id, so it holds for a wave, loops when its Time does and is the same twice.
+  and the node's id, so it holds for a wave and is the same twice; it never comes back, so its
+  period is none.
   **Level** is the level added to the wave.
 - **`stepsequencer` and `euclideanrhythm`** read `ctx.cycle` in bars, sixteen steps a bar,
   through one reading, `nodes::sequencer`, under two patterns. A new one stands still, its Speed
@@ -577,31 +578,39 @@ paused show is still. The reading reaches it as `CpuNode::gear`, gathered into
 — [ui.md](ui.md#the-gear-region).
 
 **Under a Master Gear, a caption says what a loop of it needs**, worked out from the graph by
-`nodes::chain`. `chain::driven` walks every Ratio Gear the master reaches through a Cycles or a
-Phase into a Clock In, and on down through theirs, with the product of the ratios on the way as
-a `chain::Fraction`. `master_loop` follows the master's and every one of those gears' Cycles
-and Phase on into the Time of every node that moves with time, and counts each at its own
-period, by the rule under *When a loop closes* below. It is the master's cycles a loop — the least common
-multiple of what every gear and node asks for — with the one that asks the most, and what
-never closes: a gear whose ratio is no fraction with a denominator up to 64 or has a cable in
-it, a node that never repeats on a gear's Cycles, and a node whose Time a gear reaches through
-anything that is not a gear, a Math node say. `master_seconds` is one cycle and
-`master_length` a loop, one cycle's seconds times its cycles. `chain::caption` reads "loops in
-4 cycles · 8.000 s (÷4 on ratiogear12)", "loops in 4 cycles · 8.000 s (÷4 on perlin5)" or "2
-nodes will not close"; the node shows it up to its " (" and the whole of it on hover.
+`nodes::chain`, and **a claim is exact and the shortest that is true, or it is not made**.
+`chain::master_loop` walks every node downstream of the master and works out, in the master's
+cycles as an exact `chain::Fraction`, what each comes back in: a Ratio Gear multiplies its Clock
+In's rate by its ratio, a Trigger in its Reset or Hold makes its count come back every reset or
+every run and stand; a node that moves with time is where its Times and Offsets put it, read
+round its period, with what every other input it reads adds; a Trigger into a sequencer's Step
+moves it a step a beat, and a Clock Divider divides the beats; a node on its own clock moves at
+its rate over the master's seconds, read as a fraction; a node with no CPU half comes back when
+its inputs do. The loop is the master's cycles that bring all of them back — the least common
+multiple of what each asks for, a gear counted through what reads it and a gear nothing reads
+by its own turn — with the one that asks the most, the nodes that never close, and the nodes
+past which it cannot tell. `master_seconds` is one cycle and `master_length` a loop, one
+cycle's seconds times its cycles, with none where anything never closes or cannot be told.
+`chain::caption` reads "loops in 4 cycles · 8.000 s (÷4 on ratiogear12)", "loops in 4 cycles ·
+8.000 s (÷4 on perlin5)", "2 nodes will not close (perlin5)" or "can't tell when 1 node closes
+(multiply3)"; the node shows it up to its " (" and the whole of it on hover.
 
 **When a loop closes.** A node on a chain from a Master Gear `M` advances `m × Πr ÷ P` of its
 own periods over `m` cycles of `M`, where `Πr` is the chain's product and `P` the node's period
-(`Timing::period`) — one for a periodic node and a looping clip, `N` under a noise's or
-Static's Repeat, a quarter on the tunnel's Helix, a sequencer's lanes and the bar's
-sixteen steps meeting again, `lcm(16, lanes) ÷ 16` bars, and none for a clip on Hold — and it
-closes when that is whole. A gear's Phase in a Time comes back every cycle of that gear, `P`
-one, except in a sequencer, which reads it unwrapped as a count. A node
-on its own clock closes over a length `L` when its rate — in Loop mode with nothing in Time —
-or its Speed times its pace — running free with nothing in Speed — times `L ÷ P` is whole
-(`chain::closes_alone`), and a clock cabled into a Speed never closes; the caption counts it. An unconnected color
-input falls back to the hue wheel, which stands still, so it closes on any loop. **A loop is rendered by the Output's ordinary
-render**, for as long as the caption says; there is no loop export.
+as the graph gives it (`timing::period_in`) — one for a periodic node and a looping clip, `N`
+under a noise's or Static's Repeat, a quarter on the tunnel's Helix, a sequencer's lanes'
+figures coming round together, a quarter of a bar for four on the floor, and none for a clip
+on Hold or the oscillator's Noise — and it closes when that is whole; a period may be any
+positive fraction, and is read as one. A gear's Phase in a Time comes back every cycle of that
+gear, or every `P ÷ Πr` where `P` divides one, and a sequencer reads it unwrapped as a count; a
+Ping-pong comes back every two. A node on its own clock closes over a length `L` when its rate
+— in Loop mode with nothing in Time — or its Speed times its pace — running free with nothing
+in Speed — times `L ÷ P` is whole (`chain::closes_alone`), and beside a master it closes where
+that length is a whole number of the master's cycles; a clip's own rate is a length the graph
+does not hold. A clock cabled into a Speed never closes, and the caption counts it. An
+unconnected color input falls back to the hue wheel, which stands still, so it closes on any
+loop. [nodes.md](nodes.md#when-a-loop-closes) has every rule. **A loop is rendered by the
+Output's ordinary render**, for as long as the caption says; there is no loop export.
 `examples/loop_gifs` does it headless for every tab of a project
 ([testing.md](testing.md#3-the-gpu--the-actual-pixels)).
 

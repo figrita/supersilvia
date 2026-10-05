@@ -447,10 +447,12 @@ how long its picture takes to come back in its own cycles by what its options an
 say — one for a periodic node, a noise's Repeat, a fraction of a cycle where a setting brings
 the picture back sooner, `None` for a picture that never repeats; and `axes` is one, or X and
 Y on Shaky Cam, whose Y keeps a pace and a period of its own (`pace_y`, `period_y`, read
-through `Timing::pace_of` and `Timing::period_of`). `Timing::periodic(pace)` is a periodic
-node, `Timing::repeating(pace, period)` one with a period of its own, `.still()` one that
-stands still when new, `.xy()` a second axis, and `.y(pace, period)` a second axis with its
-own cycle.
+through `Timing::pace_of` and `Timing::period_of`); and `clip` marks a node whose pace is one
+play over a length it reads off its own file, a clip's or a GIF's, which the graph does not
+hold. `Timing::periodic(pace)` is a periodic node, `Timing::repeating(pace, period)` one with
+a period of its own, `.still()` one that stands still when new, `.xy()` a second axis,
+`.y(pace, period)` a second axis with its own cycle, and `.clip()` a pace by a length of its
+own.
 
 **One cycle is the least the node comes back after as it opens**, at its defaults, so a gear's
 turn, the loop meter and the picture agree: Rotozoom's and Shaky Cam's X's 20π of silvia's
@@ -519,8 +521,8 @@ no pixel, it is a uniform number.
 options give it now (`Timing::period`, read by `nodes::timing::range`, which
 `nodes::control_range` asks): −1 to 1 on a periodic node, −4 to 4 on a Perlin at Repeat 4 and
 −16 to 16 at 16, a quarter either way on the tunnel's Helix, a sequencer's bars where its
-lanes meet again, and −1 to 1 where the picture never comes back — Repeat Never, Depth Wrap
-None, a clip on Hold. The range follows the options live, with nothing stored on the node, so
+lanes' figures come round together, and −1 to 1 where the picture never comes back — Repeat
+Never, Depth Wrap None, a clip on Hold, the oscillator's Noise. The range follows the options live, with nothing stored on the node, so
 the range editor's Default column says it too and a hand's own range, once set, stays where it
 was put. Its step is the finest of 0.001, 0.01, 0.1 and 1 that is at least a thousandth of `P`,
 so a drag across ±1 and one across ±64 are about as long. **An edit that shrinks the period**
@@ -645,31 +647,62 @@ Mold's Sensor Offset keep theirs.
 Nothing in the app switches into a loop. Whether a picture comes back is a property of the
 clocks it is on, read by `nodes::chain` from its gears and from each node's `Timing` and mode:
 the caption under every Master Gear reads it, and `examples/loop_gifs` renders each
-workspace's Output through the ordinary render for as long as its Master Gear says. The rule:
+workspace's Output through the ordinary render for as long as its Master Gear says. **A claim
+is exact and the shortest that is true, or it is not made**: where the walk cannot follow, the
+caption says it cannot tell rather than guess. Everything is counted in the master's cycles as
+an exact fraction, `chain::Fraction`, a node's period `P` among them — any positive fraction of
+its own cycles, a quarter on the tunnel's Helix, two and a half bars on a sequencer — read out
+of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multiple is within two
+`f32` roundings of a whole number, and never more than 10⁻⁴ from it). The rule:
 
-- A node on a chain of Ratio Gears rooted at a Master Gear `M` advances `m × Πr ÷ P` of its
-  periods over `m` cycles of `M`, `Πr` the product of the ratios on the chain and `P` its
-  period in its own units (`Timing::period`: one on a periodic node and a looping clip, `N`
-  under Repeat, a quarter on the tunnel's Helix, `lcm(16, lanes) ÷ 16` bars on a
-  sequencer, where its lanes and the bar's sixteen steps meet again). It closes when that is
-  whole. A gear's Phase in a Time comes back every cycle of that gear, `P` one, except in a
-  sequencer, which reads it as a count. `chain::master_loop` is the least such `m` for every
-  Ratio Gear under a master and every node they and the master drive through a Time — any
-  of a node's Times (`nodes::is_time`), Shaky Cam's Time Y as well as its Time X — the
-  least common multiple of what each asks for, so a ÷4 below asks for four cycles and a
-  Perlin at Repeat 4 on the master four; a ratio that is not a
-  fraction, or has a cable in it, leaves its chain open, and so does a node whose Time a gear
-  reaches through anything but gears — a Math node between them, which the caption cannot
-  follow.
-- A node on its own clock closes over a length `L` when its rate times `L ÷ P` is whole: in
-  Loop mode with nothing in its Time, `rate × L ÷ P`; running free with nothing in its Speed,
-  `speed × pace × L ÷ P` (`chain::closes_alone`). A node standing still closes on anything.
-- A clock in a Speed — a gear's Cycles or Phase, or a number a Math node made of one — is a
-  rate that keeps changing, and the node never closes on it; the caption counts it.
-- A picture that never repeats — a noise at Repeat Never, the tunnel at Depth Wrap None, a
-  clip on Hold — never closes on a gear's Cycles, and the caption says it will not.
+- `chain::master_loop` walks every node downstream of a Master Gear `M`, along every cable,
+  and asks of each how many of `M`'s cycles it comes back in; the loop is the least common
+  multiple of those and of one, so a whole number of `M`'s cycles. A **Ratio Gear** multiplies
+  its Clock In's rate by its ratio, a product of fractions down a chain. **A gear is counted
+  through what reads it**, and one whose readings reach nothing by its own turn: four on the
+  floor on a ÷4 gear loops in one cycle of the master, and a ÷4 left alone in four.
+- **A node that moves with time** is where each of its Times and Offsets put it (any of a node's
+  Times, `nodes::is_time`, Shaky Cam's Time Y as well as its Time X, each at its own pace and
+  period), read round its period `P` as the graph gives it (`timing::period_in`, a control a
+  cable drives read as any value it could be): a gear's Cycles at rate `r` comes back every
+  `P ÷ r` of `M`'s cycles; a **Phase** every cycle of its gear, or every `P ÷ r` where `P`
+  divides one, and in a sequencer, which reads it as a count, every `P ÷ r`; a **Ping-pong**
+  every two cycles of its gear; a count in an **Offset** adds its rate to where the node is,
+  and anything else there comes back when it does. A sequencer with a beat in its **Step**
+  advances a sixteenth of a bar a beat and reads nothing else of time. Every other input a node
+  reads — an Amplitude, a Gate — adds what arrives there: a Phase, a Ping-pong or anything
+  that comes back on its own, and a count, which grows without bound, cannot be told.
+- **A Trigger** beats once a cycle of its gear; a **Clock Divider** at ÷n beats every `n` of
+  those. In a Ratio Gear's **Reset** every `T` of `M`'s cycles it makes the gear's count
+  `r × (m mod T)`, back every `T` — or as often as the gear came back on its own where that
+  divides `T`, since the reset is not then seen; in its **Hold** it runs a `T` and stands a
+  `T`, back every `2T` times the least `n` that makes `n × r × T ÷ P` whole.
+- **A node on its own clock** — Loop mode with nothing in its Time, or running free on its
+  Speed's knob — moves at its rate in seconds times `M`'s seconds a cycle, read as a fraction:
+  an LFO at Speed 0.3 beside a two-second master moves 3/5 of a wave a cycle, so the two meet
+  every five. A rate no such fraction is never comes round with `M`. A clip's own clock is a
+  play over a length the graph does not hold, which cannot be told. Alone, it closes over a
+  length `L` where its rate times `L ÷ P` is whole (`chain::closes_alone`); a node standing
+  still closes on anything.
+- **A node with no CPU half** — arithmetic, a shader, an Output — comes back when all its
+  inputs have. Any other CPU node keeps state the walk cannot read: still while nothing that
+  moves reaches it, never back where it reads a device, and otherwise it cannot be told. A
+  loop through a frame — feedback — cannot be told.
+- **What never closes**: a picture that never repeats — a noise at Repeat Never, the tunnel at
+  Depth Wrap None, a clip on Hold, the oscillator's Noise — on a moving clock; a count in a
+  Speed, a rate that keeps growing; a ratio that is no fraction with a denominator up to 64;
+  and a loop longer than the arithmetic can count, which no practical length closes. **What
+  cannot be told**: a cable in a Ratio, a Speed or a Divide, a gear's count through a Math
+  node or into anything but a Time or an Offset, a beat into a gear reset or held, a CPU node's
+  state, a clip on its own clock.
 - An unconnected color input falls back to the hue wheel, `defaultUvMap`, which stands still
   and so closes on any loop.
+
+The caption reads "loops in 4 cycles · 8.000 s (÷4 on perlin5)", naming the node that asks
+for the most; "2 nodes will not close (perlin5)", naming the first; or, where nothing is known
+never to close but something cannot be told, "can't tell when 1 node closes (multiply3)".
+**A period is the shortest the walk can know**: a picture with a symmetry it is not told of — a
+cosine on a Ping-pong, back every cycle and not every two — comes back sooner than it says.
 
 **A loop that closes closes to the bit.** A node takes its Time round its own period before
 it adds Offset — the prelude's `time_periodic`, `time_repeat` and `time_unbounded` — Time's
@@ -1545,8 +1578,9 @@ ticks. **Gears** is the input's gear of `k·p` teeth meshing with the output's o
 Master Gear's one gear of twelve teeth. Both turn by the gear's own phases, never an animation
 clock, so a paused show is still. Beside the picture are the ratio, what it closes in and a
 pending change. Under a Master Gear's is a caption, `nodes::chain::caption` — "loops in 4
-cycles · 8.000 s (÷4 on ratiogear12)", or "2 nodes will not close" — shown up to its " ("
-with the whole on hover ([When a loop closes](#when-a-loop-closes)).
+cycles · 8.000 s (÷4 on ratiogear12)", "2 nodes will not close (perlin5)" or "can't tell when 1
+node closes (multiply3)" — shown up to its " (" with the whole on hover ([When a loop
+closes](#when-a-loop-closes)).
 
 `time` is **ambient time as a number**: `Seconds`, the playhead published as a count, so it
 jumps with a seek, holds with a pause, is negative before the playhead's zero and **counts
@@ -1562,7 +1596,8 @@ frequency is set, turned, stopped or restarted, a Ratio Gear's Ratio, Hold and R
 for silvia's Frequency, Start/Stop and Reset. Offset is added, in waves, so a slow wave there
 modulates the phase of this one. The node keeps nothing, so its value is the same wherever the
 show was sought or played to; **Noise** draws a fresh value each wave, keyed by
-`floor(Time + Offset)` and the node's id, so it holds for a wave and is the same twice. A
+`floor(Time + Offset)` and the node's id, so it holds for a wave and is the same twice, and
+never comes back: its period is none. A
 one-shot is `animation`'s. Its body carries a trace of what it published, the ring
 `CpuNode::trace` keeps, so the waveform on the node is the wave the graph is getting. The
 field version, whose frequency and phase could themselves be pictures, is
@@ -1622,7 +1657,13 @@ still — a gear held, the show paused — closes whatever a step opened as the 
 and leaves what a landing opened on the step it stands on open until the Time moves on, so a
 render's first frame has step 0's gate open after a Hold warm-up as after Black or Run. Each
 lit step opens its lane and the gate closes it a gate length later, and each lane reads the
-absolute step modulo its own length, so a lane of five against sixteen keeps its phase. **Step is the one stateful
+absolute step modulo its own length, so a lane of five against sixteen keeps its phase. **Its
+period is the shortest run of steps every lane comes back in** (`sequencer::bars`): each lane's
+figure at the least shift that leaves it as it is (`sequencer::repeat`) — E(k, n) every
+`n ÷ gcd(n, k)` steps whatever its rotation, a silent or a full lane every step, four lit cells
+on the beat every four — and the least common multiple of the four, in bars: a bar for a
+pattern with no shorter repeat, two and a half for lanes of 4, 5 and 8, a quarter for four on
+the floor. **Step is the one stateful
 path**: while something is cabled into it, each down advances the grid by exactly one and the
 sequencer ignores its Time, because an event clock — a tap, a threshold — is not a gear. Which
 step last played stays in the `CpuNode` — `CpuNode::playhead`, which the grid rings, taken

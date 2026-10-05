@@ -2377,18 +2377,24 @@ walk.
 **A Time row in Loop mode carries a loop meter where the Speed knob stands in Free mode**
 (`ui::loop_meter`), in the knob's own place and size — `control_slot`, `number::WIDTH` by
 `number::HEIGHT` — so switching the mode swaps the knob for the meter without either moving.
-Its look is its meaning: the box is the node's own loop, its period `P` in its own cycles
-(`Timing::period`: one on a periodic node, a noise's Repeat, a sequencer's bars), cut by a hairline at each whole cycle — four segments on a Perlin
-at Repeat 4, one on a periodic node, and no hairlines at all past sixteen
-(`timing::MAX_DIVIDED`) — and filled left to right by how far through the loop the node is,
-`fraction(Time, P) ÷ P`, wrapping as the picture comes back. In its middle, in the number
+Its look is its meaning: the box is the node's own loop, its period `P` in its own cycles as
+the graph gives it (`timing::period_in`: one on a periodic node, a noise's Repeat, a sequencer's
+bars, a fraction of a cycle where a setting brings the picture back sooner), cut by a hairline
+at each whole cycle — four segments on a Perlin at Repeat 4, one on a periodic node, and no
+hairlines at all past sixteen (`timing::MAX_DIVIDED`) — and filled left to right by how far
+through the loop the node is, `fraction(Time, P) ÷ P`, wrapping as the picture comes back. A
+period that is a small fraction `p/q` is read as one (`chain::Fraction::near`), Time taken round
+it as `q × Time` round `p`, so no rounding of it gathers over a long show; a loop shorter than a
+cycle — four on the floor's quarter of a bar — is one box filled that many times a cycle, and
+one that is not whole, two and a half, counts its last short cycle. In its middle, in the number
 control's font, is the cycle it is in counted from one and the loop's length: `3/4`, `1/1` on
 a periodic node, `11/16` on a Perlin at Repeat 16; a hairline parts around the caption rather than
 crossing it. **A picture that never comes back** — a noise at Repeat Never, the tunnel at
 Depth Wrap None, a clip on Hold — has no loop, so the box spans the one cycle it is in, says
 the whole cycles behind it, `12`, and leaves its right end open: the bevel stops short of the
 right-hand corners and the end is dashed. A solid end means it loops. A hover says `cycle 3 of
-4`, or `12 whole cycles; never comes back`.
+4`, `back every 1/4 of a cycle`, `cycle 3 of a loop 5/2 cycles long`, or `12 whole cycles; never
+comes back`.
 
 It wears the number control's chrome — its ground, its inset bevel, its font, and the meter's
 violet ground and number, since it reads rather than sets — but it is a readout: no caps, no
@@ -3600,15 +3606,17 @@ waiting to land. **A ratio change lands on the input's next whole cycle**, so un
 old ratio runs, the words say `→ ×2 next`, and the rosette draws the new one ghosted behind
 the one turning.
 
-**Under a Master Gear, its caption**: what a loop of it needs, read from every Ratio Gear
-chain below it and every node those chains drive through its Time (`nodes::chain::caption`).
-The chains' ratios multiply down each chain, each node comes back after its own period on its
-chain — a noise's Repeat, the tunnel's 64, a sequencer's lanes against the bar — and a loop is
-as many of the master's cycles as the least common multiple of what they ask for —
-`loops in 1 cycle · 2.000 s`, or `loops in 4 cycles · 8.000 s (÷4 on ratiogear12)` or
-`(÷4 on perlin5)`, naming the gear or node that asks for the most — or `2 nodes will not
-close` where a chain's ratio is cabled or is not a fraction, a node never repeats, or a Math
-node stands between a gear and a Time. The node has no room for the reason, so the line is drawn up to
+**Under a Master Gear, its caption**: what a loop of it needs, read from every node downstream
+of it (`nodes::chain::caption`). The chains' ratios multiply down each chain, each node comes
+back after its own period on what drives it — a noise's Repeat, a sequencer's lanes' figures, a
+Trigger's beats, a node on its own clock beside it — and a loop is as many of the master's
+cycles as the least common multiple of what they ask for — `loops in 1 cycle · 2.000 s`, or
+`loops in 4 cycles · 8.000 s (÷4 on ratiogear12)` or `(÷4 on perlin5)`, naming the gear or node
+that asks for the most — or `2 nodes will not close (perlin5)` where a node never repeats, a
+ratio is not a fraction or a count runs into a Speed, or `can't tell when 1 node closes
+(multiply3)` where a ratio or a Speed is cabled, a Math node stands between a gear and a Time,
+or a CPU node keeps state of its own, naming the first such node
+([nodes.md](nodes.md#when-a-loop-closes)). The node has no room for the reason, so the line is drawn up to
 its ` (` and **the whole of it is on the hover**. It is what a loop of the patch is: an
 Output rendered [from its Render section](#the-render-section-and-the-band-across-the-editor)
 for that long, from zero, comes back to its first frame.
