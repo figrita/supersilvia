@@ -1768,6 +1768,12 @@ NDI® is a registered trademark of Vizrt NDI AB.
 A picture is drawn by **blitting its texture in a paint callback** — the preview panel shows
 [the mix](#the-mixer), and each Output node draws its own frame on its body.
 
+**Every picture is shown over black.** It is premultiplied, and the blit blends it so, onto a
+ground the caller paints first in `theme.screen_off()` — a node's picture band, the preview,
+the Main Input's and the channel previews' boxes, the canvas under *Project to Background*
+and the editor hidden behind `H` — and a picture window clears to black. So a half-transparent
+pixel looks the same on a node, in a panel, behind the graph, in a window and in a video.
+
 egui_wgpu's `register_native_texture` is the other way, and is not used. A ring rotates the
 texture an Output shows every tick, so the registration would be redone every frame, and the
 fit, the corner and the flip would live somewhere other than the blit. A paint callback needs

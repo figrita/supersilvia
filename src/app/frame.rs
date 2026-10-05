@@ -1346,8 +1346,8 @@ impl App {
     ///
     /// A viewer like every other picture in the app: the frame was drawn on the synth's
     /// context before this panel was laid out and has finished there, so what is here is a
-    /// blit and nothing to wait for. Folding the panel away hides a picture and nothing
-    /// else.
+    /// blit over the screen's black and nothing to wait for. Folding the panel away hides a
+    /// picture and nothing else.
     fn preview(&mut self, ui: &mut egui::Ui, display: crate::render::Display) {
         let width = ui.available_width().max(1.0);
         let size = egui::vec2(width, width * 9.0 / 16.0);
@@ -1367,6 +1367,11 @@ impl App {
                 .rect_filled(rect, 2.0, ui.visuals().extreme_bg_color);
             return;
         };
+        // The screen's black ground under the picture, as every picture box has: the picture
+        // is premultiplied and shown over black, its bars black with it.
+        if display != crate::render::Display::Nothing {
+            ui.painter().rect_filled(rect, 0.0, self.theme.screen_off());
+        }
         let published = self.link.published();
         let fit = crate::render::Fit::Letterbox;
         match display {
