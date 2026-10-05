@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Layer 1: the gears and the clocks. A Master Gear at a length, a Ratio Gear its parent times
-//! its Teeth to the bit, the chain a loop closes on, a Master Gear's Hold and Reset, a
+//! its Teeth to the bit, the chain a loop closes on, a Master Gear's Hold, Reset and Sync, a
 //! seek re-birthing them, a beat on a render's frame firing on it, the Time node reading the
 //! playhead, and the oscillator on the transport. See `docs/cpu.md#gears` and
 //! `proposals/time.md`.
@@ -1336,4 +1336,310 @@ fn the_oscillators_offset_is_added_to_its_time() {
     let expected = (t * std::f64::consts::TAU).sin();
     let got = read(&app, plain, "output");
     assert!((got - expected).abs() < 1e-3, "{got} against {expected}");
+}
+
+// ------------------------------------------------------------------------------- sync
+
+/// A hand's press of one of `node`'s buttons: down for one tick, then let go.
+fn tap(app: &mut App, node: NodeId, key: &'static str) {
+    app.press(PortRef::new(node, key), true);
+    app.tick(FRAME);
+    app.press(PortRef::new(node, key), false);
+}
+
+/// The edges `node` fired on `port` on the frame just ticked: how many downs and how many ups.
+fn fired(app: &App, node: NodeId, port: &'static str) -> (usize, usize) {
+    let events = app.edges(PortRef::new(node, port));
+    let downs = events.iter().filter(|e| e.is_down()).count();
+    (downs, events.len() - downs)
+}
+
+/// Where a Master Gear `length` seconds long stands on the show's time: the playhead over its
+/// length.
+fn on_time(app: &App, length: f64) -> f64 {
+    app.transport_state().playhead / length
+}
+
+/// **Sync puts a Master Gear back on the show's time, and lets go of Hold.** A two-second gear
+/// held for three quarters of a second, Reset, or bent by a Length turned from two seconds to
+/// a half reads the playhead over its Length to the bit on the frame Sync is pressed, and runs
+/// on from there: a held one is let go.
+#[test]
+fn sync_puts_a_master_gear_back_on_the_shows_time() {
+    // Held.
+    let mut app = App::headless();
+    let clock = master(&mut app, 2.0);
+    ticks(&mut app, 30);
+    tap(&mut app, clock, "hold");
+    ticks(&mut app, 45);
+    let held = count(&app, clock);
+    assert!(
+        on_time(&app, 2.0) - held > 0.3,
+        "held, it falls behind the show: {held}"
+    );
+    tap(&mut app, clock, "sync");
+    assert_eq!(count(&app, clock), on_time(&app, 2.0), "synced from a hold");
+    ticks(&mut app, 10);
+    let c = count(&app, clock);
+    assert!(
+        (c - on_time(&app, 2.0)).abs() < 1e-12,
+        "and let go, it runs with the show: {c}"
+    );
+
+    // Reset.
+    let mut app = App::headless();
+    let clock = master(&mut app, 2.0);
+    ticks(&mut app, 100);
+    tap(&mut app, clock, "reset");
+    ticks(&mut app, 7);
+    assert!(count(&app, clock) < 0.1, "reset, it starts a cycle");
+    tap(&mut app, clock, "sync");
+    assert_eq!(
+        count(&app, clock),
+        on_time(&app, 2.0),
+        "synced from a reset"
+    );
+
+    // Bent by a Length turned.
+    let mut app = App::headless();
+    let clock = master(&mut app, 2.0);
+    ticks(&mut app, 40);
+    set(&mut app, clock, "length", 0.5);
+    ticks(&mut app, 20);
+    let bent = count(&app, clock);
+    assert!(
+        (on_time(&app, 0.5) - bent).abs() > 0.5,
+        "a Length turned bends it from where it was: {bent}"
+    );
+    tap(&mut app, clock, "sync");
+    assert_eq!(
+        count(&app, clock),
+        on_time(&app, 0.5),
+        "synced at the new length"
+    );
+}
+
+/// **A synced gear is where a gear born that frame is, to the bit, at any Length.** A Master
+/// Gear of 0.7 s held for a while, and one of the same length made on the frame the first is
+/// synced, which is born at the playhead over its length: the two read the same bits, and keep
+/// agreeing after.
+#[test]
+fn a_synced_gear_reads_what_a_gear_born_then_reads() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 0.7);
+    ticks(&mut app, 20);
+    tap(&mut app, clock, "hold");
+    ticks(&mut app, 33);
+    let twin = master(&mut app, 0.7);
+    tap(&mut app, clock, "sync");
+    assert_eq!(count(&app, clock), count(&app, twin));
+    for _ in 0..30 {
+        app.tick(FRAME);
+        let (a, b) = (count(&app, clock), count(&app, twin));
+        assert!((a - b).abs() < 1e-12, "running together: {a} and {b}");
+    }
+}
+
+/// **Sync is a jump: a beat only where it lands on a whole cycle, and never a second one.** On
+/// a paused show at three seconds, a one-second Master Gear Reset and then Synced lands on its
+/// third cycle and fires that downbeat; one Synced on its way to three and a half fires none,
+/// and closes the gate the Reset's beat opened. A Sync with nothing to fix — the gear already
+/// on the show's time, on a whole cycle or between two, paused or playing — moves nothing and
+/// fires nothing.
+#[test]
+fn sync_fires_a_downbeat_only_on_a_whole_cycle() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    ticks(&mut app, 10);
+    app.transport(Transport::Pause);
+    app.transport(Transport::Seek(3.0));
+    app.tick(FRAME);
+    assert_eq!(count(&app, clock), 3.0);
+    assert_eq!(
+        fired(&app, clock, "trigger"),
+        (1, 0),
+        "born on its third beat"
+    );
+    app.tick(FRAME);
+
+    tap(&mut app, clock, "sync");
+    assert_eq!(count(&app, clock), 3.0);
+    assert_eq!(
+        fired(&app, clock, "trigger"),
+        (0, 0),
+        "a Sync with nothing to fix fires nothing, on a whole cycle too"
+    );
+
+    tap(&mut app, clock, "reset");
+    assert_eq!(count(&app, clock), 0.0);
+    assert_eq!(fired(&app, clock, "trigger").0, 1, "a Reset is a beat");
+    tap(&mut app, clock, "sync");
+    assert_eq!(count(&app, clock), 3.0);
+    assert_eq!(
+        fired(&app, clock, "trigger"),
+        (1, 1),
+        "landing on a whole cycle, Sync fires its downbeat, retriggering the Reset's"
+    );
+
+    app.transport(Transport::Seek(3.5));
+    app.tick(FRAME);
+    tap(&mut app, clock, "reset");
+    assert_eq!(fired(&app, clock, "trigger").0, 1, "a Reset opens the gate");
+    tap(&mut app, clock, "sync");
+    assert_eq!(count(&app, clock), 3.5);
+    assert_eq!(
+        fired(&app, clock, "trigger"),
+        (0, 1),
+        "landing mid-cycle, Sync fires no beat and closes the gate it found open"
+    );
+    tap(&mut app, clock, "sync");
+    assert_eq!(
+        fired(&app, clock, "trigger"),
+        (0, 0),
+        "and a second Sync, nothing"
+    );
+
+    // Playing, a gear never moved off the show's time is on it, to within rounding of the
+    // advances it integrated: a Sync there fires only what the frame's motion carries it past.
+    app.transport(Transport::Play);
+    for _ in 0..200 {
+        let before = count(&app, clock);
+        tap(&mut app, clock, "sync");
+        let after = count(&app, clock);
+        assert_eq!(after, on_time(&app, 1.0));
+        let passed = (after.floor() - before.floor()) as usize;
+        assert_eq!(
+            fired(&app, clock, "trigger").0,
+            passed,
+            "from {before} to {after}, the beats it passed and no other"
+        );
+        app.tick(FRAME);
+    }
+}
+
+/// **A Ratio Gear below a Sync lands on its parent times its Teeth at once.** A 3 : 4 gear
+/// under a one-second Master Gear held for two thirds of a second reads the master's synced
+/// count times three quarters, to the bit, on the frame of the Sync, which is the playhead
+/// times three quarters; and fires no more than the one downbeat, where a run of the cycles
+/// in between would fire one for each.
+#[test]
+fn a_ratio_gear_follows_a_sync_at_once() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let gear = geared(&mut app, Some(clock), 3.0, 4.0);
+    ticks(&mut app, 50);
+    tap(&mut app, clock, "hold");
+    ticks(&mut app, 200);
+    tap(&mut app, clock, "sync");
+    let m = count(&app, clock);
+    assert_eq!(m, on_time(&app, 1.0));
+    assert_eq!(count(&app, gear), m * 3.0 / 4.0, "the parent times 3 ÷ 4");
+    assert!(
+        fired(&app, gear, "trigger").0 <= 1,
+        "two and a half cycles over in one frame fire at most the downbeat"
+    );
+}
+
+/// **A sequencer below a Sync takes it as a jump, and a Sync with nothing to fix as nothing.**
+/// A Euclidean rhythm whose every step is a pulse, on a Master Gear a bar of one second long:
+/// held for half a second and Synced, the gear moves eight steps on in a frame, and the
+/// sequencer plays none of them on the way. Running on the show's time, with lane 1's gate
+/// open mid-step, a Sync says no jump: the gate stays open, where a jump would close it.
+#[test]
+fn a_sequencer_takes_a_sync_as_a_jump() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let rhythm = add(&mut app, "euclideanrhythm");
+    set(&mut app, rhythm, "lane1steps", 2.0);
+    set(&mut app, rhythm, "lane1pulses", 2.0);
+    connect(&mut app, (clock, "cycles"), (rhythm, "clock"));
+    ticks(&mut app, 37);
+    tap(&mut app, clock, "hold");
+    ticks(&mut app, 30);
+    tap(&mut app, clock, "sync");
+    let (downs, _) = fired(&app, rhythm, "lane1");
+    assert!(
+        downs <= 1,
+        "eight steps over in one frame play none on the way, not {downs}"
+    );
+
+    // Run on until lane 1 is open a little way into a step, where a frame's motion reaches
+    // neither the gate's end nor the next step.
+    let mut open = false;
+    let mut found = false;
+    for _ in 0..240 {
+        app.tick(FRAME);
+        for event in app.edges(PortRef::new(rhythm, "lane1")) {
+            open = event.is_down();
+        }
+        let into = (16.0 * count(&app, clock)).fract();
+        if open && (0.02..0.2).contains(&into) {
+            found = true;
+            break;
+        }
+    }
+    assert!(found, "lane 1 open early in a step");
+    tap(&mut app, clock, "sync");
+    assert_eq!(
+        fired(&app, rhythm, "lane1"),
+        (0, 0),
+        "a Sync with nothing to fix is no jump: the open gate stays open"
+    );
+}
+
+/// **Moments in one frame keep their order.** Two Ratio Gears on ambient seconds, their
+/// Offsets putting their Triggers four and ten thousandths of a second after each whole
+/// second, fire into a Master Gear's buttons inside one frame. Reset then Sync ends the frame
+/// on the show's time, to the bit; Sync then Reset ends it at the start of a cycle; Sync then
+/// Hold ends it held where the Sync put it, at the playhead of the Hold's moment.
+#[test]
+fn sync_keeps_its_place_among_a_frames_moments() {
+    let rig = |first: &'static str, second: &'static str| {
+        let mut app = App::headless();
+        let clock = master(&mut app, 0.5);
+        let early = geared(&mut app, None, 1.0, 1.0);
+        set(&mut app, early, "phaseOffset", -0.004);
+        let late = geared(&mut app, None, 1.0, 1.0);
+        set(&mut app, late, "phaseOffset", -0.010);
+        connect(&mut app, (early, "trigger"), (clock, first));
+        connect(&mut app, (late, "trigger"), (clock, second));
+        // Hold the master off the show's time, so the Sync has something to fix.
+        ticks(&mut app, 20);
+        tap(&mut app, clock, "hold");
+        ticks(&mut app, 10);
+        tap(&mut app, clock, "hold");
+        // Up to the frame both fire in, the one that passes a second and ten thousandths.
+        loop {
+            app.tick(FRAME);
+            if fired(&app, late, "trigger").0 > 0 && app.transport_state().playhead > 1.0 {
+                break;
+            }
+        }
+        assert!(
+            fired(&app, early, "trigger").0 > 0,
+            "both fire in one frame"
+        );
+        (app, clock)
+    };
+
+    let (app, clock) = rig("reset", "sync");
+    assert_eq!(
+        count(&app, clock),
+        on_time(&app, 0.5),
+        "Reset then Sync: synced"
+    );
+
+    let (app, clock) = rig("sync", "reset");
+    let c = count(&app, clock);
+    assert!(c < 0.05, "Sync then Reset: at the start of a cycle, {c}");
+
+    let (mut app, clock) = rig("sync", "hold");
+    let c = count(&app, clock);
+    let hold = (1.010 / 0.5, on_time(&app, 0.5));
+    assert!(
+        (c - hold.0).abs() < 1e-3 && c < hold.1,
+        "Sync then Hold: held where the Sync put it, at the Hold's moment: {c}"
+    );
+    ticks(&mut app, 5);
+    assert_eq!(count(&app, clock), c, "and held");
 }

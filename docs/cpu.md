@@ -180,8 +180,9 @@ rest of the app:
   clock running backwards.
 - `ctx.jump(id, key)` — one of the node's number outputs was put where it is this frame
   rather than moved there; `ctx.jumped(id, key)` asks it of the output cabled into an input,
-  which ticked first. A gear says it of its three readings on a Reset, on a change of a Ratio
-  Gear's Teeth or direction and on a birth the transport did not make, so a gear or a
+  which ticked first. A gear says it of its three readings on a Reset, on a Sync that moves
+  it, on a change of a Ratio Gear's Teeth or direction and on a birth the transport did not
+  make, so a gear or a
   sequencer counting one takes the step as a jump and not as a clock running backwards. Cleared at the top of each tick, as an event is.
 - `ctx.time` — what this node sees of the [transport](#the-transport): the playhead, the
   advance since **this node** last ticked, whether a jump is inside it, and the play bit.
@@ -545,7 +546,7 @@ wrap, `phasor::unwrap_at`). A Phase in Clock In is a parent like any other: the 
 Phase times `p ÷ q`, and comes round with it. Plugging Clock In, pulling it out or moving its
 cable onto another output is a birth, since the clock it counts is then another one, and fires
 nothing for the distance between the two. **A cabled clock its source says was put where it is**
-(`ctx.jumped`) — a Master Gear's Reset above, a gear above born again or its Teeth or
+(`ctx.jumped`) — a Master Gear's Reset or Sync above, a gear above born again or its Teeth or
 direction changed — **or anything but a gear's reading sent back more than a cycle in one frame** has
 jumped too: the gear fires nothing for the cycles it went over, only one downbeat, as a Reset is
 a beat, where a whole cycle of its own lies between where it now is and a frame's motion at the
@@ -590,8 +591,19 @@ again, so a render that lands a whole cycle exactly on a frame fires it on that 
 
 **A Master Gear's Hold** is a toggle that freezes it where it stands and closes the gate it
 left open, so nothing downstream is held by a clock that is not moving. **Its Reset** puts it
-at the start of a cycle, and is a beat. A frame's Holds and Resets, a hand's and each cable's,
-are walked in the order they fell, with the advance between them integrated. **A seek — the
+at the start of a cycle, and is a beat. **Its Sync** puts it back on the show's time, at
+`playhead ÷ length` — where it would be had nothing held, reset or bent it — and lets go of
+Hold. It seeks nothing, so nothing else moves: it is the gear's own jump, said on its readings
+(`ctx.jump`), so a Ratio Gear below lands on its new product at once and a sequencer plays
+nothing on the way; it fires a beat where it lands on a whole cycle, as a birth does, and
+closes the gate where it does not. A gear within `phasor::REACH` of the show's time is on it
+already: a Sync there moves it no further, is no jump and fires nothing, so a Sync on a whole
+cycle the gear already stands on is no second downbeat. After a Sync the frame reads the gear
+off the playhead rather than integrating it, so it ends the frame on `playhead ÷ length` to
+the bit. A frame's Syncs, Holds and Resets, a hand's and each cable's, are walked in the order
+they fell, with the advance between them integrated, and two at one moment are taken Sync,
+Hold, Reset, so one trigger into Sync and Hold holds the gear on the show's time. A Master Gear
+with anything cabled into its Reset, Hold or Sync cannot say when its loop closes. **A seek — the
 readout's reset among them — a render's start and a tab reopened are jumps: every gear is born
 again where the playhead puts it, and fires nothing on the way.** **A gear a seek or a render's
 start puts on a whole cycle fires that beat**, to within `phasor::REACH`: a Master Gear where

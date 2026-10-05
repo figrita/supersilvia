@@ -1602,9 +1602,13 @@ no new port type carries it.
 **A chain of gears closes**: its Teeth multiply, and a loop of the Master Gear is as many of
 its cycles as what the chains drive needs, so a sawtooth on a 1 : 4 below asks for four.
 
-**A Master Gear's Hold and Reset, and a seek.** Hold is a toggle that freezes the Master Gear
+**A Master Gear's Hold, Reset and Sync, and a seek.** Hold is a toggle that freezes the Master Gear
 where it stands and closes any gate it left open; Reset puts it at the start of a cycle and is
-a beat. A seek — the readout's reset among them — and a render's start are jumps: every gear
+a beat; Sync puts it back at `playhead ÷ length`, where it would be had nothing held, reset or
+bent it, lets go of Hold and is a jump of the gear's alone. **Rejected: Sync as a seek** to
+where the gear would be on the show's time: it moves the playhead, so every other clock, clip
+and gear in the show moves with it, where Sync means to move the one gear back onto the show.
+A seek — the readout's reset among them — and a render's start are jumps: every gear
 is born again where the playhead puts it, a Ratio Gear at its parent's reading times its
 Teeth, and fires nothing on the way; a gear born on a whole cycle fires that beat, so a
 render's first frame and the readout's reset are a downbeat.

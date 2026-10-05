@@ -1555,7 +1555,9 @@ between Control and Output, in `nodes::gear`, with `time` beside them; see
 two by default, a bar at 120 BPM. It integrates the playhead's advance over one cycle's
 seconds in `f64`, so a Length turned bends from where it is and never jumps, and it is born at
 `playhead ÷ length`: two Master Gears of one length agree, and at the playhead's zero every one
-of them is at the start of its cycle. **Gate** is how long its Trigger stays down, in cycles.
+of them is at the start of its cycle. **Reset**, **Hold** and **Sync** are three buttons under
+Length, each with a port an event can press it through. **Gate** is how long its Trigger stays
+down, in cycles.
 A beat is a Master Gear a beat long, and a bar a Ratio Gear at 1 : 4 below it.
 
 **`ratiogear`, the Ratio Gear**, is a pure product of its parent: `±(parent × p ÷ q) +
@@ -1597,8 +1599,14 @@ and 0 at two; and **Trigger** an event on each whole cycle, placed where inside 
 fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear, on each whole
 cycle passed going down as well as up. A Master Gear's
 **Hold** is a toggle that freezes it where it stands and closes the gate it left open; its
-**Reset** puts it at the start of a cycle and is a beat. The tick walks the frame's holds and
-resets moment by moment, so two inside one frame land in the order they happened. A seek —
+**Reset** puts it at the start of a cycle and is a beat; its **Sync** puts it back on the
+show's time, `playhead ÷ length`, where it would be had nothing held, reset or bent it, and
+lets go of Hold. Sync seeks nothing, so nothing else moves: the gear jumps there alone, a Ratio
+Gear below lands on its new product at once, a sequencer plays nothing on the way, and it is a
+beat where it lands on a whole cycle. A gear already on the show's time is left there, and
+fires nothing. The tick walks the frame's syncs, holds and resets moment by moment, so two
+inside one frame land in the order they happened, and two at one moment are taken Sync, Hold,
+Reset. A seek —
 the time readout's reset among them — and a render's start are a jump: every gear is born
 again where the playhead puts it, and fires nothing on the way but the beat it lands on, where
 it lands on a whole cycle. A Ratio Gear whose Clock In a Reset above puts back, by any

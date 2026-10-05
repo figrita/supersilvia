@@ -561,8 +561,9 @@ impl<'g> Walk<'g> {
             if graph.source_of(PortRef::new(id, "gate")).is_some() {
                 return Err(Motion::Unknown(id));
             }
-            // A master is the yardstick: one reset or held is not a whole number of anything.
-            for key in ["reset", "hold"] {
+            // A master is the yardstick: one reset, held or synced is not a whole number of
+            // anything.
+            for key in ["reset", "hold", "sync"] {
                 match self.into(id, key) {
                     Motion::Still => {}
                     m @ (Motion::Never(_) | Motion::Unknown(_)) => return Err(m),

@@ -31,15 +31,22 @@
 //! Phase, the fraction alone; Ping-pong, a triangle over two cycles; and Trigger, an event on
 //! each whole cycle placed where inside the frame it fell. A Master Gear's **Hold** is a
 //! toggle that freezes it where it stands; its **Reset** puts it at the start of a cycle, and
-//! is a beat. A seek — the time readout's reset among them — and a render's start are a jump:
-//! every gear is born again where the playhead puts it, and fires nothing on the way. A gear
-//! the jump puts on a whole cycle is on that cycle's beat and fires it, so the readout's reset
-//! and a render's first frame are a downbeat. A clock cabled into a Ratio Gear that its source
-//! calls a jump ([`TickContext::jump`], which a gear says of its readings on a Reset or a
-//! change of Teeth or direction), or anything but a gear's sent back more than a cycle in a
-//! frame, is a jump to it too, and fires at most one downbeat, its own where this frame's
-//! motion carried it past one, so a hand's Reset above it is a beat however early in a cycle
-//! it comes. A gear's reading going down with no such word is a clock running backwards.
+//! is a beat; its **Sync** puts it back on the show's time, at `playhead ÷ length`, where it
+//! would be had nothing held, reset or bent it, and lets go of Hold. Sync seeks nothing, so
+//! nothing else moves: it is a jump of the gear's alone, a beat where it lands on a whole
+//! cycle and the gate closed where it does not. A gear within [`phasor::REACH`] of the show's
+//! time is on it already, so a Sync there moves it no further than that, is no jump and fires
+//! nothing. A frame's Syncs, Holds and Resets are taken in the order they fell, and two at
+//! one moment as Sync, Hold, Reset, so one trigger into Sync and Hold holds the gear on the
+//! show's time. A seek — the time readout's reset among them — and a render's start are a
+//! jump: every gear is born again where the playhead puts it, and fires nothing on the way. A
+//! gear the jump puts on a whole cycle is on that cycle's beat and fires it, so the readout's
+//! reset and a render's first frame are a downbeat. A clock cabled into a Ratio Gear that its
+//! source calls a jump ([`TickContext::jump`], which a gear says of its readings on a Reset, a
+//! Sync or a change of Teeth or direction), or anything but a gear's sent back more than a
+//! cycle in a frame, is a jump to it too, and fires at most one downbeat, its own where this
+//! frame's motion carried it past one, so a hand's Reset above it is a beat however early in a
+//! cycle it comes. A gear's reading going down with no such word is a clock running backwards.
 //!
 //! How each is drawn is its **Display** option, a still rosette or two meshing gears, both
 //! turning at the real rate: `widgets::gear`.
@@ -122,8 +129,9 @@ pub static MASTER: NodeDef = NodeDef {
     icon: "⚙",
     label: "Master Gear",
     tooltip: "The show's clock at a length in seconds. Cable its Cycles into a node's Time, \
-              or into Ratio Gears, and everything on it closes together. Hold freezes it and \
-              Reset starts a cycle.",
+              or into Ratio Gears, and everything on it closes together. Hold freezes it, \
+              Reset starts a cycle, and Sync puts it back on the show's time: where it would be \
+              had nothing held, reset or bent it.",
     inputs: &[
         InputDef {
             key: "length",
@@ -140,6 +148,12 @@ pub static MASTER: NodeDef = NodeDef {
         InputDef {
             key: "hold",
             label: "Hold",
+            ty: Action,
+            control: Control::Press,
+        },
+        InputDef {
+            key: "sync",
+            label: "Sync",
             ty: Action,
             control: Control::Press,
         },
@@ -293,28 +307,31 @@ const MAX_EDGES_PER_FRAME: usize = 64;
 /// What happened inside a frame, with the fraction of its advance it happened at.
 #[derive(Debug, Clone, Copy)]
 enum Moment {
+    /// Back on the show's time: the playhead over the length, and Hold let go.
+    Sync,
     /// Hold was pressed: a toggle.
     Hold,
     /// Back to the start of a cycle.
     Reset,
 }
 
-/// Every Hold and Reset a frame holds, in the order they happened: the hand at the top of
-/// the frame and each cable's own downs where they fell.
-fn moments(
-    id: NodeId,
-    ctx: &TickContext<'_>,
-    hold: &mut Gate,
-    reset: &mut Gate,
-) -> Vec<(f64, Moment)> {
+/// A Master Gear's three buttons, in the order two pressed at one moment are taken.
+const BUTTONS: [(&str, Moment); 3] = [
+    ("sync", Moment::Sync),
+    ("hold", Moment::Hold),
+    ("reset", Moment::Reset),
+];
+
+/// Every Sync, Hold and Reset a frame holds, in the order they happened: the hand at the top
+/// of the frame and each cable's own downs where they fell.
+fn moments(id: NodeId, ctx: &TickContext<'_>, hands: &mut [Gate; 3]) -> Vec<(f64, Moment)> {
     let mut out = Vec::new();
-    if hold.set(ctx.pressed(id, "hold")) == Some(Edge::Down) {
-        out.push((0.0, Moment::Hold));
+    for ((key, moment), hand) in BUTTONS.into_iter().zip(hands.iter_mut()) {
+        if hand.set(ctx.pressed(id, key)) == Some(Edge::Down) {
+            out.push((0.0, moment));
+        }
     }
-    if reset.set(ctx.pressed(id, "reset")) == Some(Edge::Down) {
-        out.push((0.0, Moment::Reset));
-    }
-    for (key, moment) in [("hold", Moment::Hold), ("reset", Moment::Reset)] {
+    for (key, moment) in BUTTONS {
         for event in ctx.edges(id, key) {
             if event.is_down() {
                 out.push((ctx.fraction(event.at), moment));
@@ -398,8 +415,8 @@ struct MasterGear {
     held: bool,
     /// How long a cycle was on the last tick, for the display.
     seconds: f64,
-    hold: Gate,
-    reset: Gate,
+    /// The hand on Sync, Hold and Reset, in [`BUTTONS`]' order.
+    hands: [Gate; 3],
     trigger: Gate,
 }
 
@@ -428,7 +445,7 @@ impl CpuNode for MasterGear {
         self.seconds = seconds_a_cycle(ctx.input(id, "length"));
         let rate = 1.0 / self.seconds;
         let gate = ctx.input(id, "gate").clamp(0.01, 1.0);
-        let moments = moments(id, ctx, &mut self.hold, &mut self.reset);
+        let moments = moments(id, ctx, &mut self.hands);
         let time = ctx.time;
 
         // A jump — a seek, a render's start, a tab reopened — is a birth where the playhead
@@ -439,8 +456,11 @@ impl CpuNode for MasterGear {
             self.born = true;
             self.cycles = rate * time.playhead;
             for (_, moment) in moments {
-                if let Moment::Hold = moment {
-                    self.held = !self.held;
+                match moment {
+                    Moment::Hold => self.held = !self.held,
+                    // Born on the show's time, a Sync only lets go of Hold.
+                    Moment::Sync => self.held = false,
+                    Moment::Reset => {}
                 }
             }
             let landed = time.landed.or(first.then_some(time.playhead));
@@ -461,23 +481,54 @@ impl CpuNode for MasterGear {
             return;
         }
 
+        // The playhead `f` of the way through the frame's advance, the playhead itself at its
+        // end.
+        let playhead = |f: f64| {
+            if f < 1.0 {
+                time.playhead - time.advance * (1.0 - f)
+            } else {
+                time.playhead
+            }
+        };
         // The frame walked from moment to moment, the advance before each integrated at the
-        // rate, and nothing added while held.
+        // rate, and nothing added while held. After a Sync the gear is read off the playhead
+        // rather than integrated, so it ends the frame on the show's time to the bit.
         let mut edges = Vec::new();
         let mut done = 0.0;
+        let mut synced = false;
         for at in moments.into_iter().map(Some).chain([None]) {
             let to = at.map_or(1.0, |(f, _)| f.clamp(done, 1.0));
             if !self.held {
                 let from = self.cycles;
-                self.cycles += rate * time.advance * (to - done);
+                if synced {
+                    self.cycles = rate * playhead(to);
+                } else {
+                    self.cycles += rate * time.advance * (to - done);
+                }
                 if self.cycles != from {
                     edges_between(from, self.cycles, done, to, gate, &mut edges);
                 }
             }
             done = to;
             match at.map(|(_, m)| m) {
+                Some(Moment::Sync) => {
+                    self.held = false;
+                    synced = true;
+                    let from = self.cycles;
+                    self.cycles = rate * playhead(to);
+                    // Further than reach, it was put there: a beat where it lands on a whole
+                    // cycle, and otherwise the gate closed. Within it, it was on the show's
+                    // time already, and the hair it moves is motion.
+                    if (self.cycles - from).abs() > phasor::REACH {
+                        edges.push((to, on_a_whole_cycle(self.cycles)));
+                        jumped(id, ctx);
+                    } else if self.cycles != from {
+                        edges_between(from, self.cycles, to, to, gate, &mut edges);
+                    }
+                }
                 Some(Moment::Hold) => {
                     self.held = !self.held;
+                    synced = false;
                     // A gear that stops closes the gate it was holding open, so nothing
                     // downstream is left held by a clock that is not moving.
                     if self.held {
@@ -486,6 +537,7 @@ impl CpuNode for MasterGear {
                 }
                 Some(Moment::Reset) => {
                     self.cycles = 0.0;
+                    synced = false;
                     // A reset is the start of a cycle, and a beat.
                     edges.push((to, true));
                     jumped(id, ctx);
