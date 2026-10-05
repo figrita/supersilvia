@@ -20,6 +20,12 @@
 //! frame shown is a function of that sum, so the same sum is the same frame however it was
 //! reached, and the node keeps no playhead of its own.
 //!
+//! **A frame is premultiplied once, as it is decoded.** A PNG's and a GIF's pixels are
+//! straight and every picture in the graph is premultiplied
+//! ([decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied)), so the
+//! worker converts each frame before it is sent, and the frame the tick publishes is uploaded
+//! as it is.
+//!
 //! **The GIF is why there is an image crate here at all.** PNG in and out is GStreamer's, in
 //! `video/png.rs`, and `decodebin` decodes a PNG, a JPEG and a WebP too — but no machine this
 //! has run on has a gif loader for it, so `decodebin` refuses `image/gif` outright. See
@@ -30,7 +36,7 @@ use crate::graph::PortType::{UniformNumber, VaryingColor};
 use crate::nodes::phasor;
 use crate::nodes::{
     Accepts, Category, CpuDef, CpuNode, Frame, NodeDef, OptionDef, OptionKind, OutputDef,
-    OutputKind, Pixels, TickContext,
+    OutputKind, Pixels, TickContext, alpha,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -262,7 +268,7 @@ fn decode(path: &Path, done: &AtomicU32) -> Result<Vec<Still>, String> {
         let picture = reader.decode().map_err(|e| named(&e))?.to_rgba8();
         done.store(1, Ordering::Relaxed);
         return Ok(vec![Still {
-            frame: Arc::new(rgba(&picture)),
+            frame: Arc::new(rgba(picture)),
             delay: 0.0,
         }]);
     }
@@ -282,7 +288,7 @@ fn decode(path: &Path, done: &AtomicU32) -> Result<Vec<Still>, String> {
         let picture = frame.into_buffer();
         bytes += (picture.width() as usize) * (picture.height() as usize) * 4;
         out.push(Still {
-            frame: Arc::new(rgba(&picture)),
+            frame: Arc::new(rgba(picture)),
             delay,
         });
         done.store(out.len() as u32, Ordering::Relaxed);
@@ -296,12 +302,16 @@ fn decode(path: &Path, done: &AtomicU32) -> Result<Vec<Still>, String> {
     Ok(out)
 }
 
-/// An `image` buffer as a [`Frame`]: the same bytes, rows top first, which both agree on.
-fn rgba(picture: &image::RgbaImage) -> Frame {
+/// An `image` buffer as a [`Frame`]: its straight bytes premultiplied, rows top first, which
+/// both agree on.
+fn rgba(picture: image::RgbaImage) -> Frame {
+    let (width, height) = picture.dimensions();
+    let mut bytes = picture.into_raw();
+    alpha::premultiply_rgba8(&mut bytes);
     Frame {
-        width: picture.width(),
-        height: picture.height(),
-        pixels: Pixels::Bytes(picture.as_raw().clone()),
+        width,
+        height,
+        pixels: Pixels::Bytes(bytes),
     }
 }
 

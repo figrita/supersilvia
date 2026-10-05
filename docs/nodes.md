@@ -1420,7 +1420,8 @@ eight symmetry modes, None to 8-Fold, that repeat a stroke as a mirror or a mand
 project's save into `assets/` as `painting-<print>.png`, named by its content, read back on
 open, carried by the autosave, a copy and an export, and a stroke is one undo step
 ([decisions.md](decisions.md#a-painting-is-saved-with-the-project)). The painting is the node's
-`output`, a `Texture` published as the very frame the value holds, sampled by the aspect it has
+`output`, a `Texture` published as the value's straight pixels premultiplied — a copy made
+once for each painting and size — sampled by the aspect it has
 with silvia's Wrap outside it — Mirror by default, Repeat and Clamp by folding the coordinate;
 `mask` is its luminance times its alpha, so an erased pixel is no mask; and `strokeDone` fires
 for one frame when a stroke lifts, which is what makes the canvas a drum pad as well. **Canvas

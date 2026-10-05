@@ -816,6 +816,10 @@ content is one still picture, so a row of them reads as a contact sheet the way 
 **The decode is on a worker and the tick polls it.** A file is read the moment the option
 points at one: a thread opens it, decodes it, and sends the frames back through an
 `mpsc::channel` the tick drains with `try_recv`, exactly as a transcode's result arrives.
+**Each frame is premultiplied there**, once, since a PNG's and a GIF's pixels are straight and
+every picture in the graph is premultiplied
+([decisions.md](decisions.md#colors-in-the-graph-are-premultiplied)), rounded to the nearest
+byte (`nodes::alpha`).
 `status` says how many frames have landed while it is working, drawn across the middle of the
 picture band, and it is a count rather than a fraction on purpose — **a GIF says nowhere in
 its header how long it is**, so there is no total to be a fraction of. A decode

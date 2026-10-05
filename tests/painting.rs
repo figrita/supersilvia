@@ -13,7 +13,7 @@
 use emath::{Pos2, Vec2};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use supersilvia::graph::{Graph, NodeId, Painting, PortRef, Value};
+use supersilvia::graph::{ControlValue, Graph, NodeId, Painting, PortRef, Value};
 use supersilvia::nodes::drawingcanvas::{self, Brush, Sheet, Symmetry, Tool};
 use supersilvia::project::{ASSETS, AUTOSAVE, Project};
 use supersilvia::{App, Command};
@@ -101,9 +101,10 @@ fn painting_files(assets: &Path) -> Vec<String> {
 // ------------------------------------------------------------------------------------ the tick
 
 /// A canvas nobody has painted on publishes a blank of its background at the size Canvas
-/// Size names; a painting is published as the very frame it holds, with no copy.
+/// Size names, premultiplied; a painting is published premultiplied too, a copy made once
+/// and published again while nothing changes, and the painting keeps its straight pixels.
 #[test]
-fn the_tick_publishes_the_painting_itself() {
+fn the_tick_publishes_the_painting_premultiplied() {
     let mut app = App::headless();
     let id = add(&mut app);
     app.tick(1.0 / 60.0);
@@ -121,14 +122,50 @@ fn the_tick_publishes_the_painting_itself() {
             .all(|p| p == [0, 0, 0, 255]),
         "silvia's black background"
     );
+    app.apply(Command::SetControl {
+        node: id,
+        key: drawingcanvas::BACKGROUND,
+        value: ControlValue::Color([1.0, 0.0, 0.0, 0.5]),
+    })
+    .unwrap();
+    app.tick(1.0 / 60.0);
+    assert!(
+        app.frame(port)
+            .unwrap()
+            .bytes()
+            .unwrap()
+            .chunks(4)
+            .all(|p| p == [128, 0, 0, 128]),
+        "a half-transparent red background, premultiplied"
+    );
 
-    let painting = picture(512, 512);
+    // The picture, with a half-transparent texel and a red one under no alpha in a corner.
+    let (_, _, mut straight) = pixels(&picture(512, 512));
+    straight[..8].copy_from_slice(&[200, 100, 51, 128, 200, 30, 30, 0]);
+    let painting = Painting::new(512, 512, straight.clone(), 0);
     paint(&mut app, id, &painting);
     app.tick(1.0 / 60.0);
-    let shown = app.frame(port).unwrap();
+    let shown = Arc::clone(app.frame(port).unwrap());
+    let shown_bytes = shown.bytes().unwrap();
+    assert_eq!(shown_bytes[..8], [100, 50, 26, 128, 0, 0, 0, 0]);
+    for (s, p) in straight.chunks(4).zip(shown_bytes.chunks(4)) {
+        let a = u32::from(s[3]);
+        let want: Vec<u8> = s[..3]
+            .iter()
+            .map(|&c| ((f64::from(c) * f64::from(a) / 255.0).round()) as u8)
+            .chain([s[3]])
+            .collect();
+        assert_eq!(p, want.as_slice(), "{s:?} premultiplied");
+    }
+    assert_eq!(
+        pixels(&held(app.graph(), id).unwrap()).2,
+        straight,
+        "the painting itself is straight"
+    );
+    app.tick(1.0 / 60.0);
     assert!(
-        Arc::ptr_eq(shown, painting.frame().unwrap()),
-        "the painting's own frame, not a copy of it"
+        Arc::ptr_eq(app.frame(port).unwrap(), &shown),
+        "the same copy while nothing changed"
     );
 }
 

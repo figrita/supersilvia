@@ -467,6 +467,30 @@ fn a_still_image_decodes_into_one_frame() {
     assert_eq!(app.uniform(PortRef::new(id, "frame")), Some(0.0));
 }
 
+/// A PNG is straight and the picture the node publishes is premultiplied, rounded to the
+/// nearest byte: a half-transparent texel's color is scaled by its alpha, an opaque one is
+/// the file's, and a transparent one is transparent black whatever color it was saved with.
+#[test]
+fn a_still_image_is_published_premultiplied() {
+    let dir = scratch("straight");
+    let path = dir.join("straight.png");
+    let mut picture = image::RgbaImage::new(3, 1);
+    picture.put_pixel(0, 0, image::Rgba([200, 100, 51, 128]));
+    picture.put_pixel(1, 0, image::Rgba([10, 200, 30, 255]));
+    picture.put_pixel(2, 0, image::Rgba([255, 255, 255, 0]));
+    picture.save(&path).expect("a png of our own");
+
+    let (mut app, id) = app_with("imagegif");
+    show(&mut app, id, &path);
+    tick_until_decoded(&mut app, id);
+    let shown = frame(&app, id, "output");
+    assert_eq!(
+        shown.bytes().unwrap(),
+        [100, 50, 26, 128, 10, 200, 30, 255, 0, 0, 0, 0],
+        "200, 100 and 51 times 128/255, rounded"
+    );
+}
+
 #[test]
 fn a_two_frame_gif_advances_at_its_own_delays() {
     let dir = scratch("gif");

@@ -128,7 +128,7 @@ impl From<PaintingFile> for Painting {
 pub const PAINTING_FOLDER: &str = "assets";
 
 impl Painting {
-    /// Pixels a hand painted, `width × height × 4` bytes of RGBA8, rows top first.
+    /// Pixels a hand painted, `width × height × 4` bytes of straight RGBA8, rows top first.
     ///
     /// # Panics
     /// The bytes are not that many — a painting of the wrong length is a caller's bug and would

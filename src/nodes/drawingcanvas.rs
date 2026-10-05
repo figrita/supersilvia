@@ -22,10 +22,18 @@
 //! **Who does what.** The paint surface is a region that claims the pointer
 //! (`widgets::paint`): it reads the painting off the `Node`, draws a stroke into a copy with
 //! the functions here, and hands the copy back as a `SetValue` — once a frame while a pen
-//! moves, all of it one gesture. The tick only publishes: the painting's own pixels, which
-//! are the frame the renderer uploads, or a blank of the background where nothing has been
-//! painted. What the tick does to the document is Clear, which a sequencer can fire, written
-//! back through [`TickContext::write_value`] like any value a tick makes.
+//! moves, all of it one gesture. The tick only publishes: the painting, or a blank of the
+//! background where nothing has been painted. What the tick does to the document is Clear,
+//! which a sequencer can fire, written back through [`TickContext::write_value`] like any value
+//! a tick makes.
+//!
+//! **The painting is straight and what the node publishes is premultiplied.** The painting is
+//! a 2D canvas's own pixels, source-over and `destination-out` on straight colors as silvia's
+//! are, and a PNG saves them as they lie; every picture in the graph is premultiplied
+//! ([decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied)). So the
+//! tick publishes a premultiplied copy, made once for each painting and size and published
+//! again until either moves, and an erased pixel's color stays in the painting under its
+//! alpha of zero without reaching the picture.
 //!
 //! This module is pure: pixels in a `Vec`, and the tick. No egui.
 
@@ -33,7 +41,7 @@ use crate::graph::PortType::{Action, VaryingColor, VaryingNumber};
 use crate::graph::{ControlValue, Node, NodeId, Painting, Value};
 use crate::nodes::{
     Category, Control, CpuDef, CpuNode, Edge, Frame, Gate, InputDef, NodeDef, OptionDef,
-    OptionKind, OutputDef, OutputKind, Pixels, Region, TickContext, ValueDef, ValueKind,
+    OptionKind, OutputDef, OutputKind, Pixels, Region, TickContext, ValueDef, ValueKind, alpha,
 };
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -742,8 +750,8 @@ fn erase(dst: &mut [u8], coverage: f32) {
 /// What the tick last published, and what it was made from, so a tick that changed nothing
 /// publishes the same `Arc` and costs no upload.
 enum Made {
-    /// A painting stretched to the size Canvas Size names.
-    Stretched { from: Arc<Frame>, size: (u32, u32) },
+    /// A painting at the size Canvas Size names, stretched to it where it is another size.
+    Painted { from: Arc<Frame>, size: (u32, u32) },
     /// A canvas nobody has painted on.
     Blank { size: (u32, u32), color: [u8; 4] },
 }
@@ -767,8 +775,8 @@ impl Canvas {
         }
     }
 
-    /// The frame to publish for this painting at this size, made again only when what it is
-    /// made from moved.
+    /// The frame to publish for this painting at this size, premultiplied, made again only
+    /// when what it is made from moved.
     fn frame(
         &mut self,
         painting: Option<&Painting>,
@@ -776,22 +784,29 @@ impl Canvas {
         color: [u8; 4],
     ) -> Arc<Frame> {
         let fresh = match painting.and_then(Painting::frame) {
-            Some(frame) if (frame.width, frame.height) == size => {
-                return Arc::clone(frame);
-            }
             Some(frame) => match &self.published {
-                Some((Made::Stretched { from, size: s }, out))
+                Some((Made::Painted { from, size: s }, out))
                     if Arc::ptr_eq(from, frame) && *s == size =>
                 {
                     return Arc::clone(out);
                 }
                 _ => {
                     let Some(bytes) = frame.bytes() else {
+                        let mut color = color;
+                        alpha::premultiply_rgba8(&mut color);
                         return Arc::new(Frame::solid(size.0, size.1, color));
                     };
-                    let sheet = resampled(frame.width, frame.height, bytes, size.0, size.1);
+                    let sheet = if (frame.width, frame.height) == size {
+                        Sheet {
+                            width: frame.width,
+                            height: frame.height,
+                            rgba: bytes.to_vec(),
+                        }
+                    } else {
+                        resampled(frame.width, frame.height, bytes, size.0, size.1)
+                    };
                     (
-                        Made::Stretched {
+                        Made::Painted {
                             from: Arc::clone(frame),
                             size,
                         },
@@ -809,7 +824,8 @@ impl Canvas {
                 ),
             },
         };
-        let (made, sheet) = fresh;
+        let (made, mut sheet) = fresh;
+        alpha::premultiply_rgba8(&mut sheet.rgba);
         let frame = Arc::new(Frame {
             width: sheet.width,
             height: sheet.height,
