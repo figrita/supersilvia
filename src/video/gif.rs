@@ -9,8 +9,9 @@
 //! the end, so a half-written file is never mistaken for a picture, as the video writer does.
 //!
 //! **Frames go in straight**, as a PNG's do (`render::readback::Alpha`). A GIF's alpha is one
-//! bit: the encoder makes a pixel of alpha zero transparent and every other pixel opaque at
-//! its own color.
+//! bit, and a pixel is cut at half coverage before it is encoded: below half it is
+//! transparent, from half up opaque at its own color. The encoder would otherwise make every
+//! pixel above zero opaque, and an antialiased edge a texel wider than the shape.
 //!
 //! **A GIF counts time in hundredths of a second.** Frame `i` is held from `round(100 i ÷
 //! fps)` to `round(100 (i + 1) ÷ fps)` hundredths, so a 30 fps loop alternates 3 and 4 and
@@ -78,7 +79,11 @@ impl Writer {
     /// # Errors
     /// A frame of the wrong size, or a write that failed.
     pub fn push(&mut self, rgba: &[u8]) -> Result<(), String> {
-        let image = RgbaImage::from_raw(self.width, self.height, rgba.to_vec())
+        let mut pixels = rgba.to_vec();
+        for px in pixels.as_chunks_mut::<4>().0 {
+            cut_at_half(px);
+        }
+        let image = RgbaImage::from_raw(self.width, self.height, pixels)
             .ok_or_else(|| "a frame of the wrong size".to_string())?;
         let hundredths = delay(self.frames, self.fps);
         let frame = Frame::from_parts(image, 0, 0, Delay::from_numer_denom_ms(hundredths * 10, 1));
@@ -114,9 +119,31 @@ fn delay(i: u64, fps: f64) -> u32 {
     u32::try_from(at(i + 1).saturating_sub(at(i))).unwrap_or(u32::MAX)
 }
 
+/// One straight RGBA pixel made one-bit: transparent black below half coverage, opaque at its
+/// own color from half up.
+fn cut_at_half(px: &mut [u8; 4]) {
+    if px[3] < 128 {
+        *px = [0; 4];
+    } else {
+        px[3] = 255;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Coverage is cut at half: a faint edge is gone rather than a texel of solid color, and
+    /// a mostly covered one keeps its color, opaque.
+    #[test]
+    fn a_pixel_is_cut_at_half_coverage() {
+        let mut faint = [0, 255, 255, 64];
+        cut_at_half(&mut faint);
+        assert_eq!(faint, [0; 4]);
+        let mut half = [0, 255, 255, 128];
+        cut_at_half(&mut half);
+        assert_eq!(half, [0, 255, 255, 255]);
+    }
 
     /// At 30 fps the delays alternate so thirty frames last one second; at 25 fps they are
     /// all four.
