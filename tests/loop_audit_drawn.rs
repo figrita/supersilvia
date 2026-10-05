@@ -1110,6 +1110,34 @@ fn a_noise_at_repeat_never_does_not_come_back_within_sixteen_cells() {
     assert_none("Repeat Never", &failures);
 }
 
+/// The tunnel at Depth Wrap None comes back when its input does, which no claim can know: a
+/// wall of waves 100 units apart brings it back 25 flights on, where the path's flight of 64
+/// meets them. So it says so, and a loop under a gear over it can't be told.
+#[test]
+fn the_tunnel_at_depth_wrap_none_says_it_comes_back_with_its_input() {
+    let (g, _, under) = build(
+        &Spec::new("tunnel3d", "output", Feed::Waves("input")),
+        &[("wrap", "none")],
+    );
+    let node = g.get(under).unwrap();
+    let timing = node.def.timing.unwrap();
+    assert!((timing.open)(node), "at Depth Wrap None");
+    assert_eq!(
+        (timing.period)(node),
+        None,
+        "it never comes back on its own"
+    );
+    let (g, _, under) = build(
+        &Spec::new("tunnel3d", "output", Feed::Waves("input")),
+        &[("wrap", "mirror")],
+    );
+    let node = g.get(under).unwrap();
+    assert!(
+        !(node.def.timing.unwrap().open)(node),
+        "a wrapped wall comes back on its own"
+    );
+}
+
 #[test]
 fn the_tunnel_at_depth_wrap_none_does_not_come_back_within_sixteen_units() {
     assert_none("tunnel3d none", &tunnel(&["none"]).early(Axis::Both, false));
@@ -1167,8 +1195,9 @@ fn forty_minutes_at_speed_4(g: &Graph, under: NodeId) -> f64 {
 /// thirteenth and every 355th — where a sine hash comes back nearest, 355 being 113π — to
 /// 57600, from the same two starts. webgl-noise's permutation brings its lattice back every 289
 /// cells, 867 along the simplex lattice's skew, and a whole part wrapped at 40320 would bring
-/// Static back 28 minutes on at Speed 4. The tunnel at Depth Wrap None, whose wall reads a
-/// picture of two waves, is held to coming back exactly.
+/// Static back 28 minutes on at Speed 4. The tunnel at Depth Wrap None is not here: it flies on
+/// through its input and comes back when the input does along the tube, which it says
+/// (`Timing::open`, held below) rather than promising never.
 #[test]
 fn a_picture_that_never_repeats_does_not_come_back_within_forty_minutes_at_speed_4() {
     let mut failures = Vec::new();
@@ -1176,7 +1205,10 @@ fn a_picture_that_never_repeats_does_not_come_back_within_forty_minutes_at_speed
         Spec::new("static", "color", Feed::Nothing),
         &[("repeat", "never")] as &[_],
     );
-    for (spec, options) in unbounded().into_iter().chain([static_spec]) {
+    let pictures = unbounded()
+        .into_iter()
+        .filter(|(spec, _)| spec.slug != "tunnel3d");
+    for (spec, options) in pictures.chain([static_spec]) {
         let (g, out, under) = build(&spec, options);
         let horizon = forty_minutes_at_speed_4(&g, under).ceil();
         let rolls = spec.slug == "static";

@@ -2389,8 +2389,8 @@ cycle — four on the floor's quarter of a bar — is one box filled that many t
 one that is not whole, two and a half, counts its last short cycle. In its middle, in the number
 control's font, is the cycle it is in counted from one and the loop's length: `3/4`, `1/1` on
 a periodic node, `11/16` on a Perlin at Repeat 16; a hairline parts around the caption rather than
-crossing it. **A picture that never comes back** — a noise at Repeat Never, the tunnel at
-Depth Wrap None, a clip on Hold — has no loop, so the box spans the one cycle it is in, says
+crossing it. **A picture that never comes back** on its own — a noise at Repeat Never, the
+tunnel at Depth Wrap None, a clip on Hold — has no loop, so the box spans the one cycle it is in, says
 the whole cycles behind it, `12`, and leaves its right end open: the bevel stops short of the
 right-hand corners and the end is dashed. A solid end means it loops. A hover says `cycle 3 of
 4`, `back every 1/4 of a cycle`, `cycle 3 of a loop 5/2 cycles long`, or `12 whole cycles; never

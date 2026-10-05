@@ -1724,7 +1724,8 @@ consecutive rolls correlated beyond 0.12 — so its field is kept.
 5π/16, so Sine and Lissajous repeat every 64 units of depth and Helix every 16 — whole numbers
 of both depth wraps — and a cycle is the flight of 64: the camera's depth is the cycle's
 fraction times 64, so Time 1 draws Time 0 and a gear flies it once a turn. The wiggle is 1.8%
-slower, which nobody sees. Depth Wrap None never repeats.
+slower, which nobody sees. Depth Wrap None never repeats on its own and comes back when its
+input does, so a loop over it can't be told.
 
 **When a loop closes.** A node on a chain from Master Gear `M` advances `m × Πr ÷ P` of its own
 periods over `m` cycles of `M` — `Πr` the product of the chain's ratios, `P` the node's period,

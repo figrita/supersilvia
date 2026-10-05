@@ -553,26 +553,26 @@ Never is `time_cells` round `WHOLE_WRAP`, the prelude's `phasor::WHOLE_WRAP`; th
 `time_periodic`, a cycle a flight of 64 units. The body
 takes the result round its own period where it needs to.
 
-**The rate at rest is silvia's default speed** in the node's own cycles, so a node dropped in
-moves as silvia's does. Where silvia's period was 20π it is rounded to whole seconds, which
-is under 5% off. Where silvia is still at its default, the rate is zero — in Loop mode the
-node sits still until a gear is cabled into its Time and Offset's knob places it — and its
-pace is one chosen to look natural at Speed 1, with Speed starting at 0.
+**The pace is silvia's default speed** in the node's own cycles, so a node dropped in moves as
+silvia's does, and it is the pace in both modes: Free at Speed 1, and Loop with nothing in its
+Time. Where silvia's period was 20π it is rounded to whole seconds, which is under 5% off.
+Where silvia is still at its default, the node is `still`: its Speed starts at 0, so a new one
+sits still in Free mode, and its pace is one chosen to look natural.
 
-| node | one cycle, or one unit | rate at rest (Loop) | pace at Speed 1 (Free) | Speed starts | the body takes Time round |
-| --- | --- | --- | --- | --- | --- |
-| `mandelbrot`, `juliaset` | one drift of the Map orbit | 0.5: a drift every 2 s | 0.5 | 1 | 1 |
-| `cosinegradient` | one shift of the palette | 0: still | 0.1: a shift every 10 s | 0 | 1 |
-| `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60: a cycle a minute | 1/60 | 1 | 1 |
-| `shakycam` | X: the 20π super-cycle; Y: a quarter of it, where its two waves line up | 1/60 on X, 1/15 on Y | 1/60 on X, 1/15 on Y | 1, per axis | 1 |
-| `geissflow` | the 20π flow cycle | 1/160 | 1/160 | 1 | 1 |
-| `perlin` | a lattice cell along the time axis | 0.5 cells a second | 0.5 | 1 | `N` under Repeat, else 80640 |
-| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | 0.5 cells a second | 0 | `N` under Repeat, else 80640 |
-| `static` | a roll | 0: still | 6 rolls a second | 0 | `N` under Repeat, else 80640 |
-| `tunnel3d` | a flight of 64 units of camera depth | 1/128: half a unit a second | 1/128 | 1 | 1 while the depth wraps, else nothing |
-| `oscillator` | one wave | 1: a wave a second | 1 | 1 | read unwrapped on the CPU |
-| `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length: its native speed | 1 ÷ the clip's length | 1 | read unwrapped on the CPU |
-| `stepsequencer`, `euclideanrhythm` | one bar of sixteen steps | 0: stopped | 0.5: a bar every 2 s, 120 BPM | 0 | read unwrapped on the CPU |
+| node | one cycle, or one unit | pace: Free at Speed 1, Loop on ambient time | Speed starts | the body takes Time round |
+| --- | --- | --- | --- | --- |
+| `mandelbrot`, `juliaset` | one drift of the Map orbit | 0.5 | 1 | 1 |
+| `cosinegradient` | one shift of the palette | 0.1: a shift every 10 s | 0 | 1 |
+| `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60 | 1 | 1 |
+| `shakycam` | X: the 20π super-cycle; Y: a quarter of it, where its two waves line up | 1/60 on X, 1/15 on Y | 1, per axis | 1 |
+| `geissflow` | the 20π flow cycle | 1/160 | 1 | 1 |
+| `perlin` | a lattice cell along the time axis | 0.5 | 1 | `N` under Repeat, else nothing: back 80640 on, past forty minutes at Speed 4 |
+| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0.5 cells a second | 0 | `N` under Repeat, else nothing: back 80640 on, past forty minutes at Speed 4 |
+| `static` | a roll | 6 rolls a second | 0 | `N` under Repeat, else nothing: back 80640 on, past forty minutes at Speed 4 |
+| `tunnel3d` | a flight of 64 units of camera depth | 1/128 | 1 | 1 while the depth wraps, else its input's: it can't be told |
+| `oscillator` | one wave | 1 | 1 | read unwrapped on the CPU |
+| `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length | 1 | read unwrapped on the CPU |
+| `stepsequencer`, `euclideanrhythm` | one bar of sixteen steps | 0.5: a bar every 2 s, 120 BPM | 0 | read unwrapped on the CPU |
 
 Rotozoom, Shaky Cam and Geiss Flow keep silvia's uneven wave rates inside their cycle — 1,
 0.7, 0.8 and 1.2, which line up over 20π — and scale the cycle, `time_periodic`, back to
@@ -624,8 +624,9 @@ cycle is a flight of 64 units, which the camera's depth is Time's fraction plus 
 a Time a cycle on draws Time 0 to the byte at any count. Its period is what its path and its
 wall come back after together: a cycle on Sine and Lissajous, a quarter on the Helix, and with
 Twist at zero — a straight tube — the wall's own eighth or sixteenth. Depth Wrap None never
-repeats: the camera's depth still turns round the flight, which every path comes back after,
-and the wall is read on from the whole flights behind it.
+repeats on its own: the camera's depth still turns round the flight, which every path comes
+back after, and the wall is read on from the whole flights behind it, so it comes back when its
+input does along the tube. It says so (`Timing::open`), and a loop over it can't be told.
 
 **What a CPU node reads.** No uniform is written for a CPU node. Its tick asks
 `TickContext::cycle(id)` — where the node is with its Offset added: in Loop mode what is
@@ -709,13 +710,14 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
   inputs have. Any other CPU node keeps state the walk cannot read: still while nothing that
   moves reaches it, never back where it reads a device, and otherwise it cannot be told. A
   loop through a frame — feedback — cannot be told.
-- **What never closes**: a picture that never repeats — a noise at Repeat Never, the tunnel at
-  Depth Wrap None, a clip on Hold, the oscillator's Noise — on a moving clock; a count in a
+- **What never closes**: a picture that never repeats — a noise at Repeat Never, a clip on
+  Hold, the oscillator's Noise — on a moving clock; a count in a
   Speed, a rate that keeps growing; a ratio that is no fraction with a denominator up to 64;
   and a loop longer than the arithmetic can count, which no practical length closes. **What
   cannot be told**: a cable in a Ratio, a Speed or a Divide, a gear's count through a Math
   node or into anything but a Time or an Offset, a beat into a gear reset or held, a CPU node's
-  state, a clip on its own clock.
+  state, a clip on its own clock, the tunnel at Depth Wrap None, which comes back when its input
+  does.
 - An unconnected color input falls back to the hue wheel, `defaultUvMap`, which stands still
   and so closes on any loop.
 

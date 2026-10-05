@@ -664,7 +664,9 @@ impl<'g> Walk<'g> {
             // Its period on this axis, with what a cable drives read as anything it could be.
             let given = timing::period_in(graph, id, *axis);
             let period = given.and_then(|p| Fraction::near(p).filter(|f| f.p > 0));
-            if given.is_some() && period.is_none() {
+            // A picture that reads further and further into its input comes back when the input
+            // does, which nothing here can know.
+            if (given.is_some() && period.is_none()) || (given.is_none() && (t.open)(node)) {
                 g.fail(Motion::Unknown(id));
                 continue;
             }
@@ -1262,7 +1264,8 @@ mod tests {
     /// **The tunnel comes back every flight, its Helix every quarter of one**: a cycle is one
     /// flight of 64 units, so on a ×32 gear it comes back 32 times a master cycle and a loop
     /// is the master's one; on a ÷2 gear two; the Helix on a ÷8, a quarter of a flight every
-    /// two; and with its depth unwrapped it never does.
+    /// two; and with its depth unwrapped it comes back when its input does, which can't be
+    /// told.
     #[test]
     fn a_tunnel_comes_back_every_flight() {
         for (ratio, path, want) in [(32.0, "sine", 1), (0.5, "sine", 2), (0.125, "helix", 2)] {
@@ -1284,7 +1287,7 @@ mod tests {
             .insert("wrap", "none".to_string());
         assert_eq!(
             caption(&g, master),
-            format!("1 node will not close (tunnel3d{})", tunnel.0)
+            format!("can't tell when 1 node closes (tunnel3d{})", tunnel.0)
         );
     }
 

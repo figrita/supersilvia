@@ -830,7 +830,10 @@ node! {
               units, after which it comes back while the depth wraps, so a gear cabled into \
               Time flies it once a turn; Offset moves it along. Twist is how far the tube \
               wanders and zoom is the lens.",
-    timing: Timing::repeating(0.5 / TUNNEL_FLIGHT, tunnel_period),
+    // At Depth Wrap None the camera flies on through its input, so the picture comes back when
+    // the input does along the tube.
+    timing: Timing::repeating(0.5 / TUNNEL_FLIGHT, tunnel_period)
+        .open(|n| n.options.get("wrap").is_some_and(|w| w == "none")),
     inputs: [
         VaryingColor "input" "Texture" at "tunnelUV" = Control::None,
     ],

@@ -149,6 +149,11 @@ pub struct Timing {
     /// the node reads off its file and hands to `TickContext::cycle_at`, so [`Self::pace`] is
     /// a play and nothing outside the node knows how long one is.
     pub clip: bool,
+    /// Whether the picture comes back when its input does and not on its own: a node that
+    /// reads further and further into its input, as the tunnel does at Depth Wrap None. Its
+    /// [`Self::period`] is then `None` for its own motion alone, and a loop over it can't be
+    /// told, since an input that repeats along the way it reads brings it back.
+    pub open: fn(&Node) -> bool,
 }
 
 impl Timing {
@@ -167,6 +172,7 @@ impl Timing {
             pace_y: pace,
             period_y: period,
             clip: false,
+            open: |_| false,
         }
     }
 
@@ -188,6 +194,13 @@ impl Timing {
     #[must_use]
     pub const fn clip(mut self) -> Self {
         self.clip = true;
+        self
+    }
+
+    /// The same, coming back when its input does where `open` says ([`Self::open`]).
+    #[must_use]
+    pub const fn open(mut self, open: fn(&Node) -> bool) -> Self {
+        self.open = open;
         self
     }
 
