@@ -72,10 +72,10 @@ fn chromaticaberration1_output(uv: vec2f) -> vec4f {
     let uvR = uv - push;
     let uvG = uv;
     let uvB = uv + push;
-    let r = (checkerboard3_output(uvR)).r;
-    let g = checkerboard3_output(uvG);
-    let b = (checkerboard3_output(uvB)).b;
-    return vec4f(r, g.g, b, g.a);
+    let r = unpremultiply(checkerboard3_output(uvR)).r;
+    let g = unpremultiply(checkerboard3_output(uvG));
+    let b = unpremultiply(checkerboard3_output(uvB)).b;
+    return premultiply(vec4f(r, g.g, b, g.a));
 }
 
 @fragment

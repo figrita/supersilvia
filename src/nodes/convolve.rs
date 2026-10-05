@@ -29,6 +29,14 @@
 //! and the add-back. And **`heighttonormal` steps a pixel of the reference frame** where
 //! silvia steps a texel of the real output, so the map it writes is the same map whatever
 //! size the Output is — the rule every other kernel here already follows.
+//!
+//! **What is nonlinear reads the color's own channels.** The sums — a blur, the neighborhood
+//! a sharpen compares against, a bloom's gather and its add-back — run on premultiplied
+//! colors as they are, since a sum is exact on them. Everything else reads through the
+//! prelude's `unpremultiply`: the luminance a bloom thresholds, an emboss lights, a dilate or
+//! erode compares and a height map is made of, and the difference a sharpen thresholds, adds
+//! back and clamps. A color built from those is premultiplied at the center's alpha. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
 
 use crate::compile::CompileContext;
 use crate::graph::{NodeId, PortType::VaryingColor, PortType::VaryingNumber};
@@ -146,7 +154,8 @@ fn sharpen_common_wgsl(node: NodeId, ctx: &CompileContext<'_>) -> String {
         }}
     }}
     blurred /= max(total, 1e-6);
-    let detail = center.rgb - blurred.rgb;
+    let own = unpremultiply(center);
+    let detail = own.rgb - unpremultiply(blurred).rgb;
     let edge = length(detail);
 "
     )
@@ -183,7 +192,7 @@ node! {
             format!(
                 "    let threshold = {{threshold}};
     let keep = smoothstep(threshold, threshold + 0.01, edge);
-    return vec4f(clamp(center.rgb + detail * ({gain}) * keep, vec3f(0.0), vec3f(1.0)), center.a);"
+    return premultiply(vec4f(clamp(own.rgb + detail * ({gain}) * keep, vec3f(0.0), vec3f(1.0)), own.a));"
             )
         }),
         VaryingNumber "value" "Value" = "    return clamp(edge, 0.0, 1.0);",
@@ -230,12 +239,12 @@ node! {
     var alpha = 1.0;
     for (var k = -1; k <= 1; k++) {{
         let offset = lightDir * f32(k);
-        let sampled = {{input}};
+        let sampled = unpremultiply({{input}});
         if (k == 0) {{ alpha = sampled.a; }}
         lum[k + 1] = dot(sampled.rgb, {LUMA_WGSL});
     }}
     let relief = {sign}(lum[2] - lum[0]) * ({{strength}});
-    return vec4f(vec3f(clamp(relief + ({{offset}}), 0.0, 1.0)), alpha);"
+    return premultiply(vec4f(vec3f(clamp(relief + ({{offset}}), 0.0, 1.0)), alpha));"
             )
         }),
     ],
@@ -291,7 +300,7 @@ node! {
         for (var j = 1; j <= {rings}; j++) {{
             offset = dir * radius * f32(j) / {rings}.0;
             let sampled = {{input}};
-            let brightness = dot(sampled.rgb, {LUMA_WGSL});
+            let brightness = dot(unpremultiply(sampled).rgb, {LUMA_WGSL});
             glow += sampled * max(brightness - threshold, 0.0);
             lit += step(threshold, brightness);
         }}
@@ -328,12 +337,13 @@ fn morphology_wgsl(shape: &str, pick: &str) -> String {
     var offset = vec2f(0.0);
     let original = {{input}};
     var winner = original;
-    var best = dot(original.rgb, {LUMA_WGSL});
+    let originalLum = dot(unpremultiply(original).rgb, {LUMA_WGSL});
+    var best = originalLum;
     for (var y = -1; y <= 1; y++) {{
         for (var x = -1; x <= 1; x++) {{
 {skip}            offset = vec2f(f32(x), f32(y)) * radius;
             let sampled = {{input}};
-            let brightness = dot(sampled.rgb, {LUMA_WGSL});
+            let brightness = dot(unpremultiply(sampled).rgb, {LUMA_WGSL});
             if (brightness {pick} best) {{ best = brightness; winner = sampled; }}
         }}
     }}
@@ -392,7 +402,7 @@ morphology_node!(
      dark lines close up. Threshold is how much brighter the neighbor has to be before it \
      wins. Its value is the brightness that won.",
     ">",
-    "best - dot(original.rgb, vec3f(0.299, 0.587, 0.114))"
+    "best - originalLum"
 );
 
 morphology_node!(
@@ -404,7 +414,7 @@ morphology_node!(
      bright lines break up. Threshold is how much darker the neighbor has to be before it \
      wins. Its value is the brightness that won.",
     "<",
-    "dot(original.rgb, vec3f(0.299, 0.587, 0.114)) - best"
+    "originalLum - best"
 );
 
 // -------------------------------------------------------------------------- heighttonormal
@@ -422,7 +432,7 @@ fn height_to_normal_common_wgsl() -> String {
     for (var y = -1; y <= 1; y++) {{
         for (var x = -1; x <= 1; x++) {{
             offset = vec2f(f32(x), f32(y)) * texel;
-            h[(y + 1) * 3 + (x + 1)] = dot(({{input}}).rgb, {LUMA_WGSL});
+            h[(y + 1) * 3 + (x + 1)] = dot(unpremultiply({{input}}).rgb, {LUMA_WGSL});
         }}
     }}
     let strength = {{strength}};

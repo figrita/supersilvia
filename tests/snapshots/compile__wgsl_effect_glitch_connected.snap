@@ -101,12 +101,12 @@ fn glitch1_color(uv: vec2f) -> vec4f {
     let splitRand = fract(sin(dot(vec2f(blockCoord * 7.31, stepIndex * 2.13), vec2f(67.891, 12.345))) * 54321.987);
     let splitOffset = vec2f(splitRand * (vignette7_mask(uv)), 0.0);
     glitchUV = shiftedUV;
-    let center = checkerboard3_output(glitchUV);
+    let center = unpremultiply(checkerboard3_output(glitchUV));
     glitchUV = shiftedUV + splitOffset;
-    let r = (checkerboard3_output(glitchUV)).r;
+    let r = unpremultiply(checkerboard3_output(glitchUV)).r;
     glitchUV = shiftedUV - splitOffset;
-    let b = (checkerboard3_output(glitchUV)).b;
-    return vec4f(r, center.g, b, center.a);
+    let b = unpremultiply(checkerboard3_output(glitchUV)).b;
+    return premultiply(vec4f(r, center.g, b, center.a));
 }
 
 fn glitch1_mask(uv: vec2f) -> f32 {

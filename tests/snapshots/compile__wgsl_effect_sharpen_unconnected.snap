@@ -37,11 +37,12 @@ fn sharpen1_color(uv: vec2f) -> vec4f {
         }
     }
     blurred /= max(total, 1e-6);
-    let detail = center.rgb - blurred.rgb;
+    let own = unpremultiply(center);
+    let detail = own.rgb - unpremultiply(blurred).rgb;
     let edge = length(detail);
     let threshold = u.u_control_sharpen1_threshold;
     let keep = smoothstep(threshold, threshold + 0.01, edge);
-    return vec4f(clamp(center.rgb + detail * (amount) * keep, vec3f(0.0), vec3f(1.0)), center.a);
+    return premultiply(vec4f(clamp(own.rgb + detail * (amount) * keep, vec3f(0.0), vec3f(1.0)), own.a));
 }
 
 fn sharpen1_value(uv: vec2f) -> f32 {
@@ -63,7 +64,8 @@ fn sharpen1_value(uv: vec2f) -> f32 {
         }
     }
     blurred /= max(total, 1e-6);
-    let detail = center.rgb - blurred.rgb;
+    let own = unpremultiply(center);
+    let detail = own.rgb - unpremultiply(blurred).rgb;
     let edge = length(detail);
     return clamp(edge, 0.0, 1.0);
 }

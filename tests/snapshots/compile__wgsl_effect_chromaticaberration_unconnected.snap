@@ -27,10 +27,10 @@ fn chromaticaberration1_output(uv: vec2f) -> vec4f {
     let uvR = uv - push;
     let uvG = uv;
     let uvB = uv + push;
-    let r = (defaultUvMap(uvR)).r;
-    let g = defaultUvMap(uvG);
-    let b = (defaultUvMap(uvB)).b;
-    return vec4f(r, g.g, b, g.a);
+    let r = unpremultiply(defaultUvMap(uvR)).r;
+    let g = unpremultiply(defaultUvMap(uvG));
+    let b = unpremultiply(defaultUvMap(uvB)).b;
+    return premultiply(vec4f(r, g.g, b, g.a));
 }
 
 @fragment

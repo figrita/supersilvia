@@ -67,7 +67,7 @@ fn bloom1_color(uv: vec2f) -> vec4f {
         for (var j = 1; j <= 3; j++) {
             offset = dir * radius * f32(j) / 3.0;
             let sampled = checkerboard3_output(uv + offset);
-            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            let brightness = dot(unpremultiply(sampled).rgb, vec3f(0.299, 0.587, 0.114));
             glow += sampled * max(brightness - threshold, 0.0);
             lit += step(threshold, brightness);
         }
@@ -91,7 +91,7 @@ fn bloom1_value(uv: vec2f) -> f32 {
         for (var j = 1; j <= 3; j++) {
             offset = dir * radius * f32(j) / 3.0;
             let sampled = checkerboard3_output(uv + offset);
-            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            let brightness = dot(unpremultiply(sampled).rgb, vec3f(0.299, 0.587, 0.114));
             glow += sampled * max(brightness - threshold, 0.0);
             lit += step(threshold, brightness);
         }

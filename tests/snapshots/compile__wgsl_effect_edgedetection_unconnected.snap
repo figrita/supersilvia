@@ -28,7 +28,7 @@ fn edgedetection1_output(uv: vec2f) -> vec4f {
     for (var i = -1; i <= 1; i++) {
         for (var j = -1; j <= 1; j++) {
             let uv_offset = uv + vec2f(f32(i), f32(j)) * kernelStep;
-            let sampled = defaultUvMap(uv_offset);
+            let sampled = unpremultiply(defaultUvMap(uv_offset));
             if (i == 0 && j == 0) { centerAlpha = sampled.a; }
 
             let wx = KX[i + 1][j + 1];
@@ -46,7 +46,7 @@ fn edgedetection1_output(uv: vec2f) -> vec4f {
     }
 
     let edge = sqrt(gx * gx + gy * gy);
-    return vec4f(clamp(edge * (u.u_control_edgedetection1_strength), vec3f(0.0), vec3f(1.0)), centerAlpha);
+    return premultiply(vec4f(clamp(edge * (u.u_control_edgedetection1_strength), vec3f(0.0), vec3f(1.0)), centerAlpha));
 }
 
 @fragment

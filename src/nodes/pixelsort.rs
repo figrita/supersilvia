@@ -33,7 +33,7 @@ use crate::nodes::{
     Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, REFERENCE_HEIGHT,
 };
 
-/// The two keys a chunk may be sorted by, as functions of a sampled color.
+/// The two keys a chunk may be sorted by, as functions of a sampled color's own channels.
 ///
 /// `pixelSortHue` is `decompose::CONVERSIONS`' own hue expression, which is silvia's
 /// `rgb2hsv(...).x`: a gray pixel has no hue and reads 0 rather than dividing by zero. The
@@ -157,7 +157,7 @@ node! {
     for (var i = 0; i < {n}; i++) {{
         if (i >= subLen) {{ break; }}
         psUV = chunkStart + dir * f32(i);
-        let k = {key}(({{input}}).rgb);
+        let k = {key}(unpremultiply({{input}}).rgb);
         keys[i] = k;
         order[i] = i;
         minKey = min(minKey, k);

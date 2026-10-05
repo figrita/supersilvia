@@ -2058,3 +2058,72 @@ fn a_tap_reads_the_colors_own_channels() {
     );
     assert_eq!(a, 1.0, "and opaque");
 }
+
+/// A node that reads its input more than once: the slug, the port drawn, its controls and
+/// its options.
+type SampledCase = (
+    &'static str,
+    &'static str,
+    &'static [(&'static str, f32)],
+    &'static [(&'static str, &'static str)],
+);
+
+/// **A color assembled from several samples stays premultiplied.** A checkerboard of opaque
+/// red and transparent black puts an edge of alpha under every node that takes a channel
+/// from one sample and the alpha from another, or measures an edge and paints it with the
+/// center's alpha: no channel of any pixel may exceed its alpha.
+#[test]
+fn a_color_assembled_from_several_samples_never_exceeds_its_alpha() {
+    const SIZE: u32 = 32;
+    let cases: &[SampledCase] = &[
+        (
+            "glitch",
+            "color",
+            &[("intensity", 1.0), ("rgbSplit", 0.1)],
+            &[],
+        ),
+        ("chromaticaberration", "output", &[("offset", 0.1)], &[]),
+        (
+            "chromaticaberration",
+            "output",
+            &[("offset", 0.1)],
+            &[("mode", "linear")],
+        ),
+        ("edgedetection", "output", &[], &[]),
+        (
+            "edgedetection",
+            "output",
+            &[],
+            &[("mode", "laplacian_gray")],
+        ),
+        ("kuwahara", "color", &[], &[("size", "5x5")]),
+        ("emboss", "output", &[], &[]),
+        ("sharpen", "color", &[("amount", 4.0)], &[]),
+        ("dilate", "color", &[("radius", 0.05)], &[]),
+    ];
+    for (slug, output, controls, options) in cases {
+        let mut g = Graph::new();
+        let cb = add(&mut g, "checkerboard");
+        set_color(&mut g, cb, "color1", [1.0, 0.0, 0.0, 1.0]);
+        set_color(&mut g, cb, "color2", [0.0, 0.0, 0.0, 0.0]);
+        let under = add(&mut g, slug);
+        g.connect(PortRef::new(cb, "output"), PortRef::new(under, "input"))
+            .unwrap();
+        for (key, value) in *controls {
+            set(&mut g, under, key, *value);
+        }
+        for (key, value) in *options {
+            g.get_mut(under)
+                .unwrap()
+                .options
+                .insert(key, (*value).to_string());
+        }
+        let out = shown(&mut g, under, output);
+        for (i, p) in rendered(&g, out, SIZE).iter().enumerate() {
+            assert!(
+                p[..3].iter().all(|c| *c <= p[3]),
+                "{slug} {options:?}, pixel {i}: {p:?} has a channel above its alpha"
+            );
+        }
+    }
+}

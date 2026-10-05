@@ -86,7 +86,7 @@ fn pixelsort1_color(uv: vec2f) -> vec4f {
     for (var i = 0; i < 32; i++) {
         if (i >= subLen) { break; }
         psUV = chunkStart + dir * f32(i);
-        let k = pixelSortLuma((defaultUvMap(psUV)).rgb);
+        let k = pixelSortLuma(unpremultiply(defaultUvMap(psUV)).rgb);
         keys[i] = k;
         order[i] = i;
         minKey = min(minKey, k);
@@ -141,7 +141,7 @@ fn pixelsort1_mask(uv: vec2f) -> f32 {
     for (var i = 0; i < 32; i++) {
         if (i >= subLen) { break; }
         psUV = chunkStart + dir * f32(i);
-        let k = pixelSortLuma((defaultUvMap(psUV)).rgb);
+        let k = pixelSortLuma(unpremultiply(defaultUvMap(psUV)).rgb);
         keys[i] = k;
         order[i] = i;
         minKey = min(minKey, k);

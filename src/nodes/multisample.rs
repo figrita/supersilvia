@@ -16,6 +16,9 @@
 //! that needed no correction: its smear is a fraction of the ray from the center, which is
 //! already in world units.
 //!
+//! **Kuwahara works on the color's own channels**, since a variance is nonlinear in them; the
+//! four blurs are averages, which are exact on premultiplied colors as they are.
+//!
 //! Two departures beyond that. **Super Sampling's grid is centered.** silvia offsets a cell by
 //! `(i - 0.5) / n`, which is centered only at 2x2 — at 3x3 and 4x4 its samples lean toward one
 //! corner and the picture shifts as the option changes. `(i + 0.5) / n - 0.5` is the same grid
@@ -77,6 +80,8 @@ node! {
     ],
     // The four quadrants overlap along the axes, which is silvia's arrangement and the
     // classic one: the fragment itself is in all four, so every quadrant is (r + 1)² samples.
+    // The means and variances are of the samples' own channels, and the mean taken is
+    // premultiplied at the center's alpha.
     wgsl_common: varying(|node, ctx| {
         let (r, quadrant) = kuwahara_window(ctx.option(node, "size"));
         format!(
@@ -89,7 +94,7 @@ node! {
     for (var y = -{r}; y <= {r}; y++) {{
         for (var x = -{r}; x <= {r}; x++) {{
             offset = vec2f(f32(x), f32(y)) * kernelStep;
-            let sampled = {{input}};
+            let sampled = unpremultiply({{input}});
             if (x == 0 && y == 0) {{ centerAlpha = sampled.a; }}
             let c = sampled.rgb;
             if (x <= 0 && y <= 0) {{ mean[0] += c; square[0] += c * c; }}
@@ -109,7 +114,7 @@ node! {
         )
     }),
     outputs: [
-        VaryingColor "color" "Color" = "    return vec4f(flattest, centerAlpha);",
+        VaryingColor "color" "Color" = "    return premultiply(vec4f(flattest, centerAlpha));",
         VaryingNumber "value" "Value" in "[0, 1]" = "    return clamp(roughness, 0.0, 1.0);",
     ],
 }

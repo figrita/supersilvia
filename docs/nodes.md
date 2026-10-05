@@ -1116,6 +1116,16 @@ Pattern and Scale are silvia's Color Dither, so at a scale wider than a pixel it
 input at the cell's center — but the default scale *is* one pixel of a 720-high frame, which
 is the texel under the fragment, so it stays a `Color`.
 
+**What is nonlinear in a color works on its own channels**
+([decisions.md](decisions.md#colors-in-the-graph-are-premultiplied)). A node that
+builds one color out of several samples — `glitch` and `chromaticaberration` splitting the
+channels, `edgedetection`, `kuwahara`, `emboss` and `sharpen` — reads each sample's own
+channels and premultiplies the result at the center's alpha, so no channel outgrows its
+coverage across an edge of alpha. A luminance a node compares or thresholds — `bloom`,
+`dilate`, `erode`, `heighttonormal`, `pixelsort`'s keys — is the own color's. The sums are
+left as they are: a blur, a bloom's gather and its add-back, a `vignette`'s factor and every
+`mix` are exact on premultiplied colors.
+
 `pixelsort` is the third shape an `Effect` takes, and it is its own file: it reads the
 picture along a **run** rather than over a patch or inside a cell. Each row or column is cut
 into chunks at hashed boundaries and the pixels of a chunk are sorted by brightness or hue,

@@ -60,17 +60,18 @@ fn erode1_color(uv: vec2f) -> vec4f {
     var offset = vec2f(0.0);
     let original = checkerboard3_output(uv + offset);
     var winner = original;
-    var best = dot(original.rgb, vec3f(0.299, 0.587, 0.114));
+    let originalLum = dot(unpremultiply(original).rgb, vec3f(0.299, 0.587, 0.114));
+    var best = originalLum;
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
             if (abs(f32(x)) + abs(f32(y)) > 1.0) { continue; }
             offset = vec2f(f32(x), f32(y)) * radius;
             let sampled = checkerboard3_output(uv + offset);
-            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            let brightness = dot(unpremultiply(sampled).rgb, vec3f(0.299, 0.587, 0.114));
             if (brightness < best) { best = brightness; winner = sampled; }
         }
     }
-    let moved = dot(original.rgb, vec3f(0.299, 0.587, 0.114)) - best;
+    let moved = originalLum - best;
     let take = step(vignette5_mask(uv), moved) * clamp(vignette6_mask(uv), 0.0, 1.0);
     return mix(original, winner, take);
 }
@@ -80,13 +81,14 @@ fn erode1_value(uv: vec2f) -> f32 {
     var offset = vec2f(0.0);
     let original = checkerboard3_output(uv + offset);
     var winner = original;
-    var best = dot(original.rgb, vec3f(0.299, 0.587, 0.114));
+    let originalLum = dot(unpremultiply(original).rgb, vec3f(0.299, 0.587, 0.114));
+    var best = originalLum;
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
             if (abs(f32(x)) + abs(f32(y)) > 1.0) { continue; }
             offset = vec2f(f32(x), f32(y)) * radius;
             let sampled = checkerboard3_output(uv + offset);
-            let brightness = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
+            let brightness = dot(unpremultiply(sampled).rgb, vec3f(0.299, 0.587, 0.114));
             if (brightness < best) { best = brightness; winner = sampled; }
         }
     }

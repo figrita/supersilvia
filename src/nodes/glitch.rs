@@ -84,7 +84,9 @@ fn blocks_wgsl(direction: &str) -> &'static str {
 }
 
 /// The picture: an untouched block returns at once, and a picked one is read three times —
-/// the center, the red one way along the shove and the blue the other.
+/// the center, the red one way along the shove and the blue the other. Each read is taken for
+/// its own channels and the three are premultiplied at the center's alpha, so a red read off
+/// an opaque texel beside a transparent center never outweighs that center's alpha.
 fn picture_wgsl(direction: &str) -> &'static str {
     match direction {
         "vertical" => {
@@ -97,12 +99,12 @@ fn picture_wgsl(direction: &str) -> &'static str {
     let splitRand = fract(sin(dot(vec2f(blockCoord * 7.31, stepIndex * 2.13), vec2f(67.891, 12.345))) * 54321.987);
     let splitOffset = vec2f(0.0, splitRand * ({rgbSplit}));
     glitchUV = shiftedUV;
-    let center = {input};
+    let center = unpremultiply({input});
     glitchUV = shiftedUV + splitOffset;
-    let r = ({input}).r;
+    let r = unpremultiply({input}).r;
     glitchUV = shiftedUV - splitOffset;
-    let b = ({input}).b;
-    return vec4f(r, center.g, b, center.a);"
+    let b = unpremultiply({input}).b;
+    return premultiply(vec4f(r, center.g, b, center.a));"
         }
         "both" => {
             "    var glitchUV = uv;
@@ -116,12 +118,12 @@ fn picture_wgsl(direction: &str) -> &'static str {
     let splitRand = fract(sin(dot(vec2f(blockH * 7.31 + blockV * 2.17, stepIndex * 2.13), vec2f(67.891, 12.345))) * 54321.987);
     let splitOffset = shiftDir * (splitRand * ({rgbSplit}));
     glitchUV = shiftedUV;
-    let center = {input};
+    let center = unpremultiply({input});
     glitchUV = shiftedUV + splitOffset;
-    let r = ({input}).r;
+    let r = unpremultiply({input}).r;
     glitchUV = shiftedUV - splitOffset;
-    let b = ({input}).b;
-    return vec4f(r, center.g, b, center.a);"
+    let b = unpremultiply({input}).b;
+    return premultiply(vec4f(r, center.g, b, center.a));"
         }
         _ => {
             "    var glitchUV = uv;
@@ -133,12 +135,12 @@ fn picture_wgsl(direction: &str) -> &'static str {
     let splitRand = fract(sin(dot(vec2f(blockCoord * 7.31, stepIndex * 2.13), vec2f(67.891, 12.345))) * 54321.987);
     let splitOffset = vec2f(splitRand * ({rgbSplit}), 0.0);
     glitchUV = shiftedUV;
-    let center = {input};
+    let center = unpremultiply({input});
     glitchUV = shiftedUV + splitOffset;
-    let r = ({input}).r;
+    let r = unpremultiply({input}).r;
     glitchUV = shiftedUV - splitOffset;
-    let b = ({input}).b;
-    return vec4f(r, center.g, b, center.a);"
+    let b = unpremultiply({input}).b;
+    return premultiply(vec4f(r, center.g, b, center.a));"
         }
     }
 }
