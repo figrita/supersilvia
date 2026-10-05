@@ -15,7 +15,9 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.2.
 - Things change and break without notice.
 - The project file format can still change, and nothing converts old projects. Keep a render
   of anything you care about.
-- For now, the way to run it is to build it from source.
+- Builds for Linux, macOS and Windows are on the
+  [Releases](https://github.com/figrita/supersilvia/releases) page. You can also build it from
+  source.
 
 ## What it does
 
@@ -30,11 +32,16 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.2.
   counters, slews and an XY pad feed any number on any node. A tap measures a picture and
   turns it back into a number.
 - **Feedback.** An Output's last frame can be fed back into the graph, for trails and echoes.
-- **Loops that close.** A master gear sets the loop length, and time-driven nodes return to
-  their first frame at the end of it.
+- **Time you can play.** Every node that moves runs free at a Speed you turn or cable, or
+  locks to a clock. A Master Gear is the show's clock; Ratio Gears turn it into others, 3 : 2
+  or 4 : 1, forwards or backwards, locked for good. A seek or a render puts every clock exactly
+  where the playhead says.
+- **Loops you can count on.** A Master Gear's caption says how many of its cycles bring
+  everything it drives back to the start, exactly, or says it can't tell.
 - **Live inputs.** Cameras, video files, still images and GIFs, screen capture, a
   microphone with band analysis, MIDI controllers, game controllers and the mouse.
-- **NDI®** to receive and send video over the local network, on Linux, macOS and Windows.
+- **NDI®** to receive and send video over the local network, on Linux, macOS and Windows,
+  with or without transparency.
 - **No internet.** supersilvia never connects to the internet: no update checks, no
   analytics, no accounts. It uses the local network only for NDI, and only when you send,
   receive or list NDI sources.
@@ -43,17 +50,22 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.2.
 - **Picture windows.** Any picture can pop out into its own window or go fullscreen on a
   projector.
 - **Workspaces.** A project holds several graphs as tabs, and cables can cross between them.
-- **Rendering.** An Output can render to a video file through the GPU's hardware encoder, or
-  to a PNG sequence.
+- **Rendering.** An Output can render to a video file through the GPU's hardware encoder, a
+  PNG sequence or an animated GIF, a frame at a time so nothing is dropped. Snap saves one
+  full-size picture.
+- **Live recording.** An Output can record what it shows as you play, to a video file.
 - **MIDI mapping.** Alt + click a number or a button to bind it to the next MIDI message.
 
 ## Platforms
 
-| Platform | State |
-| --- | --- |
-| Linux, x86_64 | Main platform. Needs a Vulkan GPU driver. Pop-out and fullscreen windows need a Wayland session. |
-| macOS on Apple Silicon | Builds and runs, on Metal. The app bundle targets macOS 14.2 or later. Intel Macs are not supported. |
-| Windows | Not supported. There is no Windows build. |
+| Platform | Download | State |
+| --- | --- | --- |
+| Linux, x86_64 | `supersilvia-<version>-linux-x86_64.AppImage` | Main platform. Needs a Vulkan GPU driver. Pop-out and fullscreen windows need a Wayland session. |
+| macOS on Apple Silicon | `supersilvia-<version>-macos-arm64.dmg` | Runs on Metal. Needs macOS 14.2 or later. Signed and notarized. Intel Macs are not supported. |
+| Windows, 64-bit | `supersilvia-<version>-windows-x86_64.zip` | Runs on Direct3D 12. Needs Microsoft's Visual C++ Redistributable (x64). Newer and less tested than Linux and macOS. Screen capture offers the main monitor only, and there is no Syphon. |
+
+[packaging/linux/TESTERS.md](packaging/linux/TESTERS.md) and
+[packaging/macos/TESTERS.md](packaging/macos/TESTERS.md) walk through installing a download.
 
 A software renderer such as llvmpipe is refused. supersilvia needs a real GPU.
 
@@ -62,7 +74,7 @@ A software renderer such as llvmpipe is refused. supersilvia needs a real GPU.
 You need [Rust](https://rustup.rs) (stable; `rust-toolchain.toml` selects it) and
 GStreamer 1.24 or newer with its development files.
 
-**Fedora.** These are the packages from [`distrobox.ini`](distrobox.ini):
+**Fedora.** These are the build packages from [`distrobox.ini`](distrobox.ini):
 
 ```sh
 sudo dnf install gcc gcc-c++ make pkgconf-pkg-config clang-devel \
@@ -73,7 +85,7 @@ sudo dnf install gcc gcc-c++ make pkgconf-pkg-config clang-devel \
   gstreamer1-plugins-bad-free pipewire-gstreamer
 ```
 
-Importing a video file needs a hardware H.264 or HEVC encoder and decoder. Fedora leaves
+Importing a video file needs a hardware H.264, HEVC or AV1 encoder and decoder. Fedora leaves
 those codecs out; [RPM Fusion](https://rpmfusion.org/Howto/Multimedia) provides them.
 
 **Other Linux distributions** need the equivalent packages: a C toolchain and clang,
@@ -102,7 +114,8 @@ to build.
 
 [DEVSETUP.md](DEVSETUP.md) has the full development setup, including a container for
 immutable Fedora and the macOS details. [packaging/](packaging/) has the recipes for an
-AppImage, a Flatpak and a macOS `.app`.
+AppImage, a Flatpak, a macOS `.app` and the Windows folder. A tag `v<version>` pushed to GitHub
+builds the downloads into a draft release.
 
 ## Running the tests
 
@@ -142,7 +155,7 @@ combined with the proprietary NDI® runtime library without including that libra
 Third-party notices for code, fonts and icons used in supersilvia are in
 [licenses/](licenses/). The Rust crates' notices are in
 [packaging/linux/rust-crates.txt](packaging/linux/rust-crates.txt). The running app shows all
-of them under **Help ▸ Licences…**.
+of them under **Help ▸ Licences…**, and on a Mac in the About window.
 
 NDI® is a registered trademark of Vizrt NDI AB.
 
