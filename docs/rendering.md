@@ -370,11 +370,19 @@ by. The decision and what it rejected is in
 
 | Boundary | Where | Conversion |
 | --- | --- | --- |
-| Color controls and CPU-published colors | the synth's uniform resolution | premultiplied |
+| Color controls and CPU-published colors | the synth's uniform resolution, `nodes::alpha` | premultiplied |
 | Straight pictures: images, GIFs, the drawing canvas | upload | premultiplied |
+| NDI received with its alpha | the conversion pass's sixth arrangement | premultiplied; NDI's BGRA is straight |
+| Syphon received, a Wayland screen's buffers | — | none; already premultiplied |
 | Simulation state, whose alpha is data | — | none; not a picture |
-| A viewer: node bodies, panels, picture windows | the blit, over black | none; blends premultiplied |
-| Snap, PNG sequences, GIFs, the project card | readback | unpremultiplied |
+| A viewer: node bodies, panels, the mix behind the graph, picture windows | the blit, over the black ground | none; blends premultiplied |
+| Port thumbnails | `node_widget::thumb_color` | none; the rgb is the color over black |
+| Snap, the project card, PNG sequences, GIFs | the picture read's `fs_straight`, after filtering | unpremultiplied |
+| A video render | a capture with `Alpha::Premultiplied` | none; alpha dropped, so over black |
+| Syphon and NDI sent opaque | the blit over black, alpha one | none |
+| Syphon sent transparent | the blit over nothing | none; premultiplied |
+| NDI sent transparent | `Viewer::show_straight` | unpremultiplied |
+| The Main Mixer | its crossfade | none; a lerp is exact on premultiplied decks |
 
 **Linear filtering is why.** A sampler averages texels before the shader sees them, so a
 straight texture's transparent texels lend their color to every edge; premultiplied, they lend
