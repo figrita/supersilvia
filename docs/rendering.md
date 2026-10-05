@@ -960,8 +960,8 @@ gear.** Every CPU node starts from scratch — its live instance set aside for a
 a device's reset where it is (`CpuNode::reset`) — and the playhead jumps to the first frame
 (`Transport::start_render`) as a seek, so every gear is born again where the playhead puts it
 and fires nothing on the way: a Master Gear at `playhead ÷ length`, a Ratio Gear at its
-parent's reading times its Teeth, firing the one beat it is born on where that is a whole cycle. So at playhead zero, the first kept frame whatever the warm-up, every Master
-Gear is at its cycle's start, every Ratio Gear on one at its own whatever its Teeth, and a
+parent's reading times its Teeth and direction, plus its Offset, firing the one beat it is born on where that is a whole cycle. So at playhead zero, the first kept frame whatever the warm-up, every Master
+Gear is at its cycle's start, every Ratio Gear on one at its own Offset whatever its Teeth, and a
 node on ambient time reads its Time at zero. No other node
 keeps time, so nothing else is put in place. At the end the live clock is put back,
 re-anchored to now, with the live transport whole (`Transport::resume`), every node's live

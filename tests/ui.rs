@@ -12897,7 +12897,8 @@ fn the_time_readout_holds_its_width() {
 /// of a clock face's twelve ticks; a Ratio Gear at Teeth 1 : 4 on its Cycles says ÷4, and that
 /// it closes in four of its input's cycles; the master's caption says a loop of it needs four
 /// cycles, eight seconds. Teeth typed 2 : 8 stay 2 : 8 on the row and draw as ÷4. Display ▸
-/// Gears draws the same as meshing gears, six teeth driving twenty-four.
+/// Gears draws the same as meshing gears, six teeth driving twenty-four, and its words say the
+/// Teeth as typed, 2 : 8.
 #[test]
 fn a_gear_draws_its_rosette_and_its_gears() {
     let mut h = tall_harness();
@@ -12963,7 +12964,7 @@ fn a_gear_draws_its_rosette_and_its_gears() {
     }
     h.run_steps(2);
     h.get_by_label_contains(&format!(
-        "ratiogear{gear}.gear ÷4 · every 4 cycles in · 6 : 24 teeth"
+        "ratiogear{gear}.gear ÷4 · every 4 cycles in · 2 : 8"
     ));
     h.snapshot("gear_gears");
 }
@@ -13041,6 +13042,79 @@ fn teeth_take_whole_numbers_of_one_or_more_typed_or_dragged() {
         egui::Modifiers::NONE,
     );
     assert_eq!(float(&h, id, "p"), 1.0, "and no further down than 1");
+}
+
+/// **A Ratio Gear's direction is a switch under its Teeth.** Forward | Reverse, two segments
+/// under `p : q`, Forward lit on a new gear; a click on Reverse sets the option, the row says
+/// so, and the gear counts down — minus its parent times 3 ÷ 2 — at the same height; a click
+/// on Forward puts it back.
+#[test]
+fn a_ratio_gears_direction_is_a_switch_under_its_teeth() {
+    let mut h = tall_harness();
+    h.step();
+    add_node(&mut h, ADD_MASTERGEAR);
+    add_node(&mut h, ADD_PHASE);
+    let ids: Vec<_> = h.state().graph().iter().map(|(id, _)| id).collect();
+    let (master, gear) = (ids[0], ids[1]);
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![
+                (master, Pos2::new(40.0, 40.0)),
+                (gear, Pos2::new(300.0, 40.0)),
+            ],
+        })
+        .unwrap();
+    for (key, value) in [("p", 3.0), ("q", 2.0)] {
+        h.state_mut()
+            .apply(Command::SetControl {
+                node: gear,
+                key,
+                value: supersilvia::graph::ControlValue::Float(value),
+            })
+            .unwrap();
+    }
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(master, "cycles"),
+            to: PortRef::new(gear, "clock"),
+        })
+        .unwrap();
+    h.run_steps(6);
+    let direction = |h: &Harness<'_, App>| {
+        h.state()
+            .graph()
+            .get(gear)
+            .and_then(|n| n.options.get("direction").cloned())
+    };
+    assert_eq!(
+        direction(&h).as_deref(),
+        Some("forward"),
+        "Forward is the default"
+    );
+    h.get_by_label(&format!("ratiogear{gear}.direction.forward"));
+    h.get_by_label_contains(&format!("ratiogear{gear}.teeth 3 : 2"));
+    let forward = node_height(&h, gear);
+
+    h.get_by_label(&format!("ratiogear{gear}.direction.reverse"))
+        .click();
+    h.run_steps(4);
+    assert_eq!(direction(&h).as_deref(), Some("reverse"));
+    h.get_by_label(&format!("ratiogear{gear}.teeth 3 : 2 in reverse"));
+    assert_eq!(node_height(&h, gear), forward, "at the same height");
+    h.state_mut()
+        .transport(supersilvia::transport::Command::Pause);
+    h.run_steps(2);
+    let count = |port| h.state().count(PortRef::new(port, "cycles")).unwrap();
+    let (m, g) = (count(master), count(gear));
+    assert!(m > 0.0, "{m}");
+    assert_eq!(g, -(m * 3.0 / 2.0), "it counts down");
+    h.snapshot("gear_reverse");
+
+    h.get_by_label(&format!("ratiogear{gear}.direction.forward"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(direction(&h).as_deref(), Some("forward"));
+    h.get_by_label(&format!("ratiogear{gear}.teeth 3 : 2"));
 }
 
 /// **Below one to one, a rosette winds its one petal over its loops.** A Ratio Gear at ÷2 and

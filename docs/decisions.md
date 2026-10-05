@@ -1576,7 +1576,7 @@ carries it.
   say the length was a BPM knob read in two units of three and a Tap that wrote it.
 - **The Ratio Gear** (`ratiogear`) is its parent times its Teeth, `p : q`: what arrives at
   Clock In, a count read whole, times `p ÷ q`, or the playhead's seconds times it with
-  nothing cabled ([A Ratio Gear is a pure product of its parent](#a-ratio-gear-is-a-pure-product-of-its-parent)).
+  nothing cabled, negated in Reverse, with its Offset added ([A Ratio Gear is a pure product of its parent](#a-ratio-gear-is-a-pure-product-of-its-parent)).
 - **The Time node** (`time`) is Seconds, the playhead published as a count, and nothing
   else.
 
@@ -1616,8 +1616,9 @@ deleting and rewiring.
   sixteen steps a bar, and a new one stands still: Speed 1 is a bar every two seconds, and in
   Loop mode a Master Gear a bar long is their tempo. A reading that moves more than a bar in a
   tick, across a seek or onto another clock's cable is a jump that fires nothing and closes the
-  gates, and so is one that runs backwards on a clock; running free, a negative Speed plays the
-  steps in reverse. **Step stays**: while cabled, a sequencer
+  gates, and so is one that runs backwards on a clock that is not a gear; on a gear going down —
+  one in Reverse — and running free at a negative Speed, the steps play in reverse, since a
+  gear says when it jumps. **Step stays**: while cabled, a sequencer
   counts Step events and ignores Time, the one stateful path, because an event clock — a tap,
   a threshold — is not a gear.
 
@@ -1639,23 +1640,36 @@ would close early, so how often the decoder was slow would change the film.
 
 ### A Ratio Gear is a pure product of its parent
 
-**Chosen.** A Ratio Gear's output is `parent × p ÷ q`, worked out each tick in `f64` from the
-count that arrives at Clock In, or from the playhead's seconds with nothing cabled. Nothing is
-integrated or carried from one tick to the next, so it has no position of its own: a seek, a
-render, a relaunch and a reopened tab land it on the same count to the bit, and a gear's loop
-is its parent's times `p/q` exactly, which the caption reads as a rational. Its **Teeth** are
-two whole numbers of one or more on one row, shown `p : q`, with no port: the gear turns `p`
-times for every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1 twice
-the parent. The two are kept as they were typed and reduced only in the arithmetic. **A
-change of Teeth jumps**: the output lands at once on `parent × p ÷ q` for the new pair, where
-it would be had it always run at that ratio, as a clip synced to a BPM does in other VJ tools.
-A gear's Trigger fires at the whole cycles of its output.
+**Chosen.** A Ratio Gear's output is `±(parent × p ÷ q) + offset`, worked out each tick in
+`f64` from the count that arrives at Clock In, or from the playhead's seconds with nothing
+cabled. Nothing is integrated or carried from one tick to the next, so it has no position of
+its own: a seek, a render, a relaunch and a reopened tab land it on the same count to the bit,
+and a gear's loop is its parent's times `p/q` exactly, which the caption reads as a rational.
+Its **Teeth** are two whole numbers of one or more on one row, shown `p : q`, with no port: the
+gear turns `p` times for every `q` turns of its parent, so 3 : 2 is three turns against two and
+2 : 1 twice the parent. The two are kept as they were typed and reduced only in the arithmetic.
+**Its direction is a switch under the Teeth, Forward | Reverse**: Reverse negates the product,
+so the gear turns `p` times backwards for every `q` turns of its parent and comes back after as
+many of the parent's cycles as it does forwards. **Its Offset** is the Offset every CPU node
+has, in the gear's own cycles and one cycle either way, added after the product and its sign:
+a hand places the gear inside its cycle, and a cable sways it about where it is locked. **A
+change of Teeth or direction jumps**: the output lands at once on the product for the new
+setting, where it would be had it always run that way, as a clip synced to a BPM does in other
+VJ tools. A gear's Trigger fires at the whole cycles of its output, going down as going up, and
+an Offset turned or swayed moves the gear through the cycles it passes.
 
-People use a Ratio Gear to lock a layer to the master — twice as fast, three against two —
-and locked for good. A gear that bends is a gear that slips, and Free mode's Speed is the tool
-for bending a pace. The numbers do not follow physical gears, where fewer teeth turn faster:
-`p : q` reads as turns against turns, and matches the rosette, `p` lobes closing in `q` laps.
-The Master Gear, with no Time input, is unchanged.
+People use a Ratio Gear to lock a layer to the master — twice as fast, three against two, the
+same backwards — and locked for good. A gear that bends is a gear that slips, and Free mode's
+Speed is the tool for bending a pace. The numbers do not follow physical gears, where fewer
+teeth turn faster: `p : q` reads as turns against turns, and matches the rosette, `p` lobes
+closing in `q` laps, which a reversed gear's dot rides the other way. The Master Gear, with no
+Time input, is unchanged.
+
+**Reversing is a direction switch, not a negative count.** `p` and `q` are turns, and the
+rosette draws them as petals and laps; a negative number of either has no picture, and a sign
+on one of two numbers would write one gear three ways — −3 : 2, 3 : −2 and, read wrong, −3 : −2
+forwards — where a switch says it once, beside the Teeth it turns round. A count dragged down
+through zero would also pass a ×0, a stopped gear, which a gear is not.
 
 **Rejected: an integrating gear**, `ratio × ΔClock In` summed in `f64`, **with a smooth ratio
 bend** — a change landing on the input's next whole cycle and pending until then — **a Hold, a
@@ -1664,12 +1678,13 @@ made its position depend on its history: a seek put it back where playing would 
 rebirthing it, and a hold, a reset or a cabled ratio put it somewhere the graph could not say,
 so the caption had to say it could not tell. A bend that waits for the next whole cycle also
 makes the change arrive later than the hand made it. A layer that should pause or bend runs
-free on its Speed, and one that should be placed is placed by its own Offset, which reaches a
-whole period either way.
+free on its Speed, and one that should be placed is placed by an Offset, the gear's or the
+layer's own, which reaches a whole period either way. An Offset is no history: it is added to
+what the gear is that tick, so a cable into it sways the gear and a seek still lands where
+playing would.
 **Rejected: a ratio on a ladder**, ÷16 to ×16 and through ×0 into reverse, typed as `×5`,
 `÷7` or `3/2`: a single number for a ratio rounds a third to `0.33333334` and has to be read
-back as a fraction, and a ratio of zero or below is a stopped or reversed clock, which is
-Speed's job, not a gear's.
+back as a fraction, and a ratio of zero is a stopped clock, which is Speed's job, not a gear's.
 
 ### Two modes, and a loop is read from the clocks
 

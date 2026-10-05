@@ -787,6 +787,55 @@ fn a_pattern_inside_a_bar_on_a_slow_gear_comes_back_when_the_caption_says() {
     check(&failures);
 }
 
+/// **A sequencer on a reversed gear comes back when the caption says**: a step sequencer
+/// whose figure has no shorter repeat, on a 1 : 1 and a 1 : 2 gear in Reverse under a bar-long
+/// master, plays every step of a bar backwards — lane 1's five — and comes back after the bars
+/// the caption asks for, and not before.
+#[test]
+fn a_sequencer_on_a_reversed_gear_comes_back_when_the_caption_says() {
+    let mut failures = Vec::new();
+    for divide in [1.0f32, 2.0] {
+        let mut app = App::headless();
+        let m = master(&mut app, 0.5);
+        let g = teeth_on(&mut app, m, 1.0, divide);
+        choose(&mut app, g, "direction", "reverse");
+        let s = add(&mut app, "stepsequencer");
+        pattern(
+            &mut app,
+            s,
+            ["x..x.x....x..x..", ".x......x.......", "", "...x"],
+        );
+        connect(&mut app, (g, "cycles"), (s, timing::TIME));
+        let p = claimed_master(&app, m);
+        let cap = chain::caption(app.graph(), m);
+        let cycles = (p / f64::from(0.5f32)).round() as u64;
+        if cycles != divide as u64 {
+            failures.push(format!("1 : {divide} in Reverse: the caption says {cap}"));
+        }
+        failures.extend(audit_events(
+            &mut app,
+            &lanes_of(s),
+            3.0,
+            p,
+            &primes_of(cycles),
+            &format!("step sequencer on 1 : {divide} in Reverse: {cap}"),
+        ));
+        // A loop is a bar, and lane 1 plays its five steps in it: played backwards, not
+        // landed on now and then.
+        let events = play(&mut app, &lanes_of(s), 3.0, 2.0 * p + 0.1);
+        let downs = window(&events, 3.0 + p + 0.012_345, p)
+            .iter()
+            .filter(|e| e.lane == 0 && e.down)
+            .count();
+        if downs != 5 {
+            failures.push(format!(
+                "step sequencer on 1 : {divide} in Reverse: lane 1 plays {downs} steps a bar, not 5"
+            ));
+        }
+    }
+    check(&failures);
+}
+
 // -------------------------------------------------------------------------------- gears
 
 /// **A Ratio Gear at p : q comes back in q ÷ gcd(p, q) of the master's cycles, and not
@@ -815,43 +864,172 @@ fn a_ratio_gear_comes_back_in_its_denominator_and_not_before() {
         (2.0, 4.0),
         (6.0, 4.0),
     ] {
+        failures.extend(audit_ratio(p, q, false));
+    }
+    check(&failures);
+}
+
+/// **A reversed Ratio Gear comes back after as many of the master's cycles as forwards, and
+/// not before**: at 1 : 1, 2 : 1, 3 : 2, 7 : 5 and 1 : 64 in Reverse, its Phase, a sawtooth on
+/// its Cycles and its Trigger, beats going down, against the loop the caption claims.
+#[test]
+fn a_reversed_ratio_gear_comes_back_in_its_denominator_and_not_before() {
+    let mut failures = Vec::new();
+    for (p, q) in [
+        (1.0f32, 1.0f32),
+        (2.0, 1.0),
+        (3.0, 2.0),
+        (7.0, 5.0),
+        (1.0, 64.0),
+    ] {
+        failures.extend(audit_ratio(p, q, true));
+    }
+    check(&failures);
+}
+
+/// Every reason a Ratio Gear at `p : q`, reversed or not, on a master 78 frames long breaks
+/// the claim of q ÷ gcd(p, q) cycles: its Phase, a sawtooth on its Cycles, and its Trigger.
+fn audit_ratio(p: f32, q: f32, reversed: bool) -> Vec<String> {
+    let mut failures = Vec::new();
+    let mut app = App::headless();
+    let m = master(&mut app, 1.3);
+    let g = teeth_on(&mut app, m, p, q);
+    if reversed {
+        choose(&mut app, g, "direction", "reverse");
+    }
+    let osc = add(&mut app, "oscillator");
+    choose(&mut app, osc, "waveform", "sawtooth");
+    connect(&mut app, (g, "cycles"), (osc, timing::TIME));
+    let period = claimed_master(&app, m);
+    let cycles = (period / f64::from(1.3f32)).round() as u64;
+    let label = format!(
+        "{p} : {q}{} ({cycles} cycles)",
+        if reversed { " in Reverse" } else { "" }
+    );
+    let reduced = (q as u64) / gcd(p as u64, q as u64);
+    if cycles != reduced {
+        failures.push(format!(
+            "{label}: the caption claims {cycles}, not {reduced}"
+        ));
+    }
+    let early = primes_of(cycles);
+    failures.extend(audit_numbers(
+        &mut app,
+        PortRef::new(g, "wrapped"),
+        period,
+        &early,
+        &format!("{label} Phase"),
+    ));
+    failures.extend(audit_numbers(
+        &mut app,
+        PortRef::new(osc, "output"),
+        period,
+        &early,
+        &format!("sawtooth on {label}"),
+    ));
+    failures.extend(audit_events(
+        &mut app,
+        &[PortRef::new(g, "trigger")],
+        11.0,
+        period,
+        &early,
+        &format!("{label} Trigger"),
+    ));
+    failures
+}
+
+/// **A Ratio Gear's Offset shifts nothing in its loop, and a cable into it comes back as one
+/// into any Offset does.** A 1 : 2 gear on a 1.3 s master, forwards and in Reverse, a sawtooth
+/// on its Cycles: at an Offset of 0.3 the caption says what it says at 0, two cycles, and that
+/// is true. An Oscillator a wave a second on ambient time swaying its Offset, a wave every
+/// 10/13 of a cycle, makes the caption ten cycles — what the same Oscillator in the sawtooth's
+/// own Offset makes it — and that is true of the gear's Phase, the sawtooth and the gear's
+/// Trigger, and not early.
+#[test]
+fn a_ratio_gears_offset_comes_back_when_the_caption_says() {
+    let mut failures = Vec::new();
+    // The graph: a master, the gear, a sawtooth on its Cycles, and an Oscillator on ambient
+    // seconds, a wave every second, that sways `into` where one is named.
+    let build = |reversed: bool, offset: f32, into: Option<&'static str>| {
         let mut app = App::headless();
         let m = master(&mut app, 1.3);
-        let g = teeth_on(&mut app, m, p, q);
-        let osc = add(&mut app, "oscillator");
-        choose(&mut app, osc, "waveform", "sawtooth");
-        connect(&mut app, (g, "cycles"), (osc, timing::TIME));
-        let period = claimed_master(&app, m);
-        let cycles = (period / f64::from(1.3f32)).round() as u64;
-        let label = format!("{p} : {q} ({cycles} cycles)");
-        let reduced = (q as u64) / gcd(p as u64, q as u64);
-        if cycles != reduced {
+        let g = teeth_on(&mut app, m, 1.0, 2.0);
+        if reversed {
+            choose(&mut app, g, "direction", "reverse");
+        }
+        set(&mut app, g, timing::OFFSET, offset);
+        let saw = add(&mut app, "oscillator");
+        choose(&mut app, saw, "waveform", "sawtooth");
+        connect(&mut app, (g, "cycles"), (saw, timing::TIME));
+        if let Some(into) = into {
+            let lfo = add(&mut app, "oscillator");
+            set(&mut app, lfo, "amplitude", 0.4);
+            ambient(&mut app, lfo);
+            let to = if into == "gear" { g } else { saw };
+            connect(&mut app, (lfo, "output"), (to, timing::OFFSET));
+        }
+        (app, m, g, saw)
+    };
+    for reversed in [false, true] {
+        let way = if reversed { " in Reverse" } else { "" };
+        let (still, m, ..) = build(reversed, 0.0, None);
+        let at_zero = chain::caption(still.graph(), m);
+        let (mut app, m, g, saw) = build(reversed, 0.3, None);
+        let cap = chain::caption(app.graph(), m);
+        if cap != at_zero {
             failures.push(format!(
-                "{label}: the caption claims {cycles}, not {reduced}"
+                "1 : 2{way} at Offset 0.3 says {cap}, at 0 {at_zero}"
             ));
         }
-        let early = primes_of(cycles);
+        let p = claimed_master(&app, m);
         failures.extend(audit_numbers(
             &mut app,
-            PortRef::new(g, "wrapped"),
-            period,
-            &early,
-            &format!("{label} Phase"),
+            PortRef::new(saw, "output"),
+            p,
+            &[2],
+            &format!("sawtooth on 1 : 2{way} at Offset 0.3: {cap}"),
         ));
         failures.extend(audit_numbers(
             &mut app,
-            PortRef::new(osc, "output"),
-            period,
-            &early,
-            &format!("sawtooth on {label}"),
+            PortRef::new(g, "wrapped"),
+            p,
+            &[2],
+            &format!("1 : 2{way} at Offset 0.3 Phase: {cap}"),
+        ));
+
+        let (theirs, m2, ..) = build(reversed, 0.0, Some("saw"));
+        let into_saw = chain::caption(theirs.graph(), m2);
+        let (mut app, m, g, saw) = build(reversed, 0.0, Some("gear"));
+        let cap = chain::caption(app.graph(), m);
+        let label = format!("an Oscillator in 1 : 2{way}'s Offset: {cap}");
+        if chain::master_loop(app.graph(), m).cycles != 10
+            || chain::master_loop(theirs.graph(), m2).cycles != 10
+        {
+            failures.push(format!("{label}; in the sawtooth's Offset: {into_saw}"));
+            continue;
+        }
+        let p = claimed_master(&app, m);
+        failures.extend(audit_numbers(
+            &mut app,
+            PortRef::new(saw, "output"),
+            p,
+            &[2, 5],
+            &format!("sawtooth: {label}"),
+        ));
+        failures.extend(audit_numbers(
+            &mut app,
+            PortRef::new(g, "wrapped"),
+            p,
+            &[2, 5],
+            &format!("Phase: {label}"),
         ));
         failures.extend(audit_events(
             &mut app,
             &[PortRef::new(g, "trigger")],
-            11.0,
-            period,
-            &early,
-            &format!("{label} Trigger"),
+            7.0,
+            p,
+            &[2, 5],
+            &format!("Trigger: {label}"),
         ));
     }
     check(&failures);

@@ -680,9 +680,13 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
 - `chain::master_loop` walks every node downstream of a Master Gear `M`, along every cable,
   and asks of each how many of `M`'s cycles it comes back in; the loop is the least common
   multiple of those and of one, so a whole number of `M`'s cycles. A **Ratio Gear** multiplies
-  its Clock In's rate by its Teeth, exactly `p/q` in lowest terms, a product of fractions down a
-  chain; with anything but a count in its Clock In — a Phase, a Ping-pong, a number that comes
-  back — it is a function of that, and comes back when it does. **A gear is counted
+  its Clock In's rate by its Teeth, exactly `p/q` in lowest terms, negative in Reverse, a
+  product of fractions down a chain; a reversed gear counts down at the same speed, and comes
+  back in as many cycles. With anything but a count in its Clock In — a Phase, a Ping-pong, a
+  number that comes back — it is a function of that, and comes back when it does. Its
+  **Offset** is read as any Offset is: a knob shifts nothing, a count there adds its rate to
+  the gear's, and anything that comes back on its own sways the gear, so everything reading
+  the gear comes back only when that does too. **A gear is counted
   through what reads it**, and one whose readings reach nothing by its own turn: four on the
   floor on a ÷4 gear loops in one cycle of the master, and a ÷4 left alone in four.
 - **A node that moves with time** is where each of its Times and Offsets put it (any of a node's
@@ -1552,20 +1556,26 @@ seconds in `f64`, so a Length turned bends from where it is and never jumps, and
 of them is at the start of its cycle. **Gate** is how long its Trigger stays down, in cycles.
 A beat is a Master Gear a beat long, and a bar a Ratio Gear at 1 : 4 below it.
 
-**`ratiogear`, the Ratio Gear**, is a pure product of its parent: `parent × p ÷ q`, worked
-out each tick and never integrated, so it has no position of its own and a seek, a render, a
-relaunch or a reopened tab lands it on the same count to the bit. **Clock In** (key `clock`)
-is a diamond with no knob, the parent: a count read whole in `f64`, anything else the one
-`f32` it is, so a Phase cabled in gives a gear that comes round with it; with nothing cabled
-the parent is the playhead's seconds. **Teeth** is one row of two whole numbers with no port,
-`p : q` (keys `p` and `q`, 1 to 64, both 1 by default; `Region::Teeth`): the gear turns `p`
-times for every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1 twice
-the parent — not physical gears, where fewer teeth turn faster. They are kept as typed and
-reduced only in the arithmetic, so 2 : 4 counts as 1 : 2 and still reads 2 : 4. **A change of
-Teeth lands at once**, on the parent times the new `p ÷ q`, where the gear would be had it
-always run at that ratio, and fires nothing for the cycles it jumped. Neither number can be
-cabled, and the gear has no Hold and no Reset: a layer that should pause or bend runs free on
-its Speed, and one that should be placed is placed by its own Offset
+**`ratiogear`, the Ratio Gear**, is a pure product of its parent: `±(parent × p ÷ q) +
+offset`, worked out each tick and never integrated, so it has no position of its own and a
+seek, a render, a relaunch or a reopened tab lands it on the same count to the bit. **Clock
+In** (key `clock`) is a diamond with no knob, the parent: a count read whole in `f64`, anything
+else the one `f32` it is, so a Phase cabled in gives a gear that comes round with it; with
+nothing cabled the parent is the playhead's seconds. **Offset** (key `phaseOffset`), under it,
+is every CPU node's Offset, in the gear's own cycles, −1 to 1 by thousandths, with a port: added
+after the product and its sign, it places the gear inside its cycle, and an LFO cabled in sways
+it about where it is locked. **Teeth** is one row of two whole numbers with no port, `p : q`
+(keys `p` and `q`, 1 to 64, both 1 by default; `Region::Teeth`): the gear turns `p` times for
+every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1 twice the parent —
+not physical gears, where fewer teeth turn faster. They are kept as typed and reduced only in
+the arithmetic, so 2 : 4 counts as 1 : 2 and still reads 2 : 4. **Under them, its direction**,
+Forward | Reverse (option `direction`, `forward` by default or `reverse`, drawn by the Teeth row):
+Reverse negates the product, so the gear turns `p` times backwards for every `q` turns of its
+parent and comes back after as many of the parent's cycles as forwards. **A change of Teeth or
+direction lands at once**, on the product for the new setting, where the gear would be had it
+always run that way, and fires nothing for the cycles it jumped. Neither number can be cabled,
+and the gear has no Hold and no Reset: a layer that should pause or bend runs free on its
+Speed, and one that should be placed is placed by an Offset, the gear's or its own
 ([decisions.md](decisions.md#a-ratio-gear-is-a-pure-product-of-its-parent)).
 
 **Both publish the same four.** **Cycles** are a count, a time rather than a fraction, since
@@ -1582,15 +1592,18 @@ a ratio in tenths passes with no seam: through a Math node, a gear at a cycle a 
 over, from 1260 to −1260, 21 minutes in and every 42 minutes after. **Phase** (key
 `wrapped`) is the fraction alone, 0 to 1; **Ping-pong** a triangle that reaches 1 at one cycle
 and 0 at two; and **Trigger** an event on each whole cycle, placed where inside the frame it
-fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear. A Master Gear's
+fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear, on each whole
+cycle passed going down as well as up. A Master Gear's
 **Hold** is a toggle that freezes it where it stands and closes the gate it left open; its
 **Reset** puts it at the start of a cycle and is a beat. The tick walks the frame's holds and
 resets moment by moment, so two inside one frame land in the order they happened. A seek —
 the time readout's reset among them — and a render's start are a jump: every gear is born
 again where the playhead puts it, and fires nothing on the way but the beat it lands on, where
 it lands on a whole cycle. A Ratio Gear whose Clock In a Reset above puts back, by any
-distance, or that is sent back more than a cycle in a frame, fires at most one downbeat: its
-own, where the clock's motion this frame carried it past one.
+distance, or a number that is not a count sent back more than a cycle in a frame, fires at most
+one downbeat: its own, where the clock's motion this frame carried it past one. A count going
+down with no Reset — a gear in Reverse above, however fast — is a clock running backwards, and
+the gear counts down with it, a beat a cycle.
 
 **A gear draws itself** in `Region::Gear` (`widgets::gear`), 92 units tall under the rows, by
 its **Display** option, a `Runtime` one that changes nothing it publishes. **Rosette**, the
@@ -1598,11 +1611,11 @@ default, is a still spirograph: for Teeth `p : q` in lowest terms, a turn round 
 each input cycle,
 so `q` loops, with `p` petals waving in and out across them — a ÷4 is one petal wound over
 four loops — a tick at the top where each loop begins, and a dot riding the curve at the
-output's phase, a Master Gear's a ring of a clock face's twelve
+output's phase, the other way round it in Reverse, a Master Gear's a ring of a clock face's twelve
 ticks. **Gears** is the input's gear of `k·p` teeth meshing with the output's of `k·q`, a
 Master Gear's one gear of twelve teeth. Both turn by the gear's own phases, never an animation
-clock, so a paused show is still. Beside the picture are the ratio, `×3`, `÷4` or `3/2`, and
-what it closes in. Under a Master Gear's is a caption, `nodes::chain::caption` — "loops in 4
+clock, so a paused show is still. Beside the picture are the ratio, `×3`, `÷4` or `3/2`,
+what it closes in, and the Rosette's petals and loops or, under Gears, the Teeth as typed. Under a Master Gear's is a caption, `nodes::chain::caption` — "loops in 4
 cycles · 8.000 s (÷4 on ratiogear12)", "2 nodes will not close (perlin5)" or "can't tell when 1
 node closes (multiply3)" — shown up to its " (" with the whole on hover ([When a loop
 closes](#when-a-loop-closes)).
@@ -1674,9 +1687,12 @@ reset silvia's Start/Stop and Reset were. Nothing is integrated: the node rememb
 reading, to see what it crossed, and a cabled Time read as a count whole, or unwrapped where
 its source declares its wrap, so a gear's Phase passing one is a frame's motion. A reading
 that moves more than a bar in a tick, across a seek or onto another clock as its Time cable
-is moved is a jump and fires nothing, and so is the first reading; so is one that moves
-backwards on a clock, while running free a negative Speed plays the steps backwards, each
-entered at its top boundary and held a gate length as forwards. A step it lands exactly on, with a gear driving Time or a Speed
+is moved is a jump and fires nothing, and so is the first reading, and one the gear in Time
+says it put there — a Reset, a Teeth or direction change; so is one that moves backwards on a
+clock that is not a gear. On a gear going down — a Ratio Gear in Reverse, a Ping-pong's way
+back — and running free at a negative Speed, the steps play backwards, each entered at its top
+boundary and held a gate length as forwards: a gear says when it jumps, so its going back is
+motion. A step it lands exactly on, with a gear driving Time or a Speed
 moving it and the show playing, plays at once, so a render's first frame is its bar's downbeat; any other step it
 lands in plays on the next tick, so a Master Gear's Reset lands on the downbeat. A Time that stands
 still — a gear held, the show paused — closes whatever a step opened as the Time passed it,

@@ -170,10 +170,16 @@ class Workspace:
             options={"display": display},
         )
 
-    def gear(self, x, y, p, q=1, clock=None, display="rosette"):
-        """A Ratio Gear at Teeth `p : q`, its Clock In from `clock`'s Cycles where one is
-        named."""
-        g = self.add("ratiogear", x, y, controls={"p": p, "q": q}, options={"display": display})
+    def gear(self, x, y, p, q=1, clock=None, display="rosette", direction="forward"):
+        """A Ratio Gear at Teeth `p : q`, Forward or Reverse, its Clock In from `clock`'s
+        Cycles where one is named."""
+        g = self.add(
+            "ratiogear",
+            x,
+            y,
+            controls={"p": p, "q": q},
+            options={"display": display, "direction": direction},
+        )
         if clock is not None:
             self.cable(clock, "cycles", g, "clock")
         return g
@@ -582,7 +588,7 @@ def one_clock(p):
         "the gear's Phase turns the hue twice.\n\n"
         "Try:\n"
         "- Set the gear's Teeth to 1 : 1: clip, ripple and hue all go half speed, together.\n"
-        "- Set them to 4 : 1: all three twice as fast, still in step.\n"
+        "- Switch the gear to Reverse: all three run backwards, still in step.\n"
         "- Turn the GIF's Offset: it scrubs through the clip, on top of the gear.\n"
         "- Pull the cable out of the GIF's Time: it plays at its own speed.",
         width=420,
@@ -621,7 +627,7 @@ def one_clock(p):
 
 
 def reverse(p):
-    ws = p.workspace("Reverse the show", "Feedback trails that settle, and a Speed to run the breathing backwards")
+    ws = p.workspace("Reverse the show", "Feedback trails that settle, and a gear to run the triangle backwards")
     ws.note(
         40,
         40,
@@ -630,10 +636,11 @@ def reverse(p):
         "The triangle runs on the Show gear, 1 : 1 of a four-second Master Gear: a 2 : 1 gear on "
         "it breathes the Oscillator twice a loop, and its Phase turns the triangle once.\n\n"
         "Try:\n"
-        "- Switch the Oscillator to Free and set its Speed to -2. The triangle breathes "
-        "backwards, and the echoes still grow and fade forwards: feedback runs once a frame, "
-        "whatever the clocks say.\n"
-        "- Set its Speed to 0: the triangle holds its size and the echoes stream out of it.\n"
+        "- Switch the Show gear to Reverse. The triangle turns and breathes backwards, and the "
+        "echoes still grow and fade forwards: feedback runs once a frame, whatever the gears "
+        "say.\n"
+        "- Switch the Oscillator to Free at Speed 0: the triangle holds its size and the echoes "
+        "stream out of it.\n"
         "- Set the Show gear's Teeth to 1 : 4: a slow-motion replay. The caption says four "
         "cycles.\n"
         "- Pause (Space): everything holds, the echoes too.\n\n"

@@ -3600,7 +3600,11 @@ is still and a seek moves them at once.
 **Beside the picture, the words.** A Master Gear's: its cycle in seconds, `2.000 s`, over
 `a cycle`; and `held` while Hold is on. A Ratio Gear's: its ratio in lowest terms, `×3`,
 `÷4` or `3/2`; what it closes in, `every cycle in` or `every 3 cycles in`; and the picture's
-own count, `2 petals · 3 loops` or `6 : 9 teeth`.
+own count, `2 petals · 3 loops`, or under Gears the Teeth as the row has them, typed and
+unreduced, `2 : 3` or `4 : 6` — not the teeth the wheels are drawn with, which are scaled up
+to look like gears. The words do not say the direction, which the switch over them does; in
+Reverse the rosette's dot rides its curve the other way and the output's gear turns against
+the input's.
 
 **Under a Master Gear, its caption**: what a loop of it needs, read from every node downstream
 of it (`nodes::chain::caption`). The chains' ratios multiply down each chain, each node comes
@@ -3624,18 +3628,31 @@ caption, `mastergear1.loop loops in 4 cycles · 8.000 s (÷4 on ratiogear12)`.
 
 ### The Teeth row
 
-A Ratio Gear's **Teeth** are one row above its picture, `Region::Teeth` (`widgets::gear::TEETH`),
-the height of a port row's and on a lone input row's slab, short of the far edge with its outer
-corners round: the word `Teeth` where a row's label stands, then `p`, a colon and `q`, each the
+A Ratio Gear's **Teeth** are one region above its picture, `Region::Teeth`
+(`widgets::gear::TEETH`), on a lone input row's slab, short of the far edge with its outer
+corners round, and two lines tall: the Teeth on a line the height of a port row's, and under
+them the gear's direction. On the first, the word `Teeth` where a row's label stands, then
+`p`, a colon and `q`, each the
 inset s-number at 60 points rather than 100, so two and the colon fit where one control and
 its label do and each keeps its steppers. They are the node's own hidden controls, with no
 port, drawn by `RegionUi::number`, so each answers every gesture a number on a row does —
 drag, steppers, arrows, wheel, a typed value, `D`, `R`, the range editor and a MIDI binding —
 and steps by one from 1 to 64, so a drag and a typed `2.5` land on whole numbers and a typed
 `0` on 1. They show the Teeth as typed: 2 : 4 stays 2 : 4, and the picture beside draws ÷2.
+**Under `p : q`, its direction**: Forward | Reverse, as wide as the two numbers and the colon,
+four points below them and as far above the slab's foot as the numbers are below its top. It
+is the segmented switch the Timing heading's Free | Loop is (`widgets::segments`), the press
+button's chrome split by a hairline, the lit segment `bg_active` and each name in the
+heading's tiny type, and it writes the `direction` option, an option the region draws
+(`OptionDef::in_region`); a click on the lit segment is nothing. The row is on the Teeth's slab
+rather than a row of its own because it is the Teeth's: which way the gear turns its `p` turns.
+It does not fit on the Teeth's line, which two numbers, a colon and the word already fill at
+the node's width. Both lines are always drawn, so switching moves nothing.
 The word and the colon carry a hover, `Turns 3 times for every 2 turns of its parent.`, and
-the row's accessible name is `ratiogear4.teeth 3 : 2`; each number's is its own,
-`ratiogear4.p 3`.
+in Reverse `…of its parent, backwards.`. The row's accessible name is
+`ratiogear4.teeth 3 : 2`, with ` in reverse` after it in Reverse; each number's is its own,
+`ratiogear4.p 3`, and each segment a radio button, `ratiogear4.direction.forward` and
+`ratiogear4.direction.reverse`.
 
 ## The XY Pad
 

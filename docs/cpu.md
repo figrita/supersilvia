@@ -179,8 +179,8 @@ rest of the app:
 - `ctx.jump(id, key)` — one of the node's number outputs was put where it is this frame
   rather than moved there; `ctx.jumped(id, key)` asks it of the output cabled into an input,
   which ticked first. A gear says it of its three readings on a Reset, on a change of a Ratio
-  Gear's Teeth and on a birth the transport did not make, so a gear counting one takes the
-  step as a jump and not as a clock running backwards. Cleared at the top of each tick, as an event is.
+  Gear's Teeth or direction and on a birth the transport did not make, so a gear or a
+  sequencer counting one takes the step as a jump and not as a clock running backwards. Cleared at the top of each tick, as an event is.
 - `ctx.time` — what this node sees of the [transport](#the-transport): the playhead, the
   advance since **this node** last ticked, whether a jump is inside it, and the play bit.
   What a Master [Gear](#gears) integrates.
@@ -427,11 +427,13 @@ see what it crossed: an edge detector, not an accumulator.
   `floor(16 × cycle)`**, stamped with its moment inside the frame, and each lane
   reads the absolute step modulo its own length, so a lane of five against sixteen keeps its
   phase. **A reading that moves more than a bar in one tick, across a seek or onto another
-  clock's cable is a jump**, and so is the first reading, a render's start among them, and one
-  that moves backwards on a clock: it fires nothing on the way and closes every open gate.
-  Running free, a negative Speed plays the steps backwards — each boundary crossed going down
-  enters the step below it, which opens its lanes there and closes them a gate length further
-  down. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
+  clock's cable is a jump**, and so is the first reading, a render's start among them, one the
+  gear in Time says it put there (`ctx.jumped`), and one that moves backwards on a clock that
+  is not a gear: it fires nothing on the way and closes every open gate. Running free at a
+  negative Speed, or on a gear going down — a Ratio Gear in Reverse, a Ping-pong's way back —
+  the steps play backwards: each boundary crossed going down enters the step below it, which
+  opens its lanes there and closes them a gate length further down. A gear says when it
+  jumps, so a reading of one that goes back is its motion. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
   playing, has been crossed by nobody
   and plays at once, so a render's first frame is its bar's downbeat; any other step it landed
   in plays on the next tick where it landed no further past it than that tick moves, so a
@@ -499,8 +501,8 @@ was made, and at playhead zero every Master Gear is at the start of its cycle. G
 Trigger's length, as a fraction of a cycle. A beat is a Master Gear a beat long, and a bar a
 Ratio Gear at ÷4 below it.
 
-**The Ratio Gear** (`ratiogear`) is **a pure product of its parent**: `parent × p ÷ q`,
-worked out in `f64` each tick from what arrives at Clock In — a count read whole
+**The Ratio Gear** (`ratiogear`) is **a pure product of its parent**: `±(parent × p ÷ q) +
+offset`, worked out in `f64` each tick from what arrives at Clock In — a count read whole
 (`ctx.count`), anything else the one `f32` it is, a Phase among them — or from the playhead's
 seconds with nothing cabled. Nothing is integrated or carried from one tick to the next, so it
 has no position of its own: a seek, a render's warm-up, a relaunch and a reopened tab land it
@@ -509,30 +511,40 @@ on the same count to the bit, and its loop is its parent's times `p/q` exactly. 
 `TEETH_Q`, hidden controls on the Teeth row): it turns `p` times for every `q` turns of its
 parent, so 3 : 2 is three turns against two and 2 : 1 twice the parent. They are kept as
 typed and reduced only in the arithmetic (`gear::product`, `p ÷ q` in lowest terms), so 2 : 4
-and 1 : 2 count the same to the bit and the row still says 2 : 4. **A change of Teeth jumps**:
-the output lands at once on the parent times the new `p ÷ q`, where it would be had it always
-run at that ratio, and fires nothing for the cycles it went over; the gear says its readings
-jumped (`ctx.jump`), so a gear counting it is born again with it. Its Trigger fires at the
-whole cycles of its output: the one thing it keeps is the parent's last reading, to find the
-cycles a frame passed, unwrapped where the output feeding it declares its wrap
-(`OutputDef::wraps_at`, through `ctx.wraps_at`: 1 for a Phase, 2520 for a count's one `f32`
-through a Math node; a step over half the wrap is the wrap, `phasor::unwrap_at`). A Phase in
-Clock In is a parent like any other: the gear is the Phase times `p ÷ q`, and comes round with
-it. Plugging Clock In, pulling it out or moving its cable onto another output is a birth,
-since the clock it counts is then another one, and fires nothing for the distance between the
-two. **A cabled clock its source says was put where it is** (`ctx.jumped`) — a Master Gear's
-Reset above, a gear above born again or its Teeth changed — **or one sent back more than a
+and 1 : 2 count the same to the bit and the row still says 2 : 4. **Its direction**,
+`gear::DIRECTION` — key `direction`, `forward` by default or `reverse` — is a runtime option the
+Teeth row draws (`OptionDef::in_region`): Reverse negates the product, `−(parent × p ÷ q)` to
+the bit, so the gear counts down as fast as it would count up. **Its Offset** is every CPU
+node's (`timing::offset_row`, key `phaseOffset`, a uniform number of −1 to 1 cycles stepping by
+a thousandth, with a port), on the row under Clock In, and is added after the product and its
+sign, so it moves a reversed gear forwards as it does any other. **A change of Teeth or
+direction jumps**: the output lands at once on the product for the new setting, where it would
+be had it always run that way, and fires nothing for the cycles it went over; the gear says its
+readings jumped (`ctx.jump`), so a gear counting it is born again with it. An Offset turned or
+swayed by a cable is motion: the gear fires on the whole cycles it carries the output past.
+Its Trigger fires at the whole cycles of its output, going down as going up: the one thing it
+keeps is the parent's and the Offset's last readings, to find the cycles a frame passed,
+unwrapped where the output feeding each declares its wrap (`OutputDef::wraps_at`, through
+`ctx.wraps_at`: 1 for a Phase, 2520 for a count's one `f32` through a Math node; a step over
+half the wrap is the wrap, `phasor::unwrap_at`). A Phase in Clock In is a parent like any
+other: the gear is the Phase times `p ÷ q`, and comes round with it. Plugging Clock In, pulling
+it out or moving its cable onto another output is a birth, since the clock it counts is then
+another one, and fires nothing for the distance between the two. **A cabled clock its source
+says was put where it is** (`ctx.jumped`) — a Master Gear's Reset above, a gear above born
+again or its Teeth or direction changed — **or anything but a count sent back more than a
 cycle in one frame** has jumped too: the gear fires nothing for the cycles it went over, only
 one downbeat, as a Reset is a beat, where a whole cycle of its own lies between where it now is
-and a frame's motion at the pace the clock was going — so a hand's Reset, which lands at the
-top of the frame and runs on, is a beat to every gear counting the clock, whatever its Teeth,
-however little of its first cycle the clock had run. The pace is the clock's last step over
-the advance it took, with the rounding of the readings it was measured on allowed: an `f64`'s
-for a count, an `f32`'s for anything else. A step back of under a cycle that no source calls a
-jump is a clock running backwards — an oscillator scrubbing, a number turned down — and is
-motion, and forwards a fast gear passes several cycles a frame, which is motion. A gear has no
-Hold, no Reset and no way to bend: a layer that should pause or bend runs free on its Speed,
-and one that should be placed is placed by its own Offset. See
+and a frame's motion at the pace the clock was going, the way the gear runs — so a hand's
+Reset, which lands at the top of the frame and runs on, is a beat to every gear counting the
+clock, whatever its Teeth or direction, however little of its first cycle the clock had run.
+The pace is the clock's last step over the advance it took, with the rounding of the readings
+it was measured on allowed: an `f64`'s for a count, an `f32`'s for anything else. A count,
+which only a gear or the Time node publishes, says when it jumps, so one that goes back by any
+amount with no word is a clock running backwards — a fast gear in Reverse passes several
+cycles a frame going down, as a fast one forwards does going up — and so is anything else sent
+back by less than a cycle with no word, an oscillator scrubbing, a number turned down. A gear
+has no Hold, no Reset and no way to bend: a layer that should pause or bend runs free on its
+Speed, and one that should be placed is placed by an Offset, the gear's or its own. See
 [decisions.md](decisions.md#a-ratio-gear-is-a-pure-product-of-its-parent).
 
 **Both publish the same four.** **Cycles** is a **count**, published whole
@@ -580,7 +592,10 @@ numbers either side of a colon on one row the height of a port row's, each the s
 whole-number control is, stepping by one from 1 to 64, so a drag, the steppers, the arrows and a
 typed number all land on a whole number of one or more. The tick reads each as the whole
 number nearest it, so a stored value no hand could type runs as the nearest whole one
-(`gear::teeth`). Hovering the word says `Turns 3 times for every 2 turns of its parent.`
+(`gear::teeth`). Under the two numbers, as wide as `p : q`, is the direction, Forward |
+Reverse, the two segments the Timing heading's Free | Loop is (`widgets::segments`); a click
+on the unlit one sets the option. Hovering the word says `Turns 3 times for every 2 turns of
+its parent.`, and in Reverse `…of its parent, backwards.`
 
 **A gear's picture** is `Region::Gear` (`widgets/gear.rs`), one fixed 92 units tall for either
 of its Display option's two: the **Rosette**, the default, a still rosette of `p` petals wound
@@ -595,8 +610,11 @@ paused show is still. The reading reaches it as `CpuNode::gear`, gathered into
 `nodes::chain`, and **a claim is exact and the shortest that is true, or it is not made**.
 `chain::master_loop` walks every node downstream of the master and works out, in the master's
 cycles as an exact `chain::Fraction`, what each comes back in: a Ratio Gear multiplies its Clock
-In's rate by its Teeth, `p/q`, exactly, and with anything but a count in its Clock In comes
-back when that does; a node that moves with time is where its Times and Offsets put it, read
+In's rate by its Teeth, `p/q`, exactly, negative in Reverse, which comes back after as many
+cycles as forwards, and with anything but a count in its Clock In comes back when that does;
+a cable into its Offset is read as one into any Offset is, a count's rate added to the gear's
+and anything that comes back on its own a sway (`chain::Clock::sway`) that whatever reads the
+gear comes back with, and a knob there shifts nothing; a node that moves with time is where its Times and Offsets put it, read
 round its period, with what every other input it reads adds; a Trigger into a sequencer's Step
 moves it a step a beat, and a Clock Divider divides the beats; a node on its own clock moves at
 its rate over the master's seconds, read as a fraction; a node with no CPU half comes back when

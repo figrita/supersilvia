@@ -1756,6 +1756,99 @@ fn a_free_sequencer_steps_both_ways_on_its_speed_and_not_across_a_seek() {
     );
 }
 
+/// **On a reversed gear, a sequencer plays its steps backwards**, as running free at a negative
+/// Speed does, and never takes the clock going down for a jump. A Master Gear two seconds long,
+/// a bar, through a 1 : 1 Ratio Gear in Reverse into a step sequencer's Time: over two bars
+/// every step of a lane lit on all sixteen opens it, thirty-two downs, each closed a gate later;
+/// and lane 2's step 1 comes before lane 1's step 0, as the steps come in reverse. A Master
+/// Gear's Reset above is still a jump, and plays nothing on the way.
+#[test]
+fn a_sequencer_on_a_reversed_gear_plays_its_steps_backwards() {
+    let (mut app, id) = sequencer_with(&["xxxxxxxxxxxxxxxx", "", "", ""]);
+    let clock = driven(&mut app, id);
+    app.apply(Command::SetControl {
+        node: clock,
+        key: "length",
+        value: ControlValue::Float(2.0),
+    })
+    .unwrap();
+    let gear = add_to(&mut app, "ratiogear");
+    app.apply(Command::SetOption {
+        node: gear,
+        key: "direction",
+        value: "reverse".to_string(),
+    })
+    .unwrap();
+    app.apply(Command::Connect {
+        from: PortRef::new(clock, "cycles"),
+        to: PortRef::new(gear, "clock"),
+    })
+    .unwrap();
+    app.apply(Command::Connect {
+        from: PortRef::new(gear, "cycles"),
+        to: PortRef::new(id, supersilvia::nodes::TIME),
+    })
+    .unwrap();
+    app.transport(supersilvia::transport::Command::Seek(0.37));
+    app.tick(FRAME);
+    let lanes = lane_edges(&mut app, id, 240);
+    let downs = lanes[0].iter().filter(|(e, _)| *e == Edge::Down).count();
+    let ups = lanes[0].iter().filter(|(e, _)| *e == Edge::Up).count();
+    assert_eq!(
+        downs, 32,
+        "every step of two bars, backwards: {:?}",
+        lanes[0]
+    );
+    assert!(ups >= 31, "each closed a gate later: {ups}");
+
+    // A Reset of the master three tenths of a bar in sends the reversed count up to zero,
+    // under a bar: a jump its source says it made, which plays at most the step it lands on.
+    app.transport(supersilvia::transport::Command::Seek(0.6));
+    app.tick(FRAME);
+    lane_edges(&mut app, id, 3);
+    let reset = PortRef::new(clock, "reset");
+    app.press(reset, true);
+    let lanes = lane_edges(&mut app, id, 1);
+    app.press(reset, false);
+    let downs = lanes[0].iter().filter(|(e, _)| *e == Edge::Down).count();
+    assert!(
+        downs <= 1,
+        "a Reset plays nothing on the way: {:?}",
+        lanes[0]
+    );
+
+    // Two adjacent steps, played in reverse.
+    app.apply(Command::SetValue {
+        node: id,
+        key: "pattern",
+        value: supersilvia::graph::Value::Cells(
+            ["x...............", ".x..............", "", ""]
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+        ),
+    })
+    .unwrap();
+    app.transport(supersilvia::transport::Command::Seek(1.69));
+    app.tick(FRAME);
+    let lanes = lane_edges(&mut app, id, 60);
+    let first = |lane: usize| {
+        lanes[lane]
+            .iter()
+            .find(|(e, _)| *e == Edge::Down)
+            .map_or_else(
+                || panic!("lane {} opened: {lanes:?}", lane + 1),
+                |&(_, t)| t,
+            )
+    };
+    assert!(
+        first(1) < first(0),
+        "step 1 before step 0, going down: {} then {}",
+        first(1),
+        first(0)
+    );
+}
+
 /// Driven by a Master Gear, the playhead walks the sixteen a bar: a lit cell opens its lane on
 /// its own step and the gate closes it half a step later, and an unlit lane says nothing. The
 /// first column is the first thing heard, on the tick after the bar starts.

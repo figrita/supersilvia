@@ -203,6 +203,287 @@ fn a_teeth_change_lands_on_the_parent_times_the_new_ratio() {
     assert_eq!(count(&app, gear).to_bits(), (m * 4.0 / 3.0).to_bits());
 }
 
+/// A Ratio Gear's direction: Forward, or Reverse, which negates its product.
+fn reverse(app: &mut App, gear: NodeId, reversed: bool) {
+    choose(
+        app,
+        gear,
+        "direction",
+        if reversed { "reverse" } else { "forward" },
+    );
+}
+
+/// The downs `node`'s Trigger fired on the frame just ticked.
+fn downs(app: &App, node: NodeId) -> usize {
+    app.edges(PortRef::new(node, "trigger"))
+        .iter()
+        .filter(|e| e.is_down())
+        .count()
+}
+
+/// **A reversed Ratio Gear is minus its parent times p ÷ q, to the bit, however the playhead
+/// got there.** One on ambient seconds at 3 : 2 and one at 7 : 5 on a Master Gear's Cycles,
+/// both in Reverse, played to a moment, sought straight to it, sought away and back, and
+/// rendered up to it: each reads `−(parent × p ÷ q)` exactly, the same bits all four ways.
+#[test]
+fn a_reversed_gear_is_minus_its_parent_times_p_over_q_to_the_bit() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.3);
+    let ambient = geared(&mut app, None, 3.0, 2.0);
+    let on_master = geared(&mut app, Some(clock), 7.0, 5.0);
+    reverse(&mut app, ambient, true);
+    reverse(&mut app, on_master, true);
+    // Each reads its parent's count as the bits it is, and the one on ambient seconds,
+    // whose parent is the playhead, the same bits every way.
+    let check = |app: &App, how: &str| -> u64 {
+        let t = app.transport_state().playhead;
+        let m = count(app, clock);
+        assert_eq!(
+            count(app, on_master).to_bits(),
+            (-(m * 7.0 / 5.0)).to_bits(),
+            "{how}: minus 7 : 5 of the master's {m}"
+        );
+        let a = count(app, ambient);
+        assert_eq!(
+            a.to_bits(),
+            (-(t * 3.0 / 2.0)).to_bits(),
+            "{how}: minus 3 : 2 of the playhead's {t}"
+        );
+        a.to_bits()
+    };
+
+    ticks(&mut app, 200);
+    let t = app.transport_state().playhead;
+    let played = check(&app, "played");
+    assert!(f64::from_bits(played) < -4.0, "it counts down");
+
+    app.transport(Transport::Pause);
+    app.transport(Transport::Seek(t));
+    app.tick(FRAME);
+    assert_eq!(
+        check(&app, "sought"),
+        played,
+        "sought to where it played to"
+    );
+    let sought = count(&app, on_master).to_bits();
+
+    app.transport(Transport::Seek(t + 1234.567));
+    app.tick(FRAME);
+    app.transport(Transport::Seek(t));
+    app.tick(FRAME);
+    assert_eq!(check(&app, "away and back"), played);
+    assert_eq!(
+        count(&app, on_master).to_bits(),
+        sought,
+        "the master's gear"
+    );
+
+    app.transport(Transport::Play);
+    app.reset_cpu();
+    app.transport(Transport::Seek(t - 1.0));
+    for n in 0..60 {
+        app.tick_at(t - 1.0 + f64::from(n) / 60.0);
+    }
+    app.tick_at(t);
+    assert_eq!(check(&app, "rendered"), played, "rendered up to it");
+}
+
+/// **Switching direction jumps exactly**, as a Teeth change does: a 3 : 2 gear on a
+/// one-second Master Gear switched to Reverse ten seconds in reads minus the master's count
+/// times 3 ÷ 2 on the very frame after, to the bit, fires nothing for the thirty cycles it
+/// went over, and says its readings jumped, so a 1 : 1 gear counting it is born again with it
+/// and fires nothing either; switched back, it is the plain product again.
+#[test]
+fn switching_direction_jumps_exactly() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let gear = geared(&mut app, Some(clock), 3.0, 2.0);
+    let follower = geared(&mut app, Some(gear), 1.0, 1.0);
+    ticks(&mut app, 618);
+    reverse(&mut app, gear, true);
+    app.tick(FRAME);
+    let m = count(&app, clock);
+    assert!(m > 10.0 && m < 10.5, "{m}");
+    assert_eq!(
+        count(&app, gear).to_bits(),
+        (-(m * 3.0 / 2.0)).to_bits(),
+        "Reverse lands on minus the product"
+    );
+    assert_eq!(count(&app, follower).to_bits(), count(&app, gear).to_bits());
+    assert_eq!(downs(&app, gear), 0, "nothing fires on the way");
+    assert_eq!(downs(&app, follower), 0, "nor on its follower's");
+    ticks(&mut app, 40);
+    let m = count(&app, clock);
+    assert_eq!(count(&app, gear).to_bits(), (-(m * 3.0 / 2.0)).to_bits());
+    reverse(&mut app, gear, false);
+    app.tick(FRAME);
+    let m = count(&app, clock);
+    assert_eq!(
+        count(&app, gear).to_bits(),
+        (m * 3.0 / 2.0).to_bits(),
+        "Forward lands on the product again"
+    );
+    assert_eq!(downs(&app, gear), 0);
+    assert_eq!(downs(&app, follower), 0);
+}
+
+/// **A reversed gear's Trigger fires once on each whole cycle of its output, going down.** A
+/// 3 : 2 gear in Reverse on a one-second Master Gear passes fifteen whole cycles of its own in
+/// ten seconds, and fires fifteen beats, each on the frame its count passes a whole number
+/// going down and placed where inside the frame it fell. A 1 : 64 gear on a 64 : 1 one in
+/// Reverse on ambient seconds, whose count falls by more than a cycle a frame, counts down a
+/// cycle a second with it: a fast clock running backwards is motion, never a jump, so it fires
+/// one beat a second.
+#[test]
+fn a_reversed_gears_trigger_fires_once_per_whole_output_cycle() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let gear = geared(&mut app, Some(clock), 3.0, 2.0);
+    reverse(&mut app, gear, true);
+    let fast = geared(&mut app, None, 64.0, 1.0);
+    reverse(&mut app, fast, true);
+    let slow = geared(&mut app, Some(fast), 1.0, 64.0);
+    ticks(&mut app, 3);
+    let (mut beats, mut slow_beats) = (0, 0);
+    for _ in 0..600 {
+        let (from, slow_from) = (count(&app, gear), count(&app, slow));
+        app.tick(FRAME);
+        let (to, slow_to) = (count(&app, gear), count(&app, slow));
+        let passed = (from.floor() - to.floor()) as usize;
+        let fired: Vec<f32> = app
+            .edges(PortRef::new(gear, "trigger"))
+            .iter()
+            .filter(|e| e.is_down())
+            .map(|e| e.at)
+            .collect();
+        assert_eq!(
+            fired.len(),
+            passed,
+            "{from} to {to}: one beat a whole cycle passed"
+        );
+        if let [at] = fired[..] {
+            let whole = from.floor();
+            let expected = ((from - whole) / (from - to)) as f32 * FRAME;
+            assert!(
+                (at - expected).abs() < 1e-4,
+                "the beat at {whole} falls {expected} into the frame, not {at}"
+            );
+        }
+        beats += fired.len();
+        let slow_passed = (slow_from.floor() - slow_to.floor()) as usize;
+        assert_eq!(
+            downs(&app, slow),
+            slow_passed,
+            "{slow_from} to {slow_to}: the follower of a fast reversed gear"
+        );
+        slow_beats += slow_passed;
+    }
+    assert_eq!(beats, 15, "fifteen whole cycles down in ten seconds");
+    assert_eq!(slow_beats, 10, "one a second");
+}
+
+/// **A Ratio Gear's Offset is added after the product, and after its direction, to the bit,
+/// however the playhead got there.** A 7 : 5 gear on a Master Gear's Cycles at an Offset of
+/// 0.1, forwards and in Reverse, and a 3 : 2 one on ambient seconds at −0.375: each reads
+/// `±(parent × p ÷ q) + offset` exactly, the Offset's `f32` read whole, played to a moment,
+/// sought straight to it, sought away and back, and rendered up to it.
+#[test]
+fn a_ratio_gears_offset_is_added_after_the_product_to_the_bit() {
+    for reversed in [false, true] {
+        let mut app = App::headless();
+        let clock = master(&mut app, 1.3);
+        let ambient = geared(&mut app, None, 3.0, 2.0);
+        let on_master = geared(&mut app, Some(clock), 7.0, 5.0);
+        for (gear, offset) in [(ambient, -0.375_f32), (on_master, 0.1)] {
+            set(&mut app, gear, "phaseOffset", offset);
+            reverse(&mut app, gear, reversed);
+        }
+        let sign = if reversed { -1.0 } else { 1.0 };
+        let check = |app: &App, how: &str| -> u64 {
+            let t = app.transport_state().playhead;
+            let m = count(app, clock);
+            assert_eq!(
+                count(app, on_master).to_bits(),
+                (sign * (m * 7.0 / 5.0) + f64::from(0.1_f32)).to_bits(),
+                "{how}, reversed {reversed}: 7 : 5 of the master's {m}, plus 0.1"
+            );
+            let a = count(app, ambient);
+            assert_eq!(
+                a.to_bits(),
+                (sign * (t * 3.0 / 2.0) - 0.375).to_bits(),
+                "{how}, reversed {reversed}: 3 : 2 of the playhead's {t}, less 0.375"
+            );
+            a.to_bits()
+        };
+
+        ticks(&mut app, 200);
+        let t = app.transport_state().playhead;
+        let played = check(&app, "played");
+
+        app.transport(Transport::Pause);
+        app.transport(Transport::Seek(t));
+        app.tick(FRAME);
+        assert_eq!(check(&app, "sought"), played);
+        let sought = count(&app, on_master).to_bits();
+
+        app.transport(Transport::Seek(t + 1234.567));
+        app.tick(FRAME);
+        app.transport(Transport::Seek(t));
+        app.tick(FRAME);
+        assert_eq!(check(&app, "away and back"), played);
+        assert_eq!(
+            count(&app, on_master).to_bits(),
+            sought,
+            "the master's gear"
+        );
+
+        app.transport(Transport::Play);
+        app.reset_cpu();
+        app.transport(Transport::Seek(t - 1.0));
+        for n in 0..60 {
+            app.tick_at(t - 1.0 + f64::from(n) / 60.0);
+        }
+        app.tick_at(t);
+        assert_eq!(check(&app, "rendered"), played);
+    }
+}
+
+/// **An Offset that sways a gear moves it about its locked place.** A 1 : 1 gear on a
+/// one-second Master Gear with a Number in its Offset turned from 0 to 1 over two seconds reads
+/// the master's count plus the Number every frame, and its Trigger fires where that sum passes
+/// a whole cycle: three beats, where the master alone passes two.
+#[test]
+fn an_offset_cabled_into_a_gear_sways_it() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let gear = geared(&mut app, Some(clock), 1.0, 1.0);
+    let sway = add(&mut app, "number");
+    set(&mut app, sway, "value", 0.0);
+    connect(&mut app, (sway, "output"), (gear, "phaseOffset"));
+    ticks(&mut app, 3);
+    let mut beats = 0;
+    let mut passed = 0;
+    for n in 1..=120 {
+        let before = count(&app, gear);
+        let v = n as f32 / 120.0;
+        set(&mut app, sway, "value", v);
+        app.tick(FRAME);
+        let m = count(&app, clock);
+        assert_eq!(
+            count(&app, gear),
+            m + f64::from(v),
+            "the master plus the Number"
+        );
+        passed += (count(&app, gear).floor() - before.floor()) as usize;
+        beats += downs(&app, gear);
+    }
+    assert_eq!(
+        passed, 3,
+        "the master's two seconds and the Number's one cycle"
+    );
+    assert_eq!(beats, passed, "a beat on each whole cycle the sum passed");
+}
+
 /// A Ratio Gear on a Master Gear's Cycles counts in its cycles: ÷4 of a beat is a bar. The
 /// beat turned from half a second to a third, the bar bends — its slope changes and its value
 /// does not jump — because the Cycles it reads are an integral of the length.
@@ -495,7 +776,8 @@ fn a_hand_reset_of_the_clock_is_a_beat_to_its_followers() {
 /// and a follower at 1 : 1, 2 : 1 or 1 : 4 is born again where the master now is and fires its
 /// one downbeat on the frame the master fires its own. A Number turned down a sixtieth a frame
 /// is a clock running backwards, and a follower on it counts backwards with it, a beat a cycle
-/// and never a birth.
+/// and never a birth; so is a 1 : 1 gear in Reverse on ambient seconds, and a follower on it
+/// fires on the frames it does.
 #[test]
 fn a_reset_inside_the_first_cycle_is_a_beat_to_the_followers() {
     let downs = |app: &App, node: NodeId| {
@@ -544,21 +826,45 @@ fn a_reset_inside_the_first_cycle_is_a_beat_to_the_followers() {
         beats, 2,
         "two and a half cycles back from three is two whole ones"
     );
+
+    let mut app = App::headless();
+    let back = geared(&mut app, None, 1.0, 1.0);
+    reverse(&mut app, back, true);
+    let follower = geared(&mut app, Some(back), 1.0, 1.0);
+    ticks(&mut app, 10);
+    let mut beats = 0;
+    for _ in 0..150 {
+        app.tick(FRAME);
+        assert_eq!(
+            downs(&app, follower),
+            downs(&app, back),
+            "a beat of the reversed gear is a beat of its follower"
+        );
+        beats += downs(&app, follower);
+        let (f, b) = (count(&app, follower), count(&app, back));
+        assert_eq!(f, b, "counting backwards with it, never born again");
+    }
+    assert_eq!(beats, 2, "two and a half seconds back is two whole cycles");
 }
 
 /// A count's one `f32` wraps, and a Time reads past the wrap: a gear's Cycles read as one
 /// `f32` step from 1260 to −1260, and a Ratio Gear counting them keeps going the same way, at
-/// Teeth whose ratio's denominator divides 2520 or not — 1 : 2, 1 : 7, 1 : 11 — each frame its
-/// share of the clock's motion to a billionth, since it reads the count whole.
+/// Teeth whose ratio's denominator divides 2520 or not — 1 : 2, 1 : 7, 1 : 11, 3 : 7 and
+/// 1 : 7 in Reverse — each frame its share of the clock's motion to a billionth, since it
+/// reads the count whole.
 #[test]
 fn a_cabled_clock_passes_its_wrap_with_no_seam() {
     let mut app = App::headless();
     // Ambient seconds at 20 : 1, 1260 cycles in 63 seconds.
     let fast = geared(&mut app, None, 20.0, 1.0);
-    let teeth = [(1.0, 2.0), (1.0, 7.0), (1.0, 11.0), (3.0, 7.0)];
+    let teeth = [(1.0, 2.0), (1.0, 7.0), (1.0, 11.0), (3.0, 7.0), (-1.0, 7.0)];
     let followers: Vec<NodeId> = teeth
         .iter()
-        .map(|&(p, q)| geared(&mut app, Some(fast), p, q))
+        .map(|&(p, q): &(f32, f32)| {
+            let id = geared(&mut app, Some(fast), p.abs(), q);
+            reverse(&mut app, id, p < 0.0);
+            id
+        })
         .collect();
     app.tick(FRAME);
     app.transport(Transport::Seek(62.9));

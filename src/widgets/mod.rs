@@ -615,8 +615,7 @@ const SEGMENT_INSET: f32 = 4.0;
 /// time-driven node's Free and Loop. Which segment was clicked, if one was.
 ///
 /// Registered after the heading's own strip, so a click here is the segment's and never the
-/// fold's. One rounded frame in the press button's chrome, split by a hairline, with each
-/// choice's name in the heading's tiny type; drawn whether the heading is open or closed.
+/// fold's. Drawn by [`segments`], whether the heading is open or closed.
 pub fn heading_segments(
     ui: &mut Ui,
     strip: Rect,
@@ -626,8 +625,7 @@ pub fn heading_segments(
     zoom: f32,
     theme: &Theme,
 ) -> Option<usize> {
-    use eframe::egui::{CornerRadius, Stroke, StrokeKind};
-    let height = (canvas::HEADING_HEIGHT - 2.0 * HEADING_PAD - 4.0).max(1.0) * zoom;
+    let height = SEGMENTS_HEIGHT * zoom;
     let width = SEGMENT_WIDTH * zoom;
     let right = strip.max.x - SEGMENT_INSET * zoom;
     // Centred on the bar, which starts `HEADING_PAD` below the strip's top.
@@ -636,6 +634,32 @@ pub fn heading_segments(
         pos2(right - width * choices.len() as f32, middle - height * 0.5),
         pos2(right, middle + height * 0.5),
     );
+    segments(ui, frame, choices, chosen, name, zoom, theme)
+}
+
+/// The height of a [`segments`] control, in world units at zoom 1: the heading's bar, less
+/// its padding.
+pub const SEGMENTS_HEIGHT: f32 = canvas::HEADING_HEIGHT - 2.0 * HEADING_PAD - 4.0;
+
+/// A segmented switch filling `frame`, one equal segment per choice, the chosen one lit: the
+/// two-choice control the design system draws wherever an option is a switch rather than a
+/// menu — Free | Loop on a Timing heading, Forward | Reverse under a Ratio Gear's Teeth.
+/// Which segment was clicked, if one was; a click on the lit one is nothing.
+///
+/// One rounded frame in the press button's chrome, split by a hairline, with each choice's
+/// name in the heading's tiny type. Each segment is a radio button named `{name}.{value}`.
+pub fn segments(
+    ui: &mut Ui,
+    frame: Rect,
+    choices: crate::nodes::Choices,
+    chosen: &str,
+    name: &str,
+    zoom: f32,
+    theme: &Theme,
+) -> Option<usize> {
+    use eframe::egui::{CornerRadius, Stroke, StrokeKind};
+    let width = frame.width() / choices.len().max(1) as f32;
+    let height = frame.height();
     let radius = CornerRadius::same(crate::ui::theme::RADIUS_SM);
     let hair = (1.0 * zoom).max(1.0);
     let font = FontId::monospace(crate::ui::theme::font_size(

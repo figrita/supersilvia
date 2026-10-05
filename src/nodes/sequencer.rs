@@ -13,9 +13,11 @@
 //! reading, to see what it crossed, and a cabled Time read as a count whole or unwrapped where its
 //! source declares its wrap, so a gear's Phase passing one is a frame's motion and not a jump. **A
 //! reading that moves more than a bar in one tick, or onto another clock as Time's cable is moved,
-//! is a jump** and fires nothing, and so is the first reading and one that moves backwards on a
-//! clock; running free, a negative Speed plays the steps backwards, each entered at its top
-//! boundary. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
+//! is a jump** and fires nothing, and so is the first reading, one the gear in Time says it put
+//! there (`TickContext::jumped`), and one that moves backwards on a clock that is not a gear.
+//! Running free at a negative Speed, and on a gear going down — a Ratio Gear in Reverse, a
+//! Ping-pong's way back — the steps play backwards, each entered at its top boundary: a gear
+//! says when it jumps, so its going back is motion. A step it lands exactly on, with a gear driving Time or a Speed moving it and the show
 //! playing, is played at once, so a render's first frame is its bar's downbeat; any other step it
 //! lands in is played on the next tick where it landed no further past it than that tick moves, so
 //! a gear's Reset lands on the downbeat. Each lane reads the absolute step modulo its own length,
@@ -247,10 +249,26 @@ impl Transport {
             return;
         };
         let p1 = now;
-        // Running free, a negative Speed plays the steps backwards; on a clock, a reading
-        // that goes back is a jump.
+        // Running free, a negative Speed plays the steps backwards, and so does a gear going
+        // down, which says when it jumps; on any other clock, a reading that goes back is a
+        // jump.
         let free = ctx.runs_free(id);
-        if ctx.time.jumped || self.moved || (!free && p1 < p0 - REACH) || (p1 - p0).abs() > BAR {
+        // A gear says when its reading was put where it is rather than moved there — a Reset,
+        // a change of Teeth or direction, a gear born again — so a reading of one that goes
+        // back with no such word is the gear going down: one in Reverse, or on a clock
+        // running backwards.
+        let put = !free && ctx.jumped(id, crate::nodes::TIME);
+        let geared = !free
+            && self
+                .source
+                .and_then(|s| ctx.node(s.node))
+                .is_some_and(|n| n.def.category == crate::nodes::Category::Gear);
+        if ctx.time.jumped
+            || self.moved
+            || put
+            || (!free && !geared && p1 < p0 - REACH)
+            || (p1 - p0).abs() > BAR
+        {
             // A jump plays nothing on the way, and closes what it left open.
             self.close(id, ctx);
             self.land(id, ctx, now, &pulse);

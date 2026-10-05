@@ -8,7 +8,8 @@
 //! spirograph that turns once round an input cycle, so it winds `q` loops, the input cycles it
 //! takes to close, and waves in and out `p` times across them, the output's cycles, its
 //! petals; a tick at the top where every loop begins; and a dot riding the curve at the
-//! output's phase. A ×3 is three petals in one loop, a ÷4 one petal wound over four.
+//! output's phase, which in Reverse rides it the other way. A ×3 is three petals in one loop,
+//! a ÷4 one petal wound over four.
 //! A Master Gear's rosette is a ring with a clock face's twelve ticks and the dot. The
 //! **Gears**: the input's gear of `k·p` teeth driving the output's of `k·q`, `k` keeping both
 //! between 6 and 48 and the hub printing the ratio past that; a Master Gear is one gear of
@@ -21,11 +22,13 @@
 //! the region does not claim the pointer, and a hand carries the node by it.
 //!
 //! **The Teeth row** ([`TEETH`]) is a Ratio Gear's two whole numbers, `p : q`, with no port:
-//! a row the height of a port row's, the word Teeth where a row's label stands, and two
+//! a line the height of a port row's, the word Teeth where a row's label stands, and two
 //! s-numbers either side of a colon, as narrow as two and the colon need to fit where a
 //! row's one control and its label do. Each is the node's own hidden control drawn by
 //! `RegionUi::number`, so it types, drags and steps as any other whole number does, and
-//! shows the Teeth as they were typed.
+//! shows the Teeth as they were typed. Under the numbers, as wide as they are, the gear's
+//! direction, Forward | Reverse, the segmented switch Free | Loop is (`widgets::segments`):
+//! the Teeth's line has no room for it.
 
 use super::{RegionDef, RegionEvent, RegionUi};
 use crate::graph::Node;
@@ -215,18 +218,17 @@ fn words(reading: Option<&Reading>, drawn: Option<&Drawn>, gears: bool) -> Vec<S
                 out.push("held".to_string());
             }
         }
-        Reading::Ratio { .. } => {
+        Reading::Ratio { p, q, .. } => {
             out.push(label(d.p, d.q));
             out.push(if d.q == 1 {
                 "every cycle in".to_string()
             } else {
                 format!("every {} cycles in", d.q)
             });
+            // Under Gears, the Teeth as the row has them, typed and unreduced, whatever the
+            // wheels drawn for them carry; under Rosette, its petals and loops.
             out.push(if gears {
-                match teeth(d.p, d.q) {
-                    Some((a, b)) => format!("{a} : {b} teeth"),
-                    None => "teeth past 48".to_string(),
-                }
+                format!("{p} : {q}")
             } else {
                 format!(
                     "{} petal{} · {} loop{}",
@@ -436,7 +438,8 @@ fn gear(
 
 // ------------------------------------------------------------------------------- teeth
 
-/// A Ratio Gear's Teeth: the word, and its two numbers either side of a colon, on one row.
+/// A Ratio Gear's Teeth: the word, and its two numbers either side of a colon, on one row,
+/// and under the numbers its direction, Forward | Reverse.
 pub const TEETH: RegionDef = RegionDef {
     size: teeth_size,
     show: teeth_show,
@@ -451,26 +454,32 @@ const COLON: f32 = 16.0;
 /// Where a row's control stops short of the body's right edge: the input block's inset and
 /// the control's own.
 const ROW_RIGHT: f32 = canvas::ROW_BLOCK_INSET + 8.0;
+/// Between the numbers and the switch under them.
+const SWITCH_GAP: f32 = 4.0;
 
+/// The Teeth's line, the height of a port row's, then the switch's: as far under the numbers
+/// as the numbers are under the region's top.
 fn teeth_size(_node: &Node) -> f32 {
-    canvas::CONTROL_ROW_PITCH
+    canvas::CONTROL_ROW_PITCH + SWITCH_GAP + super::SEGMENTS_HEIGHT
 }
 
-/// What the Teeth say in words: `Turns 3 times for every 2 turns of its parent.`
-pub fn teeth_words(p: i64, q: i64) -> String {
+/// What the Teeth say in words: `Turns 3 times for every 2 turns of its parent.`, and in
+/// Reverse `…of its parent, backwards.`
+pub fn teeth_words(p: i64, q: i64, reverse: bool) -> String {
     format!(
-        "Turns {p} time{} for every {q} turn{} of its parent.",
+        "Turns {p} time{} for every {q} turn{} of its parent{}.",
         if p == 1 { "" } else { "s" },
-        if q == 1 { "" } else { "s" }
+        if q == 1 { "" } else { "s" },
+        if reverse { ", backwards" } else { "" }
     )
 }
 
 fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
     let z = r.zoom;
     let rect = r.rect;
-    let y = rect.center().y;
-    // The slab a lone input row stands on: short of the far edge, its two outer corners
-    // round.
+    let y = rect.min.y + canvas::CONTROL_ROW_PITCH * 0.5 * z;
+    // The slab a lone input row stands on, under both lines: short of the far edge, its two
+    // outer corners round.
     let slab = rect.with_max_x(rect.max.x - canvas::ROW_BLOCK_INSET * z);
     let round = (canvas::ROW_BLOCK_RADIUS * z).round() as u8;
     r.ui.painter().rect_filled(
@@ -510,21 +519,49 @@ fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
     out.extend(r.number(p_rect, gear::TEETH_P));
     out.extend(r.number(q_rect, gear::TEETH_Q));
 
+    // The direction, as wide as `p : q` and under it, on whole pixels: the numbers' foot is a
+    // half-point, and a hairline from there bleeds into the pixel above.
+    let ppp = r.ui.ctx().pixels_per_point();
+    let snap = |v: f32| (v * ppp).round() / ppp;
+    let top = snap(p_rect.max.y + SWITCH_GAP * z);
+    let switch = Rect::from_min_max(
+        pos2(snap(p_rect.min.x), top),
+        pos2(snap(q_rect.max.x), top + snap(super::SEGMENTS_HEIGHT * z)),
+    );
+    let direction = gear::DIRECTION;
+    let chosen = r
+        .node
+        .options
+        .get(direction.key)
+        .map_or(direction.default, String::as_str);
+    let name = r.name(direction.key);
+    if let Some(i) = super::segments(r.ui, switch, direction.choices, chosen, &name, z, r.theme) {
+        out.push(RegionEvent::Option {
+            key: direction.key,
+            value: direction.choices[i].0,
+        });
+    }
+
     // Painted text is not in the accessibility tree: the row says what it is set to, and its
     // words say it whole on hover.
     let (p, q) = gear::teeth_of(r.node);
+    let reverse = chosen == gear::REVERSE;
     let words = Rect::from_min_max(rect.min, pos2(p_rect.min.x, rect.max.y));
     let w =
         r.ui.interact(words, r.ui.id().with(("teeth", r.id)), Sense::hover());
     crate::ui::accessible(
         &w,
         WidgetType::Label,
-        format_args!("{} {p} : {q}", r.name("teeth")),
+        format_args!(
+            "{} {p} : {q}{}",
+            r.name("teeth"),
+            if reverse { " in reverse" } else { "" }
+        ),
     );
-    w.on_hover_text(teeth_words(p, q));
+    w.on_hover_text(teeth_words(p, q, reverse));
     let w =
         r.ui.interact(colon, r.ui.id().with(("teeth-colon", r.id)), Sense::hover());
-    w.on_hover_text(teeth_words(p, q));
+    w.on_hover_text(teeth_words(p, q, reverse));
     out
 }
 

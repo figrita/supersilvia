@@ -41,8 +41,9 @@ fires nothing on the way but the beat it lands on, a tab reopened after a minute
 stall is advance and a clamped step, a render is the same twice and exact at any frame rate,
 and a project opens playing at zero whatever its file says — nothing of the transport is
 saved. `tests/clocks.rs` is the gears: a Ratio Gear its parent times its Teeth to the bit,
-played, sought, sought away and back or rendered, and a Teeth change landing at once on the
-new product, 3 : 1 of 1 : 3 being the input, a Ratio Gear on a Master Gear bending on a length
+played, sought, sought away and back or rendered, forwards, in Reverse and with its Offset
+added, a Teeth or direction change landing at once on the new product, a reversed gear's
+beats going down, an Offset swaying a gear, 3 : 1 of 1 : 3 being the input, a Ratio Gear on a Master Gear bending on a length
 change, a seek re-birthing every gear and a reset starting a cycle, a cabled clock's wrap and a
 0 to 1 Phase into Clock In, the Master Gear's Trigger, the Time node, and an oscillator on a
 gear with its Offset added. `tests/generators.rs` is ambient time: an unplugged Time is the playhead at

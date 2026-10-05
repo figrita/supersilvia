@@ -12,10 +12,12 @@
 //! cycle, as Cycles, Phase or Ping-pong; a Trigger's beats; something that comes back every so many master cycles; something that never does;
 //! or something the walk cannot read. Each node turns what reaches it into what it publishes:
 //!
-//! - **A Ratio Gear** is its parent times its Teeth, `p ÷ q`, exactly: a count's rate in its
-//!   Clock In times `p/q`, reduced, or the master's own seconds' with nothing cabled
-//!   ([`Clock`]). Anything else in its Clock In — a Phase, a Ping-pong, a number that comes
-//!   back — it reads as a number, and comes back when that does.
+//! - **A Ratio Gear** is its parent times its Teeth, `p ÷ q`, exactly, negative in Reverse: a
+//!   count's rate in its Clock In times `p/q`, reduced, or the master's own seconds' with
+//!   nothing cabled ([`Clock`]). Anything else in its Clock In — a Phase, a Ping-pong, a number
+//!   that comes back — it reads as a number, and comes back when that does. Its Offset is read
+//!   as any node's is: a count there adds its rate, and anything that comes back on its own is
+//!   a sway every reader of the gear comes back with (`Clock::sway`).
 //! - **A node that moves with time** is where each axis's Time and Offset put it, a rate and
 //!   things that come back on their own, read round that axis's period `P` as the graph gives
 //!   it (`timing::period_in`, any positive fraction): a count at rate `r` comes back every
@@ -168,16 +170,22 @@ pub fn lcm(a: u64, b: u64) -> Option<u64> {
     (a / gcd(a, b)).checked_mul(b)
 }
 
-/// A Ratio Gear's Teeth, `p/q`, as an exact fraction in lowest terms.
+/// A Ratio Gear's Teeth, `p/q`, as an exact fraction in lowest terms, negative in Reverse.
 fn teeth_of(graph: &Graph, id: NodeId) -> Fraction {
     graph.get(id).map_or(Fraction::ONE, |node| {
         let (p, q) = crate::nodes::gear::teeth_of(node);
-        Fraction::new(p, q)
+        let sign = if crate::nodes::gear::reversed(node) {
+            -1
+        } else {
+            1
+        };
+        Fraction::new(sign * p, q)
     })
 }
 
 /// One Ratio Gear a Master Gear drives, through a chain of them: the product of every gear's
-/// Teeth from the master down to it, or `None` where the product does not fit.
+/// Teeth from the master down to it, each negative in Reverse, or `None` where the product
+/// does not fit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Driven {
     pub node: NodeId,
@@ -230,10 +238,22 @@ pub struct MasterLoop {
     pub unsure: Vec<NodeId>,
 }
 
-/// A gear's count: `rate` of its cycles a master cycle.
+/// A gear's count: `rate` of its cycles a master cycle, negative where it counts down, and
+/// what a Ratio Gear's Offset adds to it that comes back on its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Clock {
     pub rate: Fraction,
+    /// Something added to the count that comes back every so many master cycles, and what
+    /// asks for the most of them: an Oscillator in a Ratio Gear's Offset, or in one above it.
+    /// Whatever reads the gear comes back when both the count and this have.
+    pub sway: Option<(Fraction, (NodeId, i64))>,
+}
+
+impl Clock {
+    /// A count at `rate`, with nothing swaying it.
+    pub const fn new(rate: Fraction) -> Self {
+        Self { rate, sway: None }
+    }
 }
 
 /// Which of a gear's readings a cable carries.
@@ -304,6 +324,13 @@ impl Gather {
         }
     }
 
+    /// What sways a clock: it comes back on its own, as the clock's reader must too.
+    fn sway(&mut self, c: Clock) {
+        if let Some((period, why)) = c.sway {
+            self.with(period, why);
+        }
+    }
+
     /// Something that does not close, the first that never does before the first that cannot
     /// be told.
     fn fail(&mut self, m: Motion) {
@@ -326,6 +353,7 @@ impl Gather {
                     Ok(period) => self.every(period, at),
                     Err(()) => self.fail(Motion::Never(at)),
                 }
+                self.sway(c);
             }
             Motion::Never(_) | Motion::Unknown(_) => self.fail(m),
         }
@@ -419,6 +447,14 @@ impl<'g> Walk<'g> {
                     "wrapped" => Motion::Clock(c, Shape::Phase),
                     "pingpong" => Motion::Clock(c, Shape::PingPong),
                     "trigger" => match Fraction::ONE.over(c.rate.abs()) {
+                        // A swayed count's beats are not evenly spaced: they come back when
+                        // both do, as a pattern rather than a beat.
+                        Some(period) if c.sway.is_some() => {
+                            let mut g = Gather::default();
+                            g.every(period, from.node);
+                            g.sway(c);
+                            g.done()
+                        }
                         Some(period) => Motion::Beats {
                             period,
                             why: (from.node, period.p),
@@ -485,6 +521,8 @@ impl<'g> Walk<'g> {
         let graph = self.graph;
         let node = graph.get(id).ok_or(Motion::Still)?;
         let master = node.def.slug == crate::nodes::gear::MASTER.slug;
+        // What comes back on its own in a Ratio Gear's output, beside its count.
+        let mut sway = Gather::default();
         let rate = if id == self.master {
             Fraction::ONE
         } else if master {
@@ -496,16 +534,28 @@ impl<'g> Walk<'g> {
                 // Ambient seconds.
                 None => self.per_cycle(id, 1.0)?,
                 Some(src) => match self.port(src) {
-                    Motion::Clock(c, Shape::Count) => c.rate,
+                    Motion::Clock(c, Shape::Count) => {
+                        sway.sway(c);
+                        c.rate
+                    }
                     // A number times p ÷ q comes back when the number does.
                     m => {
-                        let mut g = Gather::default();
-                        g.reading(m, id);
-                        return Err(g.done());
+                        sway.reading(m, id);
+                        Fraction::ZERO
                     }
                 },
             };
-            input.times(teeth_of(graph, id)).ok_or(Motion::Never(id))?
+            // Its Offset is added after the product, as a cable into any Offset is: a count's
+            // rate to the gear's, and anything that comes back on its own to what sways it.
+            let mut offset = Fraction::ZERO;
+            if let Some(src) = graph.source_of(PortRef::new(id, timing::OFFSET)) {
+                let m = self.port(src);
+                Self::place(m, None, false, id, &mut offset, &mut sway);
+            }
+            input
+                .times(teeth_of(graph, id))
+                .and_then(|r| r.plus(offset))
+                .ok_or(Motion::Never(id))?
         };
         if master {
             if graph.source_of(PortRef::new(id, "gate")).is_some() {
@@ -520,10 +570,17 @@ impl<'g> Walk<'g> {
                 }
             }
         }
-        if rate.p == 0 {
-            return Err(Motion::Still);
+        let sway = match sway.done() {
+            Motion::Still => None,
+            Motion::Every { period, why } => Some((period, why)),
+            m => return Err(m),
+        };
+        match (rate.p, sway) {
+            // Still, or only what sways it, which comes back on its own.
+            (0, None) => Err(Motion::Still),
+            (0, Some((period, why))) => Err(Motion::Every { period, why }),
+            _ => Ok(Clock { rate, sway }),
         }
-        Ok(Clock { rate })
     }
 
     /// What `id` does, in the master's cycles.
@@ -536,10 +593,12 @@ impl<'g> Walk<'g> {
             return match self.clock(id) {
                 Err(m) => m,
                 Ok(c) => match period_of(c, Some(Fraction::ONE)) {
-                    Ok(period) => Motion::Every {
-                        period,
-                        why: (id, period.p),
-                    },
+                    Ok(period) => {
+                        let mut g = Gather::default();
+                        g.every(period, id);
+                        g.sway(c);
+                        g.done()
+                    }
                     Err(()) => Motion::Never(id),
                 },
             };
@@ -745,6 +804,7 @@ impl<'g> Walk<'g> {
                         Err(()) => every.fail(Motion::Never(id)),
                     }
                 }
+                every.sway(c);
             }
             Motion::Every { period, why } => every.with(period, why),
             Motion::Never(_) | Motion::Unknown(_) => every.fail(m),
@@ -1294,12 +1354,10 @@ mod tests {
         let master = gear(&mut g, "mastergear", None);
         let rate = Fraction::new(1, 4);
         let half = Some(Fraction::new(1, 2));
-        let clock = Clock { rate };
+        let clock = Clock::new(rate);
         assert_eq!(period_of(clock, half), Ok(Fraction::new(2, 1)));
         let tenth = Some(Fraction::new(1, 10));
-        let slow = Clock {
-            rate: Fraction::new(3, 10),
-        };
+        let slow = Clock::new(Fraction::new(3, 10));
         assert_eq!(period_of(slow, tenth), Ok(Fraction::new(1, 3)));
         assert_eq!(
             period_of(slow, Some(Fraction::new(5, 2))),
