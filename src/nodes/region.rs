@@ -7,7 +7,16 @@
 //! handles is shared here as it is written twice there: the outside modes, the soft edge and
 //! the coverage output.
 //!
-//! Three departures from the source.
+//! Four departures from the source.
+//!
+//! **The background is behind the input as well as around it.** silvia's background mode is
+//! `mix(bg, input, mask)`, which fills outside the rectangle and leaves the input's own
+//! transparency inside it, so a Text over a checkerboard was black around its letters. Here
+//! the input is composited over the background, `input · mask + bg · (1 − input.a · mask)`,
+//! Porter–Duff over on premultiplied colors as every color in the graph is. With the default
+//! transparent background it is `input · mask` and with an opaque input `mix(bg, input,
+//! mask)`, both exactly silvia's, so only a background behind a transparent input draws
+//! anything new.
 //!
 //! **The outside modes are branchless.** silvia guards each with the `inside` test it already
 //! computed for the mask; `mod` and `clamp` are identities inside the rectangle, so the test
@@ -83,7 +92,8 @@ fn region_color_wgsl(mode: &str) -> &'static str {
         }
         _ => {
             "    let sampleUV = uv;
-    return mix({bgColor}, {input}, mask);"
+    let fg = {input} * mask;
+    return fg + {bgColor} * (1.0 - fg.a);"
         }
     }
 }
@@ -97,7 +107,8 @@ node! {
     category: Transform,
     tooltip: "Crops the input to a rectangle set by its four edges. Outside it: the background \
               color, the rectangle tiled, the rectangle mirror-tiled, or the edge smeared \
-              outward. Edge Softness bites in background mode only.",
+              outward. The background color also shows through the input where it is \
+              transparent. Edge Softness bites in background mode only.",
     // "Outside Mode" beside "Background Color" does not fit the default 200.
     width: 240.0,
     inputs: [
@@ -136,7 +147,8 @@ node! {
     category: Transform,
     tooltip: "Crops the input to a rectangle set by its center and its size. Outside it: the \
               background color, the rectangle tiled, the rectangle mirror-tiled, or the edge \
-              smeared outward. Edge Softness bites in background mode only.",
+              smeared outward. The background color also shows through the input where it \
+              is transparent. Edge Softness bites in background mode only.",
     // "Outside Mode" beside "Background Color" does not fit the default 200.
     width: 240.0,
     inputs: [

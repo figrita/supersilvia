@@ -336,6 +336,53 @@ to zero, so a trail dies abruptly and leaves dead zones where a channel never mo
 
 **RGBA32F rejected:** doubles memory again for precision no one can see in a decay.
 
+### Colors in the graph are premultiplied
+
+**Chosen** before the first alpha release, when a survey found no single rule: images, the
+drawing canvas and the color pickers were straight, a generator over a transparent background
+and the Text node came out premultiplied, every viewer and sender blended as premultiplied, and
+Snap, the thumbnails and the project card read straight. A half-transparent pixel looked
+different on a node body, in a thumbnail and in a Snap, and Layer Blend darkened a Text's edges
+a second time.
+
+**Inside the graph every color is premultiplied**: what a node returns, what a texture a node
+samples holds, and what an Output's frame holds. **Straight is the outside**: a color picker,
+a typed hex, a PNG, a GIF, the drawing canvas's own buffer, and a file written for another app.
+Each boundary converts once:
+
+- **In.** A color control or a CPU node's published color is premultiplied where the synth
+  resolves it into a uniform. A straight picture is premultiplied as it is uploaded. A data
+  texture — a simulation's state, whose alpha is not coverage — is not a picture and is not
+  converted.
+- **Between numbers and colors.** A node that builds a color from numbers (RGBA, HSLA)
+  premultiplies; a node that reads numbers out of a color (Decompose, Sample, a tap's mean, a
+  mask from a color) reads the color's own channels, unpremultiplied. A number means what the
+  picker would say.
+- **Out.** A viewer draws premultiplied over black, as a picture window always has. A file
+  for another app — Snap, a PNG sequence, a GIF, the project card — is unpremultiplied as it
+  is read back. A sender writes what its protocol defines.
+
+**Inside a node, linear work runs on the premultiplied color as it is** — a mix, an average, a
+blur, a color times a number — and that is the reason for the choice: a lerp, a box filter and
+the GPU's own linear texture filtering are exact on premultiplied colors and fringe on straight
+ones, and they are most of the graph. **Anything nonlinear in rgb** — invert, gamma, contrast,
+hue, posterize, a palette, a key, a threshold on luminance — goes through the prelude's
+`unpremultiply`, does its work on the color's own channels, and comes back through
+`premultiply`. **A composite is Porter–Duff over**, `fg + bg · (1 − fg.a)`, and a blend mode is
+the W3C compositing formula on top of it.
+
+Opaque colors are the same under both rules, so a patch with nothing transparent in it draws
+the same pixels as before. Nothing is under a zero alpha: an RGBA with Alpha at zero is
+transparent black, and a node that makes it opaque again shows black rather than the color it
+was built from.
+
+**Rejected: straight throughout, as silvia has it.** silvia's WebGL context is
+`premultipliedAlpha: false` and it never premultiplies an upload, so straight is the rule this
+port inherited. It would have kept the color operations as they are and moved every lerp,
+every filter and every viewer instead — and it cannot fix linear filtering at all, which
+averages a transparent texel's color into its neighbor's whatever the shader does after, so a
+zoomed PNG keeps a fringe the color of its transparent pixels.
+
 ### The UI defers to the render, not the other way around
 
 **Chosen** as the rule that settles any argument about canvas cost. The output is the
@@ -1808,6 +1855,12 @@ the shader and a cabled edge reaches both. The soft edge has a floor for the sam
 `smoothstep(0.0, 0.0, x)` divides by zero and zero is the default. Softness bites in
 background mode alone, as in silvia, and the help text says so rather than leaving it to be
 found.
+
+**The background is behind the input, not only around it.** silvia's background mode fills
+outside the rectangle and leaves the input's own transparency inside it, so a Text over a
+checkerboard drew black around its letters where Layer Blend draws the checkerboard. Here the
+input is composited over the background, premultiplied as every color is (see *Colors in the
+graph are premultiplied*). The default transparent background leaves the input as it was.
 
 **A knob may take its top end from another knob.** `Control::num_capped` names a second input
 of the same node whose value is this control's maximum, and the bus writes it into the node's

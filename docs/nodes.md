@@ -1216,7 +1216,8 @@ three nodes publish a Mask needs to know which one a cable came from — for whe
 landed. `regionabsolute` and `regionsized` are one crop reached by two sets of handles, four
 edges or a center and a size, in `region.rs`: outside the rectangle is a background color, the
 rectangle tiled, the rectangle mirror-tiled or the edge smeared out, and the coverage is the
-`mask` beside the picture. `domainwarp` and `tunnel3d` read Time and Offset where silvia
+`mask` beside the picture. The background color is behind the input too, composited
+premultiplied, so it shows through wherever the input is transparent. `domainwarp` and `tunnel3d` read Time and Offset where silvia
 read `u_time` and drove a CPU phase accumulator respectively: the warp in lattice cells with
 the noises' Repeat, the tunnel in units of camera depth on its retuned path, which comes back
 every 64 while the depth wraps.

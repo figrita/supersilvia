@@ -94,7 +94,8 @@ fn regionsized1_output(uv: vec2f) -> vec4f {
     let overshoot = max(vec2f(0.0), abs(uv - rectCenter) - rectHalf);
     let mask = 1.0 - smoothstep(0.0, max(vignette8_mask(uv), 1e-5), length(overshoot));
     let sampleUV = uv;
-    return mix(checkerboard9_output(uv), checkerboard3_output(sampleUV), mask);
+    let fg = checkerboard3_output(sampleUV) * mask;
+    return fg + checkerboard9_output(uv) * (1.0 - fg.a);
 }
 
 fn regionsized1_mask(uv: vec2f) -> f32 {

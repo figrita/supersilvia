@@ -361,6 +361,26 @@ the intermediate and feedback chain, which is where it is needed.
 `Rgba32Float` is available and not used: it doubles memory again for precision no one can see in a
 decay.
 
+## Alpha
+
+**Every color in the graph is premultiplied** — a node's return value, a source texture, an
+Output's frame — and straight colors are converted once at the edge they come in or go out
+by. The decision and what it rejected is in
+[decisions.md](decisions.md#colors-in-the-graph-are-premultiplied).
+
+| Boundary | Where | Conversion |
+| --- | --- | --- |
+| Color controls and CPU-published colors | the synth's uniform resolution | premultiplied |
+| Straight pictures: images, GIFs, the drawing canvas | upload | premultiplied |
+| Simulation state, whose alpha is data | — | none; not a picture |
+| A viewer: node bodies, panels, picture windows | the blit, over black | none; blends premultiplied |
+| Snap, PNG sequences, GIFs, the project card | readback | unpremultiplied |
+
+**Linear filtering is why.** A sampler averages texels before the shader sees them, so a
+straight texture's transparent texels lend their color to every edge; premultiplied, they lend
+nothing. The prelude's `unpremultiply` and `premultiply` are for the nonlinear operations
+inside a node, and `unpremultiply` of a transparent color is transparent black.
+
 ## Texture wrapping
 
 **Every sampled texture is read through `MirrorRepeat`, not `Repeat` and not

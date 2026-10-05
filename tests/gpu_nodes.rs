@@ -797,6 +797,56 @@ fn a_mandelbrots_mask_is_one_inside_the_set() {
     }
 }
 
+/// A region's background is behind the input as well as around it: a half-transparent red,
+/// premultiplied as a Text's edge is, over opaque blue is half red and half blue, opaque.
+/// Over the default transparent background the input is untouched, which is what silvia's
+/// `mix(bg, input, mask)` drew and what every patch already relies on.
+#[test]
+fn a_regions_background_shows_through_a_transparent_input() {
+    const SIZE: usize = 64;
+    let draw = |background: Option<[f32; 4]>| {
+        let mut g = Graph::new();
+        let color = add(&mut g, "rgba");
+        let region = add(&mut g, "regionabsolute");
+        let out = add(&mut g, "output");
+        for (channel, value) in [("r", 0.5), ("g", 0.0), ("b", 0.0), ("a", 0.5)] {
+            set(&mut g, color, channel, value);
+        }
+        set(&mut g, region, "left", -0.5);
+        set(&mut g, region, "right", 0.5);
+        if let Some(bg) = background {
+            set_color(&mut g, region, "bgColor", bg);
+        }
+        g.connect(PortRef::new(color, "output"), PortRef::new(region, "input"))
+            .unwrap();
+        g.connect(PortRef::new(region, "output"), PortRef::new(out, "input"))
+            .unwrap();
+        let pixels = rendered(&g, out, SIZE as u32);
+        let at = |x: usize| pixels[(SIZE / 2) * SIZE + x];
+        (at(SIZE / 2), at(0))
+    };
+
+    let (inside, outside) = draw(Some([0.0, 0.0, 1.0, 1.0]));
+    assert_eq!(
+        inside,
+        [128, 0, 128, 255],
+        "the blue shows through the red's other half"
+    );
+    assert_eq!(
+        outside,
+        [0, 0, 255, 255],
+        "outside the rectangle is the background"
+    );
+
+    let (inside, outside) = draw(None);
+    assert_eq!(
+        inside,
+        [128, 0, 0, 128],
+        "nothing behind the input leaves it as it was"
+    );
+    assert_eq!(outside, [0, 0, 0, 0], "and outside is transparent");
+}
+
 // --------------------------------------------------- a distortion moves, a noise is a field
 
 /// A tile's picture repeats at exactly the period its width says: a width of 0.75 in a

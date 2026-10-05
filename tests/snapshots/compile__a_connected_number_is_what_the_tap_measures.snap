@@ -64,6 +64,16 @@ fn defaultUvMap(uv: vec2f) -> vec4f {
     return vec4f(hsv2rgb2(vec3f(hue, saturation, value)), 1.0);
 }
 
+// Every color in the graph is premultiplied: rgb already scaled by alpha (docs/decisions.md,
+// "Colors in the graph are premultiplied"). A linear operation — a mix, an average, a color
+// times a number — runs on the premultiplied color as it is. Anything else in rgb reads the
+// color's own channels through `unpremultiply` and goes back through `premultiply`. Nothing is
+// under a zero alpha, so `unpremultiply` of a transparent color is transparent black.
+fn unpremultiply(c: vec4f) -> vec4f {
+    return select(vec4f(0.0), vec4f(c.rgb / c.a, c.a), c.a > 0.0);
+}
+fn premultiply(c: vec4f) -> vec4f { return vec4f(c.rgb * c.a, c.a); }
+
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,

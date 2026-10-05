@@ -29,7 +29,8 @@ fn regionsized1_output(uv: vec2f) -> vec4f {
     let overshoot = max(vec2f(0.0), abs(uv - rectCenter) - rectHalf);
     let mask = 1.0 - smoothstep(0.0, max(u.u_control_regionsized1_softness, 1e-5), length(overshoot));
     let sampleUV = uv;
-    return mix(u.u_control_regionsized1_bgColor, defaultUvMap(sampleUV), mask);
+    let fg = defaultUvMap(sampleUV) * mask;
+    return fg + u.u_control_regionsized1_bgColor * (1.0 - fg.a);
 }
 
 fn regionsized1_mask(uv: vec2f) -> f32 {
