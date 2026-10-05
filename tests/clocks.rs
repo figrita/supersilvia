@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Layer 1: the gears and the clocks. A Master Gear at a length, a Ratio Gear turning one
-//! clock into another and landing a change on the input's next whole cycle, the chain a loop
-//! closes on, Hold and Reset, a seek re-birthing them, a beat on a render's frame firing on it,
-//! the Time node reading the playhead, and the oscillator on the transport. See
-//! `docs/cpu.md#gears` and `proposals/time.md`.
+//! Layer 1: the gears and the clocks. A Master Gear at a length, a Ratio Gear its parent times
+//! its Teeth to the bit, the chain a loop closes on, a Master Gear's Hold and Reset, a seek
+//! re-birthing them, a beat on a render's frame firing on it, the Time node reading the
+//! playhead, and the oscillator on the transport. See `docs/cpu.md#gears` and
+//! `proposals/time.md`.
 
 use emath::Pos2;
 use supersilvia::graph::{ControlValue, NodeId, PortRef};
-use supersilvia::nodes::gear::ladder;
 use supersilvia::transport::Command as Transport;
 use supersilvia::{App, Command};
 
@@ -82,14 +81,126 @@ fn master(app: &mut App, length: f32) -> NodeId {
     id
 }
 
-/// A Ratio Gear at `ratio`, its Clock In on `from`'s Cycles where it names one.
-fn ratio(app: &mut App, from: Option<NodeId>, ratio: f32) -> NodeId {
+/// A Ratio Gear's Teeth, `p : q`.
+fn teeth(app: &mut App, gear: NodeId, p: f32, q: f32) {
+    set(app, gear, "p", p);
+    set(app, gear, "q", q);
+}
+
+/// A Ratio Gear at `p : q`, its Clock In on `from`'s Cycles where it names one.
+fn geared(app: &mut App, from: Option<NodeId>, p: f32, q: f32) -> NodeId {
     let id = add(app, "ratiogear");
-    set(app, id, "ratio", ratio);
+    teeth(app, id, p, q);
     if let Some(from) = from {
         connect(app, (from, "cycles"), (id, "clock"));
     }
     id
+}
+
+/// A gear's Cycles, read whole.
+fn count(app: &App, node: NodeId) -> f64 {
+    app.count(PortRef::new(node, "cycles"))
+        .expect("cycles is published")
+}
+
+/// **A Ratio Gear is its parent's count times p ÷ q, to the bit, however the playhead got
+/// there.** One on ambient seconds at 3 : 2 and one at 7 : 5 on a Master Gear's Cycles,
+/// played to a moment, sought straight to it, sought away and back, and rendered up to it:
+/// each reads its parent's count times p ÷ q exactly, and the one on ambient seconds, whose
+/// parent is the playhead, reads the same bits all four ways.
+#[test]
+fn a_ratio_gear_is_its_parent_times_p_over_q_to_the_bit() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.3);
+    let ambient = geared(&mut app, None, 3.0, 2.0);
+    let on_master = geared(&mut app, Some(clock), 7.0, 5.0);
+    let check = |app: &App, how: &str| -> u64 {
+        let t = app.transport_state().playhead;
+        let m = count(app, clock);
+        assert_eq!(
+            count(app, on_master).to_bits(),
+            (m * 7.0 / 5.0).to_bits(),
+            "{how}: 7 : 5 of the master's {m}"
+        );
+        let a = count(app, ambient);
+        assert_eq!(
+            a.to_bits(),
+            (t * 3.0 / 2.0).to_bits(),
+            "{how}: 3 : 2 of the playhead's {t}"
+        );
+        a.to_bits()
+    };
+
+    ticks(&mut app, 200);
+    let t = app.transport_state().playhead;
+    let played = check(&app, "played");
+
+    app.transport(Transport::Pause);
+    app.transport(Transport::Seek(t));
+    app.tick(FRAME);
+    assert_eq!(app.transport_state().playhead, t);
+    assert_eq!(
+        check(&app, "sought"),
+        played,
+        "sought to where it played to"
+    );
+    let sought = count(&app, on_master).to_bits();
+
+    app.transport(Transport::Seek(t + 1234.567));
+    app.tick(FRAME);
+    app.transport(Transport::Seek(t));
+    app.tick(FRAME);
+    assert_eq!(check(&app, "away and back"), played);
+    assert_eq!(
+        count(&app, on_master).to_bits(),
+        sought,
+        "the master's gear sought away and back"
+    );
+
+    app.transport(Transport::Play);
+    app.reset_cpu();
+    app.transport(Transport::Seek(t - 1.0));
+    for n in 0..60 {
+        app.tick_at(t - 1.0 + f64::from(n) / 60.0);
+    }
+    app.tick_at(t);
+    assert_eq!(check(&app, "rendered"), played, "rendered up to it");
+}
+
+/// **A Teeth change lands on the parent times the new p ÷ q.** A gear at 1 : 1 on a
+/// one-second Master Gear, turned to 4 : 1 ten seconds in and then to 4 : 3, reads the
+/// master's count times the new ratio on the very frame after, to the bit — nothing pending,
+/// nothing bent — and fires no beat for the thirty cycles the first jump went over.
+#[test]
+fn a_teeth_change_lands_on_the_parent_times_the_new_ratio() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let gear = geared(&mut app, Some(clock), 1.0, 1.0);
+    ticks(&mut app, 618);
+    teeth(&mut app, gear, 4.0, 1.0);
+    app.tick(FRAME);
+    let m = count(&app, clock);
+    assert!(m > 10.0 && m < 10.5, "{m}");
+    assert_eq!(count(&app, gear).to_bits(), (m * 4.0).to_bits(), "4 : 1");
+    let downs = app
+        .edges(PortRef::new(gear, "trigger"))
+        .iter()
+        .filter(|e| e.is_down())
+        .count();
+    assert_eq!(downs, 0, "nothing fires on the way");
+    ticks(&mut app, 7);
+    teeth(&mut app, gear, 4.0, 3.0);
+    app.tick(FRAME);
+    let m = count(&app, clock);
+    assert_eq!(
+        count(&app, gear).to_bits(),
+        (m * 4.0 / 3.0).to_bits(),
+        "4 : 3"
+    );
+    // And on from there at the new ratio.
+    ticks(&mut app, 40);
+    let m = count(&app, clock);
+    assert_eq!(count(&app, gear).to_bits(), (m * 4.0 / 3.0).to_bits());
 }
 
 /// A Ratio Gear on a Master Gear's Cycles counts in its cycles: ÷4 of a beat is a bar. The
@@ -99,7 +210,7 @@ fn ratio(app: &mut App, from: Option<NodeId>, ratio: f32) -> NodeId {
 fn a_ratio_gear_on_a_master_bends_on_a_length_change() {
     let mut app = App::headless();
     let clock = master(&mut app, 0.5);
-    let bar = ratio(&mut app, Some(clock), 0.25);
+    let bar = geared(&mut app, Some(clock), 1.0, 4.0);
 
     ticks(&mut app, 120);
     let beats = read(&app, clock, "cycles");
@@ -136,55 +247,14 @@ fn a_ratio_gear_on_a_master_bends_on_a_length_change() {
     );
 }
 
-/// **A ratio change lands on the input's next whole cycle.** A ×1 gear on a one-second Master
-/// Gear, turned to ×2 at 1.3 s, runs on at ×1 — the change pending — until the master's
-/// second cycle begins at 2 s, and at ×2 from there: its downbeat lands on the master's.
-#[test]
-fn a_ratio_change_lands_on_the_inputs_next_whole_cycle() {
-    let mut app = App::headless();
-    let clock = master(&mut app, 1.0);
-    let gear = ratio(&mut app, Some(clock), 1.0);
-    ticks(&mut app, 78);
-    set(&mut app, gear, "ratio", 2.0);
-    ticks(&mut app, 30);
-    let input = f64::from(read(&app, clock, "cycles"));
-    let output = f64::from(read(&app, gear, "cycles"));
-    assert!(input > 1.7 && input < 2.0, "{input}");
-    assert!(
-        (output - input).abs() < 0.03,
-        "until the master's next cycle it runs at the old ratio: {output} against {input}"
-    );
-    ticks(&mut app, 30);
-    let input = f64::from(read(&app, clock, "cycles"));
-    let output = f64::from(read(&app, gear, "cycles"));
-    assert!(input > 2.2, "{input}");
-    let landed = input.floor();
-    assert!(
-        (output - (landed + 2.0 * (input - landed))).abs() < 0.03,
-        "from the whole cycle on, twice as fast: {output} at {input}"
-    );
-    // The downbeat is the master's: where the master is at a whole cycle, so is the gear.
-    let mut both = 0;
-    for _ in 0..120 {
-        let (a, b) = (read(&app, clock, "cycles"), read(&app, gear, "cycles"));
-        app.tick(FRAME);
-        let (c, d) = (read(&app, clock, "cycles"), read(&app, gear, "cycles"));
-        if c.floor() > a.floor() {
-            assert!(d.floor() > b.floor(), "a master beat is a gear beat");
-            both += 1;
-        }
-    }
-    assert!(both >= 1);
-}
-
 /// **×3 of ÷3 is the input**: two Ratio Gears in a chain give back the Master Gear's cycles,
 /// and ÷3 alone comes round once every three.
 #[test]
 fn three_times_a_third_is_the_input() {
     let mut app = App::headless();
     let clock = master(&mut app, 0.5);
-    let third = ratio(&mut app, Some(clock), 1.0 / 3.0);
-    let back = ratio(&mut app, Some(third), 3.0);
+    let third = geared(&mut app, Some(clock), 1.0, 3.0);
+    let back = geared(&mut app, Some(third), 3.0, 1.0);
     ticks(&mut app, 200);
     let (m, t, b) = (
         read(&app, clock, "cycles"),
@@ -205,7 +275,7 @@ fn a_seek_rebirths_every_gear_and_a_reset_starts_a_cycle() {
     let early = master(&mut app, 2.0);
     ticks(&mut app, 50);
     let late = master(&mut app, 2.0);
-    let gear = ratio(&mut app, Some(early), 3.0);
+    let gear = geared(&mut app, Some(early), 3.0, 1.0);
     ticks(&mut app, 20);
     let (a, b) = (read(&app, early, "cycles"), read(&app, late, "cycles"));
     assert!((a - b).abs() < 1e-4, "made late, it agrees: {a} {b}");
@@ -249,9 +319,9 @@ fn beat(app: &App, node: NodeId) -> bool {
 fn a_gear_born_on_a_whole_cycle_fires_that_beat() {
     let mut app = App::headless();
     let clock = master(&mut app, 1.0);
-    let once = ratio(&mut app, Some(clock), 1.0);
-    let quarter = ratio(&mut app, Some(clock), 0.25);
-    let ambient = ratio(&mut app, None, 1.0);
+    let once = geared(&mut app, Some(clock), 1.0, 1.0);
+    let quarter = geared(&mut app, Some(clock), 1.0, 4.0);
+    let ambient = geared(&mut app, None, 1.0, 1.0);
     let gears = [
         (clock, "master"),
         (once, "×1"),
@@ -298,7 +368,7 @@ fn a_gear_born_on_a_whole_cycle_fires_that_beat() {
 fn a_seek_puts_a_ratio_gear_where_playing_puts_it() {
     let mut app = App::headless();
     let clock = master(&mut app, 1.0);
-    let quarter = ratio(&mut app, Some(clock), 0.25);
+    let quarter = geared(&mut app, Some(clock), 1.0, 4.0);
     ticks(&mut app, 100);
     app.transport(Transport::Seek(3.0));
     app.tick(FRAME);
@@ -319,7 +389,7 @@ fn moving_clock_in_to_another_clock_is_a_birth() {
     let mut app = App::headless();
     let fast = master(&mut app, 0.1);
     let slow = master(&mut app, 7.0);
-    let gear = ratio(&mut app, Some(fast), 1.0);
+    let gear = geared(&mut app, Some(fast), 1.0, 1.0);
     ticks(&mut app, 180);
     connect(&mut app, (slow, "cycles"), (gear, "clock"));
     app.tick(FRAME);
@@ -346,7 +416,7 @@ fn moving_clock_in_to_another_clock_is_a_birth() {
 fn a_reset_of_the_clock_in_fires_no_burst() {
     let mut app = App::headless();
     let clock = master(&mut app, 0.25);
-    let gear = ratio(&mut app, Some(clock), 1.0);
+    let gear = geared(&mut app, Some(clock), 1.0, 1.0);
     ticks(&mut app, 600);
     assert!(read(&app, gear, "cycles") > 39.0);
     let reset = PortRef::new(clock, "reset");
@@ -391,14 +461,16 @@ fn a_reset_of_the_clock_in_fires_no_burst() {
 
 /// **A hand's Reset on the clock is a beat to every gear counting it.** The hand presses
 /// between two ticks, so the Master Gear ends the frame a frame's motion past zero and fires
-/// its Reset beat; a follower at ×1, ×2 or ÷4 is born again just past its own downbeat — the
-/// ÷4 too, since a master at zero is a ÷4 at zero — and fires that one down on the same frame.
+/// its Reset beat; a follower at 1 : 1, 2 : 1 or 1 : 4 is born again just past its own
+/// downbeat — the 1 : 4 too, since a master at zero is a ÷4 at zero — and fires that one down
+/// on the same frame.
 #[test]
 fn a_hand_reset_of_the_clock_is_a_beat_to_its_followers() {
-    for r in [1.0, 2.0, 0.25] {
+    for (p, q) in [(1.0, 1.0), (2.0, 1.0), (1.0, 4.0)] {
+        let r = p / q;
         let mut app = App::headless();
         let clock = master(&mut app, 1.0);
-        let gear = ratio(&mut app, Some(clock), r);
+        let gear = geared(&mut app, Some(clock), p, q);
         ticks(&mut app, 140);
         let reset = PortRef::new(clock, "reset");
         app.press(reset, true);
@@ -420,10 +492,10 @@ fn a_hand_reset_of_the_clock_is_a_beat_to_its_followers() {
 /// **A Reset before the clock has run one cycle is a beat to its followers too.** A one-second
 /// Master Gear Reset half a cycle in steps back less than a cycle, which a follower cannot tell
 /// from a clock running backwards by the step alone: the master's Reset says so on its outputs,
-/// and a follower at ×1, ×2 or ÷4 is born again where the master now is and fires its one
-/// downbeat on the frame the master fires its own. A Ratio Gear at −×1 upstream counts
-/// backwards, and a follower on it counts backwards with it, a beat a cycle and never a
-/// birth; its own Reset half a cycle in, a step forwards, is a beat to that follower as well.
+/// and a follower at 1 : 1, 2 : 1 or 1 : 4 is born again where the master now is and fires its
+/// one downbeat on the frame the master fires its own. A Number turned down a sixtieth a frame
+/// is a clock running backwards, and a follower on it counts backwards with it, a beat a cycle
+/// and never a birth.
 #[test]
 fn a_reset_inside_the_first_cycle_is_a_beat_to_the_followers() {
     let downs = |app: &App, node: NodeId| {
@@ -432,72 +504,65 @@ fn a_reset_inside_the_first_cycle_is_a_beat_to_the_followers() {
             .filter(|e| e.is_down())
             .count()
     };
-    for r in [1.0_f32, 2.0, 0.25] {
+    for (p, q) in [(1.0_f32, 1.0_f32), (2.0, 1.0), (1.0, 4.0)] {
+        let r = p / q;
         let mut app = App::headless();
         let clock = master(&mut app, 1.0);
-        let gear = ratio(&mut app, Some(clock), r);
+        let gear = geared(&mut app, Some(clock), p, q);
         ticks(&mut app, 30);
         let reset = PortRef::new(clock, "reset");
         app.press(reset, true);
         app.tick(FRAME);
         app.press(reset, false);
         assert_eq!(downs(&app, clock), 1, "the master's Reset is a beat");
-        assert_eq!(downs(&app, gear), 1, "×{r}: and its follower's");
+        assert_eq!(downs(&app, gear), 1, "{p} : {q}: and its follower's");
         let (g, m) = (read(&app, gear, "cycles"), read(&app, clock, "cycles"));
         assert!(
             (g - r * m).abs() < 1e-5,
-            "×{r}: born where the master is: {g} and {m}"
+            "{p} : {q}: born where the master is: {g} and {m}"
         );
     }
 
     let mut app = App::headless();
-    let back = ratio(&mut app, None, -1.0);
-    let follower = ratio(&mut app, Some(back), 1.0);
+    let back = add(&mut app, "number");
+    set(&mut app, back, "value", 3.0);
+    let follower = geared(&mut app, None, 1.0, 1.0);
+    connect(&mut app, (back, "output"), (follower, "clock"));
     ticks(&mut app, 10);
-    let offset = read(&app, follower, "cycles") - read(&app, back, "cycles");
     let mut beats = 0;
-    for _ in 0..150 {
+    for n in 1..=150 {
+        set(&mut app, back, "value", 3.0 - n as f32 / 60.0);
         app.tick(FRAME);
-        assert_eq!(
-            downs(&app, follower),
-            downs(&app, back),
-            "a beat of the backwards clock is a beat of its follower"
-        );
         beats += downs(&app, follower);
-        let d = read(&app, follower, "cycles") - read(&app, back, "cycles");
+        let (f, b) = (read(&app, follower, "cycles"), read(&app, back, "output"));
         assert!(
-            (d - offset).abs() < 1e-4,
-            "counting backwards with it, never born again: {d} against {offset}"
+            (f - b).abs() < 1e-6,
+            "counting backwards with it, never born again: {f} against {b}"
         );
     }
-    assert_eq!(beats, 2, "two and a half seconds back is two whole cycles");
-    ticks(&mut app, 25);
-    let reset = PortRef::new(back, "reset");
-    app.press(reset, true);
-    app.tick(FRAME);
-    app.press(reset, false);
-    assert_eq!(downs(&app, back), 1, "the backwards gear's Reset is a beat");
-    assert_eq!(downs(&app, follower), 1, "and its follower's");
+    assert_eq!(
+        beats, 2,
+        "two and a half cycles back from three is two whole ones"
+    );
 }
 
 /// A count's one `f32` wraps, and a Time reads past the wrap: a gear's Cycles read as one
-/// `f32` step from 1260 to −1260, and a Ratio Gear counting them keeps going the same way, at a
-/// ratio whose denominator divides 2520 or not — ×½, ÷7, ÷11, backwards at ÷7 — each frame
-/// its share of the clock's motion to a billionth, since it reads the count whole.
+/// `f32` step from 1260 to −1260, and a Ratio Gear counting them keeps going the same way, at
+/// Teeth whose ratio's denominator divides 2520 or not — 1 : 2, 1 : 7, 1 : 11 — each frame its
+/// share of the clock's motion to a billionth, since it reads the count whole.
 #[test]
 fn a_cabled_clock_passes_its_wrap_with_no_seam() {
     let mut app = App::headless();
-    // Ambient seconds at ×20: 1260 cycles in 63 seconds.
-    let fast = ratio(&mut app, None, 20.0);
-    let rates = [0.5, 1.0 / 7.0, 1.0 / 11.0, -1.0 / 7.0];
-    let followers: Vec<NodeId> = rates
+    // Ambient seconds at 20 : 1, 1260 cycles in 63 seconds.
+    let fast = geared(&mut app, None, 20.0, 1.0);
+    let teeth = [(1.0, 2.0), (1.0, 7.0), (1.0, 11.0), (3.0, 7.0)];
+    let followers: Vec<NodeId> = teeth
         .iter()
-        .map(|&r| ratio(&mut app, Some(fast), r))
+        .map(|&(p, q)| geared(&mut app, Some(fast), p, q))
         .collect();
     app.tick(FRAME);
     app.transport(Transport::Seek(62.9));
     app.tick(FRAME);
-    let count = |app: &App, id| app.count(PortRef::new(id, "cycles")).unwrap();
     let mut last: Vec<f64> = followers.iter().map(|&id| count(&app, id)).collect();
     let mut wrapped = false;
     for _ in 0..30 {
@@ -511,12 +576,12 @@ fn a_cabled_clock_passes_its_wrap_with_no_seam() {
                 "the count wraps from 1260 to −1260: {before} to {after}"
             );
         }
-        for ((id, rate), last) in followers.iter().zip(rates).zip(&mut last) {
+        for ((id, (p, q)), last) in followers.iter().zip(teeth).zip(&mut last) {
             let now = count(&app, *id);
             let d = now - *last;
             assert!(
-                (d - ladder::exact(f64::from(rate)) * 20.0 * f64::from(FRAME)).abs() < 1e-9,
-                "×{rate} moves by its share of the clock each frame, across the wrap too: {d}"
+                (d - f64::from(p) / f64::from(q) * 20.0 * f64::from(FRAME)).abs() < 1e-9,
+                "{p} : {q} moves by its share of the clock each frame, across the wrap too: {d}"
             );
             *last = now;
         }
@@ -524,30 +589,25 @@ fn a_cabled_clock_passes_its_wrap_with_no_seam() {
     assert!(wrapped, "the clock did wrap");
 }
 
-/// **A count just below zero reads as a small negative.** A Ratio Gear reset and then stepped
-/// back a hundredth of a cycle by its Clock In publishes −0.01, not 2519.99: the wrap is
-/// centered on zero, where an `f32` resolves finest.
+/// **A count just below zero reads as a small negative.** A Ratio Gear whose Clock In steps
+/// from zero to a hundredth below it publishes −0.01, not 2519.99: the wrap is centered on
+/// zero, where an `f32` resolves finest.
 #[test]
-fn a_ratio_gear_reset_and_stepped_back_reads_a_small_negative() {
+fn a_ratio_gear_stepped_below_zero_reads_a_small_negative() {
     let mut app = App::headless();
     let input = add(&mut app, "number");
-    set(&mut app, input, "value", 5.0);
+    set(&mut app, input, "value", 0.0);
     let gear = add(&mut app, "ratiogear");
     connect(&mut app, (input, "output"), (gear, "clock"));
     ticks(&mut app, 3);
-    let reset = PortRef::new(gear, "reset");
-    app.press(reset, true);
-    app.tick(FRAME);
-    app.press(reset, false);
-    app.tick(FRAME);
-    assert_eq!(read(&app, gear, "cycles"), 0.0, "a reset starts a cycle");
-    set(&mut app, input, "value", 4.99);
+    assert_eq!(read(&app, gear, "cycles"), 0.0);
+    set(&mut app, input, "value", -0.01);
     app.tick(FRAME);
     let c = read(&app, gear, "cycles");
     assert!((c + 0.01).abs() < 1e-5, "a hundredth back from zero: {c}");
     assert!(
         (read(&app, gear, "wrapped") - 0.99).abs() < 1e-5,
-        "and its Phase is 0.99, as it always was"
+        "and its Phase is 0.99"
     );
 }
 
@@ -568,26 +628,30 @@ fn a_clock_before_zero_reads_negative_at_zeros_precision() {
     assert!((f64::from(cycles) + 0.0025).abs() < 1e-9, "{cycles}");
 }
 
-/// **A 0..1 Phase cabled into Clock In runs forward across its wrap.** A gear's Phase
-/// declares that it wraps at one, and Clock In unwraps it there, so a gear following one at
-/// ×1 counts the cycles it passed: three and a half in three and a half seconds.
+/// **A 0..1 Phase cabled into Clock In is the gear's parent like any other.** A gear's Phase
+/// in a 3 : 2 gear's Clock In: the gear reads it times three halves every frame, so it comes
+/// round with the Phase, up to one and a half and back to zero.
 #[test]
-fn a_phase_cabled_into_clock_in_runs_forward_across_its_wrap() {
+fn a_phase_cabled_into_clock_in_is_its_parent() {
     for slug in ["ratiogear", "mastergear"] {
         let mut app = App::headless();
         let source = add(&mut app, slug);
         if slug == "mastergear" {
             set(&mut app, source, "length", 1.0);
         }
-        let follower = ratio(&mut app, None, 1.0);
+        let follower = geared(&mut app, None, 3.0, 2.0);
         connect(&mut app, (source, "wrapped"), (follower, "clock"));
-        app.tick(FRAME);
-        let start = read(&app, follower, "cycles");
-        ticks(&mut app, 210);
-        let counted = read(&app, follower, "cycles") - start;
+        let mut top = 0.0_f64;
+        for _ in 0..90 {
+            app.tick(FRAME);
+            let phase = f64::from(read(&app, source, "wrapped"));
+            let c = count(&app, follower);
+            assert_eq!(c, phase * 3.0 / 2.0, "{slug}.wrapped times 3 : 2");
+            top = top.max(c);
+        }
         assert!(
-            (counted - 3.5).abs() < 0.05,
-            "{slug}.wrapped: three and a half cycles in three and a half seconds, not {counted}"
+            top > 1.45 && top < 1.5,
+            "{slug}: up to one and a half, {top}"
         );
     }
 }
@@ -628,7 +692,7 @@ fn a_beat_on_a_frame_fires_on_that_frame_in_every_loop() {
     for live in [0u32, 37, 150, 361, 20000] {
         let mut app = App::headless();
         let clock = master(&mut app, 0.375);
-        let gear = ratio(&mut app, Some(clock), 0.125);
+        let gear = geared(&mut app, Some(clock), 1.0, 8.0);
         ticks(&mut app, live);
         // As a render does: every node born again, the playhead sought to twelve seconds of
         // warm-up before frame zero — thirty-two beats, a whole number of the ÷8's cycles, so
@@ -653,31 +717,6 @@ fn a_beat_on_a_frame_fires_on_that_frame_in_every_loop() {
             "after {live} live ticks, beats a frame late on frames {late:?}"
         );
     }
-}
-
-/// Hold is a toggle: the gear stands where it is until it is pressed again, and runs on from
-/// there.
-#[test]
-fn hold_freezes_a_ratio_gear_until_it_is_pressed_again() {
-    let mut app = App::headless();
-    let gear = ratio(&mut app, None, 1.0);
-    ticks(&mut app, 30);
-    let hold = PortRef::new(gear, "hold");
-    app.press(hold, true);
-    app.tick(FRAME);
-    app.press(hold, false);
-    let held = read(&app, gear, "cycles");
-    ticks(&mut app, 60);
-    assert_eq!(read(&app, gear, "cycles"), held, "held");
-    app.press(hold, true);
-    app.tick(FRAME);
-    app.press(hold, false);
-    ticks(&mut app, 30);
-    let moved = read(&app, gear, "cycles") - held;
-    assert!(
-        (moved - 31.0 * FRAME).abs() < 0.02,
-        "and on from there: {moved}"
-    );
 }
 
 /// The Time node is the playhead: it moves with play, holds with a pause and jumps with a
@@ -706,16 +745,16 @@ fn the_time_node_reads_the_playhead() {
     app.transport(Transport::Play);
 }
 
-/// **A gear counting another reads the same a loop later, to the bit.** A ×1 and a ÷3 Ratio
-/// Gear counting a one-second Master Gear, played a frame at a time from 1022 s across 1024
+/// **A gear counting another reads the same a loop later, to the bit.** A 1 : 1 and a 1 : 3
+/// Ratio Gear counting a one-second Master Gear, played a frame at a time from 1022 s across 1024
 /// cycles, where one `f32` of a count halves its precision: the fraction a shader reads of
 /// each count, every frame, is the fraction it read one of its own cycles earlier, to the bit.
 #[test]
 fn a_gear_counting_another_reads_the_same_a_loop_later_to_the_bit() {
     let mut app = App::headless();
     let clock = master(&mut app, 1.0);
-    let once = ratio(&mut app, Some(clock), 1.0);
-    let third = ratio(&mut app, Some(clock), 1.0 / 3.0);
+    let once = geared(&mut app, Some(clock), 1.0, 1.0);
+    let third = geared(&mut app, Some(clock), 1.0, 3.0);
     app.tick(FRAME);
     let from = 1022.0;
     app.transport(Transport::Seek(from));
@@ -804,8 +843,8 @@ fn sawtooth_phase(value: f32) -> f32 {
 fn sawtooth(app: &mut App, hz: f32) -> NodeId {
     let osc = add(app, "oscillator");
     choose(app, osc, "waveform", "sawtooth");
-    // Its frequency is a gear's: a Ratio Gear on ambient seconds at `hz`, into Time.
-    let gear = ratio(app, None, hz);
+    // Its frequency is a gear's: a Ratio Gear on ambient seconds at `hz : 1`, into Time.
+    let gear = geared(app, None, hz, 1.0);
     connect(app, (gear, "cycles"), (osc, "clock"));
     osc
 }
@@ -815,7 +854,7 @@ fn sawtooth(app: &mut App, hz: f32) -> NodeId {
 #[test]
 fn a_seek_moves_an_oscillator_by_its_rate_times_the_jump_and_pause_holds_it() {
     let mut app = App::headless();
-    let osc = sawtooth(&mut app, 0.5);
+    let osc = sawtooth(&mut app, 1.0);
     ticks(&mut app, 30);
     app.transport(Transport::Pause);
     app.tick(FRAME);
@@ -832,7 +871,7 @@ fn a_seek_moves_an_oscillator_by_its_rate_times_the_jump_and_pause_holds_it() {
     app.tick(FRAME);
     let after = sawtooth_phase(read(&app, osc, "output"));
     let moved = (after - before).rem_euclid(1.0);
-    assert!((moved - 0.2).abs() < 1e-4, "0.5 Hz over 0.4 s: {moved}");
+    assert!((moved - 0.4).abs() < 1e-4, "1 Hz over 0.4 s: {moved}");
 }
 
 /// **Offset is added to Time**, in waves, either way: a sine a quarter of a wave on is a

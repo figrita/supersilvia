@@ -258,7 +258,6 @@ pub fn ghosted(
         log: false,
         varying: false,
         learning,
-        ladder: false,
         ghost,
     };
     match number::scrub(ui, rect, name, &spec, theme, true, lock_cursor, 1.0)? {

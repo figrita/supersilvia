@@ -609,7 +609,7 @@ fn a_gifs_position_is_added_over_its_own_delays() {
     );
 }
 
-/// **A gear in a GIF's Time plays it.** A Ratio Gear at ÷2 on ambient seconds is a play
+/// **A gear in a GIF's Time plays it.** A Ratio Gear at 1 : 2 on ambient seconds is a play
 /// every two seconds, so a second and a half in the GIF is three quarters of the way through
 /// its four equal frames, and two and a half seconds in, a play and a quarter, it is a quarter
 /// through: the frame follows the gear and wraps with it.
@@ -641,7 +641,7 @@ fn a_gear_in_a_gifs_time_plays_it() {
     })
     .unwrap();
     let clock = app.graph().iter().map(|(id, _)| id).max().unwrap();
-    set(&mut app, clock, "ratio", 0.5);
+    set(&mut app, clock, "q", 2.0);
     app.apply(Command::SetOption {
         node: id,
         key: "clockMode",
@@ -669,9 +669,9 @@ fn a_gear_in_a_gifs_time_plays_it() {
     assert_eq!(frame, 1.0, "a play and a quarter is a quarter through");
 }
 
-/// A gear at ×0 in a GIF's Time holds it where it is, on every tick.
+/// A number standing still in a GIF's Time holds it where it is, on every tick.
 #[test]
-fn a_still_gear_holds_a_gif() {
+fn a_still_clock_holds_a_gif() {
     let dir = scratch("hold");
     let path = dir.join("hold.gif");
     {
@@ -694,13 +694,12 @@ fn a_still_gear_holds_a_gif() {
     assert_eq!(tick_until_decoded(&mut app, id), 3);
 
     app.apply(Command::AddNode {
-        slug: "ratiogear",
+        slug: "number",
         at: Pos2::ZERO,
         workspace: app.graph().default_workspace(),
     })
     .unwrap();
-    let gear = app.graph().iter().map(|(id, _)| id).max().unwrap();
-    set(&mut app, gear, "ratio", 0.0);
+    let still = app.graph().iter().map(|(id, _)| id).max().unwrap();
     app.apply(Command::SetOption {
         node: id,
         key: "clockMode",
@@ -708,7 +707,7 @@ fn a_still_gear_holds_a_gif() {
     })
     .unwrap();
     app.apply(Command::Connect {
-        from: PortRef::new(gear, "cycles"),
+        from: PortRef::new(still, "output"),
         to: PortRef::new(id, supersilvia::nodes::TIME),
     })
     .unwrap();
@@ -719,7 +718,7 @@ fn a_still_gear_holds_a_gif() {
         assert_eq!(
             app.uniform(PortRef::new(id, "frame")),
             Some(0.0),
-            "×0 is a hold, not a slow play, on tick {tick}"
+            "a still clock is a hold, not a slow play, on tick {tick}"
         );
     }
 }

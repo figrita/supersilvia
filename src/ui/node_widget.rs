@@ -1814,7 +1814,6 @@ fn number_spec(node: &Node, key: &str, value: f32, varying: bool) -> crate::ui::
         log,
         varying,
         learning: false,
-        ladder: crate::nodes::gear::is_ratio(def, key),
         ghost: None,
     }
 }

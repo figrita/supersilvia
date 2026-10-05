@@ -51,10 +51,10 @@ fn ticks(app: &mut App, n: u32) {
     }
 }
 
-/// A Ratio Gear at `rate` on ambient seconds.
-fn gear(app: &mut App, rate: f32) -> NodeId {
+/// A Ratio Gear at `p : 1` on ambient seconds.
+fn gear(app: &mut App, p: f32) -> NodeId {
     let phase = add(app, "ratiogear");
-    set(app, phase, "ratio", rate);
+    set(app, phase, "p", p);
     phase
 }
 
@@ -147,14 +147,16 @@ fn a_tab_closed_for_a_minute_reopens_in_phase_with_one_left_open() {
     app.open_workspace(closed);
 
     let mut pairs = Vec::new();
-    for (slug, key, value) in [
-        ("ratiogear", "ratio", 0.7_f32),
-        ("mastergear", "length", 0.75),
+    for (slug, settings) in [
+        ("ratiogear", &[("p", 7.0_f32), ("q", 10.0)][..]),
+        ("mastergear", &[("length", 0.75)][..]),
     ] {
         let a = add_on(&mut app, slug, open);
         let b = add_on(&mut app, slug, closed);
-        set(&mut app, a, key, value);
-        set(&mut app, b, key, value);
+        for &(key, value) in settings {
+            set(&mut app, a, key, value);
+            set(&mut app, b, key, value);
+        }
         let out = "cycles";
         pairs.push((slug, a, b, out));
     }
@@ -202,7 +204,7 @@ fn a_ratio_gear_on_a_closed_tab_reopens_in_phase_with_its_twin() {
     set(&mut app, clock, "length", 1.0);
     let twins = [open, closed].map(|ws| {
         let gear = add_on(&mut app, "ratiogear", ws);
-        set(&mut app, gear, "ratio", 0.25);
+        set(&mut app, gear, "q", 4.0);
         app.apply(Command::Connect {
             from: PortRef::new(clock, "cycles"),
             to: PortRef::new(gear, "clock"),
@@ -251,7 +253,8 @@ fn a_stall_is_caught_up_by_a_gear_and_clamped_for_a_slew() {
 fn render(fps: f64, seconds: f64, warmup: Warmup) -> Vec<f32> {
     let mut app = App::headless();
     let phase = add(&mut app, "ratiogear");
-    set(&mut app, phase, "ratio", 1.3);
+    set(&mut app, phase, "p", 13.0);
+    set(&mut app, phase, "q", 10.0);
     let perlin = add(&mut app, "perlin");
     let time = add(&mut app, "time");
     let osc = add(&mut app, "oscillator");

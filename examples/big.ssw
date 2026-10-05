@@ -41,8 +41,8 @@
         "y": 520.0
       },
       "controls": {
-        "ratio": {
-          "Float": 0.2
+        "q": {
+          "Float": 5.0
         }
       },
       "options": {}

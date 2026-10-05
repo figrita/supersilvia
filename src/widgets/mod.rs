@@ -99,6 +99,7 @@ pub fn def(region: Region) -> &'static RegionDef {
         Region::Paint(_) => &paint::PAINT,
         Region::Brush => &paint::BRUSH,
         Region::Gear => &gear::GEAR,
+        Region::Teeth => &gear::TEETH,
     }
 }
 
@@ -263,7 +264,6 @@ impl RegionUi<'_> {
             // control is it.
             varying: false,
             learning: self.learning == Some(key),
-            ladder: crate::nodes::gear::is_ratio(def, key),
             ghost: ghost_of(self.live.ghosts, crate::graph::PortRef::new(self.id, key)),
         };
         let name = self.name(key);

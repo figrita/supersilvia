@@ -344,9 +344,9 @@ impl Transport {
     }
 
     /// Where the node is in bars, its Offset added ([`TickContext::cycle`]). Running free, or
-    /// unplugged, it is that reading; cabled, it is what arrives read as a Ratio Gear's Clock
-    /// In is — a count whole, anything else unwrapped where its source declares its wrap
-    /// (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's motion,
+    /// unplugged, it is that reading; cabled, it is what arrives read through
+    /// `TickContext::count` — a count whole, anything else unwrapped where its source declares
+    /// its wrap (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's motion,
     /// and a jump, or a cable plugged in, let go or moved onto another output, puts it back
     /// at the reading as published, and is a jump.
     fn time(&mut self, id: NodeId, ctx: &mut TickContext<'_>) -> f64 {

@@ -1293,17 +1293,9 @@ impl Synth {
         let Some(range) = crate::nodes::control_range(node.def, node, target.key) else {
             return;
         };
-        // 0..127 across the range, linearly — or, for a ratio, the ladder a drag climbs, end
-        // to end. A curve is a field on the binding that nothing sets yet: see the proposal.
-        let ratio = crate::nodes::gear::is_ratio(node.def, target.key);
-        let at = move |code: u8| {
-            let t = f32::from(code) / 127.0;
-            if ratio {
-                crate::nodes::gear::ladder::from_knob(t) as f32
-            } else {
-                range.min + t * (range.max - range.min)
-            }
-        };
+        // 0..127 across the range, linearly. A curve is a field on the binding that nothing
+        // sets yet: see the proposal.
+        let at = move |code: u8| range.min + f32::from(code) / 127.0 * (range.max - range.min);
         let current = match node.controls.get(target.key) {
             Some(ControlValue::Float(v)) => *v,
             _ => at(value),

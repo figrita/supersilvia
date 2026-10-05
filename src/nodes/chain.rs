@@ -9,12 +9,13 @@
 //!
 //! **Everything is counted in the master's cycles, as an exact fraction** ([`Fraction`]). What
 //! a cable carries is a [`Motion`]: still; a gear's count, at a rate of its cycles a master
-//! cycle, as Cycles, Phase or Ping-pong, under a Hold or a Reset a Trigger toggles; a Trigger's
-//! beats; something that comes back every so many master cycles; something that never does;
+//! cycle, as Cycles, Phase or Ping-pong; a Trigger's beats; something that comes back every so many master cycles; something that never does;
 //! or something the walk cannot read. Each node turns what reaches it into what it publishes:
 //!
-//! - **A Ratio Gear** multiplies its Clock In's rate by its ratio; a Trigger in its Reset makes
-//!   its count `rate × (m mod T)`, and in its Hold freezes it every other `T` ([`Clock`]).
+//! - **A Ratio Gear** is its parent times its Teeth, `p ÷ q`, exactly: a count's rate in its
+//!   Clock In times `p/q`, reduced, or the master's own seconds' with nothing cabled
+//!   ([`Clock`]). Anything else in its Clock In — a Phase, a Ping-pong, a number that comes
+//!   back — it reads as a number, and comes back when that does.
 //! - **A node that moves with time** is where each axis's Time and Offset put it, a rate and
 //!   things that come back on their own, read round that axis's period `P` as the graph gives
 //!   it (`timing::period_in`, any positive fraction): a count at rate `r` comes back every
@@ -58,13 +59,6 @@ impl Fraction {
     pub const ZERO: Self = Self { p: 0, q: 1 };
     pub const ONE: Self = Self { p: 1, q: 1 };
 
-    /// The fraction a ratio is, with a denominator up to 64, or `None`: the Ratio Gear's own
-    /// rule (`gear::ladder::fraction`).
-    pub fn of(r: f64) -> Option<Self> {
-        let (p, q) = crate::nodes::gear::ladder::fraction(r, 64)?;
-        Some(Self::new(p, q))
-    }
-
     /// The fraction `x` is, where it is one with a denominator up to [`NEAR_Q`]: the least `q`
     /// whose multiple of `x` is within two `f32` roundings of a whole `p`, and never more than
     /// 10⁻⁴ from it. So a Speed of 0.3 times a pace of one over a Master Gear two seconds long,
@@ -84,7 +78,7 @@ impl Fraction {
     }
 
     pub fn new(p: i64, q: i64) -> Self {
-        let g = crate::nodes::gear::ladder::gcd(p.unsigned_abs(), q.unsigned_abs()).max(1) as i64;
+        let g = gcd(p.unsigned_abs(), q.unsigned_abs()).max(1) as i64;
         let s = if q < 0 { -1 } else { 1 };
         Self {
             p: s * p / g,
@@ -142,18 +136,21 @@ impl Fraction {
     /// where it does not fit.
     pub fn lcm(self, other: Self) -> Option<Self> {
         let p = lcm(self.p.unsigned_abs(), other.p.unsigned_abs())?;
-        let q = crate::nodes::gear::ladder::gcd(self.q.unsigned_abs(), other.q.unsigned_abs());
+        let q = gcd(self.q.unsigned_abs(), other.q.unsigned_abs());
         Self::checked(i128::from(p), i128::from(q))
-    }
-
-    /// Whether the ratio is a whole ×n or ÷n.
-    pub fn simple(self) -> bool {
-        self.q == 1 || self.p.abs() == 1 || self.p == 0
     }
 
     pub fn as_f64(self) -> f64 {
         self.p as f64 / self.q as f64
     }
+}
+
+/// The greatest common divisor of two counts; zero only where both are.
+pub fn gcd(mut a: u64, mut b: u64) -> u64 {
+    while b != 0 {
+        (a, b) = (b, a % b);
+    }
+    a
 }
 
 fn gcd128(mut a: u128, mut b: u128) -> u128 {
@@ -168,57 +165,48 @@ pub fn lcm(a: u64, b: u64) -> Option<u64> {
     if a == 0 || b == 0 {
         return Some(a.max(b));
     }
-    (a / crate::nodes::gear::ladder::gcd(a, b)).checked_mul(b)
+    (a / gcd(a, b)).checked_mul(b)
 }
 
-/// A Ratio Gear's ratio as a fraction, where its control is one and nothing is cabled into it.
-fn ratio_of(graph: &Graph, id: NodeId) -> Option<Fraction> {
-    let node = graph.get(id)?;
-    if graph.source_of(PortRef::new(id, "ratio")).is_some() {
-        return None;
-    }
-    match node.controls.get("ratio") {
-        Some(ControlValue::Float(v)) => Fraction::of(f64::from(*v)),
-        _ => None,
-    }
+/// A Ratio Gear's Teeth, `p/q`, as an exact fraction in lowest terms.
+fn teeth_of(graph: &Graph, id: NodeId) -> Fraction {
+    graph.get(id).map_or(Fraction::ONE, |node| {
+        let (p, q) = crate::nodes::gear::teeth_of(node);
+        Fraction::new(p, q)
+    })
 }
 
-/// One Ratio Gear a Master Gear drives, through a chain of them: the product of every ratio
-/// from the master down to it, or `None` where one on the way is not a fraction, has a cable
-/// in its Ratio, or the product does not fit.
+/// One Ratio Gear a Master Gear drives, through a chain of them: the product of every gear's
+/// Teeth from the master down to it, or `None` where the product does not fit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Driven {
     pub node: NodeId,
     pub ratio: Option<Fraction>,
 }
 
-/// Every Ratio Gear `master` drives through its Cycles or its Phase into a Clock In, and on
-/// down through theirs, each with the product of the ratios on its way. A gear a cycle of
-/// ratio gears reaches twice is listed once, at the first product found.
+/// Every Ratio Gear `master` drives through its Cycles into a Clock In, and on down through
+/// theirs, each with the product of the Teeth on its way. A gear a cycle of ratio gears
+/// reaches twice is listed once, at the first product found.
 pub fn driven(graph: &Graph, master: NodeId) -> Vec<Driven> {
     let mut out: Vec<Driven> = Vec::new();
     let mut stack = vec![(master, Some(Fraction::ONE))];
     while let Some((from, product)) = stack.pop() {
-        for key in ["cycles", "wrapped"] {
-            for to in graph.targets_of(PortRef::new(from, key)) {
-                let Some(node) = graph.get(to.node) else {
-                    continue;
-                };
-                if node.def.slug != crate::nodes::gear::RATIO.slug
-                    || to.key != "clock"
-                    || out.iter().any(|d| d.node == to.node)
-                {
-                    continue;
-                }
-                let ratio = product
-                    .zip(ratio_of(graph, to.node))
-                    .and_then(|(a, b)| a.times(b));
-                out.push(Driven {
-                    node: to.node,
-                    ratio,
-                });
-                stack.push((to.node, ratio));
+        for to in graph.targets_of(PortRef::new(from, "cycles")) {
+            let Some(node) = graph.get(to.node) else {
+                continue;
+            };
+            if node.def.slug != crate::nodes::gear::RATIO.slug
+                || to.key != "clock"
+                || out.iter().any(|d| d.node == to.node)
+            {
+                continue;
             }
+            let ratio = product.and_then(|a| a.times(teeth_of(graph, to.node)));
+            out.push(Driven {
+                node: to.node,
+                ratio,
+            });
+            stack.push((to.node, ratio));
         }
     }
     out.sort_by_key(|d| d.node);
@@ -234,31 +222,18 @@ pub struct MasterLoop {
     /// The gear or node that asks for the most cycles, and how many, where one asks for more
     /// than one.
     pub why: Option<(NodeId, i64)>,
-    /// Nodes that never come back, or not in any length the arithmetic can count: a gear whose
-    /// ratio is no fraction, a picture that never repeats on a moving clock, a count in a
-    /// Speed, a device.
+    /// Nodes that never come back, or not in any length the arithmetic can count: a picture
+    /// that never repeats on a moving clock, a count in a Speed, a device.
     pub open: Vec<NodeId>,
-    /// Nodes past which the walk cannot tell: a cable in a Ratio, a Speed or a Divide, a count
-    /// through arithmetic, a CPU node that keeps state of its own, a clip on its own clock.
+    /// Nodes past which the walk cannot tell: a cable in a Speed or a Divide, a count through
+    /// arithmetic, a CPU node that keeps state of its own, a clip on its own clock.
     pub unsure: Vec<NodeId>,
 }
 
-/// A gear's count: `rate` of its cycles a master cycle, reset or held every `T` master cycles
-/// by a Trigger.
+/// A gear's count: `rate` of its cycles a master cycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Clock {
     pub rate: Fraction,
-    pub warp: Warp,
-}
-
-/// What a Trigger in a gear's Reset or Hold makes of its count.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Warp {
-    None,
-    /// Back to zero every `T` master cycles: the count is `rate × (m mod T)`.
-    Reset(Fraction),
-    /// Frozen every other `T` master cycles: `rate × T` further every `2T`.
-    Hold(Fraction),
 }
 
 /// Which of a gear's readings a cable carries.
@@ -297,27 +272,10 @@ pub enum Motion {
 }
 
 /// How many master cycles `h(count)` takes to come back, for `h` coming back every `p` of the
-/// count's own cycles (`None`: never), on clock `c`. With a Reset every `T` that is `T`, or
-/// the clock's own `p ÷ rate` where that divides `T`, since the reset is then not seen; with a
-/// Hold, `2T` times the least `n` that makes `n × rate × T ÷ p` whole. `Err` where it never
-/// comes back, or the arithmetic overflows.
+/// count's own cycles (`None`: never), on clock `c`: `p ÷ rate`. `Err` where it never comes
+/// back, or the arithmetic overflows.
 fn period_of(c: Clock, p: Option<Fraction>) -> Result<Fraction, ()> {
-    let rate = c.rate.abs();
-    let base = match p {
-        Some(p) => Some(p.over(rate).ok_or(())?),
-        None => None,
-    };
-    match c.warp {
-        Warp::None => base.ok_or(()),
-        Warp::Reset(t) => Ok(match base {
-            Some(b) if t.over(b).ok_or(())?.q == 1 => b,
-            _ => t,
-        }),
-        Warp::Hold(t) => {
-            let n = rate.times(t).and_then(|x| x.over(p?)).ok_or(())?.q;
-            t.times(Fraction::new(2 * n, 1)).ok_or(())
-        }
-    }
+    p.ok_or(())?.over(c.rate.abs()).ok_or(())
 }
 
 /// Everything that comes back, gathered over a node's inputs: the least common multiple of
@@ -460,7 +418,7 @@ impl<'g> Walk<'g> {
                     "cycles" => Motion::Clock(c, Shape::Count),
                     "wrapped" => Motion::Clock(c, Shape::Phase),
                     "pingpong" => Motion::Clock(c, Shape::PingPong),
-                    "trigger" if c.warp == Warp::None => match Fraction::ONE.over(c.rate.abs()) {
+                    "trigger" => match Fraction::ONE.over(c.rate.abs()) {
                         Some(period) => Motion::Beats {
                             period,
                             why: (from.node, period.p),
@@ -527,57 +485,45 @@ impl<'g> Walk<'g> {
         let graph = self.graph;
         let node = graph.get(id).ok_or(Motion::Still)?;
         let master = node.def.slug == crate::nodes::gear::MASTER.slug;
-        let (rate, mut warp) = if id == self.master {
-            (Fraction::ONE, Warp::None)
+        let rate = if id == self.master {
+            Fraction::ONE
         } else if master {
             // Another master is a clock of its own: its cycles over this one's.
             let theirs = master_seconds(graph, id).ok_or(Motion::Unknown(id))?;
-            (self.per_cycle(id, 1.0 / theirs)?, Warp::None)
+            self.per_cycle(id, 1.0 / theirs)?
         } else {
-            if graph.source_of(PortRef::new(id, "ratio")).is_some() {
-                return Err(Motion::Unknown(id));
-            }
-            let ratio = ratio_of(graph, id).ok_or(Motion::Never(id))?;
             let input = match graph.source_of(PortRef::new(id, "clock")) {
                 // Ambient seconds.
-                None => Clock {
-                    rate: self.per_cycle(id, 1.0)?,
-                    warp: Warp::None,
-                },
+                None => self.per_cycle(id, 1.0)?,
                 Some(src) => match self.port(src) {
-                    Motion::Clock(c, Shape::Count | Shape::Phase) => c,
-                    m @ (Motion::Still | Motion::Never(_) | Motion::Unknown(_)) => return Err(m),
-                    _ => return Err(Motion::Unknown(id)),
+                    Motion::Clock(c, Shape::Count) => c.rate,
+                    // A number times p ÷ q comes back when the number does.
+                    m => {
+                        let mut g = Gather::default();
+                        g.reading(m, id);
+                        return Err(g.done());
+                    }
                 },
             };
-            (
-                input.rate.times(ratio).ok_or(Motion::Never(id))?,
-                input.warp,
-            )
+            input.times(teeth_of(graph, id)).ok_or(Motion::Never(id))?
         };
-        if master && graph.source_of(PortRef::new(id, "gate")).is_some() {
-            return Err(Motion::Unknown(id));
-        }
-        for (key, held) in [("reset", false), ("hold", true)] {
-            match self.into(id, key) {
-                Motion::Still => {}
-                // A master is the yardstick: one reset or held is not a whole number of
-                // anything.
-                Motion::Beats { period, .. } if !master && warp == Warp::None => {
-                    warp = if held {
-                        Warp::Hold(period)
-                    } else {
-                        Warp::Reset(period)
-                    };
+        if master {
+            if graph.source_of(PortRef::new(id, "gate")).is_some() {
+                return Err(Motion::Unknown(id));
+            }
+            // A master is the yardstick: one reset or held is not a whole number of anything.
+            for key in ["reset", "hold"] {
+                match self.into(id, key) {
+                    Motion::Still => {}
+                    m @ (Motion::Never(_) | Motion::Unknown(_)) => return Err(m),
+                    _ => return Err(Motion::Unknown(id)),
                 }
-                m @ (Motion::Never(_) | Motion::Unknown(_)) => return Err(m),
-                _ => return Err(Motion::Unknown(id)),
             }
         }
         if rate.p == 0 {
             return Err(Motion::Still);
         }
-        Ok(Clock { rate, warp })
+        Ok(Clock { rate })
     }
 
     /// What `id` does, in the master's cycles.
@@ -788,7 +734,7 @@ impl<'g> Walk<'g> {
                 } else {
                     Some(Fraction::new(2, 1))
                 };
-                if counts && c.warp == Warp::None {
+                if counts {
                     match rate.plus(c.rate) {
                         Some(r) => *rate = r,
                         None => every.fail(Motion::Never(id)),
@@ -1006,16 +952,14 @@ pub fn caption(graph: &Graph, master: NodeId) -> String {
 mod tests {
     use super::*;
 
-    /// A node of kind `slug`, at `ratio` where it is a Ratio Gear, and on a clock — Loop
-    /// mode — where it moves with time, so a gear can be cabled into its Time.
-    fn gear(g: &mut Graph, slug: &str, ratio: Option<f32>) -> NodeId {
+    /// A node of kind `slug`, at Teeth `p : q` where it is a Ratio Gear, and on a clock —
+    /// Loop mode — where it moves with time, so a gear can be cabled into its Time.
+    fn gear(g: &mut Graph, slug: &str, teeth: Option<(f32, f32)>) -> NodeId {
         let id = crate::nodes::add_to_graph(g, slug, emath::Pos2::ZERO).unwrap();
         loops(g, id);
-        if let Some(r) = ratio {
-            g.get_mut(id)
-                .unwrap()
-                .controls
-                .insert("ratio", ControlValue::Float(r));
+        if let Some((p, q)) = teeth {
+            set(g, id, crate::nodes::gear::TEETH_P, p);
+            set(g, id, crate::nodes::gear::TEETH_Q, q);
         }
         id
     }
@@ -1162,17 +1106,17 @@ mod tests {
         assert_eq!(closes_alone(&g, clip, 1.0), None);
     }
 
-    /// A master two seconds long with ×2 and ÷4 below it, the ÷4 under a ×3: the chains
-    /// multiply, a loop is four cycles, eight seconds, and the caption names the ÷4. A cable
-    /// into a ratio cannot be told.
+    /// A master two seconds long with 2 : 1 and 1 : 4 below it, the 1 : 4 under a 3 : 1: the
+    /// chains multiply, a loop is four cycles, eight seconds, and the caption names the ÷4.
+    /// Teeth of 2 : 8 are 1 : 4 to the loop, and 3 : 3 is one to one.
     #[test]
     fn a_loop_of_a_master_is_every_chains_denominator() {
         let mut g = Graph::new();
         let master = gear(&mut g, "mastergear", None);
         set(&mut g, master, "length", 2.0);
-        let double = gear(&mut g, "ratiogear", Some(2.0));
-        let triple = gear(&mut g, "ratiogear", Some(3.0));
-        let quarter = gear(&mut g, "ratiogear", Some(0.25));
+        let double = gear(&mut g, "ratiogear", Some((2.0, 1.0)));
+        let triple = gear(&mut g, "ratiogear", Some((3.0, 1.0)));
+        let quarter = gear(&mut g, "ratiogear", Some((1.0, 4.0)));
         for (from, to) in [(master, double), (master, triple), (triple, quarter)] {
             connect(&mut g, (from, "cycles"), (to, "clock"));
         }
@@ -1180,9 +1124,9 @@ mod tests {
         assert_eq!(
             chains.iter().map(|d| (d.node, d.ratio)).collect::<Vec<_>>(),
             [
-                (double, Fraction::of(2.0)),
-                (triple, Fraction::of(3.0)),
-                (quarter, Fraction::of(0.75)),
+                (double, Some(Fraction::new(2, 1))),
+                (triple, Some(Fraction::new(3, 1))),
+                (quarter, Some(Fraction::new(3, 4))),
             ]
         );
         let l = master_loop(&g, master);
@@ -1193,20 +1137,24 @@ mod tests {
             caption(&g, master),
             format!("loops in 4 cycles · 8.000 s (÷4 on ratiogear{})", quarter.0)
         );
-        let knob = gear(&mut g, "slew", None);
-        connect(&mut g, (knob, "output"), (quarter, "ratio"));
-        assert_eq!(
-            caption(&g, master),
-            format!("can't tell when 1 node closes (ratiogear{})", quarter.0)
-        );
-        assert_eq!(master_length(&g, master), None);
+        set(&mut g, quarter, crate::nodes::gear::TEETH_P, 2.0);
+        set(&mut g, quarter, crate::nodes::gear::TEETH_Q, 8.0);
+        assert_eq!(master_length(&g, master), Some(8.0), "2 : 8 is 1 : 4");
+        set(&mut g, quarter, crate::nodes::gear::TEETH_P, 3.0);
+        set(&mut g, quarter, crate::nodes::gear::TEETH_Q, 3.0);
+        assert_eq!(master_length(&g, master), Some(2.0), "3 : 3 is one to one");
     }
 
-    /// A master of `length` seconds with a Ratio Gear at `ratio` on its Cycles, and a node
-    /// of kind `slug` on that gear's `out` through its Time.
-    fn driving(g: &mut Graph, ratio: f32, slug: &str, out: &'static str) -> (NodeId, NodeId) {
+    /// A master with a Ratio Gear at Teeth `p : q` on its Cycles, and a node of kind `slug`
+    /// on that gear's `out` through its Time.
+    fn driving(
+        g: &mut Graph,
+        (p, q): (f32, f32),
+        slug: &str,
+        out: &'static str,
+    ) -> (NodeId, NodeId) {
         let master = gear(g, "mastergear", None);
-        let ratio = gear(g, "ratiogear", Some(ratio));
+        let ratio = gear(g, "ratiogear", Some((p, q)));
         let node = gear(g, slug, None);
         connect(g, (master, "cycles"), (ratio, "clock"));
         connect(g, (ratio, out), (node, crate::nodes::TIME));
@@ -1220,7 +1168,7 @@ mod tests {
     #[test]
     fn a_noise_at_repeat_four_on_a_master_loops_in_four() {
         let mut g = Graph::new();
-        let (master, perlin) = driving(&mut g, 1.0, "perlin", "cycles");
+        let (master, perlin) = driving(&mut g, (1.0, 1.0), "perlin", "cycles");
         g.get_mut(perlin)
             .unwrap()
             .options
@@ -1249,7 +1197,7 @@ mod tests {
         );
 
         let mut g = Graph::new();
-        let (master, perlin) = driving(&mut g, 1.0, "perlin", "wrapped");
+        let (master, perlin) = driving(&mut g, (1.0, 1.0), "perlin", "wrapped");
         g.get_mut(perlin)
             .unwrap()
             .options
@@ -1268,19 +1216,23 @@ mod tests {
     /// told.
     #[test]
     fn a_tunnel_comes_back_every_flight() {
-        for (ratio, path, want) in [(32.0, "sine", 1), (0.5, "sine", 2), (0.125, "helix", 2)] {
+        for (teeth, path, want) in [
+            ((32.0, 1.0), "sine", 1),
+            ((1.0, 2.0), "sine", 2),
+            ((1.0, 8.0), "helix", 2),
+        ] {
             let mut g = Graph::new();
-            let (master, tunnel) = driving(&mut g, ratio, "tunnel3d", "cycles");
+            let (master, tunnel) = driving(&mut g, teeth, "tunnel3d", "cycles");
             g.get_mut(tunnel)
                 .unwrap()
                 .options
                 .insert("path", path.to_string());
             let l = master_loop(&g, master);
             let why = (want > 1).then_some((tunnel, want as i64));
-            assert_eq!((l.cycles, l.why), (want, why), "{path} at ×{ratio}");
+            assert_eq!((l.cycles, l.why), (want, why), "{path} at {teeth:?}");
         }
         let mut g = Graph::new();
-        let (master, tunnel) = driving(&mut g, 32.0, "tunnel3d", "cycles");
+        let (master, tunnel) = driving(&mut g, (32.0, 1.0), "tunnel3d", "cycles");
         g.get_mut(tunnel)
             .unwrap()
             .options
@@ -1299,7 +1251,7 @@ mod tests {
     #[test]
     fn a_sequencer_loops_when_every_lane_does() {
         let mut g = Graph::new();
-        let (master, euclid) = driving(&mut g, 1.0, "euclideanrhythm", "cycles");
+        let (master, euclid) = driving(&mut g, (1.0, 1.0), "euclideanrhythm", "cycles");
         assert_eq!(master_loop(&g, master).cycles, 1);
         for (key, steps) in [("lane2steps", 5.0), ("lane3steps", 3.0)] {
             set(&mut g, euclid, key, steps);
@@ -1307,7 +1259,7 @@ mod tests {
         assert_eq!(master_loop(&g, master).cycles, 5);
         assert_eq!(master_loop(&g, master).why, Some((euclid, 5)));
         let mut g = Graph::new();
-        let (master, _) = driving(&mut g, 1.0, "stepsequencer", "cycles");
+        let (master, _) = driving(&mut g, (1.0, 1.0), "stepsequencer", "cycles");
         assert_eq!(master_loop(&g, master).cycles, 1);
     }
 
@@ -1319,7 +1271,7 @@ mod tests {
     fn four_on_the_floor_on_a_slow_gear_loops_in_its_shortest_repeat() {
         for (divide, want) in [(4.0, 1), (8.0, 2), (2.0, 1)] {
             let mut g = Graph::new();
-            let (master, steps) = driving(&mut g, 1.0 / divide, "stepsequencer", "cycles");
+            let (master, steps) = driving(&mut g, (1.0, divide), "stepsequencer", "cycles");
             g.get_mut(steps).unwrap().values.insert(
                 crate::nodes::stepsequencer::PATTERN,
                 crate::graph::Value::Cells(vec!["x...x...x...x...".to_string()]),
@@ -1334,7 +1286,7 @@ mod tests {
     }
 
     /// **A period under one cycle is a fraction the loop counts exactly**: a node coming back
-    /// every half or every tenth of its own cycle, on a gear at ÷4 or ×3/10, asks for the
+    /// every half or every tenth of its own cycle, on a gear at ÷4 or 3 : 10, asks for the
     /// master cycles that make the gear's turns a whole number of those periods.
     #[test]
     fn a_fractional_period_closes_where_its_fraction_does() {
@@ -1342,15 +1294,11 @@ mod tests {
         let master = gear(&mut g, "mastergear", None);
         let rate = Fraction::new(1, 4);
         let half = Some(Fraction::new(1, 2));
-        let clock = Clock {
-            rate,
-            warp: Warp::None,
-        };
+        let clock = Clock { rate };
         assert_eq!(period_of(clock, half), Ok(Fraction::new(2, 1)));
         let tenth = Some(Fraction::new(1, 10));
         let slow = Clock {
             rate: Fraction::new(3, 10),
-            warp: Warp::None,
         };
         assert_eq!(period_of(slow, tenth), Ok(Fraction::new(1, 3)));
         assert_eq!(
@@ -1358,9 +1306,9 @@ mod tests {
             Ok(Fraction::new(25, 3))
         );
         // Through the walk: a Euclidean Rhythm whose every lane is four on the floor comes back
-        // every quarter of a bar; on a ×3/10 gear that is five sixths of a master cycle, so
+        // every quarter of a bar; on a 3 : 10 gear that is five sixths of a master cycle, so
         // five cycles.
-        let ratio = gear(&mut g, "ratiogear", Some(0.3));
+        let ratio = gear(&mut g, "ratiogear", Some((3.0, 10.0)));
         let euclid = gear(&mut g, "euclideanrhythm", None);
         for lane in 0..4 {
             set(
@@ -1385,8 +1333,8 @@ mod tests {
 
     /// **A Trigger is followed into what it drives**: into a Step Sequencer's Step, a beat a
     /// step, so a pattern sixteen steps long comes back in sixteen cycles; into a Clock Divider
-    /// at ÷3, three; into a ×1 gear's Hold, two, run and held; into a ÷4 gear's Reset, one,
-    /// since the reset comes before the gear would come round.
+    /// at ÷3, three; and a gear's Trigger beats at its own whole cycles, so a 3 : 2 gear's
+    /// into a Clock Divider at ÷3 comes round every two of the master's.
     #[test]
     fn a_trigger_is_followed_into_what_it_drives() {
         let mut g = Graph::new();
@@ -1417,63 +1365,43 @@ mod tests {
         connect(&mut g, (knob, "output"), (divider, "divide"));
         assert_eq!(master_loop(&g, master).unsure, [divider]);
 
-        for (key, ratio, want) in [("hold", 1.0, 2), ("reset", 0.25, 1), ("reset", 0.4, 1)] {
-            let mut g = Graph::new();
-            let master = gear(&mut g, "mastergear", None);
-            let geared = gear(&mut g, "ratiogear", Some(ratio));
-            let saw = gear(&mut g, "oscillator", None);
-            connect(&mut g, (master, "cycles"), (geared, "clock"));
-            connect(&mut g, (master, "trigger"), (geared, key));
-            connect(&mut g, (geared, "cycles"), (saw, crate::nodes::TIME));
-            let l = master_loop(&g, master);
-            assert_eq!(
-                (l.cycles, l.open.len(), l.unsure.len()),
-                (want, 0, 0),
-                "{key} ×{ratio}"
-            );
-        }
-        // A reset every two cycles of a ×3/2 gear, which comes round every two thirds: the
-        // reset lands on its downbeat, so the gear comes back as it would have.
         let mut g = Graph::new();
         let master = gear(&mut g, "mastergear", None);
-        let half = gear(&mut g, "ratiogear", Some(0.5));
-        let geared = gear(&mut g, "ratiogear", Some(1.5));
-        connect(&mut g, (master, "cycles"), (half, "clock"));
+        let geared = gear(&mut g, "ratiogear", Some((3.0, 2.0)));
+        let divider = gear(&mut g, "clockdivider", None);
+        set(&mut g, divider, "divide", 3.0);
         connect(&mut g, (master, "cycles"), (geared, "clock"));
-        connect(&mut g, (half, "trigger"), (geared, "reset"));
-        assert_eq!(master_loop(&g, master).cycles, 2, "a gear nothing reads");
-        let saw = gear(&mut g, "oscillator", None);
-        connect(&mut g, (geared, "cycles"), (saw, crate::nodes::TIME));
-        assert_eq!(master_loop(&g, master).cycles, 2, "and what reads it");
-        // Two gears resetting each other is a loop the walk does not follow.
+        connect(&mut g, (geared, "trigger"), (divider, "input"));
+        let l = master_loop(&g, master);
+        assert_eq!((l.cycles, l.open.len(), l.unsure.len()), (2, 0, 0));
+    }
+
+    /// **A Phase in a Ratio Gear's Clock In comes round with it**: the gear is the Phase times
+    /// p ÷ q, a number that comes back every cycle of the master, whatever the Teeth.
+    #[test]
+    fn a_phase_in_clock_in_comes_back_with_it() {
         let mut g = Graph::new();
         let master = gear(&mut g, "mastergear", None);
-        let a = gear(&mut g, "ratiogear", Some(0.25));
-        let b = gear(&mut g, "ratiogear", Some(3.0));
-        connect(&mut g, (master, "cycles"), (a, "clock"));
-        connect(&mut g, (master, "cycles"), (b, "clock"));
-        connect(&mut g, (a, "trigger"), (b, "reset"));
-        if g.connect(PortRef::new(b, "trigger"), PortRef::new(a, "reset"))
-            .is_ok()
-        {
-            let saw = gear(&mut g, "oscillator", None);
-            connect(&mut g, (a, "cycles"), (saw, crate::nodes::TIME));
-            assert_eq!(master_loop(&g, master).unsure.len(), 1);
-        }
+        let geared = gear(&mut g, "ratiogear", Some((3.0, 2.0)));
+        let saw = gear(&mut g, "oscillator", None);
+        connect(&mut g, (master, "wrapped"), (geared, "clock"));
+        connect(&mut g, (geared, "cycles"), (saw, crate::nodes::TIME));
+        let l = master_loop(&g, master);
+        assert_eq!((l.cycles, l.open.len(), l.unsure.len()), (1, 0, 0));
     }
 
     /// **A Ping-pong comes back every two cycles of its gear**, through a Time and through an
     /// Offset, and on a ×2 gear every cycle of the master.
     #[test]
     fn a_ping_pong_comes_back_every_two_cycles() {
-        for (ratio, key, want) in [
+        for (p, key, want) in [
             (1.0, crate::nodes::TIME, 2),
             (1.0, timing::OFFSET, 2),
             (2.0, crate::nodes::TIME, 1),
         ] {
             let mut g = Graph::new();
             let master = gear(&mut g, "mastergear", None);
-            let geared = gear(&mut g, "ratiogear", Some(ratio));
+            let geared = gear(&mut g, "ratiogear", Some((p, 1.0)));
             let osc = gear(&mut g, "oscillator", None);
             connect(&mut g, (master, "cycles"), (geared, "clock"));
             connect(&mut g, (geared, "pingpong"), (osc, key));
@@ -1485,7 +1413,7 @@ mod tests {
                     .insert(timing::MODE.key, timing::FREE.to_string());
                 set(&mut g, osc, timing::SPEED, 0.0);
             }
-            assert_eq!(master_loop(&g, master).cycles, want, "×{ratio} into {key}");
+            assert_eq!(master_loop(&g, master).cycles, want, "×{p} into {key}");
         }
     }
 
@@ -1564,7 +1492,7 @@ mod tests {
             2.0f32, 3.0, 5.0, 7.0, 11.0, 13.0, 17.0, 19.0, 23.0, 29.0, 31.0, 37.0, 41.0, 43.0,
             47.0, 53.0,
         ] {
-            let r = gear(&mut g, "ratiogear", Some(1.0 / q));
+            let r = gear(&mut g, "ratiogear", Some((1.0, q)));
             connect(&mut g, (master, "cycles"), (r, "clock"));
         }
         assert_eq!(master_loop(&g, master).open.len(), 1);
@@ -1572,7 +1500,7 @@ mod tests {
         let master = gear(&mut g, "mastergear", None);
         let mut from = master;
         for _ in 0..11 {
-            let r = gear(&mut g, "ratiogear", Some(63.0 / 64.0));
+            let r = gear(&mut g, "ratiogear", Some((63.0, 64.0)));
             connect(&mut g, (from, "cycles"), (r, "clock"));
             from = r;
         }
@@ -1598,7 +1526,7 @@ mod tests {
         assert_eq!(master_length(&g, master), None);
 
         let mut g = Graph::new();
-        let (master, video) = driving(&mut g, 1.0, "video", "cycles");
+        let (master, video) = driving(&mut g, (1.0, 1.0), "video", "cycles");
         assert_eq!(
             master_loop(&g, master).cycles,
             1,
@@ -1623,7 +1551,7 @@ mod tests {
         let mut g = Graph::new();
         let master = gear(&mut g, "mastergear", None);
         set(&mut g, master, "length", 1.0);
-        let half = gear(&mut g, "ratiogear", Some(0.5));
+        let half = gear(&mut g, "ratiogear", Some((1.0, 2.0)));
         let shaky = gear(&mut g, "shakycam", None);
         connect(&mut g, (master, "cycles"), (half, "clock"));
         connect(&mut g, (half, "cycles"), (shaky, crate::nodes::TIME_Y));

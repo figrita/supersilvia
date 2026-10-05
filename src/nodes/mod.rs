@@ -432,10 +432,10 @@ pub struct OutputDef {
     pub integral: bool,
     /// Where a `UniformNumber` output that is a clock wraps as one `f32`: 1 for a phase
     /// published 0 up to 1 — the two gears' Phase — and [`phasor::WRAP`] for everything else,
-    /// a count's one `f32` published −1260 up to 1260. A clock cabled into a Ratio Gear's
-    /// Clock In or a sequencer's Time is unwrapped at half of it, so a 0..1 Phase runs forward
-    /// across its wrap; a count published whole is read unwrapped and never wraps
-    /// (`TickContext::wraps_at`).
+    /// a count's one `f32` published −1260 up to 1260. A clock cabled into a sequencer's Time
+    /// is unwrapped at half of it, so a 0..1 Phase runs forward across its wrap, and a Ratio
+    /// Gear's Clock In there to find the whole cycles a frame passed; a count published whole
+    /// is read unwrapped and never wraps (`TickContext::wraps_at`).
     pub wraps_at: f64,
 }
 

@@ -31,7 +31,7 @@ use supersilvia::{App, Command};
 const READS_THE_WORLD: &[&str] = &["camera", "audioin", "screencapture", "text", "clock"];
 
 /// The nodes that hold a Hold, pressed during the first run.
-const GEARS: &[&str] = &["mastergear", "ratiogear"];
+const GEARS: &[&str] = &["mastergear"];
 
 /// Inputs a driving Master Gear is cabled into, by node, beside every node's Time: an action
 /// input takes its Trigger, a number its Cycles.

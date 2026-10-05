@@ -13,12 +13,11 @@
 //! draw a bar with. A still is one frame; a GIF is as many as it holds, each with the delay it
 //! was authored with. **Time counts plays of it**, `video`'s rule: at Speed 1, or in Loop mode
 //! unplugged, the animation's own pace, one play every length of its delays, and Speed 2 twice
-//! as fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at ×2 twice as fast and one
-//! at `-×1` backwards. **Offset** is
-//! added, 0 to 1 across the whole animation laid over the frames' own delays, the sum wrapping
-//! at the end as a GIF does; a slow wave on it scratches around the playing animation. The
-//! frame shown is a function of that sum, so the same sum is the same frame however it was
-//! reached, and the node keeps no playhead of its own.
+//! as fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at 2 : 1 twice as fast.
+//! **Offset** is added, 0 to 1 across the whole animation laid over the frames' own delays, the
+//! sum wrapping at the end as a GIF does; a slow wave on it scratches around the playing
+//! animation. The frame shown is a function of that sum, so the same sum is the same frame
+//! however it was reached, and the node keeps no playhead of its own.
 //!
 //! **A frame is premultiplied once, as it is decoded.** A PNG's and a GIF's pixels are
 //! straight and every picture in the graph is premultiplied

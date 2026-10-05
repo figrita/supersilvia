@@ -763,11 +763,12 @@ fn set(app: &mut App, node: NodeId, key: &'static str, value: f32) {
     .unwrap();
 }
 
+/// A Ratio Gear at 2 : 1 on ambient seconds is two cycles a second.
 #[test]
-fn phase_accumulates_dt_times_rate() {
+fn a_ratio_gear_on_ambient_seconds_counts_p_over_q_a_second() {
     let (mut app, phase) = app_with_phase();
     let out = PortRef::new(phase, "cycles");
-    set(&mut app, phase, "ratio", 2.0);
+    set(&mut app, phase, "p", 2.0);
     for _ in 0..60 {
         app.tick(FRAME);
     }
@@ -775,88 +776,6 @@ fn phase_accumulates_dt_times_rate() {
     assert!(
         (v - 2.0).abs() < 1e-3,
         "two cycles per second for a second: {v}"
-    );
-}
-
-#[test]
-fn a_reset_restarts_the_phase() {
-    let (mut app, phase) = app_with_phase();
-    let out = PortRef::new(phase, "cycles");
-    set(&mut app, phase, "ratio", 1.0);
-    for _ in 0..60 {
-        app.tick(FRAME);
-    }
-    assert!(app.uniform(out).unwrap() > 0.9);
-
-    app.press(PortRef::new(phase, "reset"), true);
-    app.tick(FRAME);
-    let v = app.uniform(out).unwrap();
-    assert!(
-        (v - FRAME).abs() < 1e-4,
-        "restarted at the press, leaving this frame's advance: {v}"
-    );
-
-    // Held is not a retrigger: the phase runs on from where the reset left it.
-    app.tick(FRAME);
-    let v = app.uniform(out).unwrap();
-    assert!((v - 2.0 * FRAME).abs() < 1e-4, "running again: {v}");
-}
-
-/// Hold is a toggle: the gear stops where it is and picks up from there on the next press,
-/// rather than winding the ratio down to zero and losing it.
-#[test]
-fn a_hold_freezes_the_phase_and_lets_it_go_from_where_it_stopped() {
-    let (mut app, phase) = app_with_phase();
-    let out = PortRef::new(phase, "cycles");
-    set(&mut app, phase, "ratio", 1.0);
-    for _ in 0..30 {
-        app.tick(FRAME);
-    }
-    let stopped = app.uniform(out).unwrap();
-    // The press is a moment at the top of its frame, so the frame it lands on adds nothing.
-
-    tap_button(&mut app, phase, "hold");
-    for _ in 0..59 {
-        app.tick(FRAME);
-    }
-    assert_eq!(
-        app.uniform(out),
-        Some(stopped),
-        "a whole second of frames adds nothing while it is held"
-    );
-
-    tap_button(&mut app, phase, "hold");
-    for _ in 0..29 {
-        app.tick(FRAME);
-    }
-    let after = app.uniform(out).unwrap();
-    assert!(
-        (after - (stopped + 30.0 * FRAME)).abs() < 1e-3,
-        "picked up from where it stopped rather than from where it would have been: {after}"
-    );
-}
-
-/// A hold and a reset in the same frame are two moments, and which came first is the answer.
-#[test]
-fn a_reset_inside_a_hold_leaves_the_phase_at_zero() {
-    let (mut app, phase) = app_with_phase();
-    let out = PortRef::new(phase, "cycles");
-    set(&mut app, phase, "ratio", 1.0);
-    for _ in 0..30 {
-        app.tick(FRAME);
-    }
-    app.press(PortRef::new(phase, "hold"), true);
-    app.tick(FRAME);
-    app.press(PortRef::new(phase, "reset"), true);
-    app.tick(FRAME);
-    app.press(PortRef::new(phase, "reset"), false);
-    for _ in 0..30 {
-        app.tick(FRAME);
-    }
-    assert_eq!(
-        app.uniform(out),
-        Some(0.0),
-        "reset while held, and held is still held"
     );
 }
 
@@ -881,35 +800,31 @@ fn option(app: &mut App, node: NodeId, key: &'static str, value: &str) {
     .expect("the option is the node's and the value is one of its choices");
 }
 
-/// `wrapped` is the cycle's own fraction and never leaves 0..1 — including under a negative
-/// ratio, where a signed `fract` would fold it onto the wrong side of the wrap. A gear at −×1
-/// from its birth is born at minus the playhead and counts down from zero, through three
-/// whole cycles below it.
+/// `wrapped` is the cycle's own fraction and never leaves 0..1 — including below zero, where
+/// a signed `fract` would fold it onto the wrong side of the wrap. A gear on ambient seconds
+/// rendered from three seconds before the playhead's zero counts up through three whole
+/// cycles below it.
 #[test]
 fn phases_wrapped_output_stays_inside_one_cycle() {
-    for rate in [1.0, -1.0] {
-        let (mut app, phase) = app_with_phase();
-        let (cycles, wrapped) = (
-            PortRef::new(phase, "cycles"),
-            PortRef::new(phase, "wrapped"),
+    let (mut app, phase) = app_with_phase();
+    let (cycles, wrapped) = (
+        PortRef::new(phase, "cycles"),
+        PortRef::new(phase, "wrapped"),
+    );
+    let mut lowest = f32::MAX;
+    app.transport(supersilvia::transport::Command::Seek(-3.0));
+    for n in 0..360 {
+        app.tick_at(-3.0 + f64::from(n) / 60.0);
+        let (c, v) = (app.uniform(cycles).unwrap(), app.uniform(wrapped).unwrap());
+        lowest = lowest.min(c);
+        assert!((0.0..1.0).contains(&v), "{v}");
+        let fraction = c.rem_euclid(1.0);
+        assert!(
+            (v - fraction).abs() < 1e-4 || (v - fraction).abs() > 1.0 - 1e-4,
+            "{c} cycles is a Phase of {fraction}, not {v}"
         );
-        set(&mut app, phase, "ratio", rate);
-        let mut lowest = f32::MAX;
-        for _ in 0..180 {
-            app.tick(FRAME);
-            let (c, v) = (app.uniform(cycles).unwrap(), app.uniform(wrapped).unwrap());
-            lowest = lowest.min(c);
-            assert!((0.0..1.0).contains(&v), "at rate {rate}: {v}");
-            let fraction = c.rem_euclid(1.0);
-            assert!(
-                (v - fraction).abs() < 1e-4 || (v - fraction).abs() > 1.0 - 1e-4,
-                "at rate {rate}, {c} cycles is a Phase of {fraction}, not {v}"
-            );
-        }
-        if rate < 0.0 {
-            assert!(lowest < -2.9, "the count went below zero: {lowest}");
-        }
     }
+    assert!(lowest < -2.9, "the count went below zero: {lowest}");
 }
 
 /// `pingpong` is a triangle over two cycles: out at one, home at two, and the cycles beside
@@ -922,8 +837,6 @@ fn phases_pingpong_is_out_at_one_cycle_and_home_at_two() {
         PortRef::new(phase, "cycles"),
         PortRef::new(phase, "pingpong"),
     );
-    set(&mut app, phase, "ratio", 1.0);
-
     for _ in 0..60 {
         app.tick(FRAME);
     }
@@ -1024,48 +937,6 @@ fn the_trace_is_dated_by_the_clock_not_counted_in_frames() {
     assert!(
         (long - 3.0 * f64::from(FRAME)).abs() < 1e-6 && (short - f64::from(FRAME)).abs() < 1e-6,
         "the late frame is three frames wide on the band: {gaps:?}"
-    );
-}
-
-/// A frequency turned on the gear driving an oscillator lands on a whole wave, so the wave
-/// never jumps: the value moves no faster than the new frequency's own slope, before, across
-/// and after the change.
-#[test]
-fn a_ratio_turned_on_its_gear_leaves_the_oscillator_continuous() {
-    let mut app = App::headless();
-    let osc = add_to(&mut app, "oscillator");
-    let gear = add_to(&mut app, "ratiogear");
-    cable(
-        &mut app,
-        PortRef::new(gear, "cycles"),
-        PortRef::new(osc, supersilvia::nodes::TIME),
-    );
-    let out = PortRef::new(osc, "output");
-    let (from, to) = (1.0, 5.0);
-    set(&mut app, gear, "ratio", from);
-
-    let mut history = Vec::new();
-    for frame in 0..180 {
-        if frame == 50 {
-            set(&mut app, gear, "ratio", to);
-        }
-        app.tick(FRAME);
-        history.push(app.uniform(out).unwrap());
-    }
-
-    // A sine of unit amplitude at `to` Hz changes by at most `2π · to` a second, so one
-    // frame of it is the most any step between samples can be.
-    let bound = std::f32::consts::TAU * to * FRAME;
-    let steps: Vec<f32> = history.windows(2).map(|w| w[1] - w[0]).collect();
-    let largest = steps.iter().fold(0.0f32, |a, b| a.max(b.abs()));
-    assert!(
-        largest <= bound * 1.01,
-        "a step of {largest} over the slope's {bound}"
-    );
-    assert!(largest > bound / 4.0, "the wave moved: {largest}");
-    assert!(
-        history.iter().all(|v| (-1.001..=1.001).contains(v)),
-        "inside its own amplitude"
     );
 }
 
@@ -1315,11 +1186,11 @@ fn a_chain_of_duals_resolves_in_one_frame() {
 }
 
 /// **The point of the whole stage.** Uniform number arithmetic drives a `UniformNumber`
-/// input: an `add` of two `phase` outputs is a number, so `phase.rate` takes it — and where
-/// the same `add` also feeds a field, the shader reads it as a bare uniform with no function
-/// of its own.
+/// input: an `add` of two gears' Cycles is a number, so a Ratio Gear's Clock In takes it —
+/// and where the same `add` also feeds a field, the shader reads it as a bare uniform with no
+/// function of its own.
 #[test]
-fn an_add_of_two_uniforms_drives_a_rate_and_compiles_to_a_uniform() {
+fn an_add_of_two_uniforms_drives_a_clock_and_compiles_to_a_uniform() {
     let mut g = Graph::new();
     let p = add(&mut g, "ratiogear");
     let q = add(&mut g, "ratiogear");
@@ -1329,12 +1200,12 @@ fn an_add_of_two_uniforms_drives_a_rate_and_compiles_to_a_uniform() {
         .unwrap();
     g.connect(PortRef::new(q, "cycles"), PortRef::new(sum, "b"))
         .unwrap();
-    g.connect(PortRef::new(sum, "output"), PortRef::new(driven, "ratio"))
+    g.connect(PortRef::new(sum, "output"), PortRef::new(driven, "clock"))
         .expect("a diamond add feeds a uniform number input, which is what it is for");
     assert_eq!(
         g.get(sum).unwrap().input("a").unwrap().ty,
         PortType::UniformNumber,
-        "the rate reads its number, so the add is pinned — and a pinned node is still a \
+        "the clock reads its number, so the add is pinned — and a pinned node is still a \
          uniform to the compiler, which is what the rest of this asserts"
     );
 
@@ -1442,7 +1313,7 @@ fn a_pinned_add_publishes_the_sum_of_its_uniforms() {
     let q = added(&mut app, "ratiogear");
     let sum = added(&mut app, "add");
     let slew = added(&mut app, "slew");
-    set(&mut app, q, "ratio", 4.0);
+    set(&mut app, q, "p", 4.0);
     for (from, to) in [
         (PortRef::new(p, "cycles"), PortRef::new(sum, "a")),
         (PortRef::new(q, "cycles"), PortRef::new(sum, "b")),

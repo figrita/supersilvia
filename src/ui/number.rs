@@ -26,7 +26,6 @@
 
 use crate::graph::ControlRange;
 use crate::nodes::NumberField;
-use crate::nodes::gear::ladder;
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
     Align2, Color32, CornerRadius, FontId, Key, Pos2, Rect, Response, Sense, Stroke, TextEdit, Ui,
@@ -51,9 +50,6 @@ const STEP_FLOOR: f32 = 0.001;
 /// something a drag can grab.
 const VALUE_PAD: f32 = 4.0;
 
-// Four independent answers about one control — log, varying, learning, ladder — each read in
-// its own place; an enum of their combinations would name sixteen states nothing asks for.
-#[allow(clippy::struct_excessive_bools)]
 pub struct NumberSpec {
     pub value: f32,
     /// What the definition says this control is when nothing has been dialed: `D`.
@@ -74,12 +70,6 @@ pub struct NumberSpec {
     /// This control is waiting for a MIDI message: it wears [`crate::ui::learning_ring`] and
     /// its accessible name ends in [`crate::ui::LEARNING`].
     pub learning: bool,
-    /// A Ratio Gear's **ratio**, drawn and walked on [`ladder`]: the value is the ratio
-    /// itself, written `×3`, `÷4` or `3/2`; a drag, the steppers, the arrows and the wheel
-    /// climb the ladder a rung at a time, through ×0 into reverse, `[` and `]` go to its ends,
-    /// and a typed `×5`, `÷7`, `3/2`, `0.3` or `-×1` is taken as it is. It has no range
-    /// editor. False for every other number.
-    pub ladder: bool,
     /// Where a bound fader is, in this control's own units, while soft takeover holds it out
     /// of pick-up: a ghost mark across the trough at that place, inside the control's own
     /// size, says where to steer it. Its accessible name says it too.
@@ -132,9 +122,6 @@ impl NumberSpec {
     }
 
     fn quantize(&self, v: f32) -> f32 {
-        if self.ladder {
-            return v.clamp(self.min(), self.max());
-        }
         let v = if self.step() > 0.0 {
             (v / self.step()).round() * self.step()
         } else {
@@ -167,10 +154,6 @@ impl NumberSpec {
         if self.max() <= self.min() {
             return 0.0;
         }
-        if self.ladder {
-            let at = ladder::nearest(f64::from(value)) + ladder::TOP;
-            return (at as f32 / (2 * ladder::TOP) as f32).clamp(0.0, 1.0);
-        }
         if let Some((low, span)) = self.log_span() {
             return ((value.max(self.min()).ln() - low) / span).clamp(0.0, 1.0);
         }
@@ -179,12 +162,6 @@ impl NumberSpec {
 
     /// Advance by `steps` of drag, linearly or in log space.
     fn advance(&self, steps: f32, multiplier: f32) -> f32 {
-        if self.ladder {
-            // A rung at a time, from wherever a typed ratio sits nearest.
-            let at = ladder::nearest(f64::from(self.value));
-            let by = (steps * multiplier).round() as i32;
-            return ladder::at(at + by) as f32;
-        }
         if self.log_span().is_some() {
             return self.at_fraction(self.fraction() + steps * multiplier / LOG_STEPS_ACROSS);
         }
@@ -195,10 +172,6 @@ impl NumberSpec {
     /// where the fill's edge is drawn.
     fn at_fraction(&self, t: f32) -> f32 {
         let t = t.clamp(0.0, 1.0);
-        if self.ladder {
-            let rung = (t * (2 * ladder::TOP) as f32).round() as i32 - ladder::TOP;
-            return ladder::at(rung) as f32;
-        }
         if let Some((low, span)) = self.log_span() {
             return (low + t * span).exp().clamp(self.min(), self.max());
         }
@@ -238,9 +211,6 @@ impl NumberSpec {
     /// Any number at this control's own precision, so a readout, a typed buffer and a
     /// default shown beside a field cannot disagree about how many places to give it.
     fn shown(&self, v: f32) -> String {
-        if self.ladder {
-            return ladder::label(f64::from(v));
-        }
         format!("{:.*}", self.decimals(), v)
     }
 
@@ -249,26 +219,15 @@ impl NumberSpec {
         self.shown(self.value)
     }
 
-    /// Where `[` and `]` go: the control's ends, or the ladder's.
+    /// Where `[` and `]` go: the control's ends.
     fn ends(&self) -> (f32, f32) {
-        if self.ladder {
-            (
-                ladder::at(-ladder::TOP) as f32,
-                ladder::at(ladder::TOP) as f32,
-            )
-        } else {
-            (self.min(), self.max())
-        }
+        (self.min(), self.max())
     }
 
-    /// A typed value as this control reads it: a number, or on the ladder `×n`, `÷n`, `p/q`
-    /// and a sign. `None` leaves the value alone.
+    /// A typed value as this control reads it, fitted to its range and its step. `None`
+    /// leaves the value alone.
     fn typed(&self, text: &str) -> Option<f32> {
-        let v = if self.ladder {
-            ladder::parse(text)? as f32
-        } else {
-            text.trim().parse::<f32>().ok().filter(|v| v.is_finite())?
-        };
+        let v = text.trim().parse::<f32>().ok().filter(|v| v.is_finite())?;
         Some(self.quantize(v))
     }
 
@@ -734,9 +693,8 @@ pub fn scrub(
         }
     }
 
-    // Right-click asks about the control rather than about the value: where its ends are. A
-    // ratio's ends are its ladder's, which nothing edits.
-    if response.secondary_clicked() && !spec.ladder {
+    // Right-click asks about the control rather than about the value: where its ends are.
+    if response.secondary_clicked() {
         return Some(NumberAction::OpenRange);
     }
 
@@ -748,7 +706,7 @@ pub fn scrub(
             // Held on a stepper, Ctrl changes the quantum rather than multiplying the move:
             // the two live on the same button because coarser steps and a coarser step size
             // are the same wish.
-            let quantum = (modifiers.command || modifiers.ctrl) && !spec.ladder;
+            let quantum = modifiers.command || modifiers.ctrl;
             if dec_rect.contains(pos) {
                 return Some(if quantum {
                     NumberAction::SetStep(spec.scaled_step(0.1))
@@ -1246,13 +1204,6 @@ fn hover_text(label: &impl std::fmt::Display, spec: &NumberSpec) -> String {
     if spec.varying {
         return format!("{label} — a varying value arrives here: one per pixel, not a number");
     }
-    if spec.ladder {
-        return format!(
-            "{label} {} — drag ÷16 to ×16 and through ×0 to reverse, or type ×n, ÷n, p/q or a \
-             number",
-            spec.text()
-        );
-    }
     format!(
         "{label} {} ({}-{}, step {})",
         spec.with_unit(),
@@ -1277,7 +1228,6 @@ mod tests {
             log,
             varying: false,
             learning: false,
-            ladder: false,
             ghost: None,
         }
     }

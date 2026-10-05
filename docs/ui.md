@@ -2142,7 +2142,7 @@ share the same call, so a value reads as the same recessed thing wherever it is 
 | `[` / `]` | to this control's own ends |
 | `D` | back to the definition's default |
 | `R` | back to the default **and** the definition's range |
-| right-click | the range editor — except on a Ratio Gear's Ratio, which [walks a ladder](#the-gear-region) and has none |
+| right-click | the range editor |
 
 Keys are read while the pointer is **over** the control, not while it is focused: the canvas
 has no focus to give, because a node is not a widget tree. They are consumed rather than read,
@@ -3584,27 +3584,23 @@ The strip is drawn in one place — the picture on the node — and reads
 A Master Gear and a Ratio Gear each carry one region under their rows, `Region::Gear`
 (`widgets/gear.rs`): a picture of what the gear is set to, turning at its real rate, with
 the words beside it and, on a Master Gear, a caption under it. It is **92 points tall
-whichever picture it draws**, so changing the picture, a ratio landing or a caption arriving
-moves nothing. It declares no heading and claims no pointer: a hand carries the node by it.
+whichever picture it draws**, so changing the picture, the Teeth or a caption arriving moves
+nothing. It declares no heading and claims no pointer: a hand carries the node by it.
 
 **The Display option picks the picture**, on both gears, and **Rosette** is the default.
 
-| Display | a Ratio Gear at `p/q` | a Master Gear |
+| Display | a Ratio Gear at Teeth `p : q`, in lowest terms | a Master Gear |
 | --- | --- | --- |
 | **Rosette** | a still spirograph that turns once round an input cycle, so it winds `q` loops, the input cycles it takes to close, and waves in and out `p` times across them, the output's cycles, its petals — ×3 three petals in one loop, ÷4 one petal wound over four loops; a tick at the top where every loop begins; and a dot riding the curve at the output's phase | a ring of a clock face's twelve ticks, the first one long, and the dot |
 | **Gears** | the input's gear of `k·p` teeth driving the output's of `k·q`, `k` the smallest that puts both at six or more; where that puts one past forty-eight, two gears of twelve with the ratio printed on the output's hub | one gear of twelve teeth, turning once a cycle |
 
 **Both pictures turn by the gear's own phases**, never an animation clock, so a paused show
-is still and a seek moves them at once. A ratio that is not a small fraction is drawn at the
-nearest one, the rosette's rim broken at the top where it does not close.
+is still and a seek moves them at once.
 
 **Beside the picture, the words.** A Master Gear's: its cycle in seconds, `2.000 s`, over
-`a cycle`; and `held` while Hold is on. A Ratio Gear's: its ratio,
-`×3`; what it closes in, `every cycle in`, `every 3 cycles in` or `never closes`; the
-picture's own count, `2 petals · 3 loops` or `6 : 9 teeth`; and `held`, or a change
-waiting to land. **A ratio change lands on the input's next whole cycle**, so until then the
-old ratio runs, the words say `→ ×2 next`, and the rosette draws the new one ghosted behind
-the one turning.
+`a cycle`; and `held` while Hold is on. A Ratio Gear's: its ratio in lowest terms, `×3`,
+`÷4` or `3/2`; what it closes in, `every cycle in` or `every 3 cycles in`; and the picture's
+own count, `2 petals · 3 loops` or `6 : 9 teeth`.
 
 **Under a Master Gear, its caption**: what a loop of it needs, read from every node downstream
 of it (`nodes::chain::caption`). The chains' ratios multiply down each chain, each node comes
@@ -3612,9 +3608,9 @@ back after its own period on what drives it — a noise's Repeat, a tunnel's Hel
 Trigger's beats, a node on its own clock beside it — and a loop is as many of the master's
 cycles as the least common multiple of what they ask for — `loops in 1 cycle · 2.000 s`, or
 `loops in 4 cycles · 8.000 s (÷4 on ratiogear12)` or `(÷4 on perlin5)`, naming the gear or node
-that asks for the most — or `2 nodes will not close (perlin5)` where a node never repeats, a
-ratio is not a fraction or a count runs into a Speed, or `can't tell when 1 node closes
-(multiply3)` where a ratio or a Speed is cabled, a Math node stands between a gear and a Time,
+that asks for the most — or `2 nodes will not close (perlin5)` where a node never repeats or
+a count runs into a Speed, or `can't tell when 1 node closes (multiply3)` where a Speed is
+cabled, a Math node stands between a gear and a Time,
 or a CPU node keeps state of its own, naming the first such node
 ([nodes.md](nodes.md#when-a-loop-closes)). The node has no room for the reason, so the line is drawn up to
 its ` (` and **the whole of it is on the hover**. It is what a loop of the patch is: an
@@ -3626,20 +3622,20 @@ named `{slug}{id}.gear` and its words joined with ` · ` — `ratiogear4.gear ×
 in · 3 petals · 1 loop` — and on a Master Gear a second, `{slug}{id}.loop` and the whole
 caption, `mastergear1.loop loops in 4 cycles · 8.000 s (÷4 on ratiogear12)`.
 
-### The ratio walks a ladder
+### The Teeth row
 
-A Ratio Gear's **Ratio** row is the s-number in its ladder mode (`NumberSpec::ladder`): the
-value is the ratio itself, written `×3`, `÷4`, `3/2`, `×0`, `-×2`, or `0.370` for one that is
-no fraction with a denominator up to 64. A drag, the steppers, `↑` and `↓` and the wheel climb
-a ladder a rung at a time — ÷16, ÷8, ÷6, ÷4, ÷3, ÷2, ×1, ×2, ×3, ×4, ×6, ×8, ×12, ×16 — and on
-down through ×0 into the same rungs reversed, from whichever rung a typed ratio sits nearest;
-a press on the track jumps to the rung under it, and `[` and `]` go to `-×16` and `×16`. **A
-click types anything**: `×5` (or `x5`, `*5`), `÷7` (or `/7`), `3/2`, `0.3`, each with a
-leading minus for reverse, held inside −64 to 64. A ratio off the ladder is allowed, and the
-master above it counts its denominator into the loop. **It has no range editor** — its ends
-are the ladder's — so a right-click opens nothing, and `Ctrl` on a stepper does not change a
-step size, since a rung is the step. Its hover says how it is walked, and a MIDI knob bound to
-it sweeps the whole ladder. Its accessible name is the ratio's, `ratiogear4.ratio ×3`.
+A Ratio Gear's **Teeth** are one row above its picture, `Region::Teeth` (`widgets::gear::TEETH`),
+the height of a port row's and on a lone input row's slab, short of the far edge with its outer
+corners round: the word `Teeth` where a row's label stands, then `p`, a colon and `q`, each the
+inset s-number at 60 points rather than 100, so two and the colon fit where one control and
+its label do and each keeps its steppers. They are the node's own hidden controls, with no
+port, drawn by `RegionUi::number`, so each answers every gesture a number on a row does —
+drag, steppers, arrows, wheel, a typed value, `D`, `R`, the range editor and a MIDI binding —
+and steps by one from 1 to 64, so a drag and a typed `2.5` land on whole numbers and a typed
+`0` on 1. They show the Teeth as typed: 2 : 4 stays 2 : 4, and the picture beside draws ÷2.
+The word and the colon carry a hover, `Turns 3 times for every 2 turns of its parent.`, and
+the row's accessible name is `ratiogear4.teeth 3 : 2`; each number's is its own,
+`ratiogear4.p 3`.
 
 ## The XY Pad
 

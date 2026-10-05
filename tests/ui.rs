@@ -12894,10 +12894,10 @@ fn the_time_readout_holds_its_width() {
 // -------------------------------------------------------------------------- the gears
 
 /// **A gear draws its own picture.** A Master Gear is two seconds a cycle, its rosette a ring
-/// of a clock face's twelve ticks; a Ratio Gear at ÷4 on its Cycles says so, and that it closes
-/// in four of its input's cycles; the master's caption says a loop of it needs four cycles,
-/// eight seconds. A ratio turned waits for the input's next whole cycle and says so. Display
-/// ▸ Gears draws the same as meshing gears, six teeth driving twenty-four.
+/// of a clock face's twelve ticks; a Ratio Gear at Teeth 1 : 4 on its Cycles says ÷4, and that
+/// it closes in four of its input's cycles; the master's caption says a loop of it needs four
+/// cycles, eight seconds. Teeth typed 2 : 8 stay 2 : 8 on the row and draw as ÷4. Display ▸
+/// Gears draws the same as meshing gears, six teeth driving twenty-four.
 #[test]
 fn a_gear_draws_its_rosette_and_its_gears() {
     let mut h = tall_harness();
@@ -12917,8 +12917,8 @@ fn a_gear_draws_its_rosette_and_its_gears() {
     h.state_mut()
         .apply(Command::SetControl {
             node: gear,
-            key: "ratio",
-            value: supersilvia::graph::ControlValue::Float(0.25),
+            key: "q",
+            value: supersilvia::graph::ControlValue::Float(4.0),
         })
         .unwrap();
     h.state_mut()
@@ -12932,21 +12932,25 @@ fn a_gear_draws_its_rosette_and_its_gears() {
         .transport(supersilvia::transport::Command::Pause);
     h.run_steps(2);
     h.get_by_label_contains(&format!("ratiogear{gear}.gear ÷4 · every 4 cycles in"));
+    h.get_by_label_contains(&format!("ratiogear{gear}.teeth 1 : 4"));
     h.get_by_label_contains(&format!("mastergear{master}.gear 2.000 s · a cycle"));
     h.get_by_label(&format!(
         "mastergear{master}.loop loops in 4 cycles · 8.000 s (÷4 on ratiogear{gear})"
     ));
     h.snapshot("gear_rosette");
 
-    h.state_mut()
-        .apply(Command::SetControl {
-            node: gear,
-            key: "ratio",
-            value: supersilvia::graph::ControlValue::Float(2.0),
-        })
-        .unwrap();
+    for (key, value) in [("p", 2.0), ("q", 8.0)] {
+        h.state_mut()
+            .apply(Command::SetControl {
+                node: gear,
+                key,
+                value: supersilvia::graph::ControlValue::Float(value),
+            })
+            .unwrap();
+    }
     h.run_steps(2);
-    h.get_by_label_contains("→ ×2 next");
+    h.get_by_label_contains(&format!("ratiogear{gear}.teeth 2 : 8"));
+    h.get_by_label_contains(&format!("ratiogear{gear}.gear ÷4 · every 4 cycles in"));
 
     for node in [master, gear] {
         h.state_mut()
@@ -12962,6 +12966,81 @@ fn a_gear_draws_its_rosette_and_its_gears() {
         "ratiogear{gear}.gear ÷4 · every 4 cycles in · 6 : 24 teeth"
     ));
     h.snapshot("gear_gears");
+}
+
+/// **Teeth take whole numbers of one or more, typed or dragged.** A Ratio Gear's two numbers
+/// stand on one row, `p : q`, with no port: 2.5 typed into p is 3, 0 and −4 typed into q are
+/// 1, and a drag along p steps it by whole teeth, up and back down to 1 and no further. The
+/// row says what it is set to.
+#[test]
+fn teeth_take_whole_numbers_of_one_or_more_typed_or_dragged() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_PHASE);
+    let id = h.state().graph().iter().next().expect("one node").0;
+    assert!(
+        h.query_by_label_contains(&format!("ratiogear{id}.p ("))
+            .is_none()
+            && h.query_by_label_contains(&format!("ratiogear{id}.q ("))
+                .is_none(),
+        "neither number has a port"
+    );
+    h.get_by_label_contains(&format!("ratiogear{id}.teeth 1 : 1"));
+
+    let typed = |h: &mut Harness<'_, App>, key: &str, now: &str, text: &str| {
+        h.get_by_label_contains(&format!("ratiogear{id}.{key} {now}"))
+            .click();
+        h.run_steps(2);
+        type_text(h, text);
+        h.input_mut().events.push(egui::Event::Key {
+            key: egui::Key::Enter,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        });
+        h.run_steps(2);
+    };
+    typed(&mut h, "p", "1", "2.5");
+    assert_eq!(float(&h, id, "p"), 3.0, "2.5 typed is a whole 3");
+    typed(&mut h, "q", "1", "0");
+    assert_eq!(float(&h, id, "q"), 1.0, "0 typed is 1");
+    typed(&mut h, "q", "1", "-4");
+    assert_eq!(float(&h, id, "q"), 1.0, "−4 typed is 1");
+    h.get_by_label_contains(&format!("ratiogear{id}.teeth 3 : 1"));
+
+    let rect = number_rect(&h, &format!("ratiogear{id}.p 3"));
+    drag_with(
+        &mut h,
+        rect.center(),
+        rect.center() + egui::vec2(22.0, 0.0),
+        egui::Modifiers::NONE,
+    );
+    let up = float(&h, id, "p");
+    assert!(
+        up > 3.0 && up.fract() == 0.0,
+        "dragged up by whole teeth: {up}"
+    );
+    let rect = number_rect(&h, &format!("ratiogear{id}.p {up}"));
+    drag_with(
+        &mut h,
+        rect.center(),
+        rect.center() - egui::vec2(400.0, 0.0),
+        egui::Modifiers::SHIFT,
+    );
+    let down = float(&h, id, "p");
+    assert!(
+        down >= 1.0 && down.fract() == 0.0,
+        "a fine drag is whole too: {down}"
+    );
+    let rect = number_rect(&h, &format!("ratiogear{id}.p {down}"));
+    drag_with(
+        &mut h,
+        rect.center(),
+        rect.center() - egui::vec2(600.0, 0.0),
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(float(&h, id, "p"), 1.0, "and no further down than 1");
 }
 
 /// **Below one to one, a rosette winds its one petal over its loops.** A Ratio Gear at ÷2 and
@@ -12984,12 +13063,12 @@ fn a_rosette_below_one_winds_its_petal_over_its_loops() {
             ],
         })
         .unwrap();
-    for (node, ratio) in [(half, 0.5), (quarter, 0.25)] {
+    for (node, q) in [(half, 2.0), (quarter, 4.0)] {
         h.state_mut()
             .apply(Command::SetControl {
                 node,
-                key: "ratio",
-                value: supersilvia::graph::ControlValue::Float(ratio),
+                key: "q",
+                value: supersilvia::graph::ControlValue::Float(q),
             })
             .unwrap();
     }

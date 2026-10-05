@@ -671,14 +671,14 @@ and the node reads it as every node that moves with time does
 ([cpu.md](cpu.md#the-oscillator-the-sequencers-and-the-clips)). **Time** counts plays: unplugged
 it is ambient time at the clip's native speed, `ctx.clock_at(id, 1 ÷ length)`, one play every
 clip length, so a clip pauses with the show and a seek lands it where the playhead puts it; a gear cabled in
-replaces it, so a Ratio Gear at ×2 plays it twice as fast, one at `-×1` backwards and one at ×0
-holds it. **Offset** is added, 1 a play and its knob a play either way, −1 to 1, and the Loop
+replaces it, so a Ratio Gear at 2 : 1 plays it twice as fast and a still number holds it;
+running free, Speed −1 plays it backwards. **Offset** is added, 1 a play and its knob a play either way, −1 to 1, and the Loop
 option wraps the sum or, at Hold, clamps it to one play, so a negative Offset on Hold waits on
 the first frame until the Time has made it up. The frame is `round(position × frames)` (`clip::frame_at`), so a
 24 fps clip on a 60 Hz display judders 3:2, as any clip read at a position does, and the same
 position is the same frame however it was reached: the node keeps no position of its own. A
-slow wave on Offset scratches around the playing clip, and under a Ratio Gear at ×0 a cable on
-Offset is the whole position.
+slow wave on Offset scratches around the playing clip, and with a still number in Time a cable
+on Offset is the whole position.
 
 **A render waits for its frame.** Live, the picture is the newest the worker delivered, so a
 jump shows the old frame for a tick while the new one decodes. A render cannot afford that: it
@@ -834,8 +834,7 @@ a shader sampling it has a real texture rather than a missing uniform.
 node reads where it is in plays of the whole animation, `video`'s rule: at Speed 1, or in Loop
 mode unplugged, its own pace, one play every length of its delays, so it pauses with the show;
 Speed 2 plays it twice as fast and −1 backwards, and in Loop mode a gear cabled into Time
-replaces it, a Ratio Gear at ×2 twice as fast, one at `-×1` backwards and one at ×0 holding
-it. **Offset is added**, in plays, 1 across the whole
+replaces it, a Ratio Gear at 2 : 1 twice as fast and a still number holding it. **Offset is added**, in plays, 1 across the whole
 animation laid over the delays and its knob −1 to 1, and the sum wraps as a GIF does, before
 zero as after it. The frame shown is the one
 whose delay the sum falls inside, so the same sum is the same frame however it was reached,

@@ -411,7 +411,7 @@ fn the_brick_game_and_the_automaton_keep_their_own_pixels() {
         let out = add_on(&mut app, "output", ws);
         // Its frequency is a gear's: a Ratio Gear on ambient seconds, into its Time.
         let gear = add_on(&mut app, "ratiogear", ws);
-        for (node, key, value) in [(gear, "ratio", hz), (osc, "amplitude", 2.0)] {
+        for (node, key, value) in [(gear, "p", hz), (osc, "amplitude", 2.0)] {
             app.apply(Command::SetControl {
                 node,
                 key,

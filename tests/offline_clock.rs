@@ -22,7 +22,7 @@ fn add(app: &mut App, slug: &'static str) -> NodeId {
     app.graph().iter().map(|(id, _)| id).max().unwrap()
 }
 
-/// A Ratio Gear at ×1 on ambient seconds: the playhead, as a gear counts it.
+/// A Ratio Gear at 1 : 1 on ambient seconds: the playhead, as a gear counts it.
 fn seconds(app: &mut App) -> NodeId {
     add(app, "ratiogear")
 }
@@ -162,7 +162,7 @@ fn a_ratio_gear_is_at_zero_on_a_renders_first_frame_after_a_warm_up() {
     let mut app = App::headless();
     let clock = add(&mut app, "mastergear");
     let quarter = add(&mut app, "ratiogear");
-    for (node, key, value) in [(clock, "length", 2.0), (quarter, "ratio", 0.25)] {
+    for (node, key, value) in [(clock, "length", 2.0), (quarter, "q", 4.0)] {
         app.apply(Command::SetControl {
             node,
             key,
@@ -320,8 +320,8 @@ fn a_sequencer_plays_its_first_step_on_a_renders_first_frame() {
 }
 
 /// **A warm-up before zero reads what a loop later reads.** A four-second Master Gear, a
-/// Ratio Gear at ×1 counting its Cycles and one at ×2 counting that — "Reverse the show"'s
-/// Show and Breathe gears — the Time node and `u_time`, over a render with three loops of
+/// Ratio Gear at 1 : 1 counting its Cycles and one at 2 : 1 counting that — "Reverse the
+/// show"'s Show and Breathe gears — the Time node and `u_time`, over a render with three loops of
 /// warm-up, as `examples/loop_gifs` runs one: each frame of the last warm-up loop reads the
 /// fraction a shader reads of each count, and `u_time`, to the bit, as the frame a loop later
 /// does. A count is published whole and split for a shader into its whole part and the `f32`
@@ -333,7 +333,7 @@ fn a_warm_up_before_zero_reads_what_a_loop_later_reads() {
     let clock = add(&mut app, "mastergear");
     let show = add(&mut app, "ratiogear");
     let breathe = add(&mut app, "ratiogear");
-    for (node, key, value) in [(clock, "length", 4.0), (breathe, "ratio", 2.0)] {
+    for (node, key, value) in [(clock, "length", 4.0), (breathe, "p", 2.0)] {
         app.apply(Command::SetControl {
             node,
             key,

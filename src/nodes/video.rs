@@ -10,9 +10,9 @@
 //! **A clip is an oscillator whose shape is a frame lookup.** One cycle is one play of the clip.
 //! **Time** counts plays (`TickContext::cycle_at`): at Speed 1, or in Loop mode unplugged, the
 //! clip's native speed, one play every clip length, so Speed −1 plays it backwards and 2 twice as
-//! fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at `-×1` backwards and one at ×2
-//! twice as fast. **Offset** is added, 0 to 1 across the clip, and the Loop option wraps the sum
-//! or, at Hold, clamps it to one play. A slow wave on Offset scratches around the playing clip. The
+//! fast; in Loop mode a gear cabled in replaces it, a Ratio Gear at 2 : 1 twice as fast.
+//! **Offset** is added, 0 to 1 across the clip, and the Loop option wraps the sum or, at Hold,
+//! clamps it to one play. A slow wave on Offset scratches around the playing clip. The
 //! frame is `round(position × frames)`, so the same position is the same frame however it was
 //! reached, and the node keeps no position of its own: a hand on the scrubber moves Offset so the
 //! sum lands where it was dropped.

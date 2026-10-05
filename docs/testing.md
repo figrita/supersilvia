@@ -40,11 +40,12 @@ playhead: a pause holds everything, a seek lands every gear where the playhead p
 fires nothing on the way but the beat it lands on, a tab reopened after a minute is in phase with one left open, a
 stall is advance and a clamped step, a render is the same twice and exact at any frame rate,
 and a project opens playing at zero whatever its file says — nothing of the transport is
-saved. `tests/clocks.rs` is the gears: a ratio change landing on the input's next whole cycle,
-×3 of ÷3 being the input, a Ratio Gear on a Master Gear bending on a tempo change, a seek
-re-birthing every gear and a reset starting a cycle, a cabled clock's wrap and a 0 to 1 Phase
-into Clock In, the Master Gear's Trigger, Hold, the Time node, and an oscillator on a gear with
-its Offset added. `tests/generators.rs` is ambient time: an unplugged Time is the playhead at
+saved. `tests/clocks.rs` is the gears: a Ratio Gear its parent times its Teeth to the bit,
+played, sought, sought away and back or rendered, and a Teeth change landing at once on the
+new product, 3 : 1 of 1 : 3 being the input, a Ratio Gear on a Master Gear bending on a length
+change, a seek re-birthing every gear and a reset starting a cycle, a cabled clock's wrap and a
+0 to 1 Phase into Clock In, the Master Gear's Trigger, the Time node, and an oscillator on a
+gear with its Offset added. `tests/generators.rs` is ambient time: an unplugged Time is the playhead at
 the node's rate, the same moment reads the same whatever the path, a pause holds it, a gear in
 Time replaces it, Repeat and the tunnel's wrap bring it round, and Repeat rebuilds. Beside them,
 `tests/compile.rs` holds a time-driven node to reading Time and adding Offset and a field in

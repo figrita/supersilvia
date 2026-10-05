@@ -106,10 +106,11 @@ fn master(app: &mut App, length: f32) -> NodeId {
     id
 }
 
-/// A Ratio Gear at `ratio` on `from`'s Cycles.
-fn ratio_on(app: &mut App, from: NodeId, ratio: f32) -> NodeId {
+/// A Ratio Gear at Teeth `p : q` on `from`'s Cycles.
+fn teeth_on(app: &mut App, from: NodeId, p: f32, q: f32) -> NodeId {
     let id = add(app, "ratiogear");
-    set(app, id, "ratio", ratio);
+    set(app, id, "p", p);
+    set(app, id, "q", q);
     connect(app, (from, "cycles"), (id, "clock"));
     id
 }
@@ -561,11 +562,11 @@ fn euclidean_rhythm_with_honest_lanes_comes_back_when_it_says() {
             }
         }
     }
-    // On a 3/2 gear under a master a quarter second long: lanes of 5 against 16 are five
+    // On a 3 : 2 gear under a master a quarter second long: lanes of 5 against 16 are five
     // bars, a bar is two thirds of a cycle, so the caption asks for ten cycles.
     let mut app = App::headless();
     let m = master(&mut app, 0.25);
-    let g = ratio_on(&mut app, m, 1.5);
+    let g = teeth_on(&mut app, m, 3.0, 2.0);
     let e = add(&mut app, "euclideanrhythm");
     lanes(
         &mut app,
@@ -587,7 +588,7 @@ fn euclidean_rhythm_with_honest_lanes_comes_back_when_it_says() {
         7.0,
         p,
         &primes_of(cycles),
-        "euclid lanes of 5 on a 3/2 gear",
+        "euclid lanes of 5 on a 3 : 2 gear",
     ));
     check(&failures);
 }
@@ -753,7 +754,7 @@ fn a_pattern_inside_a_bar_on_a_slow_gear_comes_back_when_the_caption_says() {
     ] {
         let mut app = App::headless();
         let m = master(&mut app, 0.5);
-        let g = ratio_on(&mut app, m, 1.0 / divide);
+        let g = teeth_on(&mut app, m, 1.0, divide);
         let s = add(&mut app, slug);
         if slug == "stepsequencer" {
             let floor = "x...x...x...x...";
@@ -788,52 +789,76 @@ fn a_pattern_inside_a_bar_on_a_slow_gear_comes_back_when_the_caption_says() {
 
 // -------------------------------------------------------------------------------- gears
 
-/// **A Ratio Gear at a fraction comes back in its denominator of the master's cycles, and
-/// not before**, at ratios on and off the ladder, backwards, and ones an `f32` cannot hold
-/// (÷3, 5/7, 4/3, a tenth): its Phase, and a sawtooth on its Cycles, a thousand hours in.
+/// **A Ratio Gear at p : q comes back in q ÷ gcd(p, q) of the master's cycles, and not
+/// before**, across a sweep of Teeth — one to one, twice, 3 : 2 and 4 : 3, 7 : 5, 16 : 9 and
+/// 1 : 64, ratios an `f64` cannot hold, and two typed unreduced — on a master 78 frames long:
+/// its Phase and a sawtooth on its Cycles, sought to as far as three years in, and its Trigger
+/// played through, against the loop the caption claims.
 #[test]
 fn a_ratio_gear_comes_back_in_its_denominator_and_not_before() {
     let mut failures = Vec::new();
-    for r in [
-        1.5f32,
-        1.0 / 3.0,
-        5.0 / 7.0,
-        -2.0 / 3.0,
-        63.0 / 64.0,
-        0.1,
-        4.0 / 3.0,
-        12.0,
-        -16.0,
-        0.25,
-        -64.0,
-        1.0 / 64.0,
-        17.0 / 11.0,
+    for (p, q) in [
+        (1.0f32, 1.0f32),
+        (2.0, 1.0),
+        (3.0, 2.0),
+        (4.0, 3.0),
+        (7.0, 5.0),
+        (16.0, 9.0),
+        (1.0, 64.0),
+        (1.0, 3.0),
+        (5.0, 7.0),
+        (63.0, 64.0),
+        (1.0, 10.0),
+        (17.0, 11.0),
+        (12.0, 1.0),
+        (64.0, 1.0),
+        (2.0, 4.0),
+        (6.0, 4.0),
     ] {
         let mut app = App::headless();
         let m = master(&mut app, 1.3);
-        let g = ratio_on(&mut app, m, r);
+        let g = teeth_on(&mut app, m, p, q);
         let osc = add(&mut app, "oscillator");
         choose(&mut app, osc, "waveform", "sawtooth");
         connect(&mut app, (g, "cycles"), (osc, timing::TIME));
-        let p = claimed_master(&app, m);
-        let cycles = (p / f64::from(1.3f32)).round() as u64;
+        let period = claimed_master(&app, m);
+        let cycles = (period / f64::from(1.3f32)).round() as u64;
+        let label = format!("{p} : {q} ({cycles} cycles)");
+        let reduced = (q as u64) / gcd(p as u64, q as u64);
+        if cycles != reduced {
+            failures.push(format!(
+                "{label}: the caption claims {cycles}, not {reduced}"
+            ));
+        }
         let early = primes_of(cycles);
         failures.extend(audit_numbers(
             &mut app,
             PortRef::new(g, "wrapped"),
-            p,
+            period,
             &early,
-            &format!("ratio {r} Phase ({cycles} cycles)"),
+            &format!("{label} Phase"),
         ));
         failures.extend(audit_numbers(
             &mut app,
             PortRef::new(osc, "output"),
-            p,
+            period,
             &early,
-            &format!("sawtooth on ratio {r} ({cycles} cycles)"),
+            &format!("sawtooth on {label}"),
+        ));
+        failures.extend(audit_events(
+            &mut app,
+            &[PortRef::new(g, "trigger")],
+            11.0,
+            period,
+            &early,
+            &format!("{label} Trigger"),
         ));
     }
     check(&failures);
+}
+
+fn gcd(a: u64, b: u64) -> u64 {
+    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 /// **A Master Gear's Phase and Trigger come back every cycle**, at lengths from a hundredth
@@ -905,8 +930,8 @@ fn ping_pong_comes_back_when_the_caption_says() {
 }
 
 /// **What a gear's Trigger drives comes back when the caption says**: a Step Sequencer on
-/// it through Step, a Clock Divider at ÷3, a ×1 Ratio Gear whose Hold it toggles, and a ÷4
-/// Ratio Gear it resets every cycle, against what the caption asks for.
+/// it through Step, a Clock Divider at ÷3, and a Clock Divider at ÷3 on a 3 : 2 Ratio Gear's
+/// Trigger, against what the caption asks for.
 #[test]
 fn what_a_trigger_drives_comes_back_when_the_caption_says() {
     let mut failures = Vec::new();
@@ -945,64 +970,24 @@ fn what_a_trigger_drives_comes_back_when_the_caption_says() {
         &format!("clock divider ÷3 on a Trigger: {cap}"),
     ));
 
-    // Into a Ratio Gear's Hold.
+    // A 3 : 2 gear's Trigger into a Clock Divider at ÷3: a beat every two of the master's
+    // cycles.
     let mut app = App::headless();
     let m = master(&mut app, 0.5);
-    let g = ratio_on(&mut app, m, 1.0);
-    connect(&mut app, (m, "trigger"), (g, "hold"));
-    let osc = add(&mut app, "oscillator");
-    choose(&mut app, osc, "waveform", "sawtooth");
-    connect(&mut app, (g, "cycles"), (osc, timing::TIME));
+    let g = teeth_on(&mut app, m, 3.0, 2.0);
+    let d = add(&mut app, "clockdivider");
+    set(&mut app, d, "divide", 3.0);
+    connect(&mut app, (g, "trigger"), (d, "input"));
     let p = claimed_master(&app, m);
     let cap = chain::caption(app.graph(), m);
-    // Played through, not sought: Hold is state.
-    let mut values = Vec::new();
-    app.transport(Transport::Play);
-    app.reset_cpu();
-    app.transport(Transport::Seek(5.0));
-    let frames = (3.0 * p * FPS).round() as u64;
-    for n in 0..=frames {
-        app.tick_at(5.0 + n as f64 / FPS);
-        values.push(app.uniform(PortRef::new(osc, "output")).unwrap());
-    }
-    let per = (p * FPS).round() as usize;
-    let differs = (per..2 * per)
-        .filter(|&n| (values[n] - values[n + per]).abs() > TOL)
-        .count();
-    if differs > 0 {
-        failures.push(format!(
-            "sawtooth on a ×1 gear held by the master's Trigger: FALSE on {differs} of {per} \
-             frames a loop on: {cap}"
-        ));
-    }
-
-    // Into a ÷4 gear's Reset.
-    let mut app = App::headless();
-    let m = master(&mut app, 0.5);
-    let g = ratio_on(&mut app, m, 0.25);
-    connect(&mut app, (m, "trigger"), (g, "reset"));
-    let osc = add(&mut app, "oscillator");
-    choose(&mut app, osc, "waveform", "sawtooth");
-    connect(&mut app, (g, "cycles"), (osc, timing::TIME));
-    let p = claimed_master(&app, m);
-    let cap = chain::caption(app.graph(), m);
-    app.transport(Transport::Play);
-    app.reset_cpu();
-    app.transport(Transport::Seek(5.0));
-    let mut values = Vec::new();
-    let frames = (3.0 * p * FPS).round() as u64;
-    for n in 0..=frames {
-        app.tick_at(5.0 + n as f64 / FPS);
-        values.push(app.uniform(PortRef::new(osc, "output")).unwrap());
-    }
-    let per = (p * FPS).round() as usize;
-    let cycle = per / 4;
-    let early = (per..2 * per).all(|n| (values[n] - values[n + cycle]).abs() <= TOL);
-    if early {
-        failures.push(format!(
-            "sawtooth on a ÷4 gear reset by the master's Trigger: EARLY, back every cycle: {cap}"
-        ));
-    }
+    failures.extend(audit_events(
+        &mut app,
+        &[PortRef::new(d, "trigger")],
+        5.0,
+        p,
+        &primes_of((p / f64::from(0.5f32)).round() as u64),
+        &format!("clock divider ÷3 on a 3 : 2 gear's Trigger: {cap}"),
+    ));
     check(&failures);
 }
 
@@ -1076,7 +1061,7 @@ fn a_node_on_its_own_clock_beside_a_master_closes_with_it() {
 }
 
 /// **The loop arithmetic does not overflow**: Ratio Gears at ÷ every prime to 53 under one
-/// master, whose loop is more cycles than a `u64` holds, and a chain of eleven 63/64 gears,
+/// master, whose loop is more cycles than a `u64` holds, and a chain of eleven 63 : 64 gears,
 /// whose product's denominator is 2⁶⁶. The caption either says they do not close or counts
 /// a number every denominator divides, and does not panic.
 #[test]
@@ -1090,7 +1075,7 @@ fn the_loop_arithmetic_does_not_overflow() {
             47.0, 53.0,
         ];
         for q in primes {
-            ratio_on(&mut app, m, 1.0 / q);
+            teeth_on(&mut app, m, 1.0, q);
         }
         let l = chain::master_loop(app.graph(), m);
         (
@@ -1111,15 +1096,15 @@ fn the_loop_arithmetic_does_not_overflow() {
         let m = master(&mut app, 1.0);
         let mut from = m;
         for _ in 0..11 {
-            from = ratio_on(&mut app, from, 63.0 / 64.0);
+            from = teeth_on(&mut app, from, 63.0, 64.0);
         }
         let l = chain::master_loop(app.graph(), m);
         (l.open.is_empty(), l.cycles)
     });
     match result {
-        Err(_) => failures.push("eleven 63/64 gears: master_loop panicked".to_string()),
+        Err(_) => failures.push("eleven 63 : 64 gears: master_loop panicked".to_string()),
         Ok((true, cycles)) => failures.push(format!(
-            "eleven 63/64 gears: says {cycles} cycles where 2^66 are needed"
+            "eleven 63 : 64 gears: says {cycles} cycles where 2^66 are needed"
         )),
         Ok(_) => {}
     }

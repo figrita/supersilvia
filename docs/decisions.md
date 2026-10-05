@@ -1532,7 +1532,7 @@ a property of what drives the nodes: here a loop is the gear chain's, which a Ma
 caption reads, and a node's own Loop mode is the node choosing a clock rather than the show
 choosing for it ([Two modes](#two-modes-and-a-loop-is-read-from-the-clocks)).
 **Rejected with it: the speed dial**, which only a show that should run slower or faster
-used — a Ratio Gear on ambient time does that for what it drives — **the transport strip**,
+used — a node's own Speed does that for the node it is on — **the transport strip**,
 whose pause and reset the readout keeps, and **typed seek**. **Rejected before it: silently
 rounding each speed to the nearest whole number of cycles a loop** (`phasor::looped`), under
 which a knob said 128 BPM while the clock ran 127.5, and **the `→` readout of the speed that
@@ -1574,45 +1574,32 @@ carries it.
   length agree, and at playhead zero every one is at its cycle's start. Gate is its Trigger's
   length. **Rejected: a length in beats or bars at a BPM, and a tap tempo**: a beat is a length in seconds and a bar a Ratio Gear below it, so a second way to
   say the length was a BPM knob read in two units of three and a Tap that wrote it.
-- **The Ratio Gear** (`ratiogear`) is a clock in and a clock out: `ratio × ΔClock In`, a
-  count read whole and anything else unwrapped where its output declares its wrap
-  (`OutputDef::wraps_at`), or the playhead's seconds with nothing cabled. **Rejected: unwrapping at 2520 only**, which reads
-  every wrap of a 0..1 Phase as a cycle backwards, so a gear following one stands nearly
-  still. **Rejected: guessing the wrap from the readings**, one while every reading so far is
-  under one: a Seconds or a Cycles is under one for its first second, and a seek inside it
-  would read as a step back. A drag walks a ladder, ÷16 ÷8 ÷6 ÷4 ÷3 ÷2 ×1 ×2 ×3 ×4 ×6 ×8 ×12 ×16, and
-  through ×0 into reverse; typed, it takes `×5`, `÷7`, `3/2`, `0.3` or a leading minus.
+- **The Ratio Gear** (`ratiogear`) is its parent times its Teeth, `p : q`: what arrives at
+  Clock In, a count read whole, times `p ÷ q`, or the playhead's seconds times it with
+  nothing cabled ([A Ratio Gear is a pure product of its parent](#a-ratio-gear-is-a-pure-product-of-its-parent)).
 - **The Time node** (`time`) is Seconds, the playhead published as a count, and nothing
   else.
 
-**A ratio change lands on the input's next whole cycle.** Until then the old ratio runs and
-the display shows the new one pending; it waits at most one input cycle. Every input cycle
-after it adds a whole number of output cycles, so a chain of whole ratios closes whatever
-phase the change landed at, and the output's downbeat stays on the input's — what a person
-listening expects of a gear change. **Rejected: a ratio that bends**, as a speed does, or a
-glide to it, which `phase` had: either leaves the downbeat wherever the change ended. **A
-chain of fractions closes**: its ratios multiply, and a loop of the Master Gear is as many of
-its cycles as what the chains drive needs, so a sawtooth on a ÷4 below asks for four. A ratio
-that is no fraction with a denominator up to 64 runs and never closes, one with a cable in it
-cannot be told, and the caption says which.
+**A chain of gears closes**: its Teeth multiply, and a loop of the Master Gear is as many of
+its cycles as what the chains drive needs, so a sawtooth on a 1 : 4 below asks for four.
 
-**Hold, Reset, and a seek.** Hold is a toggle that freezes the gear where it stands and closes
-any gate it left open; Reset puts it at the start of a cycle and is a beat. A seek — the
-readout's reset among them — and a render's start are jumps: every gear is born again where
-the playhead puts it, a Ratio Gear at its ratio times its input's reading, and fires nothing
-on the way; a gear born on a whole cycle fires that beat, so a render's first frame and the
-readout's reset are a downbeat.
+**A Master Gear's Hold and Reset, and a seek.** Hold is a toggle that freezes the Master Gear
+where it stands and closes any gate it left open; Reset puts it at the start of a cycle and is
+a beat. A seek — the readout's reset among them — and a render's start are jumps: every gear
+is born again where the playhead puts it, a Ratio Gear at its parent's reading times its
+Teeth, and fires nothing on the way; a gear born on a whole cycle fires that beat, so a
+render's first frame and the readout's reset are a downbeat.
 **Rejected: a Ratio Gear born at its ratio times the fraction of its input's cycle**, which a
 ÷4 bar starting afresh on whatever beat a seek lands on would give: a gear born again after a
 seek, a reopened tab or a render's warm-up is then not where playing puts it, and a render's
 first frame depends on how long its warm-up was.
 silvia's Start/Stop and Reset on the oscillator and the sequencers are the Hold and Reset of
-the gear that drives them.
+the Master Gear that drives them.
 
 **One option draws it, Display: a still Rosette, the default, or meshing Gears**, both turning
 at the real rate in one body region (`Region::Gear`) of one height. The Rosette is `p` petals
-wound over `q` loops for a ratio `p/q`, a turn an input cycle, a dot at the output's phase; Gears are `k·p` teeth driving
-`k·q`. Under a Master Gear a caption says what a loop of it needs, read from the chains below
+wound over `q` loops for Teeth `p : q` in lowest terms, a turn an input cycle, a dot at the
+output's phase; Gears are `k·p` teeth driving `k·q`. Under a Master Gear a caption says what a loop of it needs, read from the chains below
 it (`nodes::chain`). **Rejected: two sibling nodes** for the two pictures: they draw the same
 state, a file should not change slug to change a picture, and switching a sibling means
 deleting and rewiring.
@@ -1622,7 +1609,7 @@ deleting and rewiring.
   Start/Stop, Reset, One Shot and the 50 ms glide are gone: they are a gear's, and a one-shot
   is `animation`'s.
 - **`video` and `imagegif`** play `Time + Offset` in plays of the clip, at the clip's own
-  speed at rest; a scrub writes Offset, reverse is a Ratio Gear at `-×1`, and Loop/Hold wraps
+  speed at rest; a scrub writes Offset, reverse is a negative Speed, and Loop/Hold wraps
   or clamps the sum. **A render waits for a clip's frame**, holding the frame and ticking only
   what waits, where live play shows what the decoder has.
 - **`stepsequencer` and `euclideanrhythm`** fire on crossings of `floor(16 × (Time + Offset))`,
@@ -1645,10 +1632,44 @@ and two nodes doing one job is what this removes. **Rejected: keeping the Time n
 Speed, Start/Stop and Reset**, a second transport beside the real one; and its loop Cycles and
 Phase, which a Master Gear publishes. **Rejected: a cable that replaces a clip's playback
 through its Offset**, as main's Position did: Time is the input that replaces, Offset adds,
-and a Ratio Gear ×0 into Time plays the cable alone. **Rejected: a live clip that waits.** A
+and a still number in Time plays the cable alone. **Rejected: a live clip that waits.** A
 tick never waits; only a render, which owns its clock, holds a frame. **Rejected: ticking the whole graph again
 while a render holds**: a noise oscillator would draw a second random and a one-frame gate
 would close early, so how often the decoder was slow would change the film.
+
+### A Ratio Gear is a pure product of its parent
+
+**Chosen.** A Ratio Gear's output is `parent × p ÷ q`, worked out each tick in `f64` from the
+count that arrives at Clock In, or from the playhead's seconds with nothing cabled. Nothing is
+integrated or carried from one tick to the next, so it has no position of its own: a seek, a
+render, a relaunch and a reopened tab land it on the same count to the bit, and a gear's loop
+is its parent's times `p/q` exactly, which the caption reads as a rational. Its **Teeth** are
+two whole numbers of one or more on one row, shown `p : q`, with no port: the gear turns `p`
+times for every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1 twice
+the parent. The two are kept as they were typed and reduced only in the arithmetic. **A
+change of Teeth jumps**: the output lands at once on `parent × p ÷ q` for the new pair, where
+it would be had it always run at that ratio, as a clip synced to a BPM does in other VJ tools.
+A gear's Trigger fires at the whole cycles of its output.
+
+People use a Ratio Gear to lock a layer to the master — twice as fast, three against two —
+and locked for good. A gear that bends is a gear that slips, and Free mode's Speed is the tool
+for bending a pace. The numbers do not follow physical gears, where fewer teeth turn faster:
+`p : q` reads as turns against turns, and matches the rosette, `p` lobes closing in `q` laps.
+The Master Gear, with no Time input, is unchanged.
+
+**Rejected: an integrating gear**, `ratio × ΔClock In` summed in `f64`, **with a smooth ratio
+bend** — a change landing on the input's next whole cycle and pending until then — **a Hold, a
+Reset, and a ratio a cable could drive.** It let a gear bend and stop, but every one of those
+made its position depend on its history: a seek put it back where playing would only by
+rebirthing it, and a hold, a reset or a cabled ratio put it somewhere the graph could not say,
+so the caption had to say it could not tell. A bend that waits for the next whole cycle also
+makes the change arrive later than the hand made it. A layer that should pause or bend runs
+free on its Speed, and one that should be placed is placed by its own Offset, which reaches a
+whole period either way.
+**Rejected: a ratio on a ladder**, ÷16 to ×16 and through ×0 into reverse, typed as `×5`,
+`÷7` or `3/2`: a single number for a ratio rounds a third to `0.33333334` and has to be read
+back as a fraction, and a ratio of zero or below is a stopped or reversed clock, which is
+Speed's job, not a gear's.
 
 ### Two modes, and a loop is read from the clocks
 
@@ -4108,7 +4129,7 @@ context-free graph exists to remove.** The field oscillator could be fed a gradi
 or a distance and publish ripples over a picture — something the CPU node genuinely cannot do,
 because a `tick` has no `uv`. But it could also not do what silvia's does: an oscillator whose
 output is a field cannot drive `adsr.attack`, a Master Gear's Length, `counter.step`,
-`slew.input` or a Ratio Gear's Ratio, because a `VaryingNumber` does not feed a `UniformNumber` — and those are most
+`slew.input` or a Ratio Gear's Clock In, because a `VaryingNumber` does not feed a `UniformNumber` — and those are most
 of what a performer reaches for an LFO for. Keeping both under one name would make the *type*
 of a port depend on which one you had, which is exactly the ambiguity the rest of this
 proposal removes.
@@ -4143,7 +4164,7 @@ publishing a count and its normalized fraction from one count.
 
 ### The three shapers take silvia's shapes: curves, a second slide, and a hold
 
-**Chosen.** `adsr`, `slew` and `phase`, now the Ratio Gear, are the three nodes that shape a
+**Chosen.** `adsr`, `slew` and `phase`, now the gears, are the three nodes that shape a
 number over time, and each was missing one shape silvia can make. Each now makes it.
 
 **`adsr` follows a curve over the stage's own time, not a rate.** silvia lets each moving
@@ -4180,10 +4201,11 @@ second, so `Shape` picks between them and Rise and Fall are read as a speed in o
 approach rate in the other. Two knobs rather than four: a second pair would say the same thing
 about a shape only one of them is ever in.
 
-**A gear has a Hold.** `phase` had a Reset and no pause, and the nearest thing — winding its
-rate down to zero — lost the rate you were running at. Hold freezes the gear and lets it go
-from where it stopped, which is the one thing silvia's hidden accumulator could do and this
-could not; on a Master Gear it is silvia's BPM clock's Start/Stop. It is a toggle, each press
+**A Master Gear has a Hold.** `phase` had a Reset and no pause, and the nearest thing —
+winding its rate down to zero — lost the rate you were running at. Hold freezes the gear and
+lets it go from where it stopped, which is the one thing silvia's hidden accumulator could do
+and this could not; it is silvia's BPM clock's Start/Stop. A Ratio Gear has none: it is its
+parent times its Teeth, so it holds when its parent does. It is a toggle, each press
 freezing or letting go, and a gear that stops closes the gate it was holding open. The tick
 walks the frame moment by moment rather than integrating in one lump: a hold and a reset
 inside one frame are two moments, and which came first is the answer. A hold is a pause in the
@@ -4377,7 +4399,7 @@ the beat, as silvia has it: a triplet is a Master Gear a third of a beat long.
 
 **A clock has to be stoppable, and a stopped clock closes its gate.** silvia's Start/Stop is
 the first thing a hand reaches for and ours had none: to stop a rhythm mid-set you pulled the
-cable. It is the gear's Hold, an action input like every other here, so a sequencer can stop
+cable. It is the Master Gear's Hold, an action input like every other here, so a sequencer can stop
 the clock as readily as a finger — and on the way down it closes whatever gate it was holding
 open, or an envelope downstream would be held by a clock that is no longer running. It starts
 running, as silvia's does: a clock you have to start before it says anything is a clock you

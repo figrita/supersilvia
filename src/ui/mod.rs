@@ -2433,7 +2433,6 @@ fn range_editor(
             // never lands here.
             varying: false,
             learning: false,
-            ladder: crate::nodes::gear::is_ratio(def, key),
             ghost: None,
         })
     });

@@ -166,21 +166,16 @@ fn picture(app: &App, id: NodeId) -> Frame {
     (**app.frame(PortRef::new(id, "frame")).unwrap()).clone()
 }
 
-/// A Ratio Gear on ambient seconds at `ratio`, cabled into the clip's Time: plays of it.
-fn geared(app: &mut App, id: NodeId, ratio: f32) -> NodeId {
+/// A node of kind `slug` cabled from its `port` into the clip's Time, in Loop mode: a Ratio
+/// Gear on ambient seconds plays it, a Number holds it still.
+fn clocked(app: &mut App, id: NodeId, slug: &'static str, port: &'static str) -> NodeId {
     app.apply(Command::AddNode {
-        slug: "ratiogear",
+        slug,
         at: Pos2::ZERO,
         workspace: app.graph().default_workspace(),
     })
     .unwrap();
-    let gear = app.graph().iter().map(|(i, _)| i).last().unwrap();
-    app.apply(Command::SetControl {
-        node: gear,
-        key: "ratio",
-        value: ControlValue::Float(ratio),
-    })
-    .unwrap();
+    let clock = app.graph().iter().map(|(i, _)| i).last().unwrap();
     app.apply(Command::SetOption {
         node: id,
         key: "clockMode",
@@ -188,23 +183,28 @@ fn geared(app: &mut App, id: NodeId, ratio: f32) -> NodeId {
     })
     .unwrap();
     app.apply(Command::Connect {
-        from: PortRef::new(gear, "cycles"),
+        from: PortRef::new(clock, port),
         to: PortRef::new(id, supersilvia::nodes::TIME),
     })
     .unwrap();
-    gear
+    clock
 }
 
-/// Offset is added to the clip's Time. With a gear at ×0 in Time, a cable on Offset is the
-/// whole position, so it scrubs and a held position holds its frame; with the gear at ×1 the
-/// clip plays forward on top of the cable, and at −×1 it plays backward, a play a second
-/// either way.
+/// A Number at zero in the clip's Time: it stands still.
+fn still(app: &mut App, id: NodeId) -> NodeId {
+    clocked(app, id, "number", "output")
+}
+
+/// Offset is added to the clip's Time. With a still number in Time, a cable on Offset is the
+/// whole position, so it scrubs and a held position holds its frame; with a 1 : 1 gear in
+/// Time the clip plays forward on top of the cable, a play a second, and running free at
+/// Speed −2 it plays backward, a play a second the other way, with Offset still added.
 #[test]
 fn offset_is_added_to_time_in_either_direction() {
     let Some(file) = clip("scrub") else { return };
     let (mut app, id) = app_with_video(&file);
     tick_until_playing(&mut app, id);
-    let gear = geared(&mut app, id, 0.0);
+    still(&mut app, id);
 
     app.apply(Command::AddNode {
         slug: "slew",
@@ -229,7 +229,7 @@ fn offset_is_added_to_time_in_either_direction() {
     let mid = picture(&app, id);
     assert!(
         (position(&app, id) - 0.5).abs() < 1e-3,
-        "Offset is the whole position at ×0: {}",
+        "Offset is the whole position with Time still: {}",
         position(&app, id)
     );
 
@@ -250,41 +250,45 @@ fn offset_is_added_to_time_in_either_direction() {
         "a held position holds its frame with Time still"
     );
 
-    // The gear at ×1 with the cable still in: the clip plays on top of it, once the change
-    // lands on the gear's next whole second, and a fifth of a second is a fifth of a play on.
-    app.apply(Command::SetControl {
-        node: gear,
-        key: "ratio",
-        value: ControlValue::Float(1.0),
-    })
-    .unwrap();
+    // A 1 : 1 gear in Time with the cable still in Offset: the clip plays on top of it, and a
+    // fifth of a second is a fifth of a play on.
+    clocked(&mut app, id, "ratiogear", "cycles");
     settle_until_changed(&mut app, id, &quarter, 150);
     let playing = picture(&app, id);
     assert!(playing != quarter, "the playback is added to the cable");
     let from = position(&app, id);
     settle(&mut app, 12);
     let moved = (position(&app, id) - from).rem_euclid(1.0);
-    assert!((moved - 0.2).abs() < 1e-3, "×1 plays forward: {moved}");
+    assert!((moved - 0.2).abs() < 1e-3, "1 : 1 plays forward: {moved}");
 
-    // And at −×1, backward: once it has landed, a fifth of a second is a fifth of a play
-    // back.
-    app.apply(Command::SetControl {
-        node: gear,
-        key: "ratio",
-        value: ControlValue::Float(-1.0),
+    // And running free at Speed −2 on a clip two seconds long, backward: a fifth of a second
+    // is a fifth of a play back.
+    app.apply(Command::SetOption {
+        node: id,
+        key: "clockMode",
+        value: "free".to_string(),
     })
     .unwrap();
-    settle(&mut app, 70);
+    app.apply(Command::SetControl {
+        node: id,
+        key: supersilvia::nodes::timing::SPEED,
+        value: ControlValue::Float(-2.0),
+    })
+    .unwrap();
+    settle(&mut app, 10);
     let from = position(&app, id);
     let before = picture(&app, id);
     settle(&mut app, 12);
     let moved = (position(&app, id) - from).rem_euclid(1.0);
-    assert!((moved - 0.8).abs() < 1e-3, "−×1 plays backward: {moved}");
+    assert!(
+        (moved - 0.8).abs() < 1e-3,
+        "Speed −2 plays backward: {moved}"
+    );
     settle_until_changed(&mut app, id, &before, 150);
     assert!(picture(&app, id) != before, "and the picture moves with it");
 }
 
-/// **A negative Offset on a clip.** With a gear at ×0 in Time the Offset is the whole
+/// **A negative Offset on a clip.** With a still number in Time the Offset is the whole
 /// position: on Loop −0.25 wraps to three quarters through, and on Hold, where the clip never
 /// comes back, the sum is held at the first frame until the Time has made the Offset up.
 #[test]
@@ -292,7 +296,7 @@ fn a_negative_offset_wraps_on_loop_and_waits_on_hold() {
     let Some(file) = clip("behind") else { return };
     let (mut app, id) = app_with_video(&file);
     tick_until_playing(&mut app, id);
-    geared(&mut app, id, 0.0);
+    still(&mut app, id);
     app.apply(Command::SetControl {
         node: id,
         key: supersilvia::nodes::timing::OFFSET,
@@ -334,7 +338,13 @@ fn a_clip_holds_on_pause_and_a_seek_moves_it_by_its_rate_times_the_jump() {
     let Some(file) = clip("seek") else { return };
     let (mut app, id) = app_with_video(&file);
     tick_until_playing(&mut app, id);
-    geared(&mut app, id, 0.25);
+    let gear = clocked(&mut app, id, "ratiogear", "cycles");
+    app.apply(Command::SetControl {
+        node: gear,
+        key: "q",
+        value: ControlValue::Float(4.0),
+    })
+    .unwrap();
     settle(&mut app, 10);
 
     app.transport(Transport::Pause);

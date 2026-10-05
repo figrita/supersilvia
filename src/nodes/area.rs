@@ -60,6 +60,8 @@ pub enum Region {
     /// A gear's own picture — a still rosette or two meshing gears, by its Display option —
     /// turning at the gear's real rate, with what it is set to beside it.
     Gear,
+    /// A Ratio Gear's Teeth: its two whole numbers on one row, `p : q`.
+    Teeth,
 }
 
 /// A row of buttons on a node's body, each of which writes some of its node's own options and
@@ -156,7 +158,8 @@ impl Region {
             | Self::XyPad
             | Self::Paint(_)
             | Self::Brush
-            | Self::Gear => return None,
+            | Self::Gear
+            | Self::Teeth => return None,
         };
         Some(Heading {
             key: option.key,
@@ -185,7 +188,8 @@ impl Region {
             | Self::Buttons(_)
             | Self::XyPad
             | Self::Brush
-            | Self::Gear => None,
+            | Self::Gear
+            | Self::Teeth => None,
         }
     }
 }

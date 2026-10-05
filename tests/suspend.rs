@@ -183,7 +183,7 @@ fn a_gear_on_a_closed_tab_keeps_running_while_an_open_tab_reads_it() {
     let double = add_on(&mut app, "ratiogear", other);
     let idle = add_on(&mut app, "mastergear", other);
     let osc = add_on(&mut app, "oscillator", first);
-    for (node, key, value) in [(master, "length", 1.0), (double, "ratio", 2.0)] {
+    for (node, key, value) in [(master, "length", 1.0), (double, "p", 2.0)] {
         app.apply(Command::SetControl {
             node,
             key,

@@ -1120,13 +1120,13 @@ fn a_render_puts_the_live_show_back() {
 }
 
 /// A headless app with a GPU holding `source`'s `port` in an Output at 10 fps, with a Master
-/// Gear of `master` seconds and, under it, a Ratio Gear at `ratio` cabled into the source's
-/// Time: the app, the Output and the Master Gear.
+/// Gear of `master` seconds and, under it, a Ratio Gear at Teeth `p : q` cabled into the
+/// source's Time: the app, the Output and the Master Gear.
 fn geared(
     source: &'static str,
     port: &'static str,
     master: f32,
-    ratio: f32,
+    (p, q): (f32, f32),
 ) -> (
     supersilvia::App,
     supersilvia::graph::NodeId,
@@ -1146,12 +1146,14 @@ fn geared(
     })
     .unwrap();
     let under = add_node(&mut app, "ratiogear");
-    app.apply(Command::SetControl {
-        node: under,
-        key: "ratio",
-        value: ControlValue::Float(ratio),
-    })
-    .unwrap();
+    for (key, value) in [("p", p), ("q", q)] {
+        app.apply(Command::SetControl {
+            node: under,
+            key,
+            value: ControlValue::Float(value),
+        })
+        .unwrap();
+    }
     let out = add_node(&mut app, "output");
     app.apply(Command::SetOption {
         node: src,
@@ -1196,7 +1198,7 @@ fn a_loop_as_long_as_its_master_gear_says_closes() {
 
     let root = std::env::temp_dir().join(format!("supersilvia-loop-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    let (mut app, out, master) = geared("cosinegradient", "output", 1.0, 0.5);
+    let (mut app, out, master) = geared("cosinegradient", "output", 1.0, (1.0, 2.0));
     let length = supersilvia::nodes::chain::master_length(app.graph(), master);
     assert_eq!(length, Some(2.0), "÷2 asks for two cycles of the master");
     let frame = render_frames(&mut app, out, 10.0, 21, &root.join("png"));
@@ -1247,7 +1249,7 @@ fn a_noise_under_repeat_closes_with_its_offset() {
     use supersilvia::graph::ControlValue;
     let root = std::env::temp_dir().join(format!("supersilvia-repeat-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    let (mut app, out, _) = geared("perlin", "color", 1.0, 2.0);
+    let (mut app, out, _) = geared("perlin", "color", 1.0, (2.0, 1.0));
     let perlin = app
         .graph()
         .iter()
@@ -1290,7 +1292,7 @@ fn the_tunnels_flight_closes_every_cycle() {
     use supersilvia::graph::PortRef;
     let root = std::env::temp_dir().join(format!("supersilvia-tunnel-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    let (mut app, out, _) = geared("tunnel3d", "output", 1.0, 0.5);
+    let (mut app, out, _) = geared("tunnel3d", "output", 1.0, (1.0, 2.0));
     let tunnel = app
         .graph()
         .iter()
@@ -1332,7 +1334,7 @@ fn a_noise_on_a_gear_passes_1260_with_no_seam() {
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
-        let (mut app, out, _) = geared(slug, "color", 0.25, 64.0);
+        let (mut app, out, _) = geared(slug, "color", 0.25, (64.0, 1.0));
         let node = app
             .graph()
             .iter()

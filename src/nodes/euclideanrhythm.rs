@@ -444,9 +444,7 @@ mod tests {
                 let want = if pulses == 0 || pulses == steps {
                     1
                 } else {
-                    steps
-                        / crate::nodes::gear::ladder::gcd(u64::from(steps), u64::from(pulses))
-                            as u32
+                    steps / crate::nodes::chain::gcd(u64::from(steps), u64::from(pulses)) as u32
                 };
                 assert_eq!(lane(pulses, steps, 0), want, "E({pulses}, {steps})");
             }

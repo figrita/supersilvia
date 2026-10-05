@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! A gear's own picture: what a Master Gear or a Ratio Gear is set to, turning at its real
-//! rate, and what a loop of it needs.
+//! rate, and what a loop of it needs; and above a Ratio Gear's picture, its Teeth.
 //!
 //! **One region, two pictures**, by the gear's Display option, drawn in one fixed height so
 //! the node never changes size. The **Rosette**, the default: for a ratio `p/q` a still
@@ -12,18 +12,25 @@
 //! A Master Gear's rosette is a ring with a clock face's twelve ticks and the dot. The
 //! **Gears**: the input's gear of `k·p` teeth driving the output's of `k·q`, `k` keeping both
 //! between 6 and 48 and the hub printing the ratio past that; a Master Gear is one gear of
-//! twelve teeth, turning once a cycle. Both turn by the gear's own phases, never an animation clock, so a
-//! paused show is still. A ratio that is not a small fraction is drawn at the nearest one,
-//! the rim broken where it does not close. A ratio waiting for its landing is ghosted behind.
+//! twelve teeth, turning once a cycle. Both turn by the gear's own phases, never an animation
+//! clock, so a paused show is still. Both draw the Teeth in lowest terms: 2 : 4 is the
+//! rosette 1 : 2 is.
 //!
 //! Beside the picture, the ratio and what it closes in; under it, on a Master Gear, what a
 //! loop of it needs, read from the chains below it (`nodes::chain::caption`). Read-only:
 //! the region does not claim the pointer, and a hand carries the node by it.
+//!
+//! **The Teeth row** ([`TEETH`]) is a Ratio Gear's two whole numbers, `p : q`, with no port:
+//! a row the height of a port row's, the word Teeth where a row's label stands, and two
+//! s-numbers either side of a colon, as narrow as two and the colon need to fit where a
+//! row's one control and its label do. Each is the node's own hidden control drawn by
+//! `RegionUi::number`, so it types, drags and steps as any other whole number does, and
+//! shows the Teeth as they were typed.
 
 use super::{RegionDef, RegionEvent, RegionUi};
 use crate::graph::Node;
-use crate::nodes::gear::{Reading, ladder};
-use crate::ui::theme;
+use crate::nodes::gear::{self, Reading};
+use crate::ui::{canvas, number, theme};
 use eframe::egui::{
     Align2, Color32, CornerRadius, FontId, Mesh, Pos2, Rect, Sense, Shape, Stroke, StrokeKind,
     WidgetType, pos2, vec2,
@@ -61,14 +68,11 @@ struct Drawn {
     output: f64,
     /// Input cycles, unbounded; a Master Gear's are its own.
     input: f64,
-    /// The ratio as a fraction, and whether it is exactly that.
+    /// The ratio in lowest terms.
     p: i64,
     q: i64,
-    exact: bool,
     /// Ticks round a Master Gear's ring, and teeth on its gear.
     ticks: Option<i64>,
-    /// A ratio waiting for its landing.
-    pending: Option<(i64, i64)>,
 }
 
 fn show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
@@ -177,29 +181,21 @@ fn drawn_of(reading: &Reading) -> Drawn {
             input: cycles,
             p: 1,
             q: 1,
-            exact: true,
             ticks: Some(MASTER_TICKS),
-            pending: None,
         },
         Reading::Ratio {
             input,
             output,
-            ratio,
-            pending,
-            ..
+            p,
+            q,
         } => {
-            let (p, q, exact) = ladder::nearest_fraction(ratio);
+            let (p, q) = gear::reduced(p, q);
             Drawn {
                 output,
                 input,
                 p,
                 q,
-                exact,
                 ticks: None,
-                pending: pending.map(|r| {
-                    let (p, q, _) = ladder::nearest_fraction(r);
-                    (p, q)
-                }),
             }
         }
     }
@@ -219,19 +215,12 @@ fn words(reading: Option<&Reading>, drawn: Option<&Drawn>, gears: bool) -> Vec<S
                 out.push("held".to_string());
             }
         }
-        Reading::Ratio {
-            ratio,
-            pending,
-            held,
-            ..
-        } => {
-            out.push(ladder::label(ratio));
-            out.push(if !d.exact {
-                "never closes".to_string()
-            } else if d.q.abs() == 1 {
+        Reading::Ratio { .. } => {
+            out.push(label(d.p, d.q));
+            out.push(if d.q == 1 {
                 "every cycle in".to_string()
             } else {
-                format!("every {} cycles in", d.q.abs())
+                format!("every {} cycles in", d.q)
             });
             out.push(if gears {
                 match teeth(d.p, d.q) {
@@ -241,20 +230,26 @@ fn words(reading: Option<&Reading>, drawn: Option<&Drawn>, gears: bool) -> Vec<S
             } else {
                 format!(
                     "{} petal{} · {} loop{}",
-                    d.p.abs(),
-                    if d.p.abs() == 1 { "" } else { "s" },
+                    d.p,
+                    if d.p == 1 { "" } else { "s" },
                     d.q,
                     if d.q == 1 { "" } else { "s" }
                 )
             });
-            if let Some(p) = pending {
-                out.push(format!("→ {} next", ladder::label(p)));
-            } else if held {
-                out.push("held".to_string());
-            }
         }
     }
     out
+}
+
+/// A ratio in lowest terms as the words beside the picture write it: `×3`, `÷4`, `3/2`.
+fn label(p: i64, q: i64) -> String {
+    if q == 1 {
+        format!("×{p}")
+    } else if p == 1 {
+        format!("÷{q}")
+    } else {
+        format!("{p}/{q}")
+    }
 }
 
 /// The teeth two meshing gears carry for a ratio `p/q`: `k·p` driving `k·q`, the smallest `k`
@@ -296,20 +291,7 @@ fn draw_rosette(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colo
         return;
     }
 
-    // The ghost of a ratio waiting to land, behind the one running.
-    if let Some((p, q)) = d.pending {
-        rosette_curve(painter, center, big, p, q, line(1.0, c.faint));
-    }
-    // The rim, broken at the top where a ratio that is not the fraction drawn does not close.
-    if d.exact {
-        painter.circle_stroke(center, big * 0.94, line(1.0, c.faint));
-    } else {
-        let gap = 0.35;
-        let points: Vec<Pos2> = (0..=90)
-            .map(|i| at(top + gap + (TAU - 2.0 * gap) * i as f32 / 90.0, big * 0.94))
-            .collect();
-        painter.add(Shape::line(points, line(1.0, c.faint)));
-    }
+    painter.circle_stroke(center, big * 0.94, line(1.0, c.faint));
     rosette_curve(painter, center, big, d.p, d.q, line(1.4, c.curve));
     let q = d.q.max(1);
     painter.line_segment(
@@ -318,11 +300,7 @@ fn draw_rosette(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colo
     );
     // The dot: where the output is, as a point of the curve it runs along, a turn an input
     // cycle.
-    let t = if d.p == 0 {
-        crate::nodes::phasor::fraction(d.input, q as f64)
-    } else {
-        crate::nodes::phasor::fraction(d.output * q as f64 / d.p as f64, q as f64)
-    };
+    let t = crate::nodes::phasor::fraction(d.output * q as f64 / d.p as f64, q as f64);
     let a = top + TAU * crate::nodes::phasor::fraction(t, 1.0) as f32;
     let wave = (TAU * crate::nodes::phasor::fraction(d.output, 1.0) as f32).cos();
     painter.circle_filled(at(a, big * (0.6 + 0.3 * wave)), 3.0 * z, c.dot);
@@ -369,7 +347,7 @@ fn draw_gears(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colors
         );
         return;
     }
-    let fits = teeth(d.p, d.q).filter(|_| d.exact);
+    let fits = teeth(d.p, d.q);
     let (ti, to) = fits.unwrap_or((12, 12));
     // Radii proportional to teeth, the pair as wide as the square allows.
     let module = (rect.width() / (2.0 * (ti + to) as f32 + 4.0))
@@ -387,7 +365,7 @@ fn draw_gears(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colors
         painter.text(
             co,
             Align2::CENTER_CENTER,
-            ladder::label(d.p as f64 / d.q.max(1) as f64),
+            label(d.p, d.q),
             FontId::monospace(theme::font_size(theme::FONT_TINY, z)),
             c.dot,
         );
@@ -454,6 +432,100 @@ fn gear(
         ],
         stroke,
     );
+}
+
+// ------------------------------------------------------------------------------- teeth
+
+/// A Ratio Gear's Teeth: the word, and its two numbers either side of a colon, on one row.
+pub const TEETH: RegionDef = RegionDef {
+    size: teeth_size,
+    show: teeth_show,
+    ..RegionDef::EMPTY
+};
+
+/// Each of the Teeth's two s-numbers: narrower than a row's, so two and the colon fit where
+/// a row's one control and its label do, and wide enough to keep both steppers.
+const TEETH_NUMBER: f32 = 60.0;
+/// The colon's room between them.
+const COLON: f32 = 16.0;
+/// Where a row's control stops short of the body's right edge: the input block's inset and
+/// the control's own.
+const ROW_RIGHT: f32 = canvas::ROW_BLOCK_INSET + 8.0;
+
+fn teeth_size(_node: &Node) -> f32 {
+    canvas::CONTROL_ROW_PITCH
+}
+
+/// What the Teeth say in words: `Turns 3 times for every 2 turns of its parent.`
+pub fn teeth_words(p: i64, q: i64) -> String {
+    format!(
+        "Turns {p} time{} for every {q} turn{} of its parent.",
+        if p == 1 { "" } else { "s" },
+        if q == 1 { "" } else { "s" }
+    )
+}
+
+fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
+    let z = r.zoom;
+    let rect = r.rect;
+    let y = rect.center().y;
+    // The slab a lone input row stands on: short of the far edge, its two outer corners
+    // round.
+    let slab = rect.with_max_x(rect.max.x - canvas::ROW_BLOCK_INSET * z);
+    let round = (canvas::ROW_BLOCK_RADIUS * z).round() as u8;
+    r.ui.painter().rect_filled(
+        slab,
+        CornerRadius {
+            ne: round,
+            se: round,
+            ..Default::default()
+        },
+        r.theme.bg_secondary(),
+    );
+    r.ui.painter().text(
+        pos2(rect.min.x + crate::ui::node_widget::LABEL_INSET * z, y),
+        Align2::LEFT_CENTER,
+        "Teeth",
+        FontId::monospace(theme::font_size(theme::FONT_TINY, z)),
+        r.theme.text_secondary(),
+    );
+    let size = vec2(TEETH_NUMBER, number::HEIGHT) * z;
+    let q_rect = Rect::from_min_size(
+        pos2(rect.max.x - ROW_RIGHT * z - size.x, y - size.y * 0.5),
+        size,
+    );
+    let colon = Rect::from_min_max(
+        pos2(q_rect.min.x - COLON * z, q_rect.min.y),
+        q_rect.left_bottom(),
+    );
+    let p_rect = Rect::from_min_size(pos2(colon.min.x - size.x, q_rect.min.y), size);
+    r.ui.painter().text(
+        colon.center(),
+        Align2::CENTER_CENTER,
+        ":",
+        FontId::monospace(theme::font_size(theme::FONT_BASE, z)),
+        r.theme.text_secondary(),
+    );
+    let mut out = Vec::new();
+    out.extend(r.number(p_rect, gear::TEETH_P));
+    out.extend(r.number(q_rect, gear::TEETH_Q));
+
+    // Painted text is not in the accessibility tree: the row says what it is set to, and its
+    // words say it whole on hover.
+    let (p, q) = gear::teeth_of(r.node);
+    let words = Rect::from_min_max(rect.min, pos2(p_rect.min.x, rect.max.y));
+    let w =
+        r.ui.interact(words, r.ui.id().with(("teeth", r.id)), Sense::hover());
+    crate::ui::accessible(
+        &w,
+        WidgetType::Label,
+        format_args!("{} {p} : {q}", r.name("teeth")),
+    );
+    w.on_hover_text(teeth_words(p, q));
+    let w =
+        r.ui.interact(colon, r.ui.id().with(("teeth-colon", r.id)), Sense::hover());
+    w.on_hover_text(teeth_words(p, q));
+    out
 }
 
 #[cfg(test)]

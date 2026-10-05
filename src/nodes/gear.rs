@@ -13,28 +13,32 @@
 //! never jumps, and it is born at `playhead ÷ length` — two master gears of one length agree,
 //! and at the playhead's zero every one of them is at the start of its cycle.
 //!
-//! **The Ratio Gear** is a clock in and a clock out at a ratio: `ratio × ΔClock In`, a count
-//! read whole in `f64` (`TickContext::count`), anything else unwrapped where its output
-//! declares its wrap (`OutputDef::wraps_at`), or the playhead's seconds with nothing cabled. **A ratio change lands on the input's next whole cycle**:
-//! until then the old ratio runs and the display shows the new one pending, so the output's
-//! downbeat stays on the input's, and a chain of whole ratios still closes whatever phase the
-//! change landed at. It is born at `ratio ×` the input's reading, the count as its source
-//! publishes it, so a gear born again is where playing would have put it and its downbeat is
-//! the input's. A cabled clock its source calls a jump ([`TickContext::jump`], which a gear
-//! says of its readings on a Reset), or one sent back more than a cycle in a frame, is a jump
-//! to it, and fires at most one downbeat, its own where this frame's motion carried it past
-//! one, so a hand's Reset above it is a beat however early in a cycle it comes.
+//! **The Ratio Gear** is a pure product of its parent: `parent × p ÷ q`, worked out afresh
+//! each tick from what arrives at Clock In — a count read whole in `f64`
+//! (`TickContext::count`), anything else the one `f32` it is — or from the playhead's seconds
+//! with nothing cabled. Its **Teeth**, `p : q`, are two whole numbers of one or more with no
+//! port, kept as they were typed and reduced only in the arithmetic: the gear turns `p` times
+//! for every `q` turns of its parent. It has no position of its own and keeps no track, so a
+//! seek, a render, a relaunch and a reopened tab land it on the same count to the bit, and a
+//! change of Teeth puts it where it would be had it always run at the new ratio: a jump, which
+//! is the behavior (`docs/decisions.md`, *A Ratio Gear is a pure product of its parent*).
+//! The one thing it remembers is the parent's last reading, to find the whole cycles its
+//! output passed in a frame.
 //!
 //! Both publish the same four: Cycles, a count published whole (`TickContext::publish_count`) —
 //! to a Time in `f64` on the CPU and as a whole part and a fraction in a shader, and to
 //! anything else as one `f32` wrapped at [`phasor::WRAP`] centered on zero;
 //! Phase, the fraction alone; Ping-pong, a triangle over two cycles; and Trigger, an event on
-//! each whole cycle placed where inside the frame it fell. **Hold** is a toggle that freezes
-//! the gear where it stands; **Reset** puts it at the start of a cycle, and is a beat. A seek
-//! — the time readout's reset among them — and a render's start are a jump: every gear is
-//! born again where the playhead puts it, and fires nothing on the way. A gear the jump puts
-//! on a whole cycle is on that cycle's beat and fires it, so the readout's reset and a
-//! render's first frame are a downbeat.
+//! each whole cycle placed where inside the frame it fell. A Master Gear's **Hold** is a
+//! toggle that freezes it where it stands; its **Reset** puts it at the start of a cycle, and
+//! is a beat. A seek — the time readout's reset among them — and a render's start are a jump:
+//! every gear is born again where the playhead puts it, and fires nothing on the way. A gear
+//! the jump puts on a whole cycle is on that cycle's beat and fires it, so the readout's reset
+//! and a render's first frame are a downbeat. A clock cabled into a Ratio Gear that its source
+//! calls a jump ([`TickContext::jump`], which a gear says of its readings on a Reset or a
+//! Teeth change), or one sent back more than a cycle in a frame, is a jump to it too, and
+//! fires at most one downbeat, its own where this frame's motion carried it past one, so a
+//! hand's Reset above it is a beat however early in a cycle it comes.
 //!
 //! How each is drawn is its **Display** option, a still rosette or two meshing gears, both
 //! turning at the real rate: `widgets::gear`.
@@ -142,51 +146,85 @@ pub static RATIO: NodeDef = NodeDef {
     category: Category::Gear,
     icon: "⚙",
     label: "Ratio Gear",
-    tooltip: "A clock in and a clock out at a ratio: ×3, ÷4, 3/2, or a sign to run it \
-              backwards. A change lands on the input's next whole cycle, so the downbeat stays \
-              on the input's. With nothing in Clock In it counts ambient seconds.",
-    inputs: &[
+    tooltip: "A clock that turns p times for every q turns of its parent, set by its Teeth: \
+              2 : 1 is twice as fast, 3 : 2 three turns against two. It is the parent times \
+              p ÷ q every frame, so a change of Teeth lands at once and a seek lands where \
+              playing would. With nothing in Clock In its parent is ambient seconds.",
+    inputs: &[InputDef {
+        key: "clock",
+        label: "Clock In",
+        ty: UniformNumber,
+        // No knob: unplugged, the clock is ambient time's seconds.
+        control: Control::None,
+    }],
+    // Drawn on the Teeth row (`widgets::gear::TEETH`), with no port.
+    hidden: &[
         InputDef {
-            key: "clock",
-            label: "Clock In",
+            key: TEETH_P,
+            label: "Teeth p",
             ty: UniformNumber,
-            // No knob: unplugged, the clock is ambient time's seconds.
-            control: Control::None,
+            control: Control::num(1.0, 1.0, MAX_TEETH as f32, 1.0, ""),
         },
         InputDef {
-            key: "ratio",
-            label: "Ratio",
+            key: TEETH_Q,
+            label: "Teeth q",
             ty: UniformNumber,
-            control: Control::num(1.0, -64.0, 64.0, 0.001, ""),
-        },
-        InputDef {
-            key: "reset",
-            label: "Reset",
-            ty: Action,
-            control: Control::Press,
-        },
-        InputDef {
-            key: "hold",
-            label: "Hold",
-            ty: Action,
-            control: Control::Press,
+            control: Control::num(1.0, 1.0, MAX_TEETH as f32, 1.0, ""),
         },
     ],
     outputs: OUTPUTS,
     options: &[DISPLAY],
-    regions: &[Region::Gear],
+    regions: &[Region::Teeth, Region::Gear],
     cpu: Some(CpuDef {
         create: || Box::new(RatioGear::default()),
-        integrates: true,
+        integrates: false,
         live: false,
     }),
     ..NodeDef::EMPTY
 };
 
-/// Whether `key` on `def` is a Ratio Gear's ratio: the control drawn and typed on the
-/// [`ladder`], which a MIDI knob sweeps too.
-pub fn is_ratio(def: &NodeDef, key: &str) -> bool {
-    def.slug == RATIO.slug && key == "ratio"
+/// The key of a Ratio Gear's `p`: the turns it makes for every `q` of its parent's.
+pub const TEETH_P: &str = "p";
+
+/// The key of a Ratio Gear's `q`: the parent's turns its `p` are made in.
+pub const TEETH_Q: &str = "q";
+
+/// The most either of a Ratio Gear's Teeth reaches.
+pub const MAX_TEETH: i64 = 64;
+
+/// A Ratio Gear's Teeth as the arithmetic reads two stored numbers: each the whole number
+/// nearest it, from one to [`MAX_TEETH`].
+pub fn teeth(p: f32, q: f32) -> (i64, i64) {
+    let whole = |v: f32| {
+        if v.is_finite() {
+            (v.round() as i64).clamp(1, MAX_TEETH)
+        } else {
+            1
+        }
+    };
+    (whole(p), whole(q))
+}
+
+/// A Ratio Gear's Teeth on `node`, as [`teeth`] reads them.
+pub fn teeth_of(node: &crate::graph::Node) -> (i64, i64) {
+    let read = |key| match node.controls.get(key) {
+        Some(crate::graph::ControlValue::Float(v)) => *v,
+        _ => 1.0,
+    };
+    teeth(read(TEETH_P), read(TEETH_Q))
+}
+
+/// `p ÷ q` in lowest terms.
+pub fn reduced(p: i64, q: i64) -> (i64, i64) {
+    let g = crate::nodes::chain::gcd(p.unsigned_abs(), q.unsigned_abs()).max(1) as i64;
+    (p / g, q / g)
+}
+
+/// A Ratio Gear's output for a parent's reading: `parent × p ÷ q`, in lowest terms, so Teeth
+/// of 2 : 4 and 1 : 2 give the same count to the bit.
+pub fn product(parent: f64, p: i64, q: i64) -> f64 {
+    let (p, q) = reduced(p, q);
+    parent * p as f64 / q as f64
 }
 
 /// How many seconds one cycle of a Master Gear is: its Length, kept off zero.
@@ -205,15 +243,13 @@ pub enum Reading {
         held: bool,
     },
     Ratio {
-        /// Input cycles, unwrapped.
+        /// The parent's reading.
         input: f64,
         /// Output cycles, unbounded.
         output: f64,
-        /// The ratio running.
-        ratio: f64,
-        /// A ratio waiting for the input's next whole cycle.
-        pending: Option<f64>,
-        held: bool,
+        /// The Teeth, `p : q`, as they are set.
+        p: i64,
+        q: i64,
     },
 }
 
@@ -433,13 +469,9 @@ impl CpuNode for MasterGear {
 
 #[derive(Default)]
 struct RatioGear {
-    /// Output cycles, unbounded.
-    output: f64,
-    /// Input cycles, unwrapped: the playhead's seconds with Clock In unplugged, the cabled
-    /// clock's readings summed across its wraps otherwise.
-    input: f64,
-    /// What the cabled clock read on the last tick, as it is published.
-    raw: Option<f64>,
+    /// What the parent read on the last tick: the playhead's seconds with Clock In unplugged,
+    /// the cabled clock's reading as it is published otherwise.
+    raw: f64,
     /// The output cabled into Clock In on the last tick.
     source: Option<crate::graph::PortRef>,
     /// How fast the cabled clock was moving on the last tick it moved, in its cycles a second
@@ -447,62 +479,15 @@ struct RatioGear {
     /// measured on: what a frame of it is after it is thrown back.
     pace: Option<(f64, f64)>,
     born: bool,
-    ratio: f64,
-    /// A ratio waiting for the input's next whole cycle.
-    pending: Option<f64>,
-    held: bool,
-    hold: Gate,
-    reset: Gate,
+    /// The Teeth on the last tick.
+    teeth: (i64, i64),
+    /// Output cycles on the last tick, for the display.
+    output: f64,
     trigger: Gate,
 }
 
 /// The Ratio Gear's Trigger gate: half a cycle.
 const RATIO_GATE: f64 = 0.5;
-
-impl RatioGear {
-    /// Run the input from `from` to `to`, over the frame's fractions `f0..f1`: the output
-    /// follows at the ratio, a pending ratio lands where the input crosses a whole cycle, and
-    /// the output's own whole cycles are gathered as edges.
-    fn run(&mut self, from: f64, to: f64, f0: f64, f1: f64, edges: &mut Vec<(f64, bool)>) {
-        let at = |p: f64| {
-            if to == from {
-                f1
-            } else {
-                f0 + (f1 - f0) * ((p - from) / (to - from)).clamp(0.0, 1.0)
-            }
-        };
-        let mut here = from;
-        loop {
-            let landing = self.pending.and_then(|p| {
-                let step = Step {
-                    from: here,
-                    to,
-                    jumped: false,
-                };
-                step.crossings(0.0).next().map(|(n, _)| (n, p))
-            });
-            let (until, next) = match landing {
-                Some((n, p)) => (n, Some(p)),
-                None => (to, None),
-            };
-            if !self.held && until != here {
-                let before = self.output;
-                self.output += self.ratio * (until - here);
-                if self.output != before {
-                    edges_between(before, self.output, at(here), at(until), RATIO_GATE, edges);
-                }
-            }
-            here = until;
-            match next {
-                Some(p) => {
-                    self.ratio = p;
-                    self.pending = None;
-                }
-                None => break,
-            }
-        }
-    }
-}
 
 impl CpuNode for RatioGear {
     fn reset(&mut self) {
@@ -511,74 +496,60 @@ impl CpuNode for RatioGear {
 
     fn debug(&self) -> Option<String> {
         Some(format!(
-            "{:.3} cycles at {}{}{}",
-            self.output,
-            ladder::label(self.ratio),
-            self.pending
-                .map_or_else(String::new, |p| format!(" → {}", ladder::label(p))),
-            if self.held { " held" } else { "" }
+            "{:.3} cycles at {} : {}",
+            self.output, self.teeth.0, self.teeth.1
         ))
     }
 
     fn gear(&self) -> Option<Reading> {
         Some(Reading::Ratio {
-            input: self.input,
+            input: self.raw,
             output: self.output,
-            ratio: self.ratio,
-            pending: self.pending,
-            held: self.held,
+            p: self.teeth.0,
+            q: self.teeth.1,
         })
     }
 
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
-        let knob = ladder::exact(f64::from(ctx.input(id, "ratio")));
+        let (p, q) = teeth(ctx.input(id, TEETH_P), ctx.input(id, TEETH_Q));
+        let ratio = product(1.0, p, q);
         let time = ctx.time;
-        let moments = moments(id, ctx, &mut self.hold, &mut self.reset);
         let source = ctx.source(id, "clock");
+        let cabled = source.is_some();
         // A count published whole is read in `f64`; anything else is one `f32`, and its
         // readings are only as near as that.
-        let raw = source.is_some().then(|| ctx.count(id, "clock"));
-        let epsilon = if raw.is_some() && !ctx.counted(id, "clock") {
+        let now = if cabled {
+            ctx.count(id, "clock")
+        } else {
+            time.playhead
+        };
+        let epsilon = if cabled && !ctx.counted(id, "clock") {
             f64::from(f32::EPSILON)
         } else {
             f64::EPSILON
         };
+        let output = product(now, p, q);
 
-        // Born where the input is: on a jump, on the first tick, and where Clock In is cabled,
-        // let go or moved onto another output, since the clock it counts is then another one.
+        // Born where the parent is: on a jump, on the first tick, and where Clock In is
+        // cabled, let go or moved onto another output, since the clock it counts is then
+        // another one.
         let birth = time.jumped || !self.born || source != self.source;
-
-        // How far the input moved this frame: the playhead's advance, or the cabled clock's
-        // step, unwrapped where its output says it wraps.
-        let delta = match (raw, self.raw) {
-            (Some(now), Some(was)) => phasor::unwrap_at(was, now, ctx.wraps_at(id, "clock")),
-            _ => time.advance,
+        // How far the parent moved this frame, unwrapped where its output says it wraps.
+        let delta = if cabled {
+            phasor::unwrap_at(self.raw, now, ctx.wraps_at(id, "clock"))
+        } else {
+            now - self.raw
         };
-        // A cabled clock its source says was put where it is — a gear's Reset above, or a
-        // gear above born again — or one sent back more than a cycle in one frame jumped:
+        // A cabled clock its source says was put where it is — a gear's Reset or Teeth above,
+        // or a gear above born again — or one sent back more than a cycle in one frame jumped:
         // nothing on the way was played through. A step back of less than a cycle with no
         // word from the source is a clock running backwards; forwards, a fast gear crosses
         // several cycles a frame, which is motion.
-        let thrown_back = raw.is_some() && (delta < -1.0 || ctx.jumped(id, "clock"));
+        let thrown_back = !birth && cabled && (delta < -1.0 || ctx.jumped(id, "clock"));
 
         if birth || thrown_back {
             let first = !self.born;
             self.born = true;
-            self.ratio = knob;
-            self.pending = None;
-            if let Some(raw) = raw {
-                self.input = raw;
-                self.output = knob * raw;
-            } else {
-                self.input = time.playhead;
-                self.output = knob * time.playhead;
-            }
-            self.raw = raw;
-            for (_, moment) in moments {
-                if let Moment::Hold = moment {
-                    self.held = !self.held;
-                }
-            }
             // How long the clock has run since it was put where it is: since the seek landed,
             // on a birth the transport made; a whole frame since a Reset above, which lands at
             // the top of the frame; nothing on the first tick. A cable moved is no beat.
@@ -605,24 +576,22 @@ impl CpuNode for RatioGear {
             // beat: that one beat, and nothing for the cycles it went back over. The clock
             // has run on since, so the downbeat counts where it falls inside that run at the
             // pace the clock was going: one a second on ambient seconds.
-            if let Some(since) = since
-                && !self.held
-            {
-                let (pace, error) = if raw.is_some() {
+            if let Some(since) = since {
+                let (pace, error) = if cabled {
                     self.pace.unwrap_or((0.0, 0.0))
                 } else {
                     (1.0, 0.0)
                 };
                 // How far past its downbeat the way it runs: a gear counts down where its
-                // ratio or its clock runs backwards.
-                let past = if knob * pace < 0.0 || (pace == 0.0 && knob < 0.0) {
-                    self.output.ceil() - self.output
+                // clock runs backwards.
+                let past = if pace < 0.0 {
+                    output.ceil() - output
                 } else {
-                    self.output - self.output.floor()
+                    output - output.floor()
                 };
-                let motion = (knob * pace * since).abs();
-                let slack = knob.abs() * (error * since + epsilon * self.input.abs());
-                let whole = on_a_whole_cycle(self.output);
+                let motion = (ratio * pace * since).abs();
+                let slack = ratio * (error * since + epsilon * now.abs());
+                let whole = on_a_whole_cycle(output);
                 if whole || past <= motion + slack + phasor::REACH {
                     let at = if whole || motion <= 0.0 || !thrown_back {
                         0.0
@@ -632,247 +601,31 @@ impl CpuNode for RatioGear {
                     fire(id, ctx, &mut self.trigger, vec![(at, true)]);
                 }
             }
-            publish(id, ctx, self.output);
-            return;
-        }
-        if let (Some(now), Some(was)) = (raw, self.raw)
-            && time.advance > 0.0
-        {
-            let error = epsilon * (now.abs() + was.abs());
-            self.pace = Some((delta / time.advance, error / time.advance));
-        }
-        self.raw = raw;
-        self.pending = (knob != self.ratio).then_some(knob);
-
-        let start = self.input;
-        let mut edges = Vec::new();
-        let mut done = 0.0;
-        for at in moments.into_iter().map(Some).chain([None]) {
-            let to = at.map_or(1.0, |(f, _)| f.clamp(done, 1.0));
-            self.run(
-                start + delta * done,
-                start + delta * to,
-                done,
-                to,
-                &mut edges,
-            );
-            done = to;
-            match at.map(|(_, m)| m) {
-                Some(Moment::Hold) => {
-                    self.held = !self.held;
-                    if self.held {
-                        edges.push((to, false));
-                    }
-                }
-                Some(Moment::Reset) => {
-                    self.output = 0.0;
-                    edges.push((to, true));
-                    jumped(id, ctx);
-                }
-                None => {}
-            }
-        }
-        self.input = start + delta;
-        fire(id, ctx, &mut self.trigger, edges);
-        publish(id, ctx, self.output);
-    }
-}
-
-// ------------------------------------------------------------------------------ ladder
-
-/// The Ratio Gear's ratio as a hand reads and moves it: a ladder a drag walks, a label, and
-/// the typed forms it takes.
-///
-/// **A drag walks ÷16, ÷8, ÷6, ÷4, ÷3, ÷2, ×1, ×2, ×3, ×4, ×6, ×8, ×12, ×16**, and on through
-/// ×0 into the same rungs reversed. **Typed, it takes anything**: `×5`, `÷7`, `3/2`, `0.3`,
-/// or a sign in front for reverse (`-×1`). A ratio that is not a whole ×n or ÷n is allowed;
-/// a loop of the master above it is then as many cycles as its denominator
-/// (`nodes::chain`).
-pub mod ladder {
-    /// The rungs above ×0, in order.
-    pub const RUNGS: [f64; 14] = [
-        1.0 / 16.0,
-        1.0 / 8.0,
-        1.0 / 6.0,
-        1.0 / 4.0,
-        1.0 / 3.0,
-        1.0 / 2.0,
-        1.0,
-        2.0,
-        3.0,
-        4.0,
-        6.0,
-        8.0,
-        12.0,
-        16.0,
-    ];
-
-    /// The top rung's index: rungs run from `-TOP` through ×0 at zero to `TOP`.
-    pub const TOP: i32 = RUNGS.len() as i32;
-
-    /// The ratio on rung `i`.
-    pub fn at(i: i32) -> f64 {
-        let i = i.clamp(-TOP, TOP);
-        if i == 0 {
-            0.0
         } else {
-            RUNGS[(i.unsigned_abs() - 1) as usize].copysign(f64::from(i))
-        }
-    }
-
-    /// The rung nearest `r`, measured in octaves: ×0 below half of ÷16.
-    pub fn nearest(r: f64) -> i32 {
-        if !r.is_finite() || r.abs() < RUNGS[0] / 2.0 {
-            return 0;
-        }
-        let m = r.abs().ln();
-        let best = RUNGS
-            .iter()
-            .enumerate()
-            .min_by(|a, b| (a.1.ln() - m).abs().total_cmp(&(b.1.ln() - m).abs()))
-            .map_or(0, |(i, _)| i as i32 + 1);
-        if r < 0.0 { -best } else { best }
-    }
-
-    /// The fraction `p/q` a ratio is, with `q` up to `max_q`, where it is one to within
-    /// rounding an `f32` control leaves.
-    pub fn fraction(r: f64, max_q: i64) -> Option<(i64, i64)> {
-        if !r.is_finite() {
-            return None;
-        }
-        (1..=max_q).find_map(|q| {
-            let p = (r * q as f64).round();
-            ((r * q as f64 - p).abs() < 1e-4 * q as f64 && p.abs() < 1e6).then_some((p as i64, q))
-        })
-    }
-
-    /// The nearest small fraction to a ratio, `q` up to sixteen, and whether it is the ratio
-    /// itself: what a display draws for a ratio that is not a whole one.
-    pub fn nearest_fraction(r: f64) -> (i64, i64, bool) {
-        if let Some((p, q)) = fraction(r, 64) {
-            let g = gcd(p.unsigned_abs(), q.unsigned_abs()).max(1) as i64;
-            return (p / g, q / g, true);
-        }
-        let mut best = (r.round() as i64, 1, f64::MAX);
-        for q in 1..=16i64 {
-            let p = (r * q as f64).round();
-            let err = (r - p / q as f64).abs();
-            if err < best.2 {
-                best = (p as i64, q, err);
+            if cabled && time.advance > 0.0 {
+                let error = epsilon * (now.abs() + self.raw.abs());
+                self.pace = Some((delta / time.advance, error / time.advance));
             }
-        }
-        (best.0, best.1, false)
-    }
-
-    /// The exact ratio a control's `f32` stands for: the fraction it is, where it is one with
-    /// a denominator up to 64, so ÷3 runs at a third and not at `0.33333334`.
-    pub fn exact(r: f64) -> f64 {
-        match fraction(r, 64) {
-            Some((p, q)) => p as f64 / q as f64,
-            None => r,
-        }
-    }
-
-    pub fn gcd(mut a: u64, mut b: u64) -> u64 {
-        while b != 0 {
-            (a, b) = (b, a % b);
-        }
-        a
-    }
-
-    /// A ratio as the control and the display write it: `×3`, `÷4`, `3/2`, `×0`, `0.37`,
-    /// with a minus in front for one run backwards.
-    pub fn label(r: f64) -> String {
-        if !r.is_finite() {
-            return "×?".to_string();
-        }
-        let sign = if r < 0.0 { "-" } else { "" };
-        let m = r.abs();
-        if m < 1e-6 {
-            return "×0".to_string();
-        }
-        match fraction(m, 64) {
-            Some((p, 1)) => format!("{sign}×{p}"),
-            Some((1, q)) => format!("{sign}÷{q}"),
-            Some((p, q)) => {
-                let g = gcd(p as u64, q as u64).max(1) as i64;
-                format!("{sign}{}/{}", p / g, q / g)
+            // A change of Teeth is a jump: what counts this gear is born again with it.
+            if (p, q) != self.teeth {
+                jumped(id, ctx);
             }
-            None => format!("{sign}{m:.3}"),
-        }
-    }
-
-    /// A typed ratio: `×5` or `x5` or `*5`, `÷7` or `/7`, `3/2`, a plain number, each with an
-    /// optional minus in front. `None` for anything else.
-    pub fn parse(text: &str) -> Option<f64> {
-        let text = text.trim();
-        let (sign, body) = match text.strip_prefix(['-', '−']) {
-            Some(rest) => (-1.0, rest.trim()),
-            None => (1.0, text.strip_prefix('+').unwrap_or(text).trim()),
-        };
-        let number = |s: &str| s.trim().parse::<f64>().ok().filter(|v| v.is_finite());
-        let value = if let Some(rest) = body.strip_prefix(['×', 'x', 'X', '*']) {
-            number(rest)?
-        } else if let Some(rest) = body.strip_prefix(['÷', '/']) {
-            let d = number(rest)?;
-            (d != 0.0).then(|| 1.0 / d)?
-        } else if let Some((p, q)) = body.split_once('/') {
-            let (p, q) = (number(p)?, number(q)?);
-            (q != 0.0).then(|| p / q)?
-        } else {
-            number(body)?
-        };
-        Some(sign * value)
-    }
-
-    /// Where a MIDI knob at `t`, 0 to 1, puts a ratio: its whole sweep is the ladder.
-    pub fn from_knob(t: f32) -> f64 {
-        let t = f64::from(t.clamp(0.0, 1.0));
-        at((f64::from(-TOP) + t * f64::from(2 * TOP)).round() as i32)
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn the_ladder_walks_its_rungs_through_zero() {
-            assert_eq!(at(0), 0.0);
-            assert_eq!(at(7), 1.0);
-            assert_eq!(at(1), 1.0 / 16.0);
-            assert_eq!(at(TOP), 16.0);
-            assert_eq!(at(-7), -1.0);
-            assert_eq!(nearest(5.0), 11, "×5 is nearer ×6 than ×4, by the octave");
-            assert_eq!(nearest(0.3), 5, "0.3 is nearest ÷3");
-            assert_eq!(nearest(-2.0), -8);
-            assert_eq!(nearest(0.01), 0);
-            for i in -TOP..=TOP {
-                assert_eq!(nearest(at(i)), i);
+            // The frame's motion at the Teeth set now, from where the parent was: the whole
+            // cycles it passed, and none for a jump the Teeth made.
+            let from = if now - self.raw == delta {
+                product(self.raw, p, q)
+            } else {
+                product(now - delta, p, q)
+            };
+            let mut edges = Vec::new();
+            if from != output {
+                edges_between(from, output, 0.0, 1.0, RATIO_GATE, &mut edges);
             }
+            fire(id, ctx, &mut self.trigger, edges);
         }
-
-        #[test]
-        fn a_ratio_reads_and_types_as_a_hand_writes_it() {
-            assert_eq!(label(3.0), "×3");
-            assert_eq!(label(0.25), "÷4");
-            assert_eq!(label(f64::from(1.0f32 / 3.0)), "÷3");
-            assert_eq!(label(1.5), "3/2");
-            assert_eq!(label(-1.0), "-×1");
-            assert_eq!(label(0.0), "×0");
-            assert_eq!(label(0.37), "0.370");
-            assert_eq!(parse("×5"), Some(5.0));
-            assert_eq!(parse("x5"), Some(5.0));
-            assert_eq!(parse("÷7"), Some(1.0 / 7.0));
-            assert_eq!(parse("3/2"), Some(1.5));
-            assert_eq!(parse("0.3"), Some(0.3));
-            assert_eq!(parse("-×1"), Some(-1.0));
-            assert_eq!(parse("÷0"), None);
-            assert_eq!(parse("fast"), None);
-            assert_eq!(exact(f64::from(1.0f32 / 3.0)), 1.0 / 3.0);
-            assert_eq!(nearest_fraction(0.3), (3, 10, true));
-            let (p, q, whole) = nearest_fraction(0.3719);
-            assert!(!whole, "{p}/{q}");
-            assert!((p as f64 / q as f64 - 0.3719).abs() < 0.02, "{p}/{q}");
-        }
+        self.raw = now;
+        self.teeth = (p, q);
+        self.output = output;
+        publish(id, ctx, output);
     }
 }

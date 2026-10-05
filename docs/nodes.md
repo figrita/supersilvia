@@ -680,7 +680,9 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
 - `chain::master_loop` walks every node downstream of a Master Gear `M`, along every cable,
   and asks of each how many of `M`'s cycles it comes back in; the loop is the least common
   multiple of those and of one, so a whole number of `M`'s cycles. A **Ratio Gear** multiplies
-  its Clock In's rate by its ratio, a product of fractions down a chain. **A gear is counted
+  its Clock In's rate by its Teeth, exactly `p/q` in lowest terms, a product of fractions down a
+  chain; with anything but a count in its Clock In — a Phase, a Ping-pong, a number that comes
+  back — it is a function of that, and comes back when it does. **A gear is counted
   through what reads it**, and one whose readings reach nothing by its own turn: four on the
   floor on a ÷4 gear loops in one cycle of the master, and a ÷4 left alone in four.
 - **A node that moves with time** is where each of its Times and Offsets put it (any of a node's
@@ -695,10 +697,7 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
   reads — an Amplitude, a Gate — adds what arrives there: a Phase, a Ping-pong or anything
   that comes back on its own, and a count, which grows without bound, cannot be told.
 - **A Trigger** beats once a cycle of its gear; a **Clock Divider** at ÷n beats every `n` of
-  those. In a Ratio Gear's **Reset** every `T` of `M`'s cycles it makes the gear's count
-  `r × (m mod T)`, back every `T` — or as often as the gear came back on its own where that
-  divides `T`, since the reset is not then seen; in its **Hold** it runs a `T` and stands a
-  `T`, back every `2T` times the least `n` that makes `n × r × T ÷ P` whole.
+  those.
 - **A node on its own clock** — Loop mode with nothing in its Time, or running free on its
   Speed's knob — moves at its rate in seconds times `M`'s seconds a cycle, read as a fraction:
   an LFO at Speed 0.3 beside a two-second master moves 3/5 of a wave a cycle, so the two meet
@@ -1476,12 +1475,12 @@ decides which frame it wants, and **a clip is an oscillator whose shape is a fra
 One cycle is one play of the clip. **Time** counts plays: unplugged, it is ambient time at the
 clip's native speed, a play every clip length, read through `TickContext::cycle_at`, and
 running free its Speed is a multiple of that native speed, so Speed 2 plays it twice as fast and
-−1 backwards; in Loop mode a gear cabled in replaces Time, so a Ratio Gear at ×2 plays it twice
-as fast and one at −×1 plays it backwards. **Offset**, 1 a play and −1 to 1 on its knob, is **added**; `loop` wraps the sum, or at Hold
+−1 backwards; in Loop mode a gear cabled in replaces Time, so a Ratio Gear at 2 : 1 plays it
+twice as fast. **Offset**, 1 a play and −1 to 1 on its knob, is **added**; `loop` wraps the sum, or at Hold
 clamps it to one play, and the frame is `round(position × frames)`. The node keeps no position
 of its own, so the same sum is the same frame however it was reached. A slow wave on Offset
-scratches around the playing clip, and a Ratio Gear at ×0 into Time leaves a cable on Offset
-the whole position, a scrub. The scrubber on the picture writes Offset, so the sum lands where
+scratches around the playing clip, and a still number in Time leaves a cable on Offset the
+whole position, a scrub. The scrubber on the picture writes Offset, so the sum lands where
 the hand let go. **In a render the clip waits for its frame**: live, the picture is whatever the decoder has
 delivered, a tick late after a jump, and a render holds its frame until each clip has the one
 its position names ([cpu.md](cpu.md#the-transport)), so a render of a clip is the same film
@@ -1508,8 +1507,8 @@ happens on a worker and the tick polls it, so a large file never costs a frame; 
 how many frames have arrived, across the picture band, which is a count and not a fraction
 because a GIF's header does not say how long it is. **Time counts plays of the animation**, by
 `video`'s rule: unplugged, ambient time at the GIF's own pace, a play every length of the
-delays it was authored with; a gear cabled in replaces it, a Ratio Gear at ×2 twice as fast and
-one at −×1 backwards. Offset, 1 across the animation laid over those delays and −1 to 1 on its knob, is added,
+delays it was authored with; a gear cabled in replaces it, a Ratio Gear at 2 : 1 twice as
+fast. Offset, 1 across the animation laid over those delays and −1 to 1 on its knob, is added,
 the sum wrapping as a GIF does, and the frame shown is the one whose delay the sum falls
 inside, so the node keeps no playhead of its own. `frame` and `frames` publish where the sum
 is and how many there are. A still is one frame and Time does nothing to it. Sampled outside its own picture it mirrors out to
@@ -1551,27 +1550,28 @@ two by default, a bar at 120 BPM. It integrates the playhead's advance over one 
 seconds in `f64`, so a Length turned bends from where it is and never jumps, and it is born at
 `playhead ÷ length`: two Master Gears of one length agree, and at the playhead's zero every one
 of them is at the start of its cycle. **Gate** is how long its Trigger stays down, in cycles.
-A beat is a Master Gear a beat long, and a bar a Ratio Gear at ÷4 below it.
+A beat is a Master Gear a beat long, and a bar a Ratio Gear at 1 : 4 below it.
 
-**`ratiogear`, the Ratio Gear**, is a clock in and a clock out at a ratio. **Clock In** (key
-`clock`) is a diamond with no knob. The gear publishes `ratio × ΔClock In`, a count read whole
-in `f64`, and anything else unwrapped where the output it comes from declares its wrap
-(`OutputDef::wraps_at`: one for a Phase, 2520 for anything else), so a 0..1 Phase cabled in
-runs forward across its wrap; with nothing cabled it counts the playhead's seconds. **Ratio**, −64 to 64, is a ladder
-(`nodes::gear::ladder`, the number control's `NumberSpec::ladder` mode): a drag walks ÷16 ÷8
-÷6 ÷4 ÷3 ÷2 ×1 ×2 ×3 ×4 ×6 ×8 ×12 ×16, and on through ×0 into reverse; typed, it takes ×5,
-÷7, 3/2, 0.3 or a leading minus; and a MIDI knob sweeps the ladder. **A ratio change lands on
-the input's next whole cycle.** Until then the old ratio runs and the display shows the new
-one pending, so the output's downbeat stays on the input's, and a chain of whole ratios closes
-whatever phase the change landed at; a glide would leave the downbeat wherever the glide
-ended. The gear is born at the ratio times its input's reading, the count as it is published,
-so one born again after a seek, a reopened tab or a render's warm-up is where playing would
-have put it and its downbeat is the input's.
+**`ratiogear`, the Ratio Gear**, is a pure product of its parent: `parent × p ÷ q`, worked
+out each tick and never integrated, so it has no position of its own and a seek, a render, a
+relaunch or a reopened tab lands it on the same count to the bit. **Clock In** (key `clock`)
+is a diamond with no knob, the parent: a count read whole in `f64`, anything else the one
+`f32` it is, so a Phase cabled in gives a gear that comes round with it; with nothing cabled
+the parent is the playhead's seconds. **Teeth** is one row of two whole numbers with no port,
+`p : q` (keys `p` and `q`, 1 to 64, both 1 by default; `Region::Teeth`): the gear turns `p`
+times for every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1 twice
+the parent — not physical gears, where fewer teeth turn faster. They are kept as typed and
+reduced only in the arithmetic, so 2 : 4 counts as 1 : 2 and still reads 2 : 4. **A change of
+Teeth lands at once**, on the parent times the new `p ÷ q`, where the gear would be had it
+always run at that ratio, and fires nothing for the cycles it jumped. Neither number can be
+cabled, and the gear has no Hold and no Reset: a layer that should pause or bend runs free on
+its Speed, and one that should be placed is placed by its own Offset
+([decisions.md](decisions.md#a-ratio-gear-is-a-pure-product-of-its-parent)).
 
 **Both publish the same four.** **Cycles** are a count, a time rather than a fraction, since
 a wrap at one would put a seam in front of every reader not periodic at one cycle. A Time
 reads it whole: a CPU node in `f64`, never wrapped, and a shader as its whole part, wrapped at
-80640 and centered on zero, and the `f32` of its fraction, so a gear reset and stepped back
+80640 and centered on zero, and the `f32` of its fraction, so a count a hundredth below zero
 reads −0.01, a render's warm-up counts before zero as precisely as after it, and the
 millionth cycle is as precise as the first. 80640 is twice the least common multiple of 2520
 and 128, which every Repeat and Static's 128 divide, and the most a picture
@@ -1582,27 +1582,27 @@ a ratio in tenths passes with no seam: through a Math node, a gear at a cycle a 
 over, from 1260 to −1260, 21 minutes in and every 42 minutes after. **Phase** (key
 `wrapped`) is the fraction alone, 0 to 1; **Ping-pong** a triangle that reaches 1 at one cycle
 and 0 at two; and **Trigger** an event on each whole cycle, placed where inside the frame it
-fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear. **Hold** is a
-toggle that freezes the gear where it stands and closes the gate it left open; **Reset** puts
-it at the start of a cycle and is a beat. The tick walks the frame's holds and resets moment
-by moment, so two inside one frame land in the order they happened. A seek — the time
-readout's reset among them — and a render's start are a jump: every gear is born again where
-the playhead puts it, and fires nothing on the way but the beat it lands on, where it lands on
-a whole cycle. A Ratio Gear whose Clock In a Reset above puts back,
-by any distance, or that is sent back more than a cycle in a frame, is born again where the
-clock now is and fires at most one downbeat: its own, where the clock's motion this frame
-carried it past one.
+fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear. A Master Gear's
+**Hold** is a toggle that freezes it where it stands and closes the gate it left open; its
+**Reset** puts it at the start of a cycle and is a beat. The tick walks the frame's holds and
+resets moment by moment, so two inside one frame land in the order they happened. A seek —
+the time readout's reset among them — and a render's start are a jump: every gear is born
+again where the playhead puts it, and fires nothing on the way but the beat it lands on, where
+it lands on a whole cycle. A Ratio Gear whose Clock In a Reset above puts back, by any
+distance, or that is sent back more than a cycle in a frame, fires at most one downbeat: its
+own, where the clock's motion this frame carried it past one.
 
 **A gear draws itself** in `Region::Gear` (`widgets::gear`), 92 units tall under the rows, by
 its **Display** option, a `Runtime` one that changes nothing it publishes. **Rosette**, the
-default, is a still spirograph: for a ratio `p/q`, a turn round the picture each input cycle,
+default, is a still spirograph: for Teeth `p : q` in lowest terms, a turn round the picture
+each input cycle,
 so `q` loops, with `p` petals waving in and out across them — a ÷4 is one petal wound over
 four loops — a tick at the top where each loop begins, and a dot riding the curve at the
 output's phase, a Master Gear's a ring of a clock face's twelve
 ticks. **Gears** is the input's gear of `k·p` teeth meshing with the output's of `k·q`, a
 Master Gear's one gear of twelve teeth. Both turn by the gear's own phases, never an animation
-clock, so a paused show is still. Beside the picture are the ratio, what it closes in and a
-pending change. Under a Master Gear's is a caption, `nodes::chain::caption` — "loops in 4
+clock, so a paused show is still. Beside the picture are the ratio, `×3`, `÷4` or `3/2`, and
+what it closes in. Under a Master Gear's is a caption, `nodes::chain::caption` — "loops in 4
 cycles · 8.000 s (÷4 on ratiogear12)", "2 nodes will not close (perlin5)" or "can't tell when 1
 node closes (multiply3)" — shown up to its " (" with the whole on hover ([When a loop
 closes](#when-a-loop-closes)).
@@ -1617,8 +1617,9 @@ a rate against the show is a Ratio Gear, and a count of cycles a Master Gear's.
 `oscillator` is silvia's, and it publishes a `UniformNumber`: seven waveforms in silvia's own
 phases at `Time + Offset`, in waves, times Amplitude, lifted by **Level**, silvia's Offset.
 Unplugged, Time is a wave a second, silvia's default 1 Hz; a gear cabled in is where a
-frequency is set, turned, stopped or restarted, a Ratio Gear's Ratio, Hold and Reset standing
-for silvia's Frequency, Start/Stop and Reset. Offset is added, in waves, so a slow wave there
+frequency is set, stopped or restarted, a Ratio Gear's Teeth and a Master Gear's Hold and
+Reset standing for silvia's Frequency, Start/Stop and Reset, and a frequency that bends is its
+Speed, running free. Offset is added, in waves, so a slow wave there
 modulates the phase of this one. The node keeps nothing, so its value is the same wherever the
 show was sought or played to; **Noise** draws a fresh value each wave, keyed by
 `floor(Time + Offset)` and the node's id, so it holds for a wave and is the same twice, and
@@ -1677,7 +1678,7 @@ is moved is a jump and fires nothing, and so is the first reading; so is one tha
 backwards on a clock, while running free a negative Speed plays the steps backwards, each
 entered at its top boundary and held a gate length as forwards. A step it lands exactly on, with a gear driving Time or a Speed
 moving it and the show playing, plays at once, so a render's first frame is its bar's downbeat; any other step it
-lands in plays on the next tick, so a gear's Reset lands on the downbeat. A Time that stands
+lands in plays on the next tick, so a Master Gear's Reset lands on the downbeat. A Time that stands
 still — a gear held, the show paused — closes whatever a step opened as the Time passed it,
 and leaves what a landing opened on the step it stands on open until the Time moves on, so a
 render's first frame has step 0's gate open after a Hold warm-up as after Black or Run. Each

@@ -116,7 +116,7 @@ fn a_refused_command_leaves_the_two_graphs_identical() {
     let err = app
         .apply(Command::ClearRange {
             node: note,
-            key: "ratio",
+            key: "p",
         })
         .expect_err("nothing has set a range on that control");
     assert!(matches!(
@@ -150,10 +150,10 @@ fn a_move_crosses_nothing_and_a_control_crosses() {
 
     app.apply(Command::SetControl {
         node: clock,
-        key: "ratio",
+        key: "p",
         value: ControlValue::Float(3.0),
     })
-    .expect("ratio is the node's own control");
+    .expect("p is the node's own control");
     assert_ne!(
         published,
         app.graph_generation(),
