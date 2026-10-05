@@ -875,6 +875,14 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
     }
 }
 
+/// A color thumbnail's cell as it is drawn: over black, as the picture on an Output is. The
+/// word is the cell's color packed four bytes, RGBA low byte first; the color is
+/// premultiplied, so over black it is the rgb as it stands.
+fn thumb_color(word: u32) -> Color32 {
+    let [r, g, b, _] = word.to_le_bytes();
+    Color32::from_rgb(r, g, b)
+}
+
 /// A varying output's thumbnail in its readout slot, and a larger one with its range on
 /// hover. A number is shaded between its declared `[lo, hi]` where the output declares one,
 /// and otherwise between the lowest and highest it reached on the grid.
@@ -923,16 +931,7 @@ fn port_thumb(
                     })
                     .collect()
             } else {
-                thumb
-                    .words
-                    .iter()
-                    .map(|w| {
-                        let [r, g, b, a] = w.to_le_bytes();
-                        // Over black, as the picture on an Output is.
-                        let m = |c: u8| ((u16::from(c) * u16::from(a)) / 255) as u8;
-                        Color32::from_rgb(m(r), m(g), m(b))
-                    })
-                    .collect()
+                thumb.words.iter().map(|w| thumb_color(*w)).collect()
             };
             // Bottom row first, as an Output's frame is.
             let mut rows = Vec::with_capacity(pixels.len());
@@ -4055,6 +4054,23 @@ mod tests {
             "these rows clip their node's declared width — give the definition a wider \
              `NodeDef::width`:\n  {}",
             failures.join("\n  ")
+        );
+    }
+
+    /// A color thumbnail's cell is the packed premultiplied color, and over black that is its
+    /// rgb as it stands: half-transparent red is half red, transparent black is black.
+    #[test]
+    fn a_color_thumbnail_cell_is_its_premultiplied_rgb_over_black() {
+        let word = |rgba: [u8; 4]| u32::from_le_bytes(rgba);
+        assert_eq!(
+            thumb_color(word([128, 0, 0, 128])),
+            Color32::from_rgb(128, 0, 0)
+        );
+        assert_eq!(thumb_color(word([0, 0, 0, 0])), Color32::BLACK);
+        assert_eq!(thumb_color(word([255, 255, 255, 255])), Color32::WHITE);
+        assert_eq!(
+            thumb_color(word([10, 20, 30, 64])),
+            Color32::from_rgb(10, 20, 30)
         );
     }
 }
