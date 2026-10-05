@@ -370,13 +370,14 @@ def one_beat(p):
         "once and moves the palette. A 3 : 1 gear on the phrase sways the Kaleidoscope through "
         "the Oscillator, three times a phrase, and the phrase moves the Simplex a cell. The "
         "sequencer's lanes kick the zoom and flash the colour.\n\n"
-        "The Master Gear's caption says the loop closes in 8 cycles, 4 s: the 1 : 8 asks for "
-        "eight beats.\n\n"
+        "The Master Gear's caption can't tell when the loop closes: the two ADSRs the lanes "
+        "fire keep a level of their own, which the caption does not follow. Everything else "
+        "comes back in 8 cycles, 4 s, since the 1 : 8 asks for eight beats.\n\n"
         "Try:\n"
         "- Turn the Master Gear's Length, slower or faster. Everything bends to the new "
         "tempo together, with no jump.\n"
         "- Press the Master Gear's Hold: the sequencer stops where it is. Press it again.\n"
-        "- Set the phrase gear's Teeth to 1 : 16: the caption says 16 cycles.\n"
+        "- Set the phrase gear's Teeth to 1 : 16: the loop is twice as long.\n"
         "- Click cells in the sequencer's grid.",
         width=420,
     )
