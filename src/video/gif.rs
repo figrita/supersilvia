@@ -8,6 +8,10 @@
 //! is what a loop is posted as. It writes to a `.part` beside the destination and renames at
 //! the end, so a half-written file is never mistaken for a picture, as the video writer does.
 //!
+//! **Frames go in straight**, as a PNG's do (`render::readback::Alpha`). A GIF's alpha is one
+//! bit: the encoder makes a pixel of alpha zero transparent and every other pixel opaque at
+//! its own color.
+//!
 //! **A GIF counts time in hundredths of a second.** Frame `i` is held from `round(100 i ÷
 //! fps)` to `round(100 (i + 1) ÷ fps)` hundredths, so a 30 fps loop alternates 3 and 4 and
 //! the whole loop lasts what it should to the hundredth, where one rounded delay for every

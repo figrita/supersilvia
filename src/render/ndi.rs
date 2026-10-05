@@ -12,8 +12,10 @@
 //! be read wins and one that cannot is dropped, as a camera's is. `proposals/ndi.md`, route A.
 //!
 //! **Alpha.** Opaque by default: drawn over black and sent as BGRx, which NDI carries without an
-//! alpha plane. [`Look::transparent`] draws over nothing and sends BGRA, the picture's alpha
-//! premultiplied as the blit blends it. [`Look::flip`] is Syphon's and means nothing here.
+//! alpha plane, its color the premultiplied picture's over black. [`Look::transparent`] sends
+//! BGRA with the picture's own alpha, **straight**: the NDI SDK defines its BGRA and RGBA as not
+//! premultiplied, so the picture is drawn unpremultiplied over nothing
+//! ([`Viewer::show_straight`]). [`Look::flip`] is Syphon's and means nothing here.
 
 use super::publish::Look;
 use super::readback::{Landed, Read, padded_row};
@@ -105,15 +107,13 @@ impl Outlet {
         };
         super::shared::clear(&mut encoder, &target.view, ground);
         // The blit writes a picture's top row first, which is NDI's.
-        viewer.show(
-            &mut encoder,
-            &target.view,
-            size,
-            picture,
-            Viewport::whole(size),
-            super::Fit::Letterbox,
-            0.0,
-        );
+        let whole = Viewport::whole(size);
+        let fit = super::Fit::Letterbox;
+        if look.transparent {
+            viewer.show_straight(&mut encoder, &target.view, size, picture, whole, fit);
+        } else {
+            viewer.show(&mut encoder, &target.view, size, picture, whole, fit, 0.0);
+        }
         encoder.copy_texture_to_buffer(
             target.texture.as_image_copy(),
             wgpu::TexelCopyBufferInfo {

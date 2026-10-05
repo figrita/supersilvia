@@ -59,6 +59,10 @@ pub struct Render {
     size: (u32, u32),
     /// How much larger than `size` every frame is drawn: 1, 2 or 4.
     scale: u32,
+    /// How each captured frame is read back for the writer: straight for a PNG and a GIF,
+    /// which carry alpha; premultiplied for a video, whose encoder drops it, so the color it
+    /// encodes is the picture over black.
+    alpha: crate::render::readback::Alpha,
     /// The live clock, put back when the render ends.
     live: Clock,
     /// The live show's transport, put back whole when the render ends.
@@ -123,6 +127,11 @@ impl Render {
     /// the render and what its capture divides back out.
     pub fn scale(&self) -> u32 {
         self.scale
+    }
+
+    /// How the capture reads each frame back for the writer.
+    pub fn alpha(&self) -> crate::render::readback::Alpha {
+        self.alpha
     }
 }
 
@@ -333,6 +342,10 @@ impl Synth {
             destination: settings.destination.clone(),
             size,
             scale,
+            alpha: match settings.format {
+                Format::Video => crate::render::readback::Alpha::Premultiplied,
+                Format::PngSequence | Format::Gif => crate::render::readback::Alpha::Straight,
+            },
             live,
             transport,
             parked,
@@ -493,9 +506,13 @@ impl Synth {
 
     fn set_capturing(&mut self, output: NodeId, on: bool) -> bool {
         let scale = self.offline.as_ref().map_or(1, Render::scale);
+        let alpha = self
+            .offline
+            .as_ref()
+            .map_or_else(Default::default, Render::alpha);
         self.renderer
             .as_mut()
-            .is_some_and(|r| r.set_capturing(output, on, scale))
+            .is_some_and(|r| r.set_capturing(output, on, scale, alpha))
     }
 
     fn dropped(&self, output: NodeId) -> u64 {

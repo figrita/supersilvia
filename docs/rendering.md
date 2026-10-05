@@ -757,6 +757,12 @@ the same one at another size. A later tick finds the map landed and copies the b
 padding dropped. The pass samples by `@builtin(position)`, so the rows lie bottom first, as an
 Output's frame does, and are flipped once on the CPU.
 
+**The bytes are straight.** The frame is premultiplied and a PNG is not, so the pass's
+`fs_straight` divides by alpha after the sampler has filtered, on the frame's own precision
+and before the 8-bit rounding: the letterbox's scaling averages premultiplied colors, and a
+transparent pixel is written transparent black. The bars are opaque black. The project tab
+loads the file back as the straight PNG it is and draws it over its black card.
+
 **A read that waited would be a stalled tick.** Polling a map with a wait on the synth thread
 is a synchronous download, the same trap as creating a pipeline there, one subsystem over.
 Asked for and collected later, it is a queued copy, and nothing blocks.
@@ -798,7 +804,7 @@ is not the frame that was in front of you.
 
 `App::collect_snaps` writes each one as a PNG through `video/png.rs`. **PNG, and lossless**:
 the point of Snap over the renderer is that it is the exact frame, so the file is the exact
-pixels — `snap_writes_a_full_resolution_png_into_the_projects_snaps_folder` in
+pixels, unpremultiplied by the same pass as a thumbnail, since a PNG is straight — `snap_writes_a_full_resolution_png_into_the_projects_snaps_folder` in
 `tests/gpu_app.rs` reads one back and compares every byte.
 
 **Into `snaps/` inside the project folder**, named `output3-20260921-134501.png`: the Output
@@ -836,6 +842,14 @@ two sizes are equal, the filter never runs, and the pass is a nearest copy. A
 multiplier that does not divide the Output's resolution is refused back to 1x rather than
 rounded, so the film is never a pixel off what the preview was.
 
+**Alpha is the writer's.** `set_capturing` takes a `readback::Alpha` with the multiplier: a
+PNG sequence and a GIF are written straight, divided by alpha in the pass that writes the film,
+after the halvings — every halving averages premultiplied colors, so an edge against
+transparency comes back its own color at partial alpha rather than darkened, and the
+half-float target stays premultiplied. A video is captured premultiplied: the encoder drops
+alpha, and premultiplied color with its alpha dropped is the picture over black, which is what
+every viewer shows.
+
 **A capture waits for its own preceding frame**, bounded by two seconds, so a hung driver
 costs one frame and a log line. Live drawing is bounded by the tick two back and the
 throttle, while a capture needs the Output's own previous frame to complete before its read can
@@ -850,7 +864,9 @@ render are still owed once the ring is freed. **A capture that turns on starts f
 the count of reads issued goes back to zero and a frame the last capture left unclaimed is
 dropped, so the second render of a session counts and writes its own frames rather than
 inheriting the first render's. `tests/gpu_readback.rs` holds that every frame comes back at
-full size and in order, and that a supersampled one comes back at the film's size, averaged.
+full size and in order, that a supersampled one comes back at the film's size, averaged, and
+averaged premultiplied, and that a capture is straight for a file and premultiplied for a
+video.
 
 ## The render job
 
@@ -1678,7 +1694,9 @@ surface's memory holds the picture's **bottom row first** — OpenGL's layout, w
 Simple Client, OBS and ofxSyphon draw a surface — and it is **opaque over black**, alpha 255
 everywhere and a half-covered pixel's color as it would be over black. With `Look::flip` and
 `Look::transparent` (the Output's **Flip** and **Alpha**) it holds the top row first
-and the picture's own premultiplied alpha. The blit writes a picture's top row first, so the
+and the picture's own alpha, **premultiplied**, as the graph holds it: Syphon defines no alpha
+convention of its own, and Core Animation and Metal composite premultiplied, so a Mac app that
+draws the surface over something gets the picture's edges right. The blit writes a picture's top row first, so the
 default flips once more by drawing the picture as though its rows were the other way up. The
 framework's own Metal server keeps the same choice with its `flipped:` argument, `NO` copying a
 Metal texture's top row to row 0.
@@ -1722,8 +1740,12 @@ drops the old — whose pipeline going to `Null` takes its stream off the networ
 new one the picture it has rather than waiting for the next.
 
 **Alpha follows the Output's Alpha**, the one Syphon reads too: opaque by default,
-drawn over black and sent as BGRx, which NDI carries with no alpha plane; transparent, drawn
-over nothing and sent as BGRA, the picture's alpha premultiplied as the blit blends it.
+drawn over black and sent as BGRx, which NDI carries with no alpha plane; transparent, sent as
+BGRA with the picture's own alpha **straight**, since the NDI SDK defines its BGRA and RGBA
+frames as not premultiplied. The transparent picture is drawn by the viewer's second pipeline,
+`Viewer::show_straight`, which divides by alpha after the sampler and writes rather than
+blends, so a pixel the picture does not cover stays transparent black. `tests/ndi.rs` sends a
+premultiplied half-transparent red through the publisher and receives full red at half alpha.
 **Flip is Syphon's alone.**
 
 **The rate, and the time.** An NDI stream declares a frame rate and each frame a timecode. The
@@ -1758,6 +1780,12 @@ NDI® is a registered trademark of Vizrt NDI AB.
 
 A picture is drawn by **blitting its texture in a paint callback** — the preview panel shows
 [the mix](#the-mixer), and each Output node draws its own frame on its body.
+
+**Every picture is shown over black.** It is premultiplied, and the blit blends it so, onto a
+ground the caller paints first in `theme.screen_off()` — a node's picture band, the preview,
+the Main Input's and the channel previews' boxes, the canvas under *Project to Background*
+and the editor hidden behind `H` — and a picture window clears to black. So a half-transparent
+pixel looks the same on a node, in a panel, behind the graph, in a window and in a video.
 
 egui_wgpu's `register_native_texture` is the other way, and is not used. A ring rotates the
 texture an Output shows every tick, so the registration would be redone every frame, and the

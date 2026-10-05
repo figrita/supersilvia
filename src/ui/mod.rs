@@ -1209,8 +1209,10 @@ fn view(
     }
     // silvia's *Project to Background*: the mix under the nodes and the cables, the graph
     // floating on the show. The ground and the grid are what it replaces, so neither is
-    // drawn over it; the slot is filled by `App`, which has the GL.
+    // drawn over it; the mix is over the screen's black, as every picture is, and the slot is
+    // filled by `App`, which has the GL.
     if frame.project_background {
+        painter.rect_filled(rect, 0.0, frame.theme.screen_off());
         fx.background = Some(Background {
             rect,
             slot: painter.add(eframe::egui::Shape::Noop),

@@ -8,10 +8,10 @@
 //! arrives top row first; that one sent with alpha arrives as BGRA with its alpha, and one sent
 //! opaque as UYVY, `ndisrc`'s default; and how long a frame takes to come back, printed. Then
 //! the same through the app's own halves: an Output's picture sent by the publisher's thread
-//! (`render::publish`), drawn and read back off the GPU, arriving top row first with its alpha;
-//! and that stream listed by `video::ndi::labels` and received through `video::ndi::Receiver`, a
-//! camera, with its alpha — straight, as NDI's SDK defines it, for the upload to premultiply —
-//! or read opaque.
+//! (`render::publish`), drawn and read back off the GPU, arriving top row first with its alpha,
+//! straight as NDI defines it; and that stream listed by `video::ndi::labels` and received
+//! through `video::ndi::Receiver`, a camera, with its alpha — straight, for the upload to
+//! premultiply — or read opaque.
 //!
 //! **Without the runtime it skips**, saying so: the runtime is proprietary and the user's to
 //! install (`proposals/ndi.md`), so a machine without it — any CI box, and a Mac nobody put it
@@ -55,6 +55,16 @@ fn pattern(turned: bool) -> Vec<u8> {
     }
     bytes
 }
+
+/// The publisher's four quadrants as they should arrive, `[B, G, R, A]` and straight, as NDI
+/// defines BGRA: red, green, blue, and a bottom right of full red at half alpha, which the
+/// Output's picture holds premultiplied.
+const PUBLISHED: [[u8; 4]; 4] = [
+    [0, 0, 255, 255],
+    [0, 255, 0, 255],
+    [255, 0, 0, 255],
+    [0, 0, 255, 128],
+];
 
 /// Where each quadrant's middle is.
 const MIDDLES: [(u32, u32); 4] = [
@@ -253,10 +263,14 @@ fn near(a: u8, b: u8) -> bool {
 }
 
 fn holds(frame: &Received, turned: bool) -> bool {
+    holds_quadrants(frame, turned, &QUADRANTS)
+}
+
+fn holds_quadrants(frame: &Received, turned: bool, quadrants: &[[u8; 4]; 4]) -> bool {
     MIDDLES.iter().enumerate().all(|(q, &(x, y))| {
         let q = if turned { [1, 3, 0, 2][q] } else { q };
         let got = frame.bgra(x, y);
-        got.iter().zip(QUADRANTS[q]).all(|(&g, w)| near(g, w))
+        got.iter().zip(quadrants[q]).all(|(&g, w)| near(g, w))
     })
 }
 
@@ -328,13 +342,17 @@ fn a_picture_sent_over_ndi_comes_back_the_right_way_up() {
     ));
 }
 
-/// The pattern as an Output's picture would be one: a texture on the GPU, uploaded top row
-/// first as a CPU node's is.
+/// [`PUBLISHED`] as an Output's picture would be one: a texture on the GPU, RGBA and
+/// premultiplied, uploaded top row first as a CPU node's is.
 fn picture(gpu: &supersilvia::render::Gpu) -> supersilvia::render::Picture {
-    let rgba: Vec<u8> = pattern(false)
-        .chunks(4)
-        .flat_map(|p| [p[2], p[1], p[0], p[3]])
-        .collect();
+    let premultiply = |c: u8, a: u8| ((u16::from(c) * u16::from(a) + 127) / 255) as u8;
+    let mut rgba = Vec::with_capacity((W * H * 4) as usize);
+    for y in 0..H {
+        for x in 0..W {
+            let [b, g, r, a] = PUBLISHED[usize::from(x >= W / 2) + 2 * usize::from(y >= H / 2)];
+            rgba.extend_from_slice(&[premultiply(r, a), premultiply(g, a), premultiply(b, a), a]);
+        }
+    }
     let texture = wgpu::util::DeviceExt::create_texture_with_data(
         gpu.device(),
         gpu.queue(),
@@ -367,7 +385,8 @@ fn picture(gpu: &supersilvia::render::Gpu) -> supersilvia::render::Picture {
 }
 
 /// The publisher's thread, as the app runs it: Output 7's picture set in a `Live` thirty times
-/// a second, as the synth sets it, sent as `name` with its alpha, and received top row first.
+/// a second, as the synth sets it, sent as `name` with its alpha, and received top row first
+/// and straight.
 fn publisher(name: &str) {
     use supersilvia::graph::NodeId;
     use supersilvia::render::picture::Shown;
@@ -412,14 +431,18 @@ fn publisher(name: &str) {
     let frame = until(
         "the publisher's frame back",
         Duration::from_secs(15),
-        || receiver.after(started).filter(|f| holds(f, false)),
+        || {
+            receiver
+                .after(started)
+                .filter(|f| holds_quadrants(f, false, &PUBLISHED))
+        },
     );
     assert_eq!(
         frame.format,
         gst_video::VideoFormat::Bgra,
         "alpha comes back"
     );
-    println!("ndi: the publisher sends an Output top row first, with its alpha");
+    println!("ndi: the publisher sends an Output top row first, with its alpha, straight");
     drop(receiver);
 
     // And received as the Main Input and the NDI node receive: listed, opened as a camera,

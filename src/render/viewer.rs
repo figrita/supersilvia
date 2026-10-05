@@ -12,9 +12,12 @@
 //! `present`. See `proposals/wgpu.md`, 1.5.
 //!
 //! **One pipeline per target format** ([`Viewer::new`]), blending as egui_wgpu's own does —
-//! premultiplied — so a picture lands on a node body as egui's own images do. The editor's
-//! viewer is made for egui_wgpu's `target_format`, a picture
-//! window's for its surface's.
+//! premultiplied — so a picture lands on a node body as egui's own images do, and every
+//! picture, premultiplied as every color in the graph is, is shown over whatever ground the
+//! viewer painted: black, on a node, in a panel, behind the canvas and in a picture window. The
+//! editor's viewer is made for egui_wgpu's `target_format`, a picture window's for its
+//! surface's. Beside it, a second pipeline unpremultiplies and writes rather than blends
+//! ([`Viewer::show_straight`]), for NDI's straight BGRA.
 //!
 //! **A blit fits the whole rect it was given, never the part a window clips.** The rect is
 //! placed in the vertex stage against the whole target, and the pass's viewport is the whole
@@ -106,7 +109,16 @@ fn fs_main(v: Varying) -> @location(0) vec4f {
     }
     return textureSampleLevel(picture, picture_sampler, v.uv, 0.0);
 }
+
+@fragment
+fn fs_straight(v: Varying) -> @location(0) vec4f {
+    let c = textureSampleLevel(picture, picture_sampler, v.uv, 0.0);
+    return select(vec4f(0.0), vec4f(c.rgb / c.a, c.a), c.a > 0.0);
+}
 ";
+
+/// [`BLIT`]'s fragment entry point that unpremultiplies, for [`Viewer::show_straight`].
+const STRAIGHT_ENTRY: &str = "fs_straight";
 
 /// The size of `Blit` in [`BLIT`], in bytes.
 const BLOCK: u64 = 48;
@@ -175,6 +187,8 @@ pub struct Viewer {
     gpu: Gpu,
     format: wgpu::TextureFormat,
     pipeline: wgpu::RenderPipeline,
+    /// The blit unpremultiplied and written in place of what is there, rounding nothing.
+    straight: wgpu::RenderPipeline,
     layout: wgpu::BindGroupLayout,
     /// In `Sampler::ALL` order: a picture is read through the one its [`Picture::sampler`]
     /// names, so a `cellularautomata` grid is blitted nearest.
@@ -227,31 +241,35 @@ impl Viewer {
             bind_group_layouts: &[Some(&layout)],
             immediate_size: 0,
         });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("blit"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &module,
-                entry_point: Some(crate::compile::wgsl::VERTEX_ENTRY),
-                buffers: &[],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &module,
-                entry_point: Some(crate::compile::wgsl::FRAGMENT_ENTRY),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format,
-                    blend: Some(PREMULTIPLIED),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
+        let pipeline = |entry, blend| {
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("blit"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &module,
+                    entry_point: Some(crate::compile::wgsl::VERTEX_ENTRY),
+                    buffers: &[],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                },
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &module,
+                    entry_point: Some(entry),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format,
+                        blend,
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                    compilation_options: wgpu::PipelineCompilationOptions::default(),
+                }),
+                multiview_mask: None,
+                cache: None,
+            })
+        };
+        let straight = pipeline(STRAIGHT_ENTRY, None);
+        let pipeline = pipeline(crate::compile::wgsl::FRAGMENT_ENTRY, Some(PREMULTIPLIED));
         if let Some(error) = crate::render::adapter::block_on(scope.pop()) {
             return Err(error.to_string());
         }
@@ -260,6 +278,7 @@ impl Viewer {
             format,
             samplers: Sampler::ALL.map(|kind| super::shared::sampler(device, kind)),
             pipeline,
+            straight,
             layout,
         })
     }
@@ -349,11 +368,7 @@ impl Viewer {
     /// viewport is set to the whole target, since the rect was placed against it; the scissor
     /// the pass has is left as it is.
     pub fn paint(&self, pass: &mut wgpu::RenderPass<'_>, prepared: &Prepared) {
-        let (w, h) = prepared.target;
-        pass.set_viewport(0.0, 0.0, w as f32, h as f32, 0.0, 1.0);
-        pass.set_pipeline(&self.pipeline);
-        pass.set_bind_group(0, &prepared.group, &[]);
-        pass.draw(0..6, 0..1);
+        paint_with(pass, prepared, &self.pipeline);
     }
 
     /// Blit `picture` into `viewport` of `target`, which is `size` pixels, in a pass of its
@@ -374,6 +389,25 @@ impl Viewer {
         };
         let mut pass = super::shared::begin(encoder, target, wgpu::LoadOp::Load, "blit");
         self.paint(&mut pass, &prepared);
+    }
+
+    /// Blit `picture` into `viewport` of `target`, which is `size` pixels, unpremultiplied and
+    /// in place of what the target holds there, with no corner rounded: what a sender whose
+    /// protocol defines its alpha straight writes over a transparent ground.
+    pub fn show_straight(
+        &self,
+        encoder: &mut wgpu::CommandEncoder,
+        target: &wgpu::TextureView,
+        size: (u32, u32),
+        picture: &Picture,
+        viewport: Viewport,
+        fit: Fit,
+    ) {
+        let Some(prepared) = self.prepare(picture, viewport, size, fit, 0.0) else {
+            return;
+        };
+        let mut pass = super::shared::begin(encoder, target, wgpu::LoadOp::Load, "blit");
+        paint_with(&mut pass, &prepared, &self.straight);
     }
 
     /// One node's picture, where there is one: `None` is an Output's own frame, `Some(key)` a
@@ -467,6 +501,19 @@ impl Viewer {
     /// but holding `published` until egui_wgpu's submit, which the caller does by keeping it
     /// until the next frame's snapshot replaces it.
     pub fn close_frame(self: &Arc<Self>, _ctx: &egui::Context, _published: &Arc<Published>) {}
+}
+
+/// Draw a prepared blit into `pass` through `pipeline`, over the whole target.
+fn paint_with(
+    pass: &mut wgpu::RenderPass<'_>,
+    prepared: &Prepared,
+    pipeline: &wgpu::RenderPipeline,
+) {
+    let (w, h) = prepared.target;
+    pass.set_viewport(0.0, 0.0, w as f32, h as f32, 0.0, 1.0);
+    pass.set_pipeline(pipeline);
+    pass.set_bind_group(0, &prepared.group, &[]);
+    pass.draw(0..6, 0..1);
 }
 
 /// egui_wgpu's own blend: premultiplied color over what is there.

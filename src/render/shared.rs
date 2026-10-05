@@ -273,6 +273,25 @@ pub fn fullscreen(
     format: wgpu::TextureFormat,
     label: &str,
 ) -> wgpu::RenderPipeline {
+    fullscreen_from(
+        device,
+        module,
+        layout,
+        format,
+        label,
+        crate::compile::wgsl::FRAGMENT_ENTRY,
+    )
+}
+
+/// [`fullscreen`] with the fragment stage `module`'s `fragment` entry point.
+pub fn fullscreen_from(
+    device: &wgpu::Device,
+    module: &wgpu::ShaderModule,
+    layout: &wgpu::BindGroupLayout,
+    format: wgpu::TextureFormat,
+    label: &str,
+    fragment: &str,
+) -> wgpu::RenderPipeline {
     let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some(label),
         bind_group_layouts: &[Some(layout)],
@@ -292,7 +311,7 @@ pub fn fullscreen(
         multisample: wgpu::MultisampleState::default(),
         fragment: Some(wgpu::FragmentState {
             module,
-            entry_point: Some(crate::compile::wgsl::FRAGMENT_ENTRY),
+            entry_point: Some(fragment),
             targets: &[Some(wgpu::ColorTargetState {
                 format,
                 blend: None,

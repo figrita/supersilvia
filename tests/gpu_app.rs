@@ -25,6 +25,11 @@ mod gpu;
 use eframe::egui;
 use supersilvia::render::{Gpu, shared};
 
+/// A straight channel `c` at alpha `a` over black, as a byte.
+fn over_black(c: u8, a: u8) -> u8 {
+    ((u16::from(c) * u16::from(a) + 127) / 255) as u8
+}
+
 /// A target of `size` in `Rgba8Unorm`, cleared to opaque black and painted by egui_wgpu's own
 /// renderer with `primitives` at `ppp`, the frame's texture changes made first and then
 /// cleared: its bytes, rows top first.
@@ -281,6 +286,8 @@ fn a_render_writes_every_kept_frame_and_closes_the_document() {
         (outcome, destination)
     };
 
+    // The brightest red over black, as a viewer shows it: the PNG is straight, and a frame
+    // the feedback has not filled is partly transparent.
     let brightest = |dir: &std::path::Path, frame: u32| -> u8 {
         let image = png::read(&dir.join(format!("{frame:05}.png"))).expect("a kept frame");
         assert_eq!(
@@ -288,7 +295,14 @@ fn a_render_writes_every_kept_frame_and_closes_the_document() {
             (1280, 720),
             "the Output's own size"
         );
-        image.rgba.iter().step_by(4).copied().max().unwrap()
+        image
+            .rgba
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|p| over_black(p[0], p[3]))
+            .max()
+            .unwrap()
     };
 
     let (outcome, black) = render(Warmup::Black, 3, 1, Format::PngSequence, "black");
@@ -442,11 +456,19 @@ fn a_render_is_shown_frame_by_frame_as_it_is_made() {
             on_mix.push(mixed);
         }
     }
+    // The PNG is straight and what a window is handed premultiplied: the film over black.
     let film: Vec<u8> = (0..4)
         .map(|i| {
             let image = supersilvia::video::png::read(&dir.join(format!("{i:05}.png")))
                 .expect("a kept frame");
-            brightest(&image.rgba)
+            let premultiplied: Vec<u8> = image
+                .rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .flat_map(|p| [over_black(p[0], p[3]), p[1], p[2], p[3]])
+                .collect();
+            brightest(&premultiplied)
         })
         .collect();
     assert!(
