@@ -29,7 +29,7 @@ fn halftoneDot(pixel: vec2f, a: f32, dotSize: f32, amount: f32, smoothness: f32)
 }
 
 fn halftone1_color(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let dotSize = max(u.u_control_halftone1_dotSize, 1.0);
     let angle = (u.u_control_halftone1_angle) * 2.0 * PI;
     let smoothness = max(u.u_control_halftone1_smoothness, 1e-3);
@@ -37,11 +37,11 @@ fn halftone1_color(uv: vec2f) -> vec4f {
     let gray = dot(color.rgb, vec3f(0.299, 0.587, 0.114));
     let mask = halftoneDot(pixel, angle, dotSize, gray, smoothness);
     let ink = vec3f(mask);
-    return vec4f(ink, color.a);
+    return premultiply(vec4f(ink, color.a));
 }
 
 fn halftone1_mask(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let dotSize = max(u.u_control_halftone1_dotSize, 1.0);
     let angle = (u.u_control_halftone1_angle) * 2.0 * PI;
     let smoothness = max(u.u_control_halftone1_smoothness, 1e-3);

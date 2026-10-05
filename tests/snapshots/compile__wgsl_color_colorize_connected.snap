@@ -54,13 +54,13 @@ fn vignette6_mask(uv: vec2f) -> f32 {
 }
 
 fn colorize1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let originalLum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
-    let tinted = vec3f(originalLum) * (checkerboard4_output(uv)).rgb;
+    let tinted = vec3f(originalLum) * unpremultiply(checkerboard4_output(uv)).rgb;
     var result = mix(color.rgb, tinted, vignette5_mask(uv));
     let newLum = dot(result, vec3f(0.2126, 0.7152, 0.0722));
     result = mix(result, result * (originalLum / max(newLum, 0.001)), vignette6_mask(uv));
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

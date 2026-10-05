@@ -24,6 +24,12 @@
 //! a name is a claim on every shader the node appears in, and this is the only node in the
 //! file that converts in that direction.
 //!
+//! **All three read the color's own channels.** Each is nonlinear in them, so the picture goes
+//! in through the prelude's `unpremultiply` and the answer comes back through `premultiply`
+//! at the input's alpha; the swatches a grade or a tint is painted from are read for their
+//! own channels the same way, so a swatch's alpha is never part of the color it lends. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
 //! Two departures from the source. `colorshift`'s unconnected input falls through to the
 //! default picture like every other node here, where silvia substitutes black on this one
 //! node alone. And every divisor is guarded, because a cable can drive any of these where a
@@ -38,13 +44,13 @@ use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
 
 /// The gray, the tint, the mix back, and the brightness handed back by as much as the knob
 /// asks. `newLum` is guarded: a tint toward black takes the result's brightness to zero.
-const COLORIZE_BODY_WGSL: &str = "    let color = {input};
+const COLORIZE_BODY_WGSL: &str = "    let color = unpremultiply({input});
     let originalLum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
-    let tinted = vec3f(originalLum) * ({tint}).rgb;
+    let tinted = vec3f(originalLum) * unpremultiply({tint}).rgb;
     var result = mix(color.rgb, tinted, {amount});
     let newLum = dot(result, vec3f(0.2126, 0.7152, 0.0722));
     result = mix(result, result * (originalLum / max(newLum, 0.001)), {preserveLuminance});
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);";
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));";
 
 node! {
     /// The picture grayed, tinted, mixed back in, and handed its own brightness again.
@@ -73,7 +79,7 @@ node! {
 // ---------------------------------------------------------------------------- color mapping
 
 /// The brightness the grade is indexed by, which is also the node's second port.
-const MAPPING_COMMON_WGSL: &str = "    let color = {input};
+const MAPPING_COMMON_WGSL: &str = "    let color = unpremultiply({input});
     let lum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
 ";
 
@@ -84,18 +90,18 @@ const MAPPING_COMMON_WGSL: &str = "    let color = {input};
 ///
 /// The ramp is an `if` rather than a `select`, so only the half the brightness lands in reads
 /// its swatch.
-const MAPPING_COLOR_WGSL: &str = "    let midColor = {midtones};
+const MAPPING_COLOR_WGSL: &str = "    let midColor = unpremultiply({midtones});
     var graded: vec3f;
     if (lum < 0.5) {
-        graded = mix(({shadows}).rgb, midColor.rgb, lum * 2.0);
+        graded = mix(unpremultiply({shadows}).rgb, midColor.rgb, lum * 2.0);
     } else {
-        graded = mix(midColor.rgb, ({highlights}).rgb, (lum - 0.5) * 2.0);
+        graded = mix(midColor.rgb, unpremultiply({highlights}).rgb, (lum - 0.5) * 2.0);
     }
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let saturation = select((maxc - minc) / maxc, 0.0, maxc <= 0.0);
     let result = mix(graded, color.rgb, saturation * 0.3);
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);";
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));";
 
 node! {
     /// Brightness mapped onto three swatches, with the source's own color held back in.
@@ -123,7 +129,7 @@ node! {
 // ------------------------------------------------------------------------------- color shift
 
 /// The read, up to the hue expression the `hue` conversion is.
-const SHIFT_HEAD_WGSL: &str = "    let color = {input};\n";
+const SHIFT_HEAD_WGSL: &str = "    let color = unpremultiply({input});\n";
 
 /// What that expression is written against, and the name it lands in.
 const SHIFT_HUE_WGSL: &str = "\n    var hue = ";
@@ -136,7 +142,7 @@ const SHIFT_TAIL_WGSL: &str = ";
     let val = clamp(maxc * ({value}), 0.0, 1.0);
     let wheel = abs(fract(vec3f(hue) + vec3f(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
     let rgb = val * mix(vec3f(1.0), clamp(wheel - 1.0, vec3f(0.0), vec3f(1.0)), sat);
-    return vec4f(rgb, color.a);";
+    return premultiply(vec4f(rgb, color.a));";
 
 node! {
     /// Hue turned, saturation and value scaled, in the color space the library already reads.

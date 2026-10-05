@@ -13,7 +13,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn colorshift1_output(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -29,7 +29,7 @@ fn colorshift1_output(uv: vec2f) -> vec4f {
     let val = clamp(maxc * (u.u_control_colorshift1_value), 0.0, 1.0);
     let wheel = abs(fract(vec3f(hue) + vec3f(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
     let rgb = val * mix(vec3f(1.0), clamp(wheel - 1.0, vec3f(0.0), vec3f(1.0)), sat);
-    return vec4f(rgb, color.a);
+    return premultiply(vec4f(rgb, color.a));
 }
 
 @fragment

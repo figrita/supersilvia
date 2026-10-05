@@ -64,14 +64,14 @@ fn posterize1_output(uv: vec2f) -> vec4f {
     let cellPixel = floor(pixel / scale);
     let posterizeUV = (cellPixel * scale + scale * 0.5) / (720.0 * 0.5);
     let threshold = fract(sin(dot(posterizeUV * 1000.0, vec2f(12.9898, 78.233))) * 43758.5453);
-    let color = checkerboard3_output(posterizeUV);
+    let color = unpremultiply(checkerboard3_output(posterizeUV));
     let levels = max(vignette4_mask(posterizeUV), 1.0);
     let gammaVal = max(vignette6_mask(posterizeUV), 1e-4);
     var ramped = pow(max(color.rgb, vec3f(0.0)), vec3f(gammaVal));
     ramped += (threshold - 0.5) * (vignette5_mask(posterizeUV));
     let stepped = floor(ramped * levels + 0.5) / levels;
     let restored = pow(max(stepped, vec3f(0.0)), vec3f(1.0 / gammaVal));
-    return vec4f(clamp(restored, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(restored, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

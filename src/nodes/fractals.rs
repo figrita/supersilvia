@@ -363,6 +363,9 @@ fn lyapunov_common_wgsl(sequence: &str) -> String {
 }
 
 /// The exponent field lit as a height map, which is what makes the ridges read as ridges.
+///
+/// The specular highlight is white scaled by the base's alpha, which keeps the lit color
+/// premultiplied over a half-transparent ramp.
 fn lyapunov_color_wgsl(sequence: &str) -> String {
     let len = parse_sequence(sequence).len();
     [
@@ -379,7 +382,7 @@ fn lyapunov_color_wgsl(sequence: &str) -> String {
     let light = normalize(vec3f(0.4, 0.4, 1.0));
     let diffuse = max(dot(normal, light), 0.0);
     let specular = pow(max(reflect(-light, normal).z, 0.0), 20.0);
-    return vec4f(base.rgb * (0.12 + 0.88 * diffuse) + specular * 0.25, base.a);"
+    return vec4f(base.rgb * (0.12 + 0.88 * diffuse) + specular * 0.25 * base.a, base.a);"
             .to_string(),
     ]
     .concat()

@@ -11,8 +11,8 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn invert1_output(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
-    return vec4f(mix(color.rgb, 1.0 - color.rgb, clamp(u.u_control_invert1_mix, 0.0, 1.0)), color.a);
+    let color = unpremultiply(defaultUvMap(uv));
+    return premultiply(vec4f(mix(color.rgb, 1.0 - color.rgb, clamp(u.u_control_invert1_mix, 0.0, 1.0)), color.a));
 }
 
 @fragment

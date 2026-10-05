@@ -12,9 +12,9 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn contrast1_output(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let adjusted = (color.rgb - 0.5) * (u.u_control_contrast1_contrast) + 0.5 + (u.u_control_contrast1_brightness);
-    return vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

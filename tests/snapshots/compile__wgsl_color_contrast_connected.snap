@@ -41,9 +41,9 @@ fn vignette5_mask(uv: vec2f) -> f32 {
 }
 
 fn contrast1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let adjusted = (color.rgb - 0.5) * (vignette4_mask(uv)) + 0.5 + (vignette5_mask(uv));
-    return vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

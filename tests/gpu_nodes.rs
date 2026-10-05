@@ -2127,3 +2127,125 @@ fn a_color_assembled_from_several_samples_never_exceeds_its_alpha() {
         }
     }
 }
+
+/// `slug` with `input` cabled into each of `ports`, `controls` and `options` set, drawn from
+/// its `output` port at 8x8.
+fn through(
+    slug: &str,
+    ports: &[&'static str],
+    output: &'static str,
+    controls: &[(&'static str, f32)],
+    options: &[(&'static str, &'static str)],
+    rgb: [f32; 3],
+    a: f32,
+) -> Vec<[u8; 4]> {
+    let mut g = Graph::new();
+    let color = solid(&mut g, rgb, a);
+    let under = add(&mut g, slug);
+    for port in ports {
+        g.connect(PortRef::new(color, "output"), PortRef::new(under, port))
+            .unwrap();
+    }
+    for (key, value) in controls {
+        set(&mut g, under, key, *value);
+    }
+    for (key, value) in options {
+        g.get_mut(under)
+            .unwrap()
+            .options
+            .insert(key, (*value).to_string());
+    }
+    let out = shown(&mut g, under, output);
+    rendered(&g, out, 8)
+}
+
+/// A node's map, one case per row: the slug, the ports the color goes into, the port drawn,
+/// its controls and its options.
+type MapCase = (
+    &'static str,
+    &'static [&'static str],
+    &'static str,
+    &'static [(&'static str, f32)],
+    &'static [(&'static str, &'static str)],
+);
+
+const MAPS: &[MapCase] = &[
+    (
+        "contrast",
+        &["input"],
+        "output",
+        &[("contrast", 1.5), ("brightness", 0.1)],
+        &[],
+    ),
+    ("gamma", &["input"], "output", &[("gamma", 2.0)], &[]),
+    (
+        "levels",
+        &["input"],
+        "output",
+        &[
+            ("inBlack", 0.1),
+            ("inWhite", 0.9),
+            ("gamma", 1.5),
+            ("outBlack", 0.05),
+            ("outWhite", 0.95),
+        ],
+        &[],
+    ),
+    ("invert", &["input"], "output", &[("mix", 0.75)], &[]),
+    ("posterize", &["input"], "output", &[("levels", 3.0)], &[]),
+    ("colorize", &["input"], "output", &[], &[]),
+    ("colormapping", &["input"], "color", &[], &[]),
+    (
+        "colorshift",
+        &["input"],
+        "output",
+        &[("hue", 0.25), ("saturation", 1.5), ("value", 0.8)],
+        &[],
+    ),
+    ("saturate", &["input"], "output", &[("amount", 1.5)], &[]),
+    ("vibrance", &["input"], "output", &[("amount", 0.5)], &[]),
+    ("palette", &["input"], "c", &[("lSpread", 0.5)], &[]),
+    ("wavefold", &["input"], "output", &[("drive", 3.0)], &[]),
+    (
+        "wavefold",
+        &["input"],
+        "output",
+        &[("drive", 3.0)],
+        &[("channel", "luminance")],
+    ),
+    ("halftone", &["input"], "color", &[], &[("mode", "cmyk")]),
+    ("halftone", &["input"], "color", &[], &[("mode", "rgb")]),
+    ("emboss", &["input"], "output", &[], &[]),
+    ("lyapunov", &["foreground", "background"], "color", &[], &[]),
+];
+
+/// **A color map on a half-transparent color is the map on the opaque color, at half
+/// strength**: each node in [`MAPS`] does its work on the color's own channels and
+/// premultiplies what it hands back, so a half-transparent input draws the opaque answer
+/// scaled by its alpha, and never a channel above it.
+#[test]
+fn a_color_map_on_a_transparent_color_is_the_opaque_map_scaled_by_alpha() {
+    const RGB: [f32; 3] = [0.8, 0.45, 0.2];
+    for (slug, ports, output, controls, options) in MAPS {
+        let opaque = through(slug, ports, output, controls, options, RGB, 1.0);
+        let half = through(slug, ports, output, controls, options, RGB, 0.5);
+        for (i, (o, h)) in opaque.iter().zip(&half).enumerate() {
+            for c in 0..4 {
+                let expected = f32::from(o[c]) * 0.5;
+                assert!(
+                    (f32::from(h[c]) - expected).abs() <= 1.0,
+                    "{slug} {options:?}, pixel {i}: {h:?} at half alpha against {o:?} opaque"
+                );
+            }
+        }
+    }
+}
+
+/// `invert` of half-transparent white is half-transparent black: what is inverted is the
+/// color's own white, not the gray its premultiplied channels hold.
+#[test]
+fn inverting_half_transparent_white_reads_transparent_black() {
+    for p in through("invert", &["input"], "output", &[], &[], [1.0; 3], 0.5) {
+        assert_eq!(p, [0, 0, 0, 128]);
+    }
+}

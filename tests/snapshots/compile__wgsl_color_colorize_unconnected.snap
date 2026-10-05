@@ -13,13 +13,13 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn colorize1_output(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let originalLum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
-    let tinted = vec3f(originalLum) * (u.u_control_colorize1_tint).rgb;
+    let tinted = vec3f(originalLum) * unpremultiply(u.u_control_colorize1_tint).rgb;
     var result = mix(color.rgb, tinted, u.u_control_colorize1_amount);
     let newLum = dot(result, vec3f(0.2126, 0.7152, 0.0722));
     result = mix(result, result * (originalLum / max(newLum, 0.001)), u.u_control_colorize1_preserveLuminance);
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

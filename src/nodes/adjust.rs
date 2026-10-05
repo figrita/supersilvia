@@ -20,6 +20,15 @@
 //! It gains an **Ambient** the source has none of, because silvia's unlit side is pure
 //! black; at zero it is silvia's shading exactly.
 //!
+//! **Five of them work on the color's own channels**: contrast, gamma, levels, invert and
+//! posterize are nonlinear in it, so each takes its input through the prelude's
+//! `unpremultiply` and hands its answer back through `premultiply`, and a half-transparent
+//! picture comes out as the opaque one would, at its own alpha. `vignette` multiplies the
+//! color by a number, which is exact on a premultiplied color as it is. `simplelight` reads
+//! a direction out of its normal map and a tint out of its lamp, both their own channels,
+//! and multiplies its premultiplied surface by them. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
 //! Two departures from the source. Every divisor and every `smoothstep` span is guarded,
 //! because here a cable can drive any of them to zero where silvia has only a slider with a
 //! floor on it. And `posterize`'s dither is added unconditionally rather than behind an
@@ -114,9 +123,9 @@ node! {
         VaryingNumber "brightness" "Brightness" = Control::num(0.0, -1.0, 1.0, 0.01, ""),
     ],
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     let adjusted = (color.rgb - 0.5) * ({contrast}) + 0.5 + ({brightness});
-    return vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a);",
+    return premultiply(vec4f(clamp(adjusted, vec3f(0.0), vec3f(1.0)), color.a));",
     ],
 }
 
@@ -134,9 +143,9 @@ node! {
         VaryingNumber "gamma" "Gamma" = Control::num(1.0, 0.1, 5.0, 0.01, ""),
     ],
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     let corrected = pow(max(color.rgb, vec3f(0.0)), vec3f(1.0 / max({gamma}, 1e-4)));
-    return vec4f(corrected, color.a);",
+    return premultiply(vec4f(corrected, color.a));",
     ],
 }
 
@@ -159,13 +168,13 @@ node! {
         VaryingNumber "outWhite" "Out White" = Control::num(1.0, 0.0, 1.0, 0.001, ""),
     ],
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     let inBlack = {inBlack};
     let outBlack = {outBlack};
     let inRange = max({inWhite} - inBlack, 1e-4);
     var t = clamp((color.rgb - inBlack) / inRange, vec3f(0.0), vec3f(1.0));
     t = pow(t, vec3f(1.0 / max({gamma}, 1e-4)));
-    return vec4f(outBlack + t * (({outWhite}) - outBlack), color.a);",
+    return premultiply(vec4f(outBlack + t * (({outWhite}) - outBlack), color.a));",
     ],
 }
 
@@ -183,8 +192,8 @@ node! {
         VaryingNumber "mix" "Mix" = Control::num(1.0, 0.0, 1.0, 0.01, ""),
     ],
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
-    return vec4f(mix(color.rgb, 1.0 - color.rgb, clamp({mix}, 0.0, 1.0)), color.a);",
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
+    return premultiply(vec4f(mix(color.rgb, 1.0 - color.rgb, clamp({mix}, 0.0, 1.0)), color.a));",
     ],
 }
 
@@ -225,14 +234,14 @@ node! {
         source
     }),
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     let levels = max({levels}, 1.0);
     let gammaVal = max({gamma}, 1e-4);
     var ramped = pow(max(color.rgb, vec3f(0.0)), vec3f(gammaVal));
     ramped += (threshold - 0.5) * ({dither});
     let stepped = floor(ramped * levels + 0.5) / levels;
     let restored = pow(max(stepped, vec3f(0.0)), vec3f(1.0 / gammaVal));
-    return vec4f(clamp(restored, vec3f(0.0), vec3f(1.0)), color.a);",
+    return premultiply(vec4f(clamp(restored, vec3f(0.0), vec3f(1.0)), color.a));",
     ],
 }
 
@@ -291,7 +300,7 @@ node! {
     // Both directions are normalized by hand against a guarded length: a mid-gray normal map
     // and three lamp coordinates at zero are each a vector of length zero, which `normalize`
     // leaves undefined, and a cable can drive either there.
-    wgsl_common: "    let unpacked = ({normalMap}).rgb * 2.0 - 1.0;
+    wgsl_common: "    let unpacked = unpremultiply({normalMap}).rgb * 2.0 - 1.0;
     let normal = unpacked / max(length(unpacked), 1e-4);
     let lamp = vec3f({lightX}, {lightY}, {lightZ});
     let lightDir = lamp / max(length(lamp), 1e-4);
@@ -301,7 +310,7 @@ node! {
         VaryingColor "color" "Color" = "    let surface = {surfaceColor};
     let ambient = clamp({ambient}, 0.0, 1.0);
     let lit = ambient + (1.0 - ambient) * diffuse;
-    return vec4f(surface.rgb * ({lightColor}).rgb * lit, surface.a);",
+    return vec4f(surface.rgb * unpremultiply({lightColor}).rgb * lit, surface.a);",
         VaryingNumber "value" "Value" in "[0, 1]" = "    return diffuse;",
     ],
 }

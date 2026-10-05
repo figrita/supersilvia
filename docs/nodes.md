@@ -1117,7 +1117,10 @@ input at the cell's center — but the default scale *is* one pixel of a 720-hig
 is the texel under the fragment, so it stays a `Color`.
 
 **What is nonlinear in a color works on its own channels**
-([decisions.md](decisions.md#colors-in-the-graph-are-premultiplied)). A node that
+([decisions.md](decisions.md#colors-in-the-graph-are-premultiplied)). The color maps, the
+recolorings, `palette`, `wavefold` and `halftone` take their input through the prelude's
+`unpremultiply` and hand their answer back through `premultiply` at the input's alpha, so a
+half-transparent picture comes out as the opaque one would, scaled by its alpha. A node that
 builds one color out of several samples — `glitch` and `chromaticaberration` splitting the
 channels, `edgedetection`, `kuwahara`, `emboss` and `sharpen` — reads each sample's own
 channels and premultiplies the result at the center's alpha, so no channel outgrows its
