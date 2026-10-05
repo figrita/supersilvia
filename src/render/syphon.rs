@@ -17,7 +17,10 @@
 //!
 //! **Alpha.** By default the picture is drawn over black and the surface is opaque, as a
 //! picture window is; [`Look::transparent`] draws it over nothing, so the surface carries the
-//! picture's own alpha, premultiplied as the blit blends it.
+//! picture's own alpha, premultiplied as the graph holds it. Syphon defines no alpha convention,
+//! and Core Animation and Metal composite premultiplied, so that is what a Mac app drawing the
+//! surface over something expects; NDI, which defines straight, is unpremultiplied in
+//! [`super::ndi`].
 //!
 //! **A frame is published once the GPU has drawn it**: [`Outlet::draw`] submits and hands back
 //! the submission's ticket, and the caller calls [`Outlet::publish`] once that has finished, so

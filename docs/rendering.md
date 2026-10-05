@@ -1685,7 +1685,9 @@ surface's memory holds the picture's **bottom row first** — OpenGL's layout, w
 Simple Client, OBS and ofxSyphon draw a surface — and it is **opaque over black**, alpha 255
 everywhere and a half-covered pixel's color as it would be over black. With `Look::flip` and
 `Look::transparent` (the Output's **Flip** and **Alpha**) it holds the top row first
-and the picture's own premultiplied alpha. The blit writes a picture's top row first, so the
+and the picture's own alpha, **premultiplied**, as the graph holds it: Syphon defines no alpha
+convention of its own, and Core Animation and Metal composite premultiplied, so a Mac app that
+draws the surface over something gets the picture's edges right. The blit writes a picture's top row first, so the
 default flips once more by drawing the picture as though its rows were the other way up. The
 framework's own Metal server keeps the same choice with its `flipped:` argument, `NO` copying a
 Metal texture's top row to row 0.
@@ -1729,8 +1731,12 @@ drops the old — whose pipeline going to `Null` takes its stream off the networ
 new one the picture it has rather than waiting for the next.
 
 **Alpha follows the Output's Alpha**, the one Syphon reads too: opaque by default,
-drawn over black and sent as BGRx, which NDI carries with no alpha plane; transparent, drawn
-over nothing and sent as BGRA, the picture's alpha premultiplied as the blit blends it.
+drawn over black and sent as BGRx, which NDI carries with no alpha plane; transparent, sent as
+BGRA with the picture's own alpha **straight**, since the NDI SDK defines its BGRA and RGBA
+frames as not premultiplied. The transparent picture is drawn by the viewer's second pipeline,
+`Viewer::show_straight`, which divides by alpha after the sampler and writes rather than
+blends, so a pixel the picture does not cover stays transparent black. `tests/ndi.rs` sends a
+premultiplied half-transparent red through the publisher and receives full red at half alpha.
 **Flip is Syphon's alone.**
 
 **The rate, and the time.** An NDI stream declares a frame rate and each frame a timecode. The
