@@ -44,7 +44,7 @@ fn cosinegradient1_output(uv: vec2f) -> vec4f {
     let t = vignette3_mask(uv);
     let bias = vec3f(u.u_control_cosinegradient1_biasR, u.u_control_cosinegradient1_biasG, u.u_control_cosinegradient1_biasB);
     let amp = vec3f(u.u_control_cosinegradient1_ampR, u.u_control_cosinegradient1_ampG, u.u_control_cosinegradient1_ampB);
-    let freq = vec3f(u.u_control_cosinegradient1_freqR, u.u_control_cosinegradient1_freqG, u.u_control_cosinegradient1_freqB);
+    let freq = clamp(floor(vec3f(u.u_control_cosinegradient1_freqR, u.u_control_cosinegradient1_freqG, u.u_control_cosinegradient1_freqB) + 0.5), vec3f(1.0), vec3f(4.0));
     let phase = vec3f(u.u_control_cosinegradient1_phaseR, u.u_control_cosinegradient1_phaseG, u.u_control_cosinegradient1_phaseB) + time_periodic(u.u_count_cosinegradient1_clock, vignette4_mask(uv));
     let rgb = bias + amp * cos(2.0 * PI * (freq * t + phase));
     return vec4f(clamp(rgb, vec3f(0.0), vec3f(1.0)), 1.0);

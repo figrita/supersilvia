@@ -1190,7 +1190,12 @@ than ports, so what a cable can reach is what goes through the palette and what 
 Time and Offset shift the three cosines' own phases together, in cycles of the palette: still
 on a new node, as silvia's Cycle of zero is, Offset placing the palette and a Speed turned up
 or a gear cabled into Time drifting it; the strip on the node drifts with it. Phase on this node is only the grid's
-per-channel coefficients. `reframerange` maps
+per-channel coefficients. **Freq is a whole number, 1 to 4**, stepping by one: a shift scrolls
+each channel's wave along the number's 0 to 1, and only whole waves in that span meet themselves
+at its ends, so a Freq that is not whole drew a seam at the strip's edge, and in any picture fed a
+number that wraps, while the shape between the ends changed through the cycle. A flat channel is
+an Amp of 0. The shader and `cosinegradient::eval` round a stored value half up and clamp it to
+1 to 4, so a value loaded or set past the knob draws what the knob would. `reframerange` maps
 `in[min, max]` onto `out[min, max]` with all four bounds as ports
 and an optional clamp, and carries silvia's five named bases — 0 to 1, 0 to 360, -1 to 1, 0
 to 255, 0 to 2π — as two rows of buttons in a region of its own, `widgets::ranges`: a press
