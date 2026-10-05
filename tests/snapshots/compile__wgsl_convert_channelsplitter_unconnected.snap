@@ -10,7 +10,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn channelsplitter1_r(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -18,7 +18,7 @@ fn channelsplitter1_r(uv: vec2f) -> f32 {
 }
 
 fn channelsplitter1_g(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -26,7 +26,7 @@ fn channelsplitter1_g(uv: vec2f) -> f32 {
 }
 
 fn channelsplitter1_b(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -34,7 +34,7 @@ fn channelsplitter1_b(uv: vec2f) -> f32 {
 }
 
 fn channelsplitter1_a(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -42,7 +42,7 @@ fn channelsplitter1_a(uv: vec2f) -> f32 {
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(channelsplitter1_r(uv), channelsplitter1_g(uv), channelsplitter1_b(uv), channelsplitter1_a(uv));
+    return premultiply(vec4f(channelsplitter1_r(uv), channelsplitter1_g(uv), channelsplitter1_b(uv), channelsplitter1_a(uv)));
 }
 
 @fragment

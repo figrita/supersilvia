@@ -244,7 +244,7 @@ fn camcordercrt1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba19_output(uv: vec2f) -> vec4f {
-    return vec4f(camcordercrt1_mask(uv), u.u_control_rgba19_g, u.u_control_rgba19_b, u.u_control_rgba19_a);
+    return premultiply(vec4f(camcordercrt1_mask(uv), u.u_control_rgba19_g, u.u_control_rgba19_b, u.u_control_rgba19_a));
 }
 
 fn mix20_output(uv: vec2f) -> vec4f {

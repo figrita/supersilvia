@@ -14,6 +14,11 @@
 //! cannot say different things about it. The table's order is the picker's, which is
 //! channels first; the registry's order is the Nodes menu's, which is perceptual first.
 //!
+//! **A number read out of a color is the color's own.** Every conversion reads its input
+//! through the prelude's `unpremultiply`, so half-transparent red reads a red of one and an
+//! alpha of a half, as a picker would say; see
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
 //! `channelsplitter` is silvia's, and it reads the same table: one color in and four floats
 //! out, where the four single-channel nodes are four nodes and four cables. Its expressions
 //! are `CONVERSIONS`' entries for `red`, `green`, `blue` and `alpha`, looked up by slug at
@@ -28,7 +33,8 @@ pub struct Conversion {
     pub slug: &'static str,
     pub label: &'static str,
     /// An `f32` expression in WGSL over `color`, and over the `maxc`, `minc` and `delta`
-    /// that [`HELPERS_WGSL`] declares.
+    /// that [`HELPERS_WGSL`] declares. `color` holds the color's own channels: whoever
+    /// declares it reads the input through the prelude's `unpremultiply`.
     pub wgsl: &'static str,
     /// What the expression bounds the answer to, drawn on the output's row. Beside the
     /// expression, because it is a fact about the expression: a channel and a ratio of
@@ -232,7 +238,7 @@ macro_rules! decompose {
                 wgsl: |node, ctx, _func| {
                     let input = ctx.input(node, "input", "uv");
                     let expr = find($slug).expect("checked at the definition").wgsl;
-                    format!("    let color = {input};\n{HELPERS_WGSL}\n    return {expr};")
+                    format!("    let color = unpremultiply({input});\n{HELPERS_WGSL}\n    return {expr};")
                 },
                 range: match find($slug) {
                     Some(c) => c.range,
@@ -329,7 +335,9 @@ macro_rules! channel {
             wgsl: |node, ctx, _func| {
                 let input = ctx.input(node, "input", "uv");
                 let expr = find($slug).expect("checked at the definition").wgsl;
-                format!("    let color = {input};\n{HELPERS_WGSL}\n    return {expr};")
+                format!(
+                    "    let color = unpremultiply({input});\n{HELPERS_WGSL}\n    return {expr};"
+                )
             },
             range: match find($slug) {
                 Some(c) => c.range,

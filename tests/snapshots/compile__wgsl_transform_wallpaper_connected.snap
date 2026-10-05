@@ -132,7 +132,7 @@ fn wallpaper1_angle(uv: vec2f) -> f32 {
 }
 
 fn rgba13_output(uv: vec2f) -> vec4f {
-    return vec4f(wallpaper1_angle(uv), u.u_control_rgba13_g, u.u_control_rgba13_b, u.u_control_rgba13_a);
+    return premultiply(vec4f(wallpaper1_angle(uv), u.u_control_rgba13_g, u.u_control_rgba13_b, u.u_control_rgba13_a));
 }
 
 fn mix14_output(uv: vec2f) -> vec4f {

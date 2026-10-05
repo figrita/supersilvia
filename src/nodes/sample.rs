@@ -21,6 +21,11 @@
 //! over sixteen thousand grid points. That is the wrong instrument for a question about one
 //! pixel the CPU is already holding.
 //!
+//! **What is read is the color's own channels**, unpremultiplied in the measurement, so the
+//! numbers are what a picker would say of the color and the published `color` is the straight
+//! color every CPU node publishes, premultiplied again where the synth resolves it. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
 //! `luma` and `lightness` are both here and are not the same number: luma is Rec.709
 //! perceived brightness, lightness is the midpoint of the brightest and darkest channel.
 
@@ -33,7 +38,8 @@ use crate::nodes::{
 };
 
 /// The sample's measurement: the color of its input at the point its two uniform numbers
-/// name. The buffer's words are atomic, so a plain write is an `atomicStore`.
+/// name, as its own channels and its alpha. The buffer's words are atomic, so a plain write
+/// is an `atomicStore`.
 fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
     let x = ctx.input(node, "x", "p");
     let y = ctx.input(node, "y", "p");
@@ -42,7 +48,7 @@ fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
     ctx.measure_once(
         node,
         &format!(
-            "    let c = {input};
+            "    let c = unpremultiply({input});
     atomicStore(&tap[{base}u], 1u);
     atomicStore(&tap[{base}u + 1u], bitcast<u32>(c.r));
     atomicStore(&tap[{base}u + 2u], bitcast<u32>(c.g));

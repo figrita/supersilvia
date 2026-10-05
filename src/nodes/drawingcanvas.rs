@@ -132,11 +132,12 @@ pub static DEF: NodeDef = NodeDef {
             label: "Mask",
             ty: VaryingNumber,
             kind: OutputKind::Shader,
-            // silvia's: the picture's luminance, by Rec.601's weights, where it is painted —
-            // an erased pixel is transparent, and transparent is no mask.
+            // silvia's: the picture's luminance, by Rec.601's weights, times its alpha — an
+            // erased pixel is transparent, and transparent is no mask. The premultiplied
+            // picture's luminance is that product already.
             wgsl: |node, ctx, _func| {
                 format!(
-                    "{}\n    return dot(c.rgb, vec3f(0.299, 0.587, 0.114)) * c.a;",
+                    "{}\n    return dot(c.rgb, vec3f(0.299, 0.587, 0.114));",
                     sample(node, ctx)
                 )
             },

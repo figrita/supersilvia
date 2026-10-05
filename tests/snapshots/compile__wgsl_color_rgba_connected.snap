@@ -46,7 +46,7 @@ fn vignette6_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba1_output(uv: vec2f) -> vec4f {
-    return vec4f(vignette3_mask(uv), vignette4_mask(uv), vignette5_mask(uv), vignette6_mask(uv));
+    return premultiply(vec4f(vignette3_mask(uv), vignette4_mask(uv), vignette5_mask(uv), vignette6_mask(uv)));
 }
 
 @fragment

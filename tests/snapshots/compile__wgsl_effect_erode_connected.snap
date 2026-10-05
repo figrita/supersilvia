@@ -94,7 +94,7 @@ fn erode1_value(uv: vec2f) -> f32 {
 }
 
 fn rgba7_output(uv: vec2f) -> vec4f {
-    return vec4f(erode1_value(uv), u.u_control_rgba7_g, u.u_control_rgba7_b, u.u_control_rgba7_a);
+    return premultiply(vec4f(erode1_value(uv), u.u_control_rgba7_g, u.u_control_rgba7_b, u.u_control_rgba7_a));
 }
 
 fn mix8_output(uv: vec2f) -> vec4f {

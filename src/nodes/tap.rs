@@ -40,6 +40,11 @@
 //! is opaque, so a mostly-transparent picture still shows the hue it is being asked about
 //! rather than reporting itself invisible.
 //!
+//! **Both read the color's own channels.** The measurement takes its input through the
+//! prelude's `unpremultiply`, so the picked quantity and the mean color are what a picker
+//! would say of each texel, and a fully transparent texel reads as black. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
 //! The slot, in words: count, the sum of the measured quantity (low, high), the maximum's
 //! key, the minimum's key, the sum of `x` times the weight (low, high), the same for `y`,
 //! the sum of the weight (low, high), and the three color sums.
@@ -190,7 +195,7 @@ fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
         None => (format!("{}\n", decompose::HELPERS_WGSL), picked.wgsl),
     };
     let body = format!(
-        "    let color = {input};\n{helpers}{}\n{}",
+        "    let color = unpremultiply({input});\n{helpers}{}\n{}",
         stats_wgsl(base, luma, "p"),
         color_wgsl(base, "color"),
     );

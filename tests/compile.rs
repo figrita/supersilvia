@@ -618,7 +618,7 @@ fn a_sample_is_measured_once_at_its_own_point() {
     );
     assert!(
         shader.body.contains(&format!(
-            "let c = checkerboard{cb}_output(vec2f((u.u_control_sample{s}_x), (u.u_control_sample{s}_y)))"
+            "let c = unpremultiply(checkerboard{cb}_output(vec2f((u.u_control_sample{s}_x), (u.u_control_sample{s}_y))))"
         )),
         "the input is evaluated at the point exactly:\n{}",
         shader.body,

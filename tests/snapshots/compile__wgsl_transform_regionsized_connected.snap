@@ -109,7 +109,7 @@ fn regionsized1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba10_output(uv: vec2f) -> vec4f {
-    return vec4f(regionsized1_mask(uv), u.u_control_rgba10_g, u.u_control_rgba10_b, u.u_control_rgba10_a);
+    return premultiply(vec4f(regionsized1_mask(uv), u.u_control_rgba10_g, u.u_control_rgba10_b, u.u_control_rgba10_a));
 }
 
 fn mix11_output(uv: vec2f) -> vec4f {

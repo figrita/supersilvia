@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Hue, saturation, lightness and alpha into a color, premultiplied as it is built, as
+//! `rgba`'s is.
+
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
 
@@ -66,7 +69,7 @@ pub static DEF: NodeDef = NodeDef {
         kind: OutputKind::Shader,
         wgsl: |node, ctx, _func| {
             format!(
-                "    return vec4f(hsl2rgb({}, {}, {}), {});",
+                "    return premultiply(vec4f(hsl2rgb({}, {}, {}), {}));",
                 ctx.input(node, "h", "uv"),
                 ctx.input(node, "s", "uv"),
                 ctx.input(node, "l", "uv"),

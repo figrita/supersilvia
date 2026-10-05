@@ -132,7 +132,7 @@ fn polygon1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba11_output(uv: vec2f) -> vec4f {
-    return vec4f(polygon1_mask(uv), u.u_control_rgba11_g, u.u_control_rgba11_b, u.u_control_rgba11_a);
+    return premultiply(vec4f(polygon1_mask(uv), u.u_control_rgba11_g, u.u_control_rgba11_b, u.u_control_rgba11_a));
 }
 
 fn mix12_output(uv: vec2f) -> vec4f {

@@ -179,7 +179,7 @@ fn spiral1_angle(uv: vec2f) -> f32 {
 }
 
 fn rgba12_output(uv: vec2f) -> vec4f {
-    return vec4f(spiral1_mask(uv), spiral1_angle(uv), u.u_control_rgba12_b, u.u_control_rgba12_a);
+    return premultiply(vec4f(spiral1_mask(uv), spiral1_angle(uv), u.u_control_rgba12_b, u.u_control_rgba12_a));
 }
 
 fn mix13_output(uv: vec2f) -> vec4f {
