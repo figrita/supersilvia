@@ -7,8 +7,8 @@
 //! node offers and across the range of every control it has:
 //!
 //! - **No false claim.** With a period `P`, the frame at Time `t + P` is the frame at `t`, at
-//!   any `t` — zero, a fraction, a thousand cycles on, behind zero, across the 40320 the
-//!   count's whole part wraps at — and with any Offset.
+//!   any `t` — zero, a fraction, a thousand cycles on, behind zero, across where the count's
+//!   whole part wraps, 40320 either side of zero — and with any Offset.
 //! - **No early loop.** The frame does not come back before `P`: at `t + d` for every whole
 //!   `d` under `P`, `P / k` for `k` up to 12, and a few fractions, it is visibly another
 //!   picture. A setting where the node stands still — every wave at zero amplitude, a Mandelbrot
@@ -535,8 +535,8 @@ const CLAIMS: [(f64, f64); 6] = [
     (0.37, 0.0),
     (1000.37, 0.3),
     (-3.61, -0.71),
-    // Across the 40320 the count's whole part wraps at, a period on.
-    (20159.37, 0.13),
+    // Across where the count's whole part wraps, half of `phasor::WHOLE_WRAP`, a period on.
+    (40319.37, 0.13),
     (7.5, 0.999),
 ];
 
@@ -1111,76 +1111,170 @@ fn unbounded() -> [(Spec, &'static [(&'static str, &'static str)]); 5] {
     ]
 }
 
-/// A picture that never repeats must not come back after a long show either. Perlin's
-/// lattice is taken modulo 289 on every axis, time included; the simplex lattice's skew makes
-/// that 867 along time; and the count's whole part wraps at 40320.
-#[test]
-fn a_picture_that_never_repeats_does_not_come_back_after_a_long_show() {
-    let mut failures = Vec::new();
-    for (spec, options) in unbounded() {
-        let (g, out, under) = build(&spec, options);
-        let mut rig = Rig::new(g, out, under);
-        let long = [289.0, 578.0, 867.0, 40320.0];
-        let start = 0.37;
-        let mut probes = vec![at(Axis::Both, start, 0.0), at(Axis::Both, start + 1.0, 0.0)];
-        probes.extend(long.iter().map(|d| at(Axis::Both, start + d, 0.0)));
-        let frames = rig.frames(&probes);
-        let motion = compare(&frames[0], &frames[1]).1;
-        for (d, frame) in long.iter().zip(&frames[2..]) {
-            let (frac, most) = compare(&frames[0], frame);
-            eprintln!(
-                "{}: {d} on, {:.1}% differ, by up to {most:.4}; a cycle on, {motion:.4}",
-                spec.slug,
-                frac * 100.0
-            );
-            if back(&frames[0], frame, motion) {
-                failures.push(format!(
-                    "{}: back {d} cycles on ({:.1}% of pixels differ, by up to {most:.3})",
-                    spec.slug,
-                    frac * 100.0
-                ));
-            }
-        }
-    }
-    assert_none("a long show", &failures);
+/// Where the count's whole part wraps, either side of zero: half of `phasor::WHOLE_WRAP`.
+const HALF_WHOLE_WRAP: f64 = nodes::phasor::WHOLE_WRAP / 2.0;
+
+/// How far a picture that never repeats must run before it comes back or meets a seam, in its
+/// own cycles: the owner's forty minutes, held at the Speed knob's top, 4, at the node's pace —
+/// 4800 cells for a noise at half a cell a second, 57600 rolls for Static at six.
+fn forty_minutes_at_speed_4(g: &Graph, under: NodeId) -> f64 {
+    let pace = g
+        .get(under)
+        .unwrap()
+        .def
+        .timing
+        .expect("moves with time")
+        .pace;
+    40.0 * 60.0 * 4.0 * pace
 }
 
-/// A picture that never repeats has no seam where the count's whole part wraps, at 20160
-/// cycles: a step across it moves the picture no further than a step as long anywhere else.
+/// A picture that never repeats must not come back within forty minutes at Speed 4
+/// ([`forty_minutes_at_speed_4`]): neither exactly — [`back`], as an early loop is judged —
+/// nor nearly, a frame closer to the start than half of what frames of it typically differ by,
+/// which a picture that comes back over part of the frame, or blurred, would be. Every whole
+/// cell is held from early in a show, and every seventh from a start that runs up to the
+/// count's whole wrap at `phasor::WHOLE_WRAP`; Static, every roll for its first 3000, every
+/// thirteenth and every 355th — where a sine hash comes back nearest, 355 being 113π — to
+/// 57600, from the same two starts. webgl-noise's permutation brings its lattice back every 289
+/// cells, 867 along the simplex lattice's skew, and a whole part wrapped at 40320 would bring
+/// Static back 28 minutes on at Speed 4. The tunnel at Depth Wrap None, whose wall reads a
+/// picture of two waves, is held to coming back exactly.
+#[test]
+fn a_picture_that_never_repeats_does_not_come_back_within_forty_minutes_at_speed_4() {
+    let mut failures = Vec::new();
+    let static_spec = (
+        Spec::new("static", "color", Feed::Nothing),
+        &[("repeat", "never")] as &[_],
+    );
+    for (spec, options) in unbounded().into_iter().chain([static_spec]) {
+        let (g, out, under) = build(&spec, options);
+        let horizon = forty_minutes_at_speed_4(&g, under).ceil();
+        let rolls = spec.slug == "static";
+        let near = spec.slug != "tunnel3d";
+        let mut rig = Rig::new(g, out, under);
+        let early: Vec<f64> = if rolls {
+            let mut d: Vec<f64> = (1..=3000).map(f64::from).collect();
+            let mut k = 3013.0;
+            while k <= horizon {
+                d.push(k);
+                k += 13.0;
+            }
+            let mut k = 355.0;
+            while k <= horizon {
+                d.push(k);
+                k += 355.0;
+            }
+            d.extend([40320.0, horizon]);
+            d
+        } else {
+            (1..=horizon as u32).map(f64::from).collect()
+        };
+        let late: Vec<f64> = early
+            .iter()
+            .copied()
+            .filter(|d| *d <= 3.0 || (*d as u64).is_multiple_of(if rolls { 13 } else { 7 }))
+            .collect();
+        let offset = if rolls { 0.5 } else { 0.37 };
+        let starts = [
+            (offset, early),
+            (nodes::phasor::WHOLE_WRAP - horizon - 1.0 + offset, late),
+        ];
+        for (start, steps) in starts {
+            let mut probes = vec![at(Axis::Both, start, 0.0), at(Axis::Both, start + 1.0, 0.0)];
+            probes.extend(steps.iter().map(|d| at(Axis::Both, start + d, 0.0)));
+            let frames = rig.frames(&probes);
+            let motion = compare(&frames[0], &frames[1]).1;
+            let apart: Vec<f64> = frames[2..]
+                .iter()
+                .map(|f| mean_diff(&frames[0], f))
+                .collect();
+            let mut sorted = apart.clone();
+            sorted.sort_by(f64::total_cmp);
+            let typical = sorted[sorted.len() / 2];
+            let mut nearest = (f64::NAN, f64::INFINITY);
+            for ((d, frame), diff) in steps.iter().zip(&frames[2..]).zip(&apart) {
+                let ratio = diff / typical;
+                if *d >= 2.0 && ratio < nearest.1 {
+                    nearest = (*d, ratio);
+                }
+                if back(&frames[0], frame, motion) {
+                    let (frac, most) = compare(&frames[0], frame);
+                    failures.push(format!(
+                        "{} from {start}: back {d} on ({:.1}% of pixels differ, by up to {most:.3})",
+                        spec.slug,
+                        frac * 100.0
+                    ));
+                } else if near && *d >= 2.0 && ratio < 0.5 {
+                    failures.push(format!(
+                        "{} from {start}: nearly back {d} on, {diff:.4} from the start where frames \
+                         differ by {typical:.4}",
+                        spec.slug
+                    ));
+                }
+            }
+            eprintln!(
+                "{} from {start}: {} steps to {horizon}; frames differ by {typical:.4}, the \
+                 nearest {:.2} of that, {} on",
+                spec.slug,
+                steps.len(),
+                nearest.1,
+                nearest.0
+            );
+        }
+    }
+    assert_none("forty minutes", &failures);
+}
+
+/// A picture that never repeats has no seam where the count's whole part wraps,
+/// `phasor::WHOLE_WRAP` on — half of it either side of zero — nor where it comes back round,
+/// nor anywhere within forty minutes at Speed 4: a step across each moves the picture no
+/// further than a step as long at 1000.
 #[test]
 fn a_picture_that_never_repeats_has_no_seam_where_the_count_wraps() {
     let mut failures = Vec::new();
     for (spec, options) in unbounded() {
         let (g, out, under) = build(&spec, options);
+        let horizon = forty_minutes_at_speed_4(&g, under);
         let mut rig = Rig::new(g, out, under);
         let step = 0.05;
-        let frames = rig.frames(&[
-            at(Axis::Both, 1000.0 - step, 0.0),
-            at(Axis::Both, 1000.0 + step, 0.0),
-            at(Axis::Both, 20160.0 - step, 0.0),
-            at(Axis::Both, 20160.0 + step, 0.0),
-        ]);
+        let places = [
+            1000.0,
+            20160.0,
+            horizon,
+            HALF_WHOLE_WRAP,
+            -HALF_WHOLE_WRAP,
+            nodes::phasor::WHOLE_WRAP,
+        ];
+        let probes: Vec<_> = places
+            .iter()
+            .flat_map(|p| [at(Axis::Both, p - step, 0.0), at(Axis::Both, p + step, 0.0)])
+            .collect();
+        let frames = rig.frames(&probes);
         let ordinary = mean_diff(&frames[0], &frames[1]);
-        let seam = mean_diff(&frames[2], &frames[3]);
-        eprintln!(
-            "{}: a step of {} moves {ordinary:.4} at 1000, {seam:.4} across 20160",
-            spec.slug,
-            2.0 * step
-        );
-        if seam > 3.0 * ordinary + 0.005 {
-            failures.push(format!(
-                "{}: a step of {} across 20160 moves {seam:.4} on average, one at 1000 {ordinary:.4}",
+        for (i, place) in places.iter().enumerate().skip(1) {
+            let seam = mean_diff(&frames[2 * i], &frames[2 * i + 1]);
+            eprintln!(
+                "{}: a step of {} moves {ordinary:.4} at 1000, {seam:.4} across {place}",
                 spec.slug,
                 2.0 * step
-            ));
+            );
+            if seam > 3.0 * ordinary + 0.005 {
+                failures.push(format!(
+                    "{}: a step of {} across {place} moves {seam:.4} on average, one at 1000 \
+                     {ordinary:.4}",
+                    spec.slug,
+                    2.0 * step
+                ));
+            }
         }
     }
     assert_none("the count's wrap", &failures);
 }
 
 /// A picture that never repeats moves as smoothly at the far end of its count as at the
-/// start: a frame at 60 a second, at half a cell a second, moves about as far at 20159 cells
-/// as at the first, rather than standing still between float steps.
+/// start: a frame at 60 a second, at half a cell a second, moves about as far just short of
+/// the count's whole wrap, either side of zero, as at the first, rather than standing still
+/// between float steps.
 #[test]
 fn a_picture_that_never_repeats_moves_as_smoothly_late_as_early() {
     let mut failures = Vec::new();
@@ -1188,8 +1282,15 @@ fn a_picture_that_never_repeats_moves_as_smoothly_late_as_early() {
         let (g, out, under) = build(&spec, options);
         let mut rig = Rig::new(g, out, under);
         let frame = 0.5 / 60.0;
+        let starts = [
+            0.37,
+            20159.37,
+            HALF_WHOLE_WRAP - 0.63,
+            -HALF_WHOLE_WRAP + 0.37,
+            nodes::phasor::WHOLE_WRAP - 0.63,
+        ];
         let mut probes = Vec::new();
-        for start in [0.37, 20159.37] {
+        for start in starts {
             for i in 0..5 {
                 probes.push(at(Axis::Both, start + f64::from(i) * frame, 0.0));
             }
@@ -1200,22 +1301,96 @@ fn a_picture_that_never_repeats_moves_as_smoothly_late_as_early() {
                 .map(|i| mean_diff(&frames[from + i], &frames[from + i + 1]))
                 .collect()
         };
-        let (early_moves, late_moves) = (moves(0), moves(5));
-        eprintln!(
-            "{}: a frame moves {early_moves:.5?} early, {late_moves:.5?} at 20159",
-            spec.slug
-        );
+        let early_moves = moves(0);
         let typical = early_moves.iter().sum::<f64>() / 4.0;
-        for m in &late_moves {
-            if *m < 0.25 * typical || *m > 4.0 * typical {
-                failures.push(format!(
-                    "{}: at 20159 cells a frame moves {m:.5}, at the start {typical:.5}",
-                    spec.slug
-                ));
+        for (k, start) in starts.iter().enumerate().skip(1) {
+            let late_moves = moves(5 * k);
+            eprintln!(
+                "{}: a frame moves {early_moves:.5?} early, {late_moves:.5?} at {start}",
+                spec.slug
+            );
+            for m in &late_moves {
+                if *m < 0.25 * typical || *m > 4.0 * typical {
+                    failures.push(format!(
+                        "{}: at {start} cells a frame moves {m:.5}, at the start {typical:.5}",
+                        spec.slug
+                    ));
+                }
             }
         }
     }
     assert_none("late precision", &failures);
+}
+
+/// **A noise at Repeat Never does not come back slid across the frame.** webgl-noise's
+/// permutation moves by 17 wherever its argument does, so its Perlin and simplex lattices
+/// hashed `(x, y + 17, t − 17)` and `(x + 17, y, t − 17)` as `(x, y, t)`: 17 cells on along
+/// time the picture was the picture 17 cells over, to the bit. At a Scale of 17, 17 cells is
+/// 24 pixels, half the frame; every 17 cells to 289 on, no half of the frame, slid by a half
+/// or a whole frame either way, is the start's.
+#[test]
+fn a_noise_at_repeat_never_does_not_come_back_slid_across_the_frame() {
+    let mut failures = Vec::new();
+    let noises: [(&str, &[(&'static str, f32)]); 4] = [
+        ("perlin", &[("scale", 17.0)]),
+        ("simplex", &[("scale", 17.0)]),
+        ("fractal", &[("scale", 17.0), ("lacunarity", 1.0)]),
+        ("fractal", &[("scale", 17.0), ("gain", 0.1)]),
+    ];
+    let side = SIZE as i32;
+    let half = side / 2;
+    for (slug, setting) in noises {
+        let spec = Spec::new(slug, "color", Feed::Nothing);
+        let (g, out, under) = build(&spec, &[("repeat", "never")]);
+        let mut rig = Rig::new(g, out, under);
+        for (key, value) in setting {
+            rig.set(key, *value);
+        }
+        let start = 0.37;
+        let steps: Vec<f64> = (1..=17).map(|k| f64::from(17 * k)).collect();
+        let mut probes = vec![at(Axis::Both, start, 0.0)];
+        probes.extend(steps.iter().flat_map(|d| {
+            [
+                at(Axis::Both, start + d, 0.0),
+                at(Axis::Both, start - d, 0.0),
+            ]
+        }));
+        let frames = rig.frames(&probes);
+        let base = &frames[0];
+        for (i, d) in steps.iter().enumerate() {
+            for (sign, frame) in [(1.0, &frames[1 + 2 * i]), (-1.0, &frames[2 + 2 * i])] {
+                for dy in [-half, 0, half] {
+                    for dx in [-half, 0, half] {
+                        if dx == 0 && dy == 0 {
+                            continue;
+                        }
+                        let (mut off, mut n) = (0usize, 0usize);
+                        for y in 0..side {
+                            for x in 0..side {
+                                let (xa, ya) = (x + dx, y + dy);
+                                if !(0..side).contains(&xa) || !(0..side).contains(&ya) {
+                                    continue;
+                                }
+                                let a = (ya * side + xa) as usize * 4;
+                                let b = (y * side + x) as usize * 4;
+                                n += 1;
+                                if (base[a] - frame[b]).abs() > LEVEL {
+                                    off += 1;
+                                }
+                            }
+                        }
+                        if (off as f64) <= SAME * n as f64 {
+                            failures.push(format!(
+                                "{slug} {setting:?}: {} on is the start slid ({dx}, {dy}) pixels",
+                                sign * d
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert_none("slid across the frame", &failures);
 }
 
 // ------------------------------------------------------------- the Cosine Gradient's Frequency
