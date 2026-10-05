@@ -1033,10 +1033,16 @@ impl Renderer {
 
     /// Read back every frame this Output publishes from now on, or stop. False for an Output
     /// with no renderer yet.
-    pub fn set_capturing(&mut self, node: NodeId, on: bool, scale: u32) -> bool {
+    pub fn set_capturing(
+        &mut self,
+        node: NodeId,
+        on: bool,
+        scale: u32,
+        alpha: readback::Alpha,
+    ) -> bool {
         match self.outputs.get_mut(&node) {
             Some(o) => {
-                o.readbacks().set_capturing(on, scale);
+                o.readbacks().set_capturing(on, scale, alpha);
                 true
             }
             None => false,

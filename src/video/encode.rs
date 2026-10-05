@@ -9,6 +9,10 @@
 //! stamped with its index over the frame rate, so the file's clock is the render's and not
 //! the wall's. It writes to a `.part` beside the destination and renames at the end, so a
 //! half-written file is never mistaken for a clip.
+//!
+//! **Alpha is dropped** by the conversion to the encoder's format, so the render hands a
+//! frame over premultiplied, as the graph holds it (`render::readback::Alpha`): premultiplied
+//! color with its alpha dropped is the picture over black, which is what every viewer shows.
 
 use crate::video::clip::Codec;
 use crate::video::png::{escape, launch, run_to_end};

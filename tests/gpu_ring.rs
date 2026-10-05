@@ -20,7 +20,7 @@ use supersilvia::compile::wgsl::{self, Sampler};
 use supersilvia::compile::{Shader, TAP_TEMPLATE, TAP_WORDS, TapKind};
 use supersilvia::graph::NodeId;
 use supersilvia::render::program::Program;
-use supersilvia::render::readback::THUMBNAIL_BYTES;
+use supersilvia::render::readback::{Alpha, THUMBNAIL_BYTES};
 use supersilvia::render::ring::RING;
 use supersilvia::render::{
     FrameJob, Gpu, MixerJob, OutputJob, OutputMode, Published, QUEUED_AHEAD, Renderer,
@@ -1981,10 +1981,10 @@ fn gpu_objects_do_not_grow_with_churn() {
             r.request_snap(NodeId(2));
         }
         if t % 400 == 100 {
-            r.set_capturing(NodeId(1), true, 1);
+            r.set_capturing(NodeId(1), true, 1, Alpha::Straight);
         }
         if t % 400 == 130 {
-            r.set_capturing(NodeId(1), false, 1);
+            r.set_capturing(NodeId(1), false, 1, Alpha::Straight);
         }
         r.draw(&tick_of(t as f32 * 0.01, outputs));
         r.take_thumbnails();

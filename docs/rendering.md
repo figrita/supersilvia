@@ -748,6 +748,12 @@ the same one at another size. A later tick finds the map landed and copies the b
 padding dropped. The pass samples by `@builtin(position)`, so the rows lie bottom first, as an
 Output's frame does, and are flipped once on the CPU.
 
+**The bytes are straight.** The frame is premultiplied and a PNG is not, so the pass's
+`fs_straight` divides by alpha after the sampler has filtered, on the frame's own precision
+and before the 8-bit rounding: the letterbox's scaling averages premultiplied colors, and a
+transparent pixel is written transparent black. The bars are opaque black. The project tab
+loads the file back as the straight PNG it is and draws it over its black card.
+
 **A read that waited would be a stalled tick.** Polling a map with a wait on the synth thread
 is a synchronous download, the same trap as creating a pipeline there, one subsystem over.
 Asked for and collected later, it is a queued copy, and nothing blocks.
@@ -789,7 +795,7 @@ is not the frame that was in front of you.
 
 `App::collect_snaps` writes each one as a PNG through `video/png.rs`. **PNG, and lossless**:
 the point of Snap over the renderer is that it is the exact frame, so the file is the exact
-pixels — `snap_writes_a_full_resolution_png_into_the_projects_snaps_folder` in
+pixels, unpremultiplied by the same pass as a thumbnail, since a PNG is straight — `snap_writes_a_full_resolution_png_into_the_projects_snaps_folder` in
 `tests/gpu_app.rs` reads one back and compares every byte.
 
 **Into `snaps/` inside the project folder**, named `output3-20260921-134501.png`: the Output
@@ -827,6 +833,14 @@ two sizes are equal, the filter never runs, and the pass is a nearest copy. A
 multiplier that does not divide the Output's resolution is refused back to 1x rather than
 rounded, so the film is never a pixel off what the preview was.
 
+**Alpha is the writer's.** `set_capturing` takes a `readback::Alpha` with the multiplier: a
+PNG sequence and a GIF are written straight, divided by alpha in the pass that writes the film,
+after the halvings — every halving averages premultiplied colors, so an edge against
+transparency comes back its own color at partial alpha rather than darkened, and the
+half-float target stays premultiplied. A video is captured premultiplied: the encoder drops
+alpha, and premultiplied color with its alpha dropped is the picture over black, which is what
+every viewer shows.
+
 **A capture waits for its own preceding frame**, bounded by two seconds, so a hung driver
 costs one frame and a log line. Live drawing is bounded by the tick two back and the
 throttle, while a capture needs the Output's own previous frame to complete before its read can
@@ -841,7 +855,9 @@ render are still owed once the ring is freed. **A capture that turns on starts f
 the count of reads issued goes back to zero and a frame the last capture left unclaimed is
 dropped, so the second render of a session counts and writes its own frames rather than
 inheriting the first render's. `tests/gpu_readback.rs` holds that every frame comes back at
-full size and in order, and that a supersampled one comes back at the film's size, averaged.
+full size and in order, that a supersampled one comes back at the film's size, averaged, and
+averaged premultiplied, and that a capture is straight for a file and premultiplied for a
+video.
 
 ## The render job
 

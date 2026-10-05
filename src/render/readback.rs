@@ -29,6 +29,16 @@
 //! and 2x, two at 4x through a half-float target twice the film's size, so each written pixel
 //! averages all sixteen drawn behind it. A capture drops no frame: [`Readbacks::settle`] waits
 //! for the previous frame's submission, bounded at two seconds, before the next is drawn.
+//!
+//! **Alpha.** The frame is premultiplied, as every color in the graph is, and a file for
+//! another app is straight, so the pass that writes the bytes unpremultiplies ([`Alpha`]): a
+//! thumbnail and a Snap always, a capture for a PNG sequence or a GIF. A capture for a video
+//! stays premultiplied, since the encoder drops alpha and premultiplied color is the picture
+//! over black. The division is in that pass's shader rather than on the CPU after the map, so
+//! it runs on the frame's own precision before the 8-bit rounding, after the sampler's
+//! filtering — an edge is averaged premultiplied, then divided — and costs the synth thread
+//! nothing. The half-way target of a 4x capture stays premultiplied for the same averaging.
+//! See [docs/decisions.md](../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
 
 use super::gpu::{Gpu, Ticket};
 use super::ring::{Ring, Slot};
@@ -58,7 +68,8 @@ const READ_WAIT: Duration = Duration::from_secs(10);
 const CAPTURE_WAIT: Duration = Duration::from_secs(2);
 
 /// The pass every picture read is drawn by: the frame, sampled over the rectangle the pass's
-/// viewport covers, by fragment position.
+/// viewport covers, by fragment position — premultiplied as the frame holds it from `fs_main`,
+/// unpremultiplied from `fs_straight`, after the sampler has filtered it.
 pub const PICTURE: &str = "
 @group(0) @binding(0) var frame: texture_2d<f32>;
 @group(0) @binding(1) var frame_sampler: sampler;
@@ -71,11 +82,35 @@ fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
     return vec4f(p * 2.0 - 1.0, 0.0, 1.0);
 }
 
-@fragment
-fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+fn sampled(frag_coord: vec4f) -> vec4f {
     return textureSampleLevel(frame, frame_sampler, (frag_coord.xy - rect.origin) / rect.size, 0.0);
 }
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    return sampled(frag_coord);
+}
+
+@fragment
+fn fs_straight(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let c = sampled(frag_coord);
+    return select(vec4f(0.0), vec4f(c.rgb / c.a, c.a), c.a > 0.0);
+}
 ";
+
+/// [`PICTURE`]'s fragment entry point that unpremultiplies.
+const STRAIGHT_ENTRY: &str = "fs_straight";
+
+/// How a picture read leaves the frame's premultiplied colors.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Alpha {
+    /// Unpremultiplied: a file another app reads with its alpha — a PNG, a GIF.
+    #[default]
+    Straight,
+    /// As the frame holds them: for a writer that drops alpha, whose color is then the
+    /// picture over black — a video.
+    Premultiplied,
+}
 
 /// Where a staging buffer's map stands, as its callback leaves it.
 const MAPPING: u8 = 0;
@@ -277,12 +312,16 @@ impl Target {
     }
 }
 
-/// [`PICTURE`]'s pipelines, one per target format, and the two samplers it reads through. Made
-/// once with the renderer and kept in its [`super::shared::Shared`], so no Output makes a
-/// pipeline on the synth thread the first time a picture is asked of it.
+/// [`PICTURE`]'s pipelines, one per target format and [`Alpha`], and the two samplers it reads
+/// through. Made once with the renderer and kept in its [`super::shared::Shared`], so no Output
+/// makes a pipeline on the synth thread the first time a picture is asked of it.
 pub struct Blit {
     layout: wgpu::BindGroupLayout,
+    /// Into an `Rgba8Unorm` target, unpremultiplied.
+    straight: wgpu::RenderPipeline,
+    /// Into an `Rgba8Unorm` target, premultiplied.
     byte: wgpu::RenderPipeline,
+    /// Into the `Rgba16Float` half-way target, premultiplied.
     half: wgpu::RenderPipeline,
     /// Clamped at the edges, as `glBlitFramebuffer` read: linear where the picture is scaled,
     /// nearest where it is copied one to one.
@@ -338,6 +377,14 @@ impl Blit {
             })
         };
         Self {
+            straight: super::shared::fullscreen_from(
+                device,
+                &module,
+                &layout,
+                wgpu::TextureFormat::Rgba8Unorm,
+                "picture",
+                STRAIGHT_ENTRY,
+            ),
             byte: pipeline(wgpu::TextureFormat::Rgba8Unorm),
             half: pipeline(wgpu::TextureFormat::Rgba16Float),
             layout,
@@ -347,7 +394,8 @@ impl Blit {
     }
 
     /// Record a pass clearing `to` to opaque black and drawing all of `from`, `from_size`,
-    /// into the rectangle at `origin` of `size` in it.
+    /// into the rectangle at `origin` of `size` in it, as `alpha` says. The half-way target
+    /// is always premultiplied.
     #[allow(clippy::too_many_arguments)]
     fn draw(
         &self,
@@ -358,11 +406,15 @@ impl Blit {
         to: &Target,
         origin: (u32, u32),
         size: (u32, u32),
+        alpha: Alpha,
     ) {
         let pipeline = if to.texture.format() == wgpu::TextureFormat::Rgba16Float {
             &self.half
         } else {
-            &self.byte
+            match alpha {
+                Alpha::Straight => &self.straight,
+                Alpha::Premultiplied => &self.byte,
+            }
         };
         // A copy at one to one takes no filter at all; anything else is fitted.
         let sampler = if size == from_size {
@@ -572,6 +624,7 @@ pub struct Readbacks {
     snap: Option<Picture>,
     wants_capture: bool,
     capture_scale: u32,
+    capture_alpha: Alpha,
     capture: Option<Capture>,
     captures_issued: u64,
     captured: VecDeque<Vec<u8>>,
@@ -813,12 +866,13 @@ impl Readbacks {
     /// Read back every frame from now on, in order, dropping none — or stop. `scale` is how
     /// much larger than the film the Output is drawn: 1, or 2 or 4 for a supersampled render.
     /// Turning on starts from nothing, the count at zero and the queue empty.
-    pub fn set_capturing(&mut self, on: bool, scale: u32) {
+    pub fn set_capturing(&mut self, on: bool, scale: u32, alpha: Alpha) {
         if on && !self.wants_capture {
             self.captures_issued = 0;
             self.captured.clear();
         }
         self.capture_scale = scale.max(1);
+        self.capture_alpha = alpha;
         self.wants_capture = on;
     }
 
@@ -950,13 +1004,15 @@ impl Readbacks {
         let (from, from_size) = match &c.mid {
             Some(mid) => {
                 let size = (mid.width, mid.height);
-                blit.draw(gpu, encoder, &slot.view, drawn, mid, (0, 0), size);
+                let alpha = Alpha::Premultiplied;
+                blit.draw(gpu, encoder, &slot.view, drawn, mid, (0, 0), size, alpha);
                 (&mid.view, size)
             }
             None => (&slot.view, drawn),
         };
         let film = (c.film.width, c.film.height);
-        blit.draw(gpu, encoder, from, from_size, &c.film, (0, 0), film);
+        let alpha = self.capture_alpha;
+        blit.draw(gpu, encoder, from, from_size, &c.film, (0, 0), film, alpha);
         let mut read = c.spare.pop().unwrap_or_else(|| c.film.read(gpu, "capture"));
         c.film.copy_into(encoder, &mut read);
         c.reads.push_back(read);
@@ -988,7 +1044,17 @@ fn issue_picture(
         }
     };
     let origin = ((tw - fw) / 2, (th - fh) / 2);
-    blit.draw(gpu, encoder, &slot.view, src, target, origin, (fw, fh));
+    let alpha = Alpha::Straight;
+    blit.draw(
+        gpu,
+        encoder,
+        &slot.view,
+        src,
+        target,
+        origin,
+        (fw, fh),
+        alpha,
+    );
     target.copy_into(encoder, &mut picture.read);
 }
 

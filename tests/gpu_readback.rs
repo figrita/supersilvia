@@ -13,7 +13,7 @@ use std::sync::Arc;
 use supersilvia::compile::{self, Shader, TAP_TEMPLATE, TAP_WORDS, TapKind, UniformProvider};
 use supersilvia::graph::{ControlValue, Graph, NodeId, PortRef};
 use supersilvia::nodes::{self, autoexposure, sample, tap};
-use supersilvia::render::readback::{THUMBNAIL, THUMBNAIL_BYTES};
+use supersilvia::render::readback::{Alpha, THUMBNAIL, THUMBNAIL_BYTES};
 use supersilvia::render::{
     FrameJob, OutputJob, OutputMode, PassJob, PassKey, Published, Renderer, UniformValue,
 };
@@ -820,7 +820,7 @@ fn a_capture_reads_back_every_frame_at_full_size_and_in_order() {
     let outputs = |send: bool, mode| vec![job(out, (W, H), &shader, send, mode, Vec::new())];
     link_all(&mut renderer, &outputs);
 
-    assert!(renderer.set_capturing(out, true, 1));
+    assert!(renderer.set_capturing(out, true, 1, Alpha::Straight));
     let before = renderer.drops(out).total();
     let mut frames = Vec::new();
     for i in 0..FRAMES {
@@ -833,7 +833,7 @@ fn a_capture_reads_back_every_frame_at_full_size_and_in_order() {
         FRAMES as u64,
         "one read per frame"
     );
-    renderer.set_capturing(out, false, 1);
+    renderer.set_capturing(out, false, 1, Alpha::Straight);
     // The next tick's poll collects the rest, waiting for them now the capture is off.
     renderer.draw(&tick(0.0, outputs(false, OutputMode::Suspended)));
     frames.extend(renderer.take_captured(out));
@@ -901,9 +901,9 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
         let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
         let outputs = |send: bool, mode| vec![job(out, size, &shader, send, mode, Vec::new())];
         link_all(&mut renderer, &outputs);
-        assert!(renderer.set_capturing(out, true, scale));
+        assert!(renderer.set_capturing(out, true, scale, Alpha::Straight));
         renderer.draw(&tick(0.0, outputs(false, DRAW)));
-        renderer.set_capturing(out, false, scale);
+        renderer.set_capturing(out, false, scale, Alpha::Straight);
         renderer.draw(&tick(0.0, outputs(false, OutputMode::Suspended)));
         let mut frames = renderer.take_captured(out);
         assert_eq!(frames.len(), 1, "one frame, whatever it was drawn at");
@@ -931,4 +931,147 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     );
     let four = between(&film(4));
     assert!(four > (H as usize) / 2, "and at 4x: {four} between");
+}
+
+// ---------------------------------------------------------------------------------- alpha
+
+/// A module whose left half is a half-transparent red and right half transparent black, both
+/// premultiplied as every color in the graph is: `(0.5, 0, 0, 0.5)` is full red at half
+/// coverage.
+fn half_red_and_nothing() -> Arc<Shader> {
+    module(
+        &[],
+        &[],
+        "
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    return select(vec4f(0.0), vec4f(0.5, 0.0, 0.0, 0.5), frag_coord.x < u.u_resolution.x * 0.5);
+}
+",
+    )
+}
+
+/// One RGBA8 pixel of `bytes`, rows `width` wide.
+fn pixel(bytes: &[u8], width: u32, x: u32, y: u32) -> [u8; 4] {
+    let i = ((y * width + x) * 4) as usize;
+    [bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]
+}
+
+/// Whether `got` is `want` to within one in every channel: the frame's own rounding of a half.
+fn close(got: [u8; 4], want: [u8; 4]) -> bool {
+    got.iter().zip(want).all(|(g, w)| g.abs_diff(w) <= 1)
+}
+
+/// **A Snap and a thumbnail are written straight**, as a PNG is read: the frame's
+/// premultiplied half-transparent red comes out as full red at half alpha, and transparent
+/// black stays transparent black. The thumbnail's letterbox bars are opaque black.
+#[test]
+fn a_snap_and_a_thumbnail_of_a_premultiplied_frame_are_straight() {
+    const W: u32 = 64;
+    const H: u32 = 64;
+    let out = NodeId(1);
+    let shader = half_red_and_nothing();
+    let (gpu, mut renderer) = one_output(&shader, (W, H));
+    let frame = || {
+        tick(
+            0.0,
+            vec![job(out, (W, H), &shader, false, DRAW, Vec::new())],
+        )
+    };
+    renderer.request_snap(out);
+    renderer.request_thumbnail(out);
+    renderer.draw(&frame());
+    let (w, _, snap) = until(&gpu, &mut renderer, &frame, |r| {
+        r.take_snaps().pop().map(|(_, w, h, b)| (w, h, b))
+    });
+    let red = pixel(&snap, w, W / 4, H / 2);
+    assert!(close(red, [255, 0, 0, 128]), "straight red: {red:?}");
+    let nothing = pixel(&snap, w, 3 * W / 4, H / 2);
+    assert_eq!(nothing, [0, 0, 0, 0], "transparent black stays so");
+
+    let thumb = until(&gpu, &mut renderer, &frame, |r| {
+        r.take_thumbnails().pop().map(|(_, b)| b)
+    });
+    let (tw, th) = THUMBNAIL;
+    let left = (tw - th) / 2;
+    let red = pixel(&thumb, tw, left + th / 4, th / 2);
+    assert!(close(red, [255, 0, 0, 128]), "thumbnail red: {red:?}");
+    let nothing = pixel(&thumb, tw, left + 3 * th / 4, th / 2);
+    assert_eq!(nothing, [0, 0, 0, 0], "thumbnail transparent");
+    assert_eq!(pixel(&thumb, tw, 0, th / 2), [0, 0, 0, 255], "the bar");
+}
+
+/// One frame of `shader` captured at `scale` with `alpha`, the film `size`.
+fn captured(shader: &Arc<Shader>, size: (u32, u32), scale: u32, alpha: Alpha) -> Vec<u8> {
+    let out = NodeId(1);
+    let gpu = gpu::gpu();
+    let drawn = (size.0 * scale, size.1 * scale);
+    let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
+    let outputs = |send: bool, mode| vec![job(out, drawn, shader, send, mode, Vec::new())];
+    link_all(&mut renderer, &outputs);
+    assert!(renderer.set_capturing(out, true, scale, alpha));
+    renderer.draw(&tick(0.0, outputs(false, DRAW)));
+    renderer.set_capturing(out, false, scale, alpha);
+    renderer.draw(&tick(0.0, outputs(false, OutputMode::Suspended)));
+    let mut frames = renderer.take_captured(out);
+    assert_eq!(frames.len(), 1, "one frame");
+    frames.remove(0)
+}
+
+/// **A capture for a file is straight and one for a video is premultiplied**: the PNG
+/// sequence and the GIF are read with their alpha, and the encoder drops alpha, so what it is
+/// handed is the picture over black.
+#[test]
+fn a_capture_is_straight_for_a_file_and_premultiplied_for_a_video() {
+    const W: u32 = 64;
+    const H: u32 = 32;
+    let shader = half_red_and_nothing();
+    let straight = captured(&shader, (W, H), 1, Alpha::Straight);
+    let red = pixel(&straight, W, W / 4, H / 2);
+    assert!(close(red, [255, 0, 0, 128]), "straight: {red:?}");
+    assert_eq!(pixel(&straight, W, 3 * W / 4, H / 2), [0, 0, 0, 0]);
+    let over_black = captured(&shader, (W, H), 1, Alpha::Premultiplied);
+    let red = pixel(&over_black, W, W / 4, H / 2);
+    assert!(close(red, [128, 0, 0, 128]), "premultiplied: {red:?}");
+    assert_eq!(pixel(&over_black, W, 3 * W / 4, H / 2), [0, 0, 0, 0]);
+}
+
+/// **A supersampled capture averages premultiplied colors** and unpremultiplies after: an
+/// opaque red edge against transparent black comes back, where the edge is averaged, as red at
+/// partial alpha — not as a red darkened by the transparent texels it was averaged with.
+#[test]
+fn a_supersampled_capture_averages_an_edge_premultiplied() {
+    const W: u32 = 64;
+    const H: u32 = 64;
+    let shader = module(
+        &[],
+        &[],
+        "
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    return vec4f(1.0, 0.0, 0.0, 1.0) * step(frag_coord.y, frag_coord.x);
+}
+",
+    );
+    for scale in [2, 4] {
+        let frame = captured(&shader, (W, H), scale, Alpha::Straight);
+        let edge: Vec<[u8; 4]> = frame
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .copied()
+            .filter(|p| (16..=239).contains(&p[3]))
+            .collect();
+        assert!(
+            edge.len() > (H as usize) / 2,
+            "at {scale}x the edge is averaged: {} pixels",
+            edge.len()
+        );
+        for p in &edge {
+            assert!(
+                p[0] >= 250 && p[1] == 0 && p[2] == 0,
+                "at {scale}x an edge pixel is red at partial alpha: {p:?}"
+            );
+        }
+    }
 }
