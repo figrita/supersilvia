@@ -112,17 +112,17 @@ fn inverted(in_invert: &str, out_invert: &str) -> bool {
 
 /// The body above, in Rust, for the instance whose input is a uniform number.
 ///
-/// WGSL semantics: `PI` is the prelude's `3.14159265359`, which is `std::f32::consts::PI` to
+/// WGSL semantics, in `f64`: `PI` is the prelude's `3.14159265359`, which is `f32`'s π to
 /// every bit an `f32` carries, and every other term is a multiply or a divide that says the
-/// same thing in both languages. `f32::midpoint` stands in for the shader's `(val + 1.0) /
-/// 2.0`, which it rounds to the same number over any input a control holds.
-fn evaluate(node: NodeId, ctx: &TickContext<'_>) -> f32 {
-    use std::f32::consts::PI;
+/// same thing in both languages. `f64::midpoint` stands in for the shader's `(val + 1.0) /
+/// 2.0`.
+fn evaluate(node: NodeId, ctx: &TickContext<'_>) -> f64 {
+    use std::f64::consts::PI;
 
     let val = ctx.input(node, "input");
     let mut n = match ctx.option(node, "inBasis") {
         "degrees" => val / 360.0,
-        "signed" => f32::midpoint(val, 1.0),
+        "signed" => f64::midpoint(val, 1.0),
         "byte" => val / 255.0,
         "turns" => val / (2.0 * PI),
         _ => val,

@@ -157,7 +157,7 @@ impl CpuNode for Gamepad {
         self.error = reading.error;
 
         for (i, key) in AXIS_PORTS.iter().enumerate() {
-            ctx.publish(id, key, reading.axes[i]);
+            ctx.publish(id, key, f64::from(reading.axes[i]));
         }
 
         // An edge carries where inside this frame it happened: the thread stamped it when

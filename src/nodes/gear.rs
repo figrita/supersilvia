@@ -13,24 +13,21 @@
 //! never jumps, and it is born at `playhead ÷ length` — two master gears of one length agree,
 //! and at the playhead's zero every one of them is at the start of its cycle.
 //!
-//! **The Ratio Gear** is a pure product of its parent: `±(parent × p ÷ q) + offset`, worked
-//! out afresh each tick from what arrives at Clock In — a count read whole in `f64`
-//! (`TickContext::count`), anything else the one `f32` it is — or from the playhead's seconds
-//! with nothing cabled. Its **Teeth**, `p : q`, are two whole numbers of one or more with no
-//! port, kept as they were typed and reduced only in the arithmetic: the gear turns `p` times
-//! for every `q` turns of its parent. Its **direction** ([`DIRECTION`]), Forward or Reverse,
-//! is the product's sign, and its **Offset**, every CPU node's, is added after it. It has no
-//! position of its own and keeps no track, so a seek, a render, a relaunch and a reopened tab
-//! land it on the same count to the bit, and a change of Teeth or direction puts it where it
-//! would be had it always run that way: a jump, which is the behavior (`docs/decisions.md`,
-//! *A Ratio Gear is a pure product of its parent*). The one thing it remembers is the
-//! parent's and the Offset's last readings, to find the whole cycles its output passed in a
-//! frame, going down as going up.
+//! **The Ratio Gear** is a pure product of its parent: `±(parent × p ÷ q) + offset`, worked out
+//! afresh each tick from what arrives at Clock In, read exactly in `f64` as every number
+//! between nodes is, or from the playhead's seconds with nothing cabled. Its **Teeth**,
+//! `p : q`, are two whole numbers of one or more with no port, kept as they were typed and
+//! reduced only in the arithmetic: the gear turns `p` times for every `q` turns of its parent.
+//! Its **direction** ([`DIRECTION`]), Forward or Reverse, is the product's sign, and its
+//! **Offset**, every CPU node's, is added after it. It has no position of its own and keeps no
+//! track, so a seek, a render, a relaunch and a reopened tab land it on the same count to the
+//! bit, and a change of Teeth or direction puts it where it would be had it always run that
+//! way: a jump, which is the behavior (`docs/decisions.md`, *A Ratio Gear is a pure product of
+//! its parent*). The one thing it remembers is the parent's and the Offset's last readings, to
+//! find the whole cycles its output passed in a frame, going down as going up.
 //!
-//! Both publish the same four: Cycles, a count published whole (`TickContext::publish_count`) —
-//! to a Time in `f64` on the CPU and as a whole part and a fraction in a shader, to its row
-//! as the number printed, and to anything else as one `f32` wrapped at [`phasor::WRAP`]
-//! keeping its sign ([`phasor::wrap_count`]);
+//! Both publish the same four: Cycles, the count, unbounded and never wrapped — to every CPU
+//! reader and its row the `f64` itself, and to a shader's Time a whole part and a fraction;
 //! Phase, the fraction alone; Ping-pong, a triangle over two cycles; and Trigger, an event on
 //! each whole cycle placed where inside the frame it fell. A Master Gear's **Hold** is a
 //! toggle that freezes it where it stands; its **Reset** puts it at the start of a cycle, and
@@ -39,10 +36,10 @@
 //! the jump puts on a whole cycle is on that cycle's beat and fires it, so the readout's reset
 //! and a render's first frame are a downbeat. A clock cabled into a Ratio Gear that its source
 //! calls a jump ([`TickContext::jump`], which a gear says of its readings on a Reset or a
-//! change of Teeth or direction), or anything but a count sent back more than a cycle in a
+//! change of Teeth or direction), or anything but a gear's sent back more than a cycle in a
 //! frame, is a jump to it too, and fires at most one downbeat, its own where this frame's
 //! motion carried it past one, so a hand's Reset above it is a beat however early in a cycle
-//! it comes. A count going down with no such word is a clock running backwards.
+//! it comes. A gear's reading going down with no such word is a clock running backwards.
 //!
 //! How each is drawn is its **Display** option, a still rosette or two meshing gears, both
 //! turning at the real rate: `widgets::gear`.
@@ -222,8 +219,8 @@ pub const MAX_TEETH: i64 = 64;
 
 /// A Ratio Gear's Teeth as the arithmetic reads two stored numbers: each the whole number
 /// nearest it, from one to [`MAX_TEETH`].
-pub fn teeth(p: f32, q: f32) -> (i64, i64) {
-    let whole = |v: f32| {
+pub fn teeth(p: f64, q: f64) -> (i64, i64) {
+    let whole = |v: f64| {
         if v.is_finite() {
             (v.round() as i64).clamp(1, MAX_TEETH)
         } else {
@@ -236,7 +233,7 @@ pub fn teeth(p: f32, q: f32) -> (i64, i64) {
 /// A Ratio Gear's Teeth on `node`, as [`teeth`] reads them.
 pub fn teeth_of(node: &crate::graph::Node) -> (i64, i64) {
     let read = |key| match node.controls.get(key) {
-        Some(crate::graph::ControlValue::Float(v)) => *v,
+        Some(crate::graph::ControlValue::Float(v)) => f64::from(*v),
         _ => 1.0,
     };
     teeth(read(TEETH_P), read(TEETH_Q))
@@ -377,17 +374,17 @@ fn jumped(id: NodeId, ctx: &mut TickContext<'_>) {
     }
 }
 
-/// Publish a gear's three readings of `cycles`: Cycles a count, whole, which a Time reads to
-/// `f64`'s precision, and as one `f32` wrapped at 2520 keeping its sign for anything else.
+/// Publish a gear's three readings of `cycles`: Cycles the count itself, and its Phase and
+/// Ping-pong.
 fn publish(id: NodeId, ctx: &mut TickContext<'_>, cycles: f64) {
-    ctx.publish_count(id, "cycles", cycles, phasor::wrap_count(cycles) as f32);
-    let phase = phasor::fraction(cycles, 1.0) as f32;
+    ctx.publish(id, "cycles", cycles);
+    let phase = phasor::fraction(cycles, 1.0);
     ctx.publish(id, "wrapped", if phase < 1.0 { phase } else { 0.0 });
     // A triangle over two cycles: up across the first, back across the second.
     ctx.publish(
         id,
         "pingpong",
-        (1.0 - (phasor::fraction(cycles, 2.0) - 1.0).abs()) as f32,
+        1.0 - (phasor::fraction(cycles, 2.0) - 1.0).abs(),
     );
 }
 
@@ -428,9 +425,9 @@ impl CpuNode for MasterGear {
     }
 
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
-        self.seconds = seconds_a_cycle(f64::from(ctx.input(id, "length")));
+        self.seconds = seconds_a_cycle(ctx.input(id, "length"));
         let rate = 1.0 / self.seconds;
-        let gate = f64::from(ctx.input(id, "gate").clamp(0.01, 1.0));
+        let gate = ctx.input(id, "gate").clamp(0.01, 1.0);
         let moments = moments(id, ctx, &mut self.hold, &mut self.reset);
         let time = ctx.time;
 
@@ -511,7 +508,7 @@ struct RatioGear {
     /// The output cabled into Clock In on the last tick.
     source: Option<crate::graph::PortRef>,
     /// How fast the cabled clock was moving on the last tick it moved, in its cycles a second
-    /// of the transport's advance, and how far off that can be from the `f32` readings it was
+    /// of the transport's advance, and how far off that can be from the `f64` readings it was
     /// measured on: what a frame of it is after it is thrown back.
     pace: Option<(f64, f64)>,
     born: bool,
@@ -559,21 +556,14 @@ impl CpuNode for RatioGear {
         // The turns it makes for every `q` of its parent's, against it in Reverse.
         let turns = if reverse { -p } else { p };
         let ratio = product(1.0, turns, q);
-        let offset = f64::from(ctx.input(id, crate::nodes::timing::OFFSET));
+        let offset = ctx.input(id, crate::nodes::timing::OFFSET);
         let time = ctx.time;
         let source = ctx.source(id, "clock");
         let cabled = source.is_some();
-        // A count published whole is read in `f64`; anything else is one `f32`, and its
-        // readings are only as near as that.
         let now = if cabled {
-            ctx.count(id, "clock")
+            ctx.input(id, "clock")
         } else {
             time.playhead
-        };
-        let epsilon = if cabled && !ctx.counted(id, "clock") {
-            f64::from(f32::EPSILON)
-        } else {
-            f64::EPSILON
         };
         // Negated before the Offset is added, so an Offset moves a reversed gear forwards as
         // it does any other.
@@ -583,7 +573,8 @@ impl CpuNode for RatioGear {
         // cabled, let go or moved onto another output, since the clock it counts is then
         // another one.
         let birth = time.jumped || !self.born || source != self.source;
-        // How far the parent moved this frame, unwrapped where its output says it wraps.
+        // How far the parent moved this frame, unwrapped where its output says it wraps: a
+        // Phase at one.
         let delta = if cabled {
             phasor::unwrap_at(self.raw, now, ctx.wraps_at(id, "clock"))
         } else {
@@ -591,14 +582,14 @@ impl CpuNode for RatioGear {
         };
         // A cabled clock its source says was put where it is — a gear's Reset, Teeth or
         // direction above, or a gear above born again — jumped: nothing on the way was played
-        // through. So did anything but a count sent back more than a cycle in one frame. A
-        // count, which only a gear or the Time node publishes, says when it jumps, so one
-        // going back by any amount with no word is a clock running backwards — a fast gear in
-        // Reverse passes several cycles a frame going down, as one forwards does going up —
-        // and so is anything else going back by less than a cycle.
+        // through. So did anything but a gear's reading sent back more than a cycle in one
+        // frame. A gear, or the Time node, says when it jumps, so its reading going back by
+        // any amount with no word is a clock running backwards — a fast gear in Reverse passes
+        // several cycles a frame going down, as one forwards does going up — and so is
+        // anything else going back by less than a cycle.
         let thrown_back = !birth
             && cabled
-            && (ctx.jumped(id, "clock") || (!ctx.counted(id, "clock") && delta < -1.0));
+            && (ctx.jumped(id, "clock") || (!ctx.geared(id, "clock") && delta < -1.0));
 
         if birth || thrown_back {
             let first = !self.born;
@@ -644,7 +635,7 @@ impl CpuNode for RatioGear {
                     output - output.floor()
                 };
                 let motion = (going * since).abs();
-                let slack = ratio.abs() * (error * since + epsilon * now.abs());
+                let slack = ratio.abs() * (error * since + f64::EPSILON * now.abs());
                 let whole = on_a_whole_cycle(output);
                 if whole || past <= motion + slack + phasor::REACH {
                     let at = if whole || motion <= 0.0 || !thrown_back {
@@ -657,7 +648,7 @@ impl CpuNode for RatioGear {
             }
         } else {
             if cabled && time.advance > 0.0 {
-                let error = epsilon * (now.abs() + self.raw.abs());
+                let error = f64::EPSILON * (now.abs() + self.raw.abs());
                 self.pace = Some((delta / time.advance, error / time.advance));
             }
             // A change of Teeth or direction is a jump: what counts this gear is born again

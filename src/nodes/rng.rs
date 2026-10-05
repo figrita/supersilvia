@@ -49,7 +49,7 @@ impl Rng {
     }
 
     /// One fresh random in `[min, max]`.
-    pub fn range(&mut self, min: f32, max: f32) -> f32 {
-        min + self.next_f32() * (max - min)
+    pub fn range(&mut self, min: f64, max: f64) -> f64 {
+        min + f64::from(self.next_f32()) * (max - min)
     }
 }

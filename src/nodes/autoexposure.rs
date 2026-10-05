@@ -167,15 +167,15 @@ impl CpuNode for AutoExposure {
             self.gain = next_gain(
                 self.gain,
                 s.mean,
-                ctx.input(id, "target"),
-                ctx.input(id, "speed"),
-                ctx.input(id, "min"),
-                ctx.input(id, "max"),
+                ctx.input(id, "target") as f32,
+                ctx.input(id, "speed") as f32,
+                ctx.input(id, "min") as f32,
+                ctx.input(id, "max") as f32,
                 ctx.dt,
             );
         }
-        ctx.publish(id, "gain", self.gain);
-        ctx.publish(id, "luma", self.luma);
+        ctx.publish(id, "gain", f64::from(self.gain));
+        ctx.publish(id, "luma", f64::from(self.luma));
     }
 
     fn debug(&self) -> Option<String> {

@@ -173,10 +173,9 @@ pub struct Snapshot {
     /// the canvas.
     pub gears: HashMap<NodeId, crate::nodes::gear::Reading>,
     pub pucks: HashMap<NodeId, Puck>,
-    pub uniforms: HashMap<PortRef, f32>,
-    /// Every count published whole, in `f64`: what a Time reads. See
-    /// [`crate::nodes::TickContext::publish_count`].
-    pub counts: HashMap<PortRef, f64>,
+    /// Every uniform number published, in `f64` and never wrapped, and where each node that
+    /// moves with time is under its Time key.
+    pub uniforms: HashMap<PortRef, f64>,
     pub uniform_colors: HashMap<PortRef, [f32; 4]>,
     pub frames: HashMap<PortRef, Arc<Frame>>,
     pub actions: HashMap<PortRef, Vec<Event>>,
@@ -245,7 +244,6 @@ impl Snapshot {
         self.pucks.clear();
         self.gears.clear();
         self.uniforms.clear();
-        self.counts.clear();
         self.uniform_colors.clear();
         self.frames.clear();
         self.actions.clear();
@@ -274,13 +272,8 @@ impl Snapshot {
     }
 
     /// What a uniform number output published, if anything did.
-    pub fn uniform(&self, port: PortRef) -> Option<f32> {
+    pub fn uniform(&self, port: PortRef) -> Option<f64> {
         self.uniforms.get(&port).copied()
-    }
-
-    /// What a count published whole, in `f64`, if one did.
-    pub fn count(&self, port: PortRef) -> Option<f64> {
-        self.counts.get(&port).copied()
     }
 
     pub fn uniform_color(&self, port: PortRef) -> Option<[f32; 4]> {
@@ -327,8 +320,7 @@ impl Snapshot {
 /// it.
 #[derive(Clone, Copy)]
 pub struct Uniforms<'a> {
-    numbers: &'a HashMap<PortRef, f32>,
-    counts: &'a HashMap<PortRef, f64>,
+    numbers: &'a HashMap<PortRef, f64>,
     colors: &'a HashMap<PortRef, [f32; 4]>,
 }
 
@@ -336,54 +328,28 @@ pub struct Uniforms<'a> {
 // the view is handed to.
 #[allow(clippy::implicit_hasher)]
 impl<'a> Uniforms<'a> {
-    pub fn new(
-        numbers: &'a HashMap<PortRef, f32>,
-        counts: &'a HashMap<PortRef, f64>,
-        colors: &'a HashMap<PortRef, [f32; 4]>,
-    ) -> Self {
-        Self {
-            numbers,
-            counts,
-            colors,
-        }
+    pub fn new(numbers: &'a HashMap<PortRef, f64>, colors: &'a HashMap<PortRef, [f32; 4]>) -> Self {
+        Self { numbers, colors }
     }
 
     /// Everything one snapshot published, which is what the canvas is handed.
     pub fn of(snapshot: &'a Snapshot) -> Self {
-        Self::new(
-            &snapshot.uniforms,
-            &snapshot.counts,
-            &snapshot.uniform_colors,
-        )
+        Self::new(&snapshot.uniforms, &snapshot.uniform_colors)
     }
 
-    /// What a port published as a count, whole and in `f64`: what a Time reads. `None` where
-    /// it published no count.
-    pub fn count(self, port: PortRef) -> Option<f64> {
-        self.counts.get(&port).copied()
-    }
-
-    /// What a port published this tick. `None` where it has published nothing, which is
+    /// What a port published this tick, exactly: what its row prints, so a gear's Cycles
+    /// climb for as long as the show runs. `None` where it has published nothing, which is
     /// what a port drawn without a number means.
-    pub fn get(self, port: PortRef) -> Option<f32> {
+    pub fn get(self, port: PortRef) -> Option<f64> {
         self.numbers.get(&port).copied()
     }
 
-    /// What a port's row prints: what it published as a count, whole and unwrapped, where it
-    /// published one, and its one `f32` otherwise. `None` where it has published nothing.
-    pub fn reading(self, port: PortRef) -> Option<f64> {
-        self.count(port).or_else(|| self.get(port).map(f64::from))
-    }
-
-    /// What the Time at `at` reads, with `source` the output cabled into it: that output's
-    /// count, or else its one `f32`, as `UniformProvider::NodeCount` and
-    /// `TickContext::count` resolve it; and with nothing cabled in, the reading published
-    /// under the Time's own key. `None` where nothing has been published.
+    /// What the Time at `at` reads, with `source` the output cabled into it: what that output
+    /// published, as `UniformProvider::NodeCount` and `TickContext::cycle` resolve it; and with
+    /// nothing cabled in, the reading published under the Time's own key. `None` where nothing
+    /// has been published.
     pub fn time(self, at: PortRef, source: Option<PortRef>) -> Option<f64> {
-        match source {
-            Some(src) => self.count(src).or_else(|| self.get(src).map(f64::from)),
-            None => self.count(at),
-        }
+        self.get(source.unwrap_or(at))
     }
 
     /// What a uniform color port published, on the same terms as [`Self::get`].
@@ -395,7 +361,7 @@ impl<'a> Uniforms<'a> {
     ///
     /// The resolution `TickContext::input` performs, without its fall back to the input's
     /// own control: the caller draws that where this is `None`.
-    pub fn arriving(self, source: Option<PortRef>) -> Option<f32> {
+    pub fn arriving(self, source: Option<PortRef>) -> Option<f64> {
         self.get(source?)
     }
 

@@ -372,7 +372,7 @@ fn a_counter_turns_edges_into_a_uniform() {
         app.tick(FRAME);
         assert_eq!(
             app.uniform(value),
-            Some(f32::from(expected)),
+            Some(f64::from(expected)),
             "the release must not count as a second beat"
         );
     }
@@ -1152,7 +1152,7 @@ fn an_envelope_uses_the_part_of_the_frame_after_the_gate_opened() {
     let (at, value) = partial.expect("a beat landed mid-frame within five seconds");
     let expected = (FRAME - at) / FRAME;
     assert!(
-        (value - expected).abs() < 0.05,
+        (value - f64::from(expected)).abs() < 0.05,
         "the gate opened {at}s into a {FRAME}s frame, so the attack had {expected} of a frame \
          to run, not a whole one or none: got {value}"
     );
@@ -2017,55 +2017,70 @@ fn a_sequencer_on_a_gears_phase_plays_on_its_downbeats() {
     }
 }
 
-/// **A gear's Cycles in Time pass 2520 with no seam.** Their one `f32` rolls over from 2520 to
-/// zero there, and the sequencer reads the count whole, so a Euclidean lane of eleven steps,
-/// which 16 × 2520 steps is no whole number of, keeps its pulse every 11 sixteenths of a
-/// second — 41 or 42 frames — across it, and a lane of every step opens on the frame the `f32`
-/// wraps.
+/// **A gear's Cycles in Time play on past 2520 and a million with no seam.** The count never
+/// wraps, cabled straight in or through an Add, so a Euclidean lane of eleven steps, which
+/// 16 × 2520 steps is no whole number of, keeps its pulse every 11 sixteenths of a second —
+/// 41 or 42 frames — across 2520 and on past a million cycles, and the number in Time climbs
+/// every frame.
 #[test]
-fn a_sequencer_on_a_gears_cycles_plays_through_the_counts_wrap() {
-    let (mut app, id) = app_with("euclideanrhythm");
-    for (key, v) in [
-        ("lane1steps", 16.0),
-        ("lane1pulses", 16.0),
-        ("lane2steps", 11.0),
-        ("lane2pulses", 1.0),
-    ] {
-        app.apply(Command::SetControl {
-            node: id,
-            key,
-            value: ControlValue::Float(v),
-        })
-        .unwrap();
-    }
-    let clock = seconds_gear_into(&mut app, id, "cycles");
-    app.tick(FRAME);
-    app.transport(supersilvia::transport::Command::Seek(2515.0));
-    app.tick(FRAME);
-    let mut pulses = Vec::new();
-    let mut wrapped = false;
-    for i in 0..600 {
-        let before = app.uniform(PortRef::new(clock, "cycles")).unwrap();
+fn a_sequencer_on_a_gears_cycles_plays_on_past_2520_and_a_million() {
+    for through_math in [false, true] {
+        let (mut app, id) = app_with("euclideanrhythm");
+        for (key, v) in [
+            ("lane1steps", 16.0),
+            ("lane1pulses", 16.0),
+            ("lane2steps", 11.0),
+            ("lane2pulses", 1.0),
+        ] {
+            app.apply(Command::SetControl {
+                node: id,
+                key,
+                value: ControlValue::Float(v),
+            })
+            .unwrap();
+        }
+        let clock = seconds_gear_into(&mut app, id, "cycles");
+        let time = if through_math {
+            let sum = add_to(&mut app, "add");
+            app.apply(Command::Connect {
+                from: PortRef::new(clock, "cycles"),
+                to: PortRef::new(sum, "a"),
+            })
+            .unwrap();
+            app.apply(Command::Connect {
+                from: PortRef::new(sum, "output"),
+                to: PortRef::new(id, supersilvia::nodes::TIME),
+            })
+            .unwrap();
+            PortRef::new(sum, "output")
+        } else {
+            PortRef::new(clock, "cycles")
+        };
         app.tick(FRAME);
-        let after = app.uniform(PortRef::new(clock, "cycles")).unwrap();
-        if before > 2519.0 && after < 1.0 {
-            wrapped = true;
+        for at in [2515.0, 1.0e6 - 5.0] {
+            app.transport(supersilvia::transport::Command::Seek(at));
+            app.tick(FRAME);
+            let mut pulses = Vec::new();
+            for i in 0..600 {
+                let before = app.uniform(time).unwrap();
+                app.tick(FRAME);
+                let after = app.uniform(time).unwrap();
+                assert!(
+                    after > before,
+                    "through math {through_math}: Time climbs, {before} to {after}"
+                );
+                if opened(&app, PortRef::new(id, "lane2")) {
+                    pulses.push(i);
+                }
+            }
+            let gaps: Vec<usize> = pulses.windows(2).map(|w| w[1] - w[0]).collect();
+            assert!(pulses.len() > 10, "{pulses:?}");
             assert!(
-                opened(&app, PortRef::new(id, "lane1")),
-                "a step on the frame the count wraps"
+                gaps.iter().all(|g| (41..=42).contains(g)),
+                "through math {through_math}: eleven sixteenths between pulses past {at}: {gaps:?}"
             );
         }
-        if opened(&app, PortRef::new(id, "lane2")) {
-            pulses.push(i);
-        }
     }
-    assert!(wrapped, "the count did wrap");
-    let gaps: Vec<usize> = pulses.windows(2).map(|w| w[1] - w[0]).collect();
-    assert!(pulses.len() > 10, "{pulses:?}");
-    assert!(
-        gaps.iter().all(|g| (41..=42).contains(g)),
-        "eleven sixteenths between pulses, across the wrap too: {gaps:?}"
-    );
 }
 
 // ---------------------------------------------------------------- a held level

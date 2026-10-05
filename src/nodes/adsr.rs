@@ -341,10 +341,10 @@ impl CpuNode for Adsr {
 
     fn tick(&mut self, id: crate::graph::NodeId, ctx: &mut TickContext<'_>) {
         let shape = Shape {
-            attack: ctx.input(id, "attack"),
-            decay: ctx.input(id, "decay"),
-            sustain: ctx.input(id, "sustain").clamp(0.0, 1.0),
-            release: ctx.input(id, "release"),
+            attack: ctx.input(id, "attack") as f32,
+            decay: ctx.input(id, "decay") as f32,
+            sustain: (ctx.input(id, "sustain") as f32).clamp(0.0, 1.0),
+            release: ctx.input(id, "release") as f32,
             attack_curve: Curve::of(ctx.option(id, "attackCurve")),
             decay_curve: Curve::of(ctx.option(id, "decayCurve")),
             release_curve: Curve::of(ctx.option(id, "releaseCurve")),
@@ -367,7 +367,7 @@ impl CpuNode for Adsr {
         }
         self.advance(ctx.dt - t, shape);
 
-        ctx.publish(id, "value", self.value);
+        ctx.publish(id, "value", f64::from(self.value));
         self.history.push(ctx.elapsed, self.value);
     }
 }

@@ -104,7 +104,7 @@ pub static DEF: NodeDef = NodeDef {
 
 #[derive(Default)]
 struct Counter {
-    value: f32,
+    value: f64,
     /// False until the first tick, which starts the value at `min` rather than at zero — a
     /// counter over 4..8 reading 0 before its first trigger is lying about its range.
     started: bool,
@@ -123,7 +123,7 @@ fn downs(
     id: crate::graph::NodeId,
     key: &'static str,
     hand: &mut Gate,
-) -> f32 {
+) -> f64 {
     // Only the count matters: a counter publishes a uniform number, which is sampled once
     // per frame however precisely the events inside it were placed.
     let mut n = 0.0;

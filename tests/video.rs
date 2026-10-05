@@ -368,11 +368,10 @@ fn a_clip_holds_on_pause_and_a_seek_moves_it_by_its_rate_times_the_jump() {
     );
 }
 
-/// **A held clip stays held past the count's wrap.** A clip on Hold plays once and holds its
-/// last frame. On a one-second Master Gear's Cycles, or on the Time node's Seconds — plays of
-/// the clip either way — it is long past its one play at 2519.5 and stays on its last frame
-/// through 2520, where a count read as one `f32` rolls over to zero, which would send it back
-/// to its first.
+/// **A held clip stays held past 2520.** A clip on Hold plays once and holds its last frame.
+/// On a one-second Master Gear's Cycles, or on the Time node's Seconds — plays of the clip
+/// either way — it is long past its one play at 2519.5 and stays on its last frame through
+/// 2520: the count never wraps, so nothing sends it back to its first.
 #[test]
 fn a_held_clip_stays_held_past_2520() {
     let Some(file) = clip("held") else { return };

@@ -498,13 +498,13 @@ these.
   [ui.md](ui.md#the-loop-meter)).
 
 **Time reads a count whole.** In both modes the synth publishes where the node is under the
-Time key, `u_count_{slug}{id}_clock`: a gear's Cycles, the Time node's Seconds, the ambient
-reading and a free-running playhead are counts, which a CPU node reads in `f64` and a shader
-as its whole part and its fraction ([cpu.md](cpu.md#gears)), so a Time is as precise a
-million cycles on as at the first. A CPU node's own reading, with nothing cabled in, is
-published under its Time key by `TickContext::cycle`, before its Offset and at a clip's own
-rate, for the loop meter to read. Anything else in a Time — a Phase, an oscillator, a count
-through a Math node — is the one `f32` that arrives. A body never reads Speed.
+Time key, `u_count_{slug}{id}_clock`. Whatever arrives there — a gear's Cycles, the Time
+node's Seconds, the ambient reading, a free-running playhead, a Phase, an oscillator, a Math
+node's arithmetic on a count — is an `f64` on the CPU, which a CPU node reads as it is and a
+shader as its whole part and its fraction ([cpu.md](cpu.md#the-shader-boundary)), so a Time is
+as precise a million cycles on as at the first. A CPU node's own reading, with nothing cabled
+in, is published under its Time key by `TickContext::cycle`, before its Offset and at a clip's
+own rate, for the loop meter to read. A body never reads Speed.
 
 **Switching mode** puts one row away and shows the other in place, at the same height, so the
 node does not grow or shrink. The cable in the row that goes away is dropped by the same
@@ -754,7 +754,7 @@ level even where everything feeding them closes.
 | --- | --- |
 | `Shader` | a WGSL function, inlined into the consumer's module |
 | `Texture` | a texture sampled through `u_texture_{slug}{id}_{key}`; also marks the port **delayed**. An Output's frame, or what a CPU node captured |
-| `Uniform` | one `f32` per frame, published from `tick`, reaching a consumer as `u_float_{slug}{id}_{key}`; a count, published whole, reaches a Time as `u_count_{slug}{id}_{key}`, a `vec2f` of its whole part and its fraction |
+| `Uniform` | one `f64` per frame, published from `tick` and read as it is by every CPU node, reaching a shader as `u_float_{slug}{id}_{key}`, its `f32`, or in a Time as `u_count_{slug}{id}_{key}`, a `vec2f` of its whole part and its fraction |
 | `Action` | an event, fired from `tick` and delivered inside the same one; never a uniform |
 
 A `Shader` output may also be **dual**, by `OutputDef::eval`: its declared type is
@@ -910,8 +910,10 @@ consumers, so a chain of duals resolves inside one frame.
 `smoothstep` and `threshold` — every `Math` node but `random`, which is a CPU node because
 silvia's answers one number for the whole frame from a hash of its seed, and one number for
 the frame is what a uniform number is — plus `reframerange` and `sliderule`, the two `Convert`
-nodes built the same dual way. Each `eval` is the WGSL body in Rust with WGSL's semantics where they differ,
-and the two implementations are held equal on the GPU by
+nodes built the same dual way. Each `eval` is the WGSL body in Rust with WGSL's semantics where
+they differ, in `f64` where the shader is in `f32`, since a number between nodes is an `f64`
+([cpu.md](cpu.md#the-shader-boundary)): a Multiply on a gear's Cycles is the count times its
+factor however long the show runs. The two implementations are held equal on the GPU by
 `a_dual_nodes_two_implementations_agree` in `tests/gpu_nodes.rs`: the node in circle mode,
 one input driven by a constant field and the rest knobs, measured through a tap's `number`
 sidechain, against what the tick published on the same values. A dual node with no
@@ -1559,9 +1561,9 @@ A beat is a Master Gear a beat long, and a bar a Ratio Gear at 1 : 4 below it.
 **`ratiogear`, the Ratio Gear**, is a pure product of its parent: `±(parent × p ÷ q) +
 offset`, worked out each tick and never integrated, so it has no position of its own and a
 seek, a render, a relaunch or a reopened tab lands it on the same count to the bit. **Clock
-In** (key `clock`) is a diamond with no knob, the parent: a count read whole in `f64`, anything
-else the one `f32` it is, so a Phase cabled in gives a gear that comes round with it; with
-nothing cabled the parent is the playhead's seconds. **Offset** (key `phaseOffset`), under it,
+In** (key `clock`) is a diamond with no knob, the parent: whatever arrives, read exactly in
+`f64`, so a Phase cabled in gives a gear that comes round with it; with nothing cabled the
+parent is the playhead's seconds. **Offset** (key `phaseOffset`), under it,
 is every CPU node's Offset, in the gear's own cycles, −1 to 1 by thousandths, with a port: added
 after the product and its sign, it places the gear inside its cycle, and an LFO cabled in sways
 it about where it is locked. **Teeth** is one row of two whole numbers with no port, `p : q`
@@ -1579,20 +1581,17 @@ Speed, and one that should be placed is placed by an Offset, the gear's or its o
 ([decisions.md](decisions.md#a-ratio-gear-is-a-pure-product-of-its-parent)).
 
 **Both publish the same four.** **Cycles** are a count, a time rather than a fraction, since
-a wrap at one would put a seam in front of every reader not periodic at one cycle. A Time
-reads it whole: a CPU node in `f64`, never wrapped, and a shader as its whole part, wrapped at
-80640 and centered on zero, and the `f32` of its fraction, so a count a hundredth below zero
-reads −0.01, a render's warm-up counts before zero as precisely as after it, and the
-millionth cycle is as precise as the first. 80640 is twice the least common multiple of 2520
-and 128, which every Repeat and Static's 128 divide, and the most a picture
-that never repeats can run before it comes back ([Timing](#timing)). The row prints the
-count itself, unwrapped, climbing for as long as the show runs. Anything else — a Math node,
-an input that is not a Time — reads one `f32`, wrapped at 2520, the least common multiple of
-one to ten, which a reader at a whole ratio or a ratio in tenths passes with no seam, and
-keeping its sign, like an odometer: zero up to 2520 going forwards and zero down to −2520
-below zero, so a show's count never reads negative and a reversed gear's stays negative.
-Through a Math node, a gear at a cycle a second rolls over from 2520 to zero 42 minutes in
-and every 42 minutes after. **Phase** (key
+a wrap at one would put a seam in front of every reader not periodic at one cycle, and
+nothing on the CPU wraps it: every CPU reader — a Math node, a sequencer, a Ratio Gear — and
+the row get the `f64` itself, so Cycles times 0.37 is the count times 0.37 however long the
+show runs, a reversed gear's count stays negative, and the row climbs for as long as the show
+runs. A shader's Time reads it as its whole part, wrapped at 80640 and centered on zero, and
+the `f32` of its fraction, so a count a hundredth below zero reads −0.01, a render's warm-up
+counts before zero as precisely as after it, and the millionth cycle is as precise as the
+first. 80640 is twice the least common multiple of 2520 and 128, which every Repeat and
+Static's 128 divide, and the most a picture that never repeats can run before it comes back
+([Timing](#timing)). A count cabled into a shader input that is not a Time is its `f32`, which
+holds no fraction of a cycle past 2²³ cycles ([cpu.md](cpu.md#the-shader-boundary)). **Phase** (key
 `wrapped`) is the fraction alone, 0 to 1; **Ping-pong** a triangle that reaches 1 at one cycle
 and 0 at two; and **Trigger** an event on each whole cycle, placed where inside the frame it
 fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear, on each whole
@@ -1603,10 +1602,10 @@ resets moment by moment, so two inside one frame land in the order they happened
 the time readout's reset among them — and a render's start are a jump: every gear is born
 again where the playhead puts it, and fires nothing on the way but the beat it lands on, where
 it lands on a whole cycle. A Ratio Gear whose Clock In a Reset above puts back, by any
-distance, or a number that is not a count sent back more than a cycle in a frame, fires at most
-one downbeat: its own, where the clock's motion this frame carried it past one. A count going
-down with no Reset — a gear in Reverse above, however fast — is a clock running backwards, and
-the gear counts down with it, a beat a cycle.
+distance, or a number that is not a gear's sent back more than a cycle in a frame, fires at most
+one downbeat: its own, where the clock's motion this frame carried it past one. A gear's
+reading going down with no Reset — a gear in Reverse above, however fast — is a clock running
+backwards, and the gear counts down with it, a beat a cycle.
 
 **A gear draws itself** in `Region::Gear` (`widgets::gear`), 92 units tall under the rows, by
 its **Display** option, a `Runtime` one that changes nothing it publishes. **Rosette**, the
@@ -1623,12 +1622,11 @@ cycles · 8.000 s (÷4 on ratiogear12)", "2 nodes will not close (perlin5)" or "
 node closes (multiply3)" — shown up to its " (" with the whole on hover ([When a loop
 closes](#when-a-loop-closes)).
 
-`time` is **ambient time as a number**: `Seconds`, the playhead published as a count, so it
-jumps with a seek, holds with a pause, is negative before the playhead's zero and **counts
-on**: a Time and its row read the `f64` playhead whole, and through a Math node it is the
-playhead as one `f32`, unwrapped, which resolves a millisecond for the first two hours of a
-show and a sixtieth of a second for the first 36. It has no inputs, and no cycles or phase
-of its own: a rate against the show is a Ratio Gear, and a count of cycles a Master Gear's.
+`time` is **ambient time as a number**: `Seconds`, the playhead published in `f64`, so it jumps
+with a seek, holds with a pause, is negative before the playhead's zero and **counts on**: every
+CPU reader, a Math node among them, and its row read the playhead to the bit. It has no inputs,
+and no cycles or phase of its own: a rate against the show is a Ratio Gear, and a count of
+cycles a Master Gear's.
 
 `oscillator` is silvia's, and it publishes a `UniformNumber`: seven waveforms in silvia's own
 phases at `Time + Offset`, in waves, times Amplitude, lifted by **Level**, silvia's Offset.

@@ -167,10 +167,10 @@ impl CpuNode for AudioIn {
         // The thresholds reach the audio thread before the analysis is read back, so a level
         // moved this frame is the level the next block is measured against.
         let levels: [f32; bands::BANDS + 1] =
-            std::array::from_fn(|i| ctx.input(id, LEVEL_INPUTS[i]));
+            std::array::from_fn(|i| ctx.input(id, LEVEL_INPUTS[i]) as f32);
         self.config = crate::nodes::audio_ports::config(id, ctx);
         self.levels = std::array::from_fn(|b| levels[b]);
-        let monitor = ctx.input(id, "monitor");
+        let monitor = ctx.input(id, "monitor") as f32;
         if let Some(capture) = self.capture.as_mut() {
             capture.set_thresholds(levels);
             capture.set_config(self.config);
@@ -194,7 +194,7 @@ impl CpuNode for AudioIn {
         ];
         ctx.publish_frame(id, "oscilloscope", self.scope.frame(&analysis.waveform));
         for (i, key) in OUTPUTS.iter().enumerate() {
-            ctx.publish(id, key, raw[i] * gain);
+            ctx.publish(id, key, f64::from(raw[i]) * gain);
         }
     }
 

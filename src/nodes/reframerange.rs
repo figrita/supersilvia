@@ -131,7 +131,7 @@ pub static REFRAMERANGE: NodeDef = NodeDef {
 /// WGSL semantics where they differ: `mix` extrapolates outside 0..1 the same way, and
 /// `clamp`'s two bounds are already ordered by `min`/`max`, so the Rust one cannot be handed
 /// an inside-out pair.
-fn evaluate(node: NodeId, ctx: &TickContext<'_>) -> f32 {
+fn evaluate(node: NodeId, ctx: &TickContext<'_>) -> f64 {
     let in_min = ctx.input(node, "inMin");
     let out_min = ctx.input(node, "outMin");
     let out_max = ctx.input(node, "outMax");

@@ -418,8 +418,8 @@ impl CpuNode for Automaton {
 
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
         self.rng.seed(id);
-        let threshold = ctx.input(id, "initThreshold");
-        let decay = ctx.input(id, "trailDecay").clamp(0.0, 1.0);
+        let threshold = ctx.input(id, "initThreshold") as f32;
+        let decay = (ctx.input(id, "trailDecay") as f32).clamp(0.0, 1.0);
         let algorithm = ctx.option(id, "algorithm").to_string();
 
         let scale: u32 = ctx.option(id, "gridScale").parse().unwrap_or(4);
@@ -442,7 +442,7 @@ impl CpuNode for Automaton {
         // `dt`, silvia's 30 Hz batches, and pays them on the tick they fall due, as the slime
         // mold does: the pace is the same whatever the display does, and a pause holds it.
         if ctx.input(id, "autoRun") >= 0.5 {
-            steps += self.due(ctx.input(id, "stepsPerFrame"), ctx.dt);
+            steps += self.due(ctx.input(id, "stepsPerFrame") as f32, ctx.dt);
         } else {
             self.owed = 0.0;
         }

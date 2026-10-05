@@ -55,7 +55,7 @@ pub static DEF: NodeDef = NodeDef {
 
 #[derive(Default)]
 struct TriggeredRandom {
-    value: f32,
+    value: f64,
     started: bool,
     trigger: Gate,
     rng: Rng,

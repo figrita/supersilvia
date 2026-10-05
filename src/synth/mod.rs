@@ -130,13 +130,12 @@ pub struct Synth {
     /// Each CPU node's state, with the slug it was created for. Ids restart at 1 in every
     /// graph, so a state is only reused while the node under that id is the same kind.
     cpu: HashMap<NodeId, (&'static str, Box<dyn CpuNode>)>,
-    /// What every uniform number output published this frame.
-    uniforms: HashMap<PortRef, f32>,
-    /// Every count published whole this frame, in `f64` and unbounded — a gear's Cycles, the
-    /// Time node's Seconds, an unplugged Time's ambient reading — which a Time reads at
-    /// `f64`'s precision on the CPU and split into a whole part and a fraction in a shader.
-    /// See [`TickContext::publish_count`].
-    counts: HashMap<PortRef, f64>,
+    /// What every uniform number output published this frame, in `f64` and never wrapped —
+    /// a gear's Cycles, the Time node's Seconds, a Math node's sum of them — and under each
+    /// Time key, where that node is: an unplugged Time's ambient reading, a free-running
+    /// node's own playhead. Every CPU reader takes the `f64`; a shader's Time takes it split
+    /// into a whole part and a fraction, and any other shader input its `f32` ([`Self::resolve`]).
+    uniforms: HashMap<PortRef, f64>,
     /// What every uniform color output published this frame, beside `uniforms` rather than
     /// inside it: the two kinds are read by different callers — one becomes a `float`
     /// uniform and a number on a row, the other a `vec4` and a swatch — and a map per kind
@@ -405,7 +404,6 @@ impl Default for Synth {
             interval_ms: thread::DEFAULT_INTERVAL_MS,
             cpu: HashMap::new(),
             uniforms: HashMap::new(),
-            counts: HashMap::new(),
             uniform_colors: HashMap::new(),
             frames: HashMap::new(),
             sims: HashMap::new(),
@@ -820,7 +818,6 @@ impl Synth {
         self.cpu
             .retain(|id, (slug, _)| graph.get(*id).is_some_and(|n| n.def.slug == *slug));
         self.uniforms.retain(|p, _| graph.get(p.node).is_some());
-        self.counts.retain(|p, _| graph.get(p.node).is_some());
         self.uniform_colors
             .retain(|p, _| graph.get(p.node).is_some());
         self.frames.retain(|p, _| graph.get(p.node).is_some());
@@ -909,7 +906,7 @@ impl Synth {
                                 &self.uniforms,
                                 PortRef::new(id, axis.speed),
                             );
-                            let at = pace.step(axis.index, f64::from(speed), &time).to;
+                            let at = pace.step(axis.index, speed, &time).to;
                             if axis.index == 0 {
                                 free = Some(at);
                             }
@@ -921,7 +918,7 @@ impl Synth {
                             .then_some(time.playhead * timing.pace_of(*axis)),
                     };
                     if let Some(at) = at.filter(|_| def.cpu.is_none()) {
-                        self.counts.insert(key, at);
+                        self.uniforms.insert(key, at);
                     }
                 }
                 if !running {
@@ -937,7 +934,6 @@ impl Synth {
                 let mut ctx = TickContext::new(
                     graph,
                     &mut self.uniforms,
-                    &mut self.counts,
                     &mut self.uniform_colors,
                     &mut self.frames,
                     &mut self.sims,
@@ -985,7 +981,6 @@ impl Synth {
             let mut ctx = TickContext::new(
                 graph,
                 &mut self.uniforms,
-                &mut self.counts,
                 &mut self.uniform_colors,
                 &mut self.frames,
                 &mut self.sims,
@@ -1420,7 +1415,6 @@ impl Synth {
             state.reset();
         }
         self.uniforms.clear();
-        self.counts.clear();
         self.uniform_colors.clear();
         self.actions.clear();
         self.jumps.clear();
@@ -1722,7 +1716,10 @@ impl Synth {
     /// what this tick published.
     ///
     /// A color — a color control, or a color a CPU node published — is straight on the CPU
-    /// and premultiplied here, the one place it enters a shader ([`alpha::premultiply`]).
+    /// and premultiplied here, the one place it enters a shader ([`alpha::premultiply`]). A
+    /// number is an `f64` on the CPU and becomes an `f32` here, the same one place: split into
+    /// a whole part and a fraction where a Time reads it ([`crate::nodes::phasor::split`]), and
+    /// cast anywhere else, with an `f32`'s precision at its size.
     ///
     /// The name is an `Arc<str>` clone, not a new `String`: this runs for every uniform of
     /// every Output on every tick.
@@ -1750,16 +1747,15 @@ impl Synth {
                             UniformType::Vec4 => UniformValue::Vec4(alpha::premultiply(
                                 self.uniform_colors.get(&at).copied().unwrap_or([0.0; 4]),
                             )),
-                            _ => {
-                                UniformValue::Float(self.uniforms.get(&at).copied().unwrap_or(0.0))
-                            }
+                            // The one place a number between nodes becomes an `f32`.
+                            _ => UniformValue::Float(
+                                self.uniforms.get(&at).copied().unwrap_or(0.0) as f32,
+                            ),
                         }
                     }
                     UniformProvider::NodeCount { node, port } => {
                         let at = PortRef::new(*node, port);
-                        let count = self.counts.get(&at).copied().unwrap_or_else(|| {
-                            f64::from(self.uniforms.get(&at).copied().unwrap_or(0.0))
-                        });
+                        let count = self.uniforms.get(&at).copied().unwrap_or(0.0);
                         UniformValue::Vec2(crate::nodes::phasor::split(count))
                     }
                     UniformProvider::Option { node, key } => {
@@ -1895,7 +1891,6 @@ impl Synth {
             );
         }
         out.uniforms.clone_from(&self.uniforms);
-        out.counts.clone_from(&self.counts);
         out.uniform_colors.clone_from(&self.uniform_colors);
         out.frames.clone_from(&self.frames);
         out.actions.clone_from(&self.actions);

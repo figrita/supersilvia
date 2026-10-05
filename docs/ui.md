@@ -2399,8 +2399,8 @@ comes back`.
 It wears the number control's chrome — its ground, its inset bevel, its font, and the meter's
 violet ground and number, since it reads rather than sets — but it is a readout: no caps, no
 drag, no typing, nothing on a hover but the tooltip. It reads the node's Time as the node
-does (`synth::Uniforms::time`): the count the output cabled in published, or its one `f32`,
-and with nothing cabled in, the reading published under the Time's own key — by the synth for a
+does (`synth::Uniforms::time`): the `f64` the output cabled in published, and with nothing
+cabled in, the reading published under the Time's own key — by the synth for a
 node that draws, by `TickContext::cycle` for a CPU node, at the clip's own rate on a clip. It
 never reads Offset, which on a node that draws is one value per pixel. Before the Time has a
 reading the box is empty. It is drawn where the row is, so only in Loop mode under an open

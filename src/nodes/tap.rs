@@ -466,7 +466,7 @@ impl CpuNode for Tap {
             .iter()
             .zip([stats.mean, stats.max, stats.min, stats.x, stats.y])
         {
-            ctx.publish(id, port, value);
+            ctx.publish(id, port, f64::from(value));
         }
     }
 

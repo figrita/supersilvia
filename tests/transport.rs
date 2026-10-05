@@ -40,7 +40,7 @@ fn set(app: &mut App, node: NodeId, key: &'static str, value: f32) {
     .unwrap();
 }
 
-fn read(app: &App, node: NodeId, key: &'static str) -> f32 {
+fn read(app: &App, node: NodeId, key: &'static str) -> f64 {
     app.uniform(PortRef::new(node, key))
         .unwrap_or_else(|| panic!("{key} is published"))
 }
@@ -96,7 +96,7 @@ fn a_seek_moves_a_gear_by_its_ratio_times_the_jump() {
     let moved = app.transport_state().playhead - before;
     assert!((moved - (10.0 + f64::from(FRAME))).abs() < 1e-6, "{moved}");
     assert!(
-        (f64::from(read(&app, phase, "cycles") - p) - 2.0 * moved).abs() < 1e-3,
+        (read(&app, phase, "cycles") - p - 2.0 * moved).abs() < 1e-3,
         "rate 2 over the jump: {} from {p}",
         read(&app, phase, "cycles")
     );
@@ -242,7 +242,7 @@ fn a_stall_is_caught_up_by_a_gear_and_clamped_for_a_slew() {
         "the whole stall"
     );
     assert!(
-        (read(&app, slew, "output") - s - transport::MAX_DT).abs() < 1e-4,
+        (read(&app, slew, "output") - s - f64::from(transport::MAX_DT)).abs() < 1e-4,
         "a slew steps MAX_DT of it: {} from {s}",
         read(&app, slew, "output")
     );
@@ -250,7 +250,7 @@ fn a_stall_is_caught_up_by_a_gear_and_clamped_for_a_slew() {
 
 /// Run a render's time over a fresh app: a seek to the first frame, then the transport
 /// driven to each, and what the nodes published on the last.
-fn render(fps: f64, seconds: f64, warmup: Warmup) -> Vec<f32> {
+fn render(fps: f64, seconds: f64, warmup: Warmup) -> Vec<f64> {
     let mut app = App::headless();
     let phase = add(&mut app, "ratiogear");
     set(&mut app, phase, "p", 13.0);
@@ -266,7 +266,7 @@ fn render(fps: f64, seconds: f64, warmup: Warmup) -> Vec<f32> {
     }
     vec![
         read(&app, phase, "cycles"),
-        app.count(PortRef::new(perlin, "clock")).unwrap() as f32,
+        app.uniform(PortRef::new(perlin, "clock")).unwrap(),
         read(&app, time, "seconds"),
         read(&app, osc, "output"),
     ]

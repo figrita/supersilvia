@@ -41,7 +41,7 @@ fn option(app: &mut App, node: NodeId, key: &'static str, value: &str) {
 /// What a node's Time reads this tick: the ambient reading published under its own key.
 fn time(app: &App, node: NodeId) -> f64 {
     let count = app
-        .count(PortRef::new(node, TIME))
+        .uniform(PortRef::new(node, TIME))
         .unwrap_or_else(|| panic!("node {node}'s Time is published"));
     read_as_the_shader_does(app, node, count)
 }
@@ -120,7 +120,7 @@ fn a_cpu_nodes_unplugged_time_is_published_under_its_key() {
     app.transport(Transport::Seek(37.25));
     app.tick(FRAME);
     let playhead = app.transport_state().playhead;
-    let at = |app: &App, id| app.count(PortRef::new(id, TIME)).unwrap();
+    let at = |app: &App, id| app.uniform(PortRef::new(id, TIME)).unwrap();
     assert!(
         (at(&app, osc) - playhead).abs() < 1e-9,
         "a cycle a second, Offset left out"
@@ -208,7 +208,7 @@ fn speed(app: &mut App, node: NodeId, value: f32) {
 
 /// The count a node's Time is published as, unwrapped.
 fn count(app: &App, node: NodeId) -> f64 {
-    app.count(PortRef::new(node, TIME)).unwrap()
+    app.uniform(PortRef::new(node, TIME)).unwrap()
 }
 
 /// **Running free, a node moves at its Speed times its pace**, integrated against the
@@ -330,7 +330,7 @@ fn a_gear_in_time_replaces_the_ambient_reading() {
     let mut app = App::headless();
     let perlin = add(&mut app, "perlin");
     app.tick(FRAME);
-    assert!(app.count(PortRef::new(perlin, TIME)).is_some());
+    assert!(app.uniform(PortRef::new(perlin, TIME)).is_some());
     let gear = add(&mut app, "ratiogear");
     app.apply(Command::SetOption {
         node: perlin,
@@ -379,8 +379,8 @@ fn shaky_cam_has_a_time_per_axis() {
     .unwrap();
     app.transport(Transport::Seek(12.5));
     app.tick(FRAME);
-    let x = app.count(PortRef::new(shaky, TIME));
-    let y = app.count(PortRef::new(shaky, nodes::TIME_Y));
+    let x = app.uniform(PortRef::new(shaky, TIME));
+    let y = app.uniform(PortRef::new(shaky, nodes::TIME_Y));
     let (x, y) = (x.expect("X reads ambient time"), y.expect("and so does Y"));
     let playhead = app.transport_state().playhead;
     assert!(

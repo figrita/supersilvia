@@ -70,7 +70,7 @@ impl CpuNode for Random {
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
         let min = ctx.input(id, "min");
         let max = ctx.input(id, "max");
-        let value = min + hash(ctx.input(id, "seed")) * (max - min);
+        let value = min + f64::from(hash(ctx.input(id, "seed") as f32)) * (max - min);
         ctx.publish(id, "output", value);
     }
 }

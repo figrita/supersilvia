@@ -115,10 +115,10 @@ pub static DEF: NodeDef = NodeDef {
 #[derive(Default)]
 struct SmoothCounter {
     /// The smoothed output, silvia's `current`.
-    value: f32,
+    value: f64,
     /// The count `increment`/`decrement`/`reset` move, silvia's `target` — what `counter`'s
     /// own `value` is, before the smoothing.
-    target: f32,
+    target: f64,
     /// False until the first tick, which starts both at `min` rather than at zero.
     started: bool,
     increment: Gate,
@@ -149,8 +149,8 @@ impl CpuNode for SmoothCounter {
             self.value = min;
         }
 
-        let up = ctx.downs(id, "increment", &mut self.increment) as f32;
-        let down = ctx.downs(id, "decrement", &mut self.decrement) as f32;
+        let up = f64::from(ctx.downs(id, "increment", &mut self.increment));
+        let down = f64::from(ctx.downs(id, "decrement", &mut self.decrement));
         if ctx.downs(id, "reset", &mut self.reset) > 0 {
             self.target = min;
         }
@@ -166,7 +166,8 @@ impl CpuNode for SmoothCounter {
         // silvia's `_advanceSmoothing`: skipped across a stall or a dead frame, so a
         // tab-switch gap does not jump the value.
         if ctx.dt > 0.0 && ctx.dt < 0.2 {
-            self.value += (self.target - self.value) * (1.0 - (-speed * ctx.dt).exp());
+            let dt = f64::from(ctx.dt);
+            self.value += (self.target - self.value) * (1.0 - (-speed * dt).exp());
         }
 
         // Wrap mode wraps `value` and `target` together, only here — a nudge lets `target`

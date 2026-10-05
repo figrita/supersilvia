@@ -20,7 +20,7 @@ Everything below follows from that.
 | --- | --- | --- |
 | `VaryingNumber` | GPU | `fn f(uv: vec2f) -> f32` — a field, one value per pixel |
 | `VaryingColor` | GPU | `fn f(uv: vec2f) -> vec4f` — a field |
-| `UniformNumber` | CPU | one `f32` per frame |
+| `UniformNumber` | CPU | one `f64` per frame, an `f32` where it enters a shader |
 | `UniformColor` | CPU | one `[f32; 4]` per frame |
 | `Action` | CPU | an event, many-to-many, never compiled |
 
@@ -28,11 +28,14 @@ Four of the five sit on two axes, and `PortType::kind` and `PortType::rate` hand
 **kind**, number or color, and a **rate**, varying or uniform. Every cell of the two-by-two
 is filled. `Action` is an event, and an event has no rate.
 
-A field is meaningful only inside a shader, where `uv` exists. A `UniformNumber` is exactly
-the kind of value that fits in an `f32` on the CPU, and it is the same thing a number control
-already is — one float, constant across the frame, uploaded as a uniform — promoted to
-something a cable can carry. A meter, a MIDI knob, an audio band and a slew are all uniform
-numbers, so the type system carries the control-rate/signal-rate boundary rather than a
+A field is meaningful only inside a shader, where `uv` exists. A `UniformNumber` is exactly one
+number on the CPU, and it is the same thing a number control already is — one float, constant
+across the frame, uploaded as a uniform — promoted to something a cable can carry. **Between
+nodes it is an `f64` and nothing on the CPU wraps it**, so a gear's count a million cycles in
+reaches a Math node as the count itself; it becomes an `f32` only where it enters a shader,
+split into a whole part and a fraction where a Time reads it
+([cpu.md](cpu.md#the-shader-boundary)). A meter, a MIDI knob, an audio band and a slew are all
+uniform numbers, so the type system carries the control-rate/signal-rate boundary rather than a
 person.
 
 **A uniform into a varying input of its own kind is free and needs no node**: it is a

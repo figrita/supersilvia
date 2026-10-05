@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The uniform number port type: one `f32` per frame on the CPU, and the tick that
+//! The uniform number port type: one `f64` per frame on the CPU, and the tick that
 //! produces it.
 //!
 //! What is asserted here is the asymmetry the design rests on. A uniform number feeds a
@@ -298,7 +298,7 @@ fn an_eased_slew_slows_as_it_arrives_and_a_rate_limited_one_does_not() {
     );
 
     let ease = steps("ease");
-    let deltas: Vec<f32> = std::iter::once(ease[0])
+    let deltas: Vec<f64> = std::iter::once(ease[0])
         .chain(ease.windows(2).map(|w| w[1] - w[0]))
         .collect();
     assert!(
@@ -419,7 +419,7 @@ fn autogain_normalizes_whatever_range_it_is_given() {
         .unwrap();
         let ag = app.graph().iter().next().unwrap().0;
         let out = PortRef::new(ag, "output");
-        let mut peak = 0.0f32;
+        let mut peak = 0.0f64;
         // A slow sine, a few periods, at this scale.
         for i in 0..600 {
             let x = scale * (0.5 + 0.5 * (i as f32 * 0.05).sin());
@@ -811,7 +811,7 @@ fn phases_wrapped_output_stays_inside_one_cycle() {
         PortRef::new(phase, "cycles"),
         PortRef::new(phase, "wrapped"),
     );
-    let mut lowest = f32::MAX;
+    let mut lowest = f64::MAX;
     app.transport(supersilvia::transport::Command::Seek(-3.0));
     for n in 0..360 {
         app.tick_at(-3.0 + f64::from(n) / 60.0);
@@ -870,7 +870,7 @@ fn an_oscillator_crosses_zero_twice_a_cycle() {
     let out = PortRef::new(osc, "output");
 
     let mut crossings = Vec::new();
-    let mut previous: Option<f32> = None;
+    let mut previous: Option<f64> = None;
     for frame in 1..=90 {
         app.tick(FRAME);
         let v = app.uniform(out).unwrap();
@@ -926,7 +926,7 @@ fn the_trace_is_dated_by_the_clock_not_counted_in_frames() {
     );
     assert_eq!(
         newest.value,
-        app.uniform(out).unwrap(),
+        app.uniform(out).unwrap() as f32,
         "and is what was published"
     );
 
@@ -967,7 +967,7 @@ fn an_animation_holds_its_start_until_it_is_started() {
 fn an_animations_return_curve_decides_what_happens_at_the_far_end() {
     /// A started animation of one second in one return mode, sampled every frame for two
     /// cycles. Index `n` is the value after frame `n + 1`.
-    fn travel(mode: &str) -> Vec<f32> {
+    fn travel(mode: &str) -> Vec<f64> {
         let mut app = App::headless();
         let anim = add_to(&mut app, "animation");
         let out = PortRef::new(anim, "output");
@@ -986,10 +986,10 @@ fn an_animations_return_curve_decides_what_happens_at_the_far_end() {
         assert!(
             history.iter().all(|v| (-1e-6..=1.000_001).contains(v)),
             "{mode} leaves its range: {:?}",
-            history.iter().fold(0.0f32, |a, b| a.max(*b))
+            history.iter().fold(0.0f64, |a, b| a.max(*b))
         );
         // Inside the first second — sixty frames — every mode arrives at the far end.
-        let reached = history[..60].iter().fold(0.0f32, |a, b| a.max(*b));
+        let reached = history[..60].iter().fold(0.0f64, |a, b| a.max(*b));
         assert!(
             reached > 0.99,
             "{mode} reaches the end of its first pass: {reached}"
@@ -1012,7 +1012,7 @@ fn an_animations_return_curve_decides_what_happens_at_the_far_end() {
     assert!(
         stay[61..].iter().all(|v| *v > 0.999),
         "stay holds: {:?}",
-        stay[61..].iter().fold(1.0f32, |a, b| a.min(*b))
+        stay[61..].iter().fold(1.0f64, |a, b| a.min(*b))
     );
 }
 
@@ -1772,7 +1772,11 @@ fn the_framing_option_picks_the_surface() {
     })
     .unwrap();
     app.tick(1.0 / 60.0);
-    assert_eq!(app.uniform(x), Some(-0.9), "and Canvas reads the canvas");
+    assert_eq!(
+        app.uniform(x),
+        Some(f64::from(-0.9_f32)),
+        "and Canvas reads the canvas"
+    );
 }
 
 // ---------------------------------------------------------------- the wall clock
@@ -1790,7 +1794,7 @@ fn the_clock_publishes_the_time_of_day() {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("after 1970")
         .as_secs_f64()
-        .rem_euclid(86_400.0) as f32;
+        .rem_euclid(86_400.0);
     let published = app
         .uniform(PortRef::new(clock, "value"))
         .expect("published");
@@ -1951,7 +1955,7 @@ fn put_puck(app: &mut App, node: NodeId, at: [f32; 2], velocity: [f32; 2]) {
     .unwrap();
 }
 
-fn xy(app: &App, node: NodeId) -> (f32, f32) {
+fn xy(app: &App, node: NodeId) -> (f64, f64) {
     (
         app.uniform(PortRef::new(node, "x"))
             .expect("X is published"),

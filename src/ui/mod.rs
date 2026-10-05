@@ -1915,7 +1915,7 @@ fn ports(
             (None, None)
         } else {
             (
-                pass.frame.uniforms.reading(slot.port),
+                pass.frame.uniforms.get(slot.port),
                 pass.frame.uniforms.color(slot.port),
             )
         };

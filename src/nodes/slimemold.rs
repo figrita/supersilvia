@@ -872,14 +872,14 @@ impl CpuNode for Mold {
                 clear: ctx.downs(id, "clearTrails", &mut self.clear) > 0,
             },
             dt: ctx.dt,
-            speed: ctx.input(id, "stepsPerFrame"),
-            sensor: ctx.input(id, "sensorAngle").max(0.0) * degrees,
-            rotation: ctx.input(id, "rotationAngle").max(0.0) * degrees,
-            offset: ctx.input(id, "sensorOffset").max(0.0),
-            decay: ctx.input(id, "decay").clamp(0.0, 1.0),
-            jitter: ctx.input(id, "jitter").clamp(0.0, 1.0),
+            speed: ctx.input(id, "stepsPerFrame") as f32,
+            sensor: (ctx.input(id, "sensorAngle") as f32).max(0.0) * degrees,
+            rotation: (ctx.input(id, "rotationAngle") as f32).max(0.0) * degrees,
+            offset: (ctx.input(id, "sensorOffset") as f32).max(0.0),
+            decay: (ctx.input(id, "decay") as f32).clamp(0.0, 1.0),
+            jitter: (ctx.input(id, "jitter") as f32).clamp(0.0, 1.0),
             repel: ctx.option(id, "mode") == "repel",
-            gamma: ctx.input(id, "trailGamma").clamp(0.01, 8.0),
+            gamma: (ctx.input(id, "trailGamma") as f32).clamp(0.01, 8.0),
         };
         let sim = self.plan(&reading);
         ctx.publish_sim(id, "trail", sim);

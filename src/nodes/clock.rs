@@ -94,11 +94,11 @@ struct Clock;
 
 /// How many seconds since the epoch, plus the offset in hours. Non-monotonic by nature — a
 /// clock set backwards sets this backwards — which is what a wall clock is.
-fn now(offset_hours: f32) -> f64 {
+fn now(offset_hours: f64) -> f64 {
     let since = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0.0, |d| d.as_secs_f64());
-    since + f64::from(offset_hours) * 3600.0
+    since + offset_hours * 3600.0
 }
 
 /// The civil date a day number since the epoch falls on, as `(year, days into that year,
@@ -131,43 +131,43 @@ fn civil(days: i64) -> (i64, i64, i64) {
 
 /// What each mode reads, and what its 0 to 1 form is. silvia's `_getCurrentValue` and
 /// `_getNormalizedValue`, to the constant.
-fn reading(mode: &str, t: f64) -> (f32, f32) {
+fn reading(mode: &str, t: f64) -> (f64, f64) {
     let day_seconds = t.rem_euclid(DAY);
     let days = t.div_euclid(DAY) as i64;
     match mode {
         "minutes" => {
             let m = (day_seconds / 60.0).rem_euclid(60.0).floor();
-            (m as f32, (m / 60.0) as f32)
+            (m, m / 60.0)
         }
         "hours" => {
             let h = (day_seconds / 3600.0).floor();
-            (h as f32, (h / 24.0) as f32)
+            (h, h / 24.0)
         }
         "hours12" => {
             let h = (day_seconds / 3600.0).floor().rem_euclid(12.0);
-            (h as f32, (h / 12.0) as f32)
+            (h, h / 12.0)
         }
-        "daySeconds" => (day_seconds as f32, (day_seconds / DAY) as f32),
+        "daySeconds" => (day_seconds, day_seconds / DAY),
         // Already a fraction: silvia hands the same number out of both ports.
         "dayProgress" => {
-            let p = (day_seconds / DAY) as f32;
+            let p = day_seconds / DAY;
             (p, p)
         }
         "weekProgress" => {
             // 1 January 1970 was a Thursday, and silvia's week starts on Sunday.
             let weekday = (days + 4).rem_euclid(7) as f64;
-            let p = ((weekday * DAY + day_seconds) / (7.0 * DAY)) as f32;
+            let p = (weekday * DAY + day_seconds) / (7.0 * DAY);
             (p, p)
         }
         "yearProgress" => {
             let (_, into, length) = civil(days);
-            let p = ((into as f64 * DAY + day_seconds) / (length as f64 * DAY)) as f32;
+            let p = (into as f64 * DAY + day_seconds) / (length as f64 * DAY);
             (p, p)
         }
         // "seconds", and anything a file carries that this build does not have.
         _ => {
             let s = day_seconds.rem_euclid(60.0);
-            (s as f32, (s / 60.0) as f32)
+            (s, s / 60.0)
         }
     }
 }
@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn every_mode_reads_the_instant_silvia_reads() {
         let t = 1_614_693_725.0 + 0.5;
-        let near = |got: f32, want: f32| assert!((got - want).abs() < 1e-3, "{got} != {want}");
+        let near = |got: f64, want: f64| assert!((got - want).abs() < 1e-3, "{got} != {want}");
 
         near(reading("seconds", t).0, 5.5);
         near(reading("seconds", t).1, 5.5 / 60.0);
@@ -202,17 +202,17 @@ mod tests {
         near(reading("hours12", t).0, 2.0);
         let day = 14.0 * 3600.0 + 2.0 * 60.0 + 5.5;
         near(reading("daySeconds", t).0, day);
-        near(reading("dayProgress", t).0, day / DAY as f32);
+        near(reading("dayProgress", t).0, day / DAY);
         // Tuesday is the third day of a week that starts on Sunday.
         near(
             reading("weekProgress", t).0,
-            ((2.0 * DAY as f32) + day) / (7.0 * DAY as f32),
+            ((2.0 * DAY) + day) / (7.0 * DAY),
         );
         // 31 + 28 whole days before 2 March in a year that is not a leap year, and the day
         // itself part way through.
         near(
             reading("yearProgress", t).0,
-            (60.0 * DAY as f32 + day) / (365.0 * DAY as f32),
+            (60.0 * DAY + day) / (365.0 * DAY),
         );
     }
 

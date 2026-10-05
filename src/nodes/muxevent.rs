@@ -158,6 +158,6 @@ impl CpuNode for MuxEvent {
             self.index = 0;
         }
         self.index = (self.index + forward - back).rem_euclid(4);
-        ctx.publish(id, "index", self.index as f32 + 1.0);
+        ctx.publish(id, "index", f64::from(self.index) + 1.0);
     }
 }

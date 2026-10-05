@@ -574,7 +574,7 @@ impl CpuNode for Game {
             }
         }
 
-        let speed = ctx.input(id, "ballSpeed").max(0.0001);
+        let speed = (ctx.input(id, "ballSpeed") as f32).max(0.0001);
         let mut fired = [false; 4];
         if ctx.downs(id, "startGame", &mut self.start) > 0 && self.begin(speed) {
             fired[GAME_STARTED] = true;
@@ -589,9 +589,9 @@ impl CpuNode for Game {
         self.right_cable = level_after(self.right_cable, &ctx.edges(id, "rightPaddle"));
         let play = Inputs {
             step: (ctx.dt * 60.0).clamp(0.0, MAX_STEP),
-            paddle_speed: ctx.input(id, "paddleSpeed").max(0.0),
+            paddle_speed: (ctx.input(id, "paddleSpeed") as f32).max(0.0),
             ball_speed: speed,
-            paddle_width: ctx.input(id, "paddleWidth").clamp(0.02, 2.0),
+            paddle_width: (ctx.input(id, "paddleWidth") as f32).clamp(0.02, 2.0),
             auto_reset: ctx.input(id, "autoReset") >= 0.5,
             auto_play: ctx.input(id, "autoPlay") >= 0.5,
             left: self.left_cable || ctx.pressed(id, "leftPaddle"),
@@ -617,10 +617,10 @@ impl CpuNode for Game {
             }
         }
 
-        ctx.publish(id, "score", self.score as f32);
-        ctx.publish(id, "bricksLeft", self.remaining as f32);
+        ctx.publish(id, "score", f64::from(self.score));
+        ctx.publish(id, "bricksLeft", f64::from(self.remaining));
         let (vx, vy) = self.velocity;
-        ctx.publish(id, "ballVelocity", vx.hypot(vy));
+        ctx.publish(id, "ballVelocity", f64::from(vx.hypot(vy)));
 
         if self.dirty {
             self.frame = Arc::new(self.draw(play.paddle_width));

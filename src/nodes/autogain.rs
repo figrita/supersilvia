@@ -63,7 +63,7 @@ pub static DEF: NodeDef = NodeDef {
 };
 
 /// One pole toward `target`, with time constant `tau` seconds.
-fn follow(current: f32, target: f32, tau: f32, dt: f32) -> f32 {
+fn follow(current: f64, target: f64, tau: f64, dt: f64) -> f64 {
     let alpha = if tau > 0.0 {
         1.0 - (-dt / tau).exp()
     } else {
@@ -75,13 +75,13 @@ fn follow(current: f32, target: f32, tau: f32, dt: f32) -> f32 {
 /// The tracker, separated from the node so it can be tested as arithmetic.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Range {
-    pub lo: f32,
-    pub hi: f32,
+    pub lo: f64,
+    pub hi: f64,
 }
 
 impl Range {
     /// Advance the trackers for one input and return the normalized value.
-    pub fn step(&mut self, x: f32, attack: f32, release: f32, span: f32, dt: f32) -> f32 {
+    pub fn step(&mut self, x: f64, attack: f64, release: f64, span: f64, dt: f64) -> f64 {
         // Toward a new extreme quickly, away from it slowly.
         self.hi = if x > self.hi {
             follow(self.hi, x, attack, dt)
@@ -116,7 +116,7 @@ impl CpuNode for AutoGain {
             ctx.input(id, "attack"),
             ctx.input(id, "release"),
             ctx.input(id, "span"),
-            ctx.dt,
+            f64::from(ctx.dt),
         );
         ctx.publish(id, "output", y);
     }
@@ -131,15 +131,15 @@ impl CpuNode for AutoGain {
 mod tests {
     use super::*;
 
-    const DT: f32 = 1.0 / 60.0;
+    const DT: f64 = 1.0 / 60.0;
 
     #[test]
     fn a_peak_reads_one_and_silence_reads_zero() {
         let mut r = Range { lo: 0.0, hi: 0.0 };
-        let mut peak = 0.0f32;
+        let mut peak = 0.0f64;
         // Ramp up over half a second, hold, then drop to silence.
         for i in 0..30 {
-            peak = peak.max(r.step(i as f32 / 10.0, 0.05, 2.0, 0.05, DT));
+            peak = peak.max(r.step(f64::from(i) / 10.0, 0.05, 2.0, 0.05, DT));
         }
         for _ in 0..30 {
             peak = peak.max(r.step(3.0, 0.05, 2.0, 0.05, DT));
@@ -159,7 +159,7 @@ mod tests {
         let mut y = 0.0;
         for i in 0..120 {
             // A wobble of a hundredth around a hundredth.
-            let x = 0.01 + 0.01 * ((i as f32) * 0.3).sin();
+            let x = 0.01 + 0.01 * (f64::from(i) * 0.3).sin();
             y = r.step(x, 0.05, 2.0, 0.05, DT);
         }
         assert!(y < 0.5, "under the span it stays small: {y}");

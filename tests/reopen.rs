@@ -114,7 +114,7 @@ fn playing(app: &mut App, node: NodeId) -> bool {
     seen.windows(2).any(|w| w[0] != w[1])
 }
 
-fn counted(app: &App, nodes: &Nodes) -> Option<f32> {
+fn counted(app: &App, nodes: &Nodes) -> Option<f64> {
     app.uniform(PortRef::new(nodes.counter, "value"))
 }
 

@@ -234,7 +234,7 @@ impl CpuNode for Sample {
             .iter()
             .zip([r, g, b, a, luma, hue, saturation, lightness])
         {
-            ctx.publish(id, port, value);
+            ctx.publish(id, port, f64::from(value));
         }
     }
 

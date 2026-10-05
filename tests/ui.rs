@@ -8926,9 +8926,9 @@ fn a_uniform_output_shows_the_value_it_published() {
     );
 }
 
-/// **A count's row reads the count**, unwrapped, however far into the show: a Ratio Gear on
-/// ambient seconds at a playhead of 123456.78 prints 123456.78 against its Cycles, where its
-/// one `f32` is that wrapped at 2520, and the row's label is still drawn whole beside it.
+/// **A count's row reads the count**, however far into the show: a Ratio Gear on ambient
+/// seconds at a playhead of 123456.78 publishes 123456.78 on its Cycles and prints it there,
+/// and the row's label is still drawn whole beside it.
 #[test]
 fn a_counts_row_reads_the_count_far_into_the_show() {
     use supersilvia::transport::Command as Transport;
@@ -8942,12 +8942,10 @@ fn a_counts_row_reads_the_count_far_into_the_show() {
 
     let cycles = PortRef::new(gear, "cycles");
     assert_eq!(
-        h.state().count(cycles),
+        h.state().uniform(cycles),
         Some(123_456.78),
         "the count, whole"
     );
-    let one = h.state().uniform(cycles).expect("and its one f32");
-    assert!(one < 2520.0, "which is wrapped: {one}");
     assert!(
         h.query_by_label("ratiogear1.cycles (uniform number output) 123456.78")
             .is_some(),
@@ -13142,7 +13140,7 @@ fn a_ratio_gears_direction_is_a_switch_under_its_teeth() {
     h.state_mut()
         .transport(supersilvia::transport::Command::Pause);
     h.run_steps(2);
-    let count = |port| h.state().count(PortRef::new(port, "cycles")).unwrap();
+    let count = |port| h.state().uniform(PortRef::new(port, "cycles")).unwrap();
     let (m, g) = (count(master), count(gear));
     assert!(m > 0.0, "{m}");
     assert_eq!(g, -(m * 3.0 / 2.0), "it counts down");

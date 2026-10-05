@@ -303,7 +303,7 @@ impl VideoNode {
         // not there is one: a node with no file yet still has its band handles under a hand.
         let config = crate::nodes::audio_ports::config(id, ctx);
         let levels: [f32; bands::BANDS] =
-            std::array::from_fn(|b| ctx.input(id, crate::nodes::audio_ports::LEVELS[b]));
+            std::array::from_fn(|b| ctx.input(id, crate::nodes::audio_ports::LEVELS[b]) as f32);
         self.config = config;
         self.levels = levels;
 
@@ -327,10 +327,10 @@ impl VideoNode {
         // The monitor plays exactly the samples the analysis just consumed, which is why a
         // scrub sounds like a scrub and a negative speed plays backwards: it is the same read,
         // not an imitation of one.
-        self.monitor.set_volume(ctx.input(id, "monitor"));
+        self.monitor.set_volume(ctx.input(id, "monitor") as f32);
         self.monitor.push(reader.last_samples(), audio::track::RATE);
         for (b, name) in bands::NAMES.into_iter().enumerate() {
-            ctx.publish(id, name, read.analysis.bands[b]);
+            ctx.publish(id, name, f64::from(read.analysis.bands[b]));
         }
         ctx.publish_frame(
             id,
@@ -421,7 +421,7 @@ impl CpuNode for VideoNode {
         // A hand on the scrubber puts the clip where it was dropped: Offset is moved so the sum
         // lands there, and Time plays on from it.
         let dropped = ctx.seek(id);
-        let offset = f64::from(ctx.input(id, crate::nodes::timing::OFFSET));
+        let offset = ctx.input(id, crate::nodes::timing::OFFSET);
 
         // Where the picture is, in seconds, so the soundtrack can be read at the same place.
         let mut seconds = None;

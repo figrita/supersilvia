@@ -53,7 +53,7 @@ macro_rules! binary {
                     format!(concat!("    return ", $body, ";"), a = a, b = b)
                 },
                 eval: Some(|node, ctx| {
-                    let f: fn(f32, f32) -> f32 = $eval;
+                    let f: fn(f64, f64) -> f64 = $eval;
                     f(ctx.input(node, "a"), ctx.input(node, "b"))
                 }),
                 ..OutputDef::EMPTY
@@ -112,7 +112,7 @@ binary!(
     "select(({a}) / ({b}), 0.0, abs({b}) < 1e-9)",
     |a, b| if b.abs() < 1e-9 { 0.0 } else { a / b }
 );
-// The shader's `min` and `max` and Rust's `f32::min` and `f32::max` part only on a NaN, and
+// The shader's `min` and `max` and Rust's `f64::min` and `f64::max` part only on a NaN, and
 // a NaN never reaches here, since `publish` drops one and a control cannot hold one.
 binary!(
     MIN,
@@ -123,7 +123,7 @@ binary!(
     "Output",
     0.0,
     "min({a}, {b})",
-    f32::min
+    f64::min
 );
 binary!(
     MAX,
@@ -134,7 +134,7 @@ binary!(
     "Output",
     0.0,
     "max({a}, {b})",
-    f32::max
+    f64::max
 );
 
 /// A node taking `input`, `frequency`, `phase` and `amplitude`, for the trig pair.
@@ -168,12 +168,12 @@ macro_rules! wave {
                     )
                 },
                 eval: Some(|node, ctx| {
-                    let f: fn(f32) -> f32 = $eval;
+                    let f: fn(f64) -> f64 = $eval;
                     let angle = ctx.input(node, "input")
                         * ctx.input(node, "frequency")
                         * 2.0
-                        * std::f32::consts::PI
-                        + ctx.input(node, "phase") * std::f32::consts::TAU;
+                        * std::f64::consts::PI
+                        + ctx.input(node, "phase") * std::f64::consts::TAU;
                     f(angle) * ctx.input(node, "amplitude")
                 }),
                 ..OutputDef::EMPTY
@@ -184,8 +184,8 @@ macro_rules! wave {
     };
 }
 
-wave!(SINE, "sine", "∿", "Sine", "sin", f32::sin);
-wave!(COSINE, "cosine", "∼", "Cosine", "cos", f32::cos);
+wave!(SINE, "sine", "∿", "Sine", "sin", f64::sin);
+wave!(COSINE, "cosine", "∼", "Cosine", "cos", f64::cos);
 
 // ---------------------------------------------------------------------------------------
 // silvia's other ten, ported from the parity review. Each is one expression, written with
@@ -267,7 +267,7 @@ node! {
     ],
     outputs: [
         VaryingNumber "output" "Angle" in "[-1, 1]"
-            eval(|node, ctx| ctx.input(node, "y").atan2(ctx.input(node, "x")) / std::f32::consts::PI)
+            eval(|node, ctx| ctx.input(node, "y").atan2(ctx.input(node, "x")) / std::f64::consts::PI)
             = "    return atan2({y}, {x}) / PI;",
     ],
 }
@@ -349,7 +349,7 @@ node! {
 
 /// `power`'s body in Rust. WGSL's `sign(0.0)` is 0 where Rust's `signum` is 1, and
 /// `floor_mod(exp, 1.0)` is `exp - floor(exp)`, which is `rem_euclid`.
-fn power(node: NodeId, ctx: &TickContext<'_>) -> f32 {
+fn power(node: NodeId, ctx: &TickContext<'_>) -> f64 {
     let base = ctx.input(node, "base");
     let exp = ctx.input(node, "exponent");
     if base < 0.0 && exp.rem_euclid(1.0) != 0.0 {
@@ -448,7 +448,7 @@ node! {
 /// `smoothstep` with its one undefined case decided: two edges closer than a
 /// hundred-thousandth are a hard step at the lower one. `e0 <= e1` is the caller's promise.
 /// The WGSL twin is [`EASED_WGSL`], emitted once into any shader that reaches either node.
-fn eased(x: f32, e0: f32, e1: f32) -> f32 {
+fn eased(x: f64, e0: f64, e1: f64) -> f64 {
     if e1 - e0 < 1e-5 {
         return if x < e0 { 0.0 } else { 1.0 };
     }

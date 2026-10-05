@@ -106,7 +106,7 @@ const TIMING: Timing = Timing::repeating(1.0, |node| {
 const TRACE_SPAN: f32 = 5.0;
 
 struct Oscillator {
-    value: f32,
+    value: f64,
     /// The last `TRACE_SPAN` seconds of published values, dated, for the trace on the body.
     history: TraceRing,
 }
@@ -171,9 +171,9 @@ impl CpuNode for Oscillator {
         let amplitude = ctx.input(id, "amplitude");
         let level = ctx.input(id, "offset");
         let t = ctx.cycle(id);
-        self.value = wave(ctx.option(id, "waveform"), t, id) * amplitude + level;
+        self.value = f64::from(wave(ctx.option(id, "waveform"), t, id)) * amplitude + level;
         ctx.publish(id, "output", self.value);
-        self.history.push(ctx.elapsed, self.value);
+        self.history.push(ctx.elapsed, self.value as f32);
     }
 }
 

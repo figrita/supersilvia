@@ -144,8 +144,8 @@ impl CpuNode for RandomFire {
             return;
         }
 
-        let temperature = ctx.input(id, "temperature");
-        let gate = ctx.input(id, "gate").clamp(0.01, 1.0);
+        let temperature = ctx.input(id, "temperature") as f32;
+        let gate = (ctx.input(id, "gate") as f32).clamp(0.01, 1.0);
 
         let mut remaining = self.countdown.unwrap_or_else(|| self.delay(temperature));
         let mut at = 0.0f32;

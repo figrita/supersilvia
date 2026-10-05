@@ -10,8 +10,8 @@
 //! silvia's does — and Speed 1 is a bar every two seconds; in Loop mode a Master Gear a bar long
 //! cabled into Time is the tempo, and its Hold and Reset are the play and the reset silvia's
 //! Start/Stop and Reset were. Nothing is integrated here: the node remembers only last tick's
-//! reading, to see what it crossed, and a cabled Time read as a count whole or unwrapped where its
-//! source declares its wrap, so a gear's Phase passing one is a frame's motion and not a jump. **A
+//! reading, to see what it crossed, and a cabled Time read as it arrives, or unwrapped where its
+//! source declares a wrap, so a gear's Phase passing one is a frame's motion and not a jump. **A
 //! reading that moves more than a bar in one tick, or onto another clock as Time's cable is moved,
 //! is a jump** and fires nothing, and so is the first reading, one the gear in Time says it put
 //! there (`TickContext::jumped`), and one that moves backwards on a clock that is not a gear.
@@ -258,11 +258,7 @@ impl Transport {
         // back with no such word is the gear going down: one in Reverse, or on a clock
         // running backwards.
         let put = !free && ctx.jumped(id, crate::nodes::TIME);
-        let geared = !free
-            && self
-                .source
-                .and_then(|s| ctx.node(s.node))
-                .is_some_and(|n| n.def.category == crate::nodes::Category::Gear);
+        let geared = !free && ctx.geared(id, crate::nodes::TIME);
         if ctx.time.jumped
             || self.moved
             || put
@@ -284,7 +280,7 @@ impl Transport {
         }
         self.standing = false;
         let landed = std::mem::take(&mut self.landed);
-        let gate = f64::from(ctx.input(id, "gateLength").clamp(0.001, 1.0));
+        let gate = ctx.input(id, "gateLength").clamp(0.001, 1.0);
         let dt = ctx.dt;
         let moment = |p: f64| (((p - p0) / (p1 - p0)).clamp(0.0, 1.0) as f32) * dt;
         if p1 < p0 {
@@ -361,24 +357,25 @@ impl Transport {
         }
     }
 
-    /// Where the node is in bars, its Offset added ([`TickContext::cycle`]). Running free, or
-    /// unplugged, it is that reading; cabled, it is what arrives read through
-    /// `TickContext::count` — a count whole, anything else unwrapped where its source declares
-    /// its wrap (`TickContext::wraps_at`), a gear's Phase at one — so a wrap is one frame's motion,
-    /// and a jump, or a cable plugged in, let go or moved onto another output, puts it back
-    /// at the reading as published, and is a jump.
+    /// Where the node is in bars, its Offset added ([`TickContext::cycle`]). Running free,
+    /// unplugged, or cabled to a clock that never wraps, it is that reading; cabled to one
+    /// whose source declares its wrap (`TickContext::wraps_at`), a gear's Phase at one, it is
+    /// what arrives unwrapped, so a wrap is one frame's motion, and a jump, or a cable plugged
+    /// in, let go or moved onto another output, puts it back at the reading as published, and
+    /// is a jump.
     fn time(&mut self, id: NodeId, ctx: &mut TickContext<'_>) -> f64 {
         let source = ctx.source(id, crate::nodes::TIME);
         self.moved = self.last.is_some() && source != self.source;
         self.source = source;
         let raw = ctx.cycle(id);
-        if ctx.runs_free(id) || !ctx.connected(id, crate::nodes::TIME) {
+        let wrap = ctx.wraps_at(id, crate::nodes::TIME);
+        if ctx.runs_free(id) || !ctx.connected(id, crate::nodes::TIME) || wrap.is_infinite() {
             self.raw = None;
             return raw;
         }
         self.time = match self.raw {
             Some(was) if !ctx.time.jumped && !self.moved => {
-                self.time + phasor::unwrap_at(was, raw, ctx.wraps_at(id, crate::nodes::TIME))
+                self.time + phasor::unwrap_at(was, raw, wrap)
             }
             _ => raw,
         };

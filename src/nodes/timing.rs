@@ -242,12 +242,12 @@ impl Timing {
         }
     }
 
-    /// What the editor reads `node`'s Time round: its period, or [`phasor::WRAP`] for a
-    /// picture that never repeats.
+    /// What the editor reads `node`'s Time round: its period, or, for a picture that never
+    /// repeats, [`phasor::WHOLE_WRAP`], which a shader reads it round.
     pub fn wrap(&self, node: &Node) -> f64 {
         (self.period)(node)
             .filter(|p| *p > 0.0)
-            .unwrap_or(phasor::WRAP)
+            .unwrap_or(phasor::WHOLE_WRAP)
     }
 }
 

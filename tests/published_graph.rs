@@ -98,7 +98,7 @@ fn a_control_scrub_crosses_on_every_command() {
     }
     let fast = app.uniform(cycles).expect("it has been ticking");
     assert!(
-        fast > 10.0 * FRAME,
+        fast > 10.0 * f64::from(FRAME),
         "the later lengths reached the tick rather than the first one: {fast}"
     );
 }

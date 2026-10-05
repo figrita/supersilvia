@@ -355,8 +355,8 @@ impl CpuNode for Picture {
             ),
             _ => (None, 0),
         };
-        ctx.publish(id, "frame", self.at as f32);
-        ctx.publish(id, "frames", count as f32);
+        ctx.publish(id, "frame", self.at as f64);
+        ctx.publish(id, "frames", count as f64);
         ctx.publish_frame(
             id,
             "output",

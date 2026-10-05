@@ -1749,7 +1749,7 @@ fn a_recording_survives_a_save_and_reopen_with_the_transport_stopped() {
         opened.tick(frame);
         assert_eq!(
             opened.uniform(PortRef::new(node, "output")),
-            Some(0.9),
+            Some(f64::from(0.9_f32)),
             "stopped at the start, so the knob is what is published"
         );
     }

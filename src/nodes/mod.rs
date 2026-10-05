@@ -125,13 +125,14 @@ use emath::Pos2;
 /// `func` is the function's name, for nodes that need to reference it; most do not.
 pub type GenFn = fn(node: NodeId, ctx: &mut CompileContext, func: &str) -> String;
 
-/// The same formula as an output's WGSL, evaluated on the CPU for one frame.
+/// The same formula as an output's WGSL, evaluated on the CPU for one frame in `f64`, as every
+/// number between nodes is.
 ///
 /// What makes an output **dual**: its declared type is `VaryingNumber`, and on an instance
 /// whose inputs all resolve to uniform numbers there is nothing per-pixel about it, so `tick`
 /// computes it and publishes it as a uniform number. See
 /// [Dual outputs](../../docs/nodes.md#dual-outputs).
-pub type EvalFn = fn(node: NodeId, ctx: &TickContext<'_>) -> f32;
+pub type EvalFn = fn(node: NodeId, ctx: &TickContext<'_>) -> f64;
 
 /// The generator every `OutputKind::Uniform` and `OutputKind::Action` output carries, and any
 /// output nobody has written a body for. A uniform number is resolved to a uniform before the
@@ -430,13 +431,11 @@ pub struct OutputDef {
     /// `muxevent`'s channel is Input 1 through Input 4, and `1.00` beside the row labelled
     /// Input 1 reads as a measurement of something.
     pub integral: bool,
-    /// Where a `UniformNumber` output that is a clock wraps as one `f32`: 1 for a phase
-    /// published 0 up to 1 — the two gears' Phase — and [`phasor::WRAP`] for everything else,
-    /// a count's one `f32` published wrapped at 2520 keeping its sign
-    /// ([`phasor::wrap_count`]). A clock cabled into a sequencer's Time
-    /// is unwrapped at half of it, so a 0..1 Phase runs forward across its wrap, and a Ratio
-    /// Gear's Clock In there to find the whole cycles a frame passed; a count published whole
-    /// is read unwrapped and never wraps (`TickContext::wraps_at`).
+    /// Where a `UniformNumber` output that is a clock wraps: 1 for a phase published 0 up to 1
+    /// — the two gears' Phase — and never for everything else, since a number between nodes
+    /// is an `f64` that nothing wraps. A sequencer's Time and a Ratio Gear's Clock In and
+    /// Offset read a clock that wraps across its wrap, at half of it, so a Phase passing one
+    /// is a frame's motion (`TickContext::wraps_at`).
     pub wraps_at: f64,
 }
 
@@ -456,7 +455,7 @@ impl OutputDef {
         filter: TextureFilter::Linear,
         eval: None,
         integral: false,
-        wraps_at: phasor::WRAP,
+        wraps_at: f64::INFINITY,
     };
 }
 

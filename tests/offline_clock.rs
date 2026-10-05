@@ -92,7 +92,7 @@ fn the_same_t_gives_the_same_u_time_twice() {
 /// reads the playhead, at any frame rate, and two runs of the same patch read the same.
 #[test]
 fn a_stepped_run_reads_the_playhead_it_was_driven_to() {
-    fn run(fps: f64, frames: u32, warmup: Warmup) -> f32 {
+    fn run(fps: f64, frames: u32, warmup: Warmup) -> f64 {
         let mut app = App::headless();
         let gear = seconds(&mut app);
         render(&mut app, &Stepper::new(fps, frames, warmup));
@@ -127,7 +127,7 @@ fn a_stepped_run_reads_the_playhead_it_was_driven_to() {
 /// kept frame whatever came before it, and so is the Time node, which reads the playhead.
 #[test]
 fn a_counter_tells_the_warm_ups_apart() {
-    fn first_kept(warmup: Warmup) -> (f32, f32, f32) {
+    fn first_kept(warmup: Warmup) -> (f64, f64, f64) {
         let mut app = App::headless();
         let gear = seconds(&mut app);
         let counted = beats(&mut app);
@@ -365,7 +365,7 @@ fn a_warm_up_before_zero_reads_what_a_loop_later_reads() {
     let mut read = Vec::new();
     for i in 0..stepper.len() {
         app.tick_at(stepper.time_of(i));
-        let count = |port| app.count(port).unwrap();
+        let count = |port| app.uniform(port).unwrap();
         let at = [
             count(PortRef::new(clock, "cycles")),
             count(PortRef::new(show, "cycles")),

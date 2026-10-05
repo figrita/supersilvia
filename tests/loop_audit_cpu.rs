@@ -46,7 +46,7 @@ const TIMES: [f64; 10] = [
 ];
 
 /// How far apart two `f32` readings of one output may be and still be the same reading.
-const TOL: f32 = 2e-4;
+const TOL: f64 = 2e-4;
 
 // ------------------------------------------------------------------------------ helpers
 
@@ -116,7 +116,7 @@ fn teeth_on(app: &mut App, from: NodeId, p: f32, q: f32) -> NodeId {
 }
 
 /// One output, by a paused seek to `t` and one tick.
-fn sample(app: &mut App, port: PortRef, t: f64) -> f32 {
+fn sample(app: &mut App, port: PortRef, t: f64) -> f64 {
     app.transport(Transport::Pause);
     app.transport(Transport::Seek(t));
     app.tick(FRAME);

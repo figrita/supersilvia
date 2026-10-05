@@ -44,18 +44,17 @@ pub enum UniformProvider {
     NodeTexture { node: NodeId, port: &'static str },
     /// A uniform published by a CPU node's output port, read from `Synth::tick`'s results
     /// each frame. The same shape as `Control`: one value, written into the uniform block, and
-    /// `ty` says which of the two kinds it is — a `Float` for a uniform number, a `Vec4` for
-    /// a uniform color.
+    /// `ty` says which of the two kinds it is — a `Float` for a uniform number, the `f32` of
+    /// the `f64` it was published as, a `Vec4` for a uniform color.
     NodeUniform {
         node: NodeId,
         port: &'static str,
         ty: UniformType,
     },
-    /// A count a node published, as a Time reads it: `vec2f(whole, fraction)`, the whole part
-    /// wrapped at `phasor::WHOLE_WRAP` and the `f32` of the fraction
-    /// (`nodes::phasor::split`). A gear's Cycles, the Time node's Seconds and an unplugged
-    /// Time's ambient reading are counts published whole; anything else in a Time is its one
-    /// `f32` split the same way.
+    /// A number a node published, as a Time reads it: `vec2f(whole, fraction)`, the `f64`'s
+    /// whole part wrapped at `phasor::WHOLE_WRAP` and the `f32` of its fraction
+    /// (`nodes::phasor::split`) — a gear's Cycles, the Time node's Seconds, an unplugged
+    /// Time's ambient reading, or any other number cabled in.
     NodeCount { node: NodeId, port: &'static str },
     /// The index of an `OptionKind::Uniform` option's chosen value among its choices.
     ///

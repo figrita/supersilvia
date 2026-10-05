@@ -516,7 +516,7 @@ fn a_render_hands_the_playhead_back() {
         app.tick(1.0 / 60.0);
     }
     let phase = |app: &App| {
-        app.count(PortRef::new(perlin, supersilvia::nodes::TIME))
+        app.uniform(PortRef::new(perlin, supersilvia::nodes::TIME))
             .unwrap()
     };
     let live = app.transport_state().playhead;
@@ -1323,8 +1323,8 @@ fn the_tunnels_flight_closes_every_cycle() {
 /// repeating every 128 rolls, each on a Ratio Gear at ×64 under an eighth-of-a-second Master
 /// Gear: 51.2 cycles a frame at 10 fps, so every five frames is 256 cycles, a whole number of
 /// either one's repeats, and frame 47, at 2406.4 cycles, is frame 52, at 2662.4, to the byte.
-/// Between them the count passes 2520, where one read as one `f32` rolls over to zero, which
-/// neither 16 nor 128 divides.
+/// Between them the count passes 2520, which neither 16 nor 128 divides: the shader reads the
+/// count whole on either side of it.
 #[test]
 fn a_noise_on_a_gear_passes_2520_with_no_seam() {
     use supersilvia::Command;

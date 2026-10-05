@@ -479,13 +479,8 @@ impl App {
     }
 
     /// See [`Snapshot::uniform`].
-    pub fn uniform(&self, port: PortRef) -> Option<f32> {
+    pub fn uniform(&self, port: PortRef) -> Option<f64> {
         self.link.snapshot().uniform(port)
-    }
-
-    /// See [`Snapshot::count`].
-    pub fn count(&self, port: PortRef) -> Option<f64> {
-        self.link.snapshot().count(port)
     }
 
     /// What one node's tick says about itself this frame: its

@@ -589,8 +589,8 @@ fn edge(at: &mut f32, velocity: &mut f32, mode: EdgeMode, bounce: f32) -> bool {
 
 /// A point on the pad, -1 to 1, onto the range between two ends: from the middle of the
 /// range, so at silvia's -1 to 1 a pad unit is exactly an output unit.
-pub fn map(at: f32, min: f32, max: f32) -> f32 {
-    f32::midpoint(min, max) + at * (max - min) * 0.5
+pub fn map(at: f64, min: f64, max: f64) -> f64 {
+    f64::midpoint(min, max) + at * (max - min) * 0.5
 }
 
 impl CpuNode for Pad {
@@ -622,7 +622,8 @@ impl CpuNode for Pad {
             }
         }
 
-        let hand = HAND.map(|key| ctx.input(id, key));
+        // The hand's four hidden controls, which hold `f32`s.
+        let hand = HAND.map(|key| ctx.input(id, key) as f32);
         let held = ctx.pressed(id, PUCK);
         let mut bounced = false;
         if held {
@@ -638,11 +639,14 @@ impl CpuNode for Pad {
             }
             self.take(hand);
             let physics = Physics {
-                drag: ctx.input(id, DRAG),
-                bounce: ctx.input(id, BOUNCE),
-                temperature: ctx.input(id, TEMPERATURE),
-                spring: ctx.input(id, SPRING),
-                gravity: [ctx.input(id, GRAVITY_X), ctx.input(id, GRAVITY_Y)],
+                drag: ctx.input(id, DRAG) as f32,
+                bounce: ctx.input(id, BOUNCE) as f32,
+                temperature: ctx.input(id, TEMPERATURE) as f32,
+                spring: ctx.input(id, SPRING) as f32,
+                gravity: [
+                    ctx.input(id, GRAVITY_X) as f32,
+                    ctx.input(id, GRAVITY_Y) as f32,
+                ],
                 edges: [
                     EdgeMode::of(ctx.option(id, EDGE_X)),
                     EdgeMode::of(ctx.option(id, EDGE_Y)),
@@ -654,11 +658,11 @@ impl CpuNode for Pad {
 
         let (min_x, max_x) = (ctx.input(id, "minX"), ctx.input(id, "maxX"));
         let (min_y, max_y) = (ctx.input(id, "minY"), ctx.input(id, "maxY"));
-        ctx.publish(id, "x", map(self.at[0], min_x, max_x));
-        ctx.publish(id, "y", map(self.at[1], min_y, max_y));
+        ctx.publish(id, "x", map(f64::from(self.at[0]), min_x, max_x));
+        ctx.publish(id, "y", map(f64::from(self.at[1]), min_y, max_y));
         // In the outputs' own units, as silvia's is: a pad unit is half the range.
-        let speed = (self.velocity[0] * (max_x - min_x) * 0.5)
-            .hypot(self.velocity[1] * (max_y - min_y) * 0.5);
+        let speed = (f64::from(self.velocity[0]) * (max_x - min_x) * 0.5)
+            .hypot(f64::from(self.velocity[1]) * (max_y - min_y) * 0.5);
         ctx.publish(id, "speed", speed);
         if bounced {
             ctx.fire(id, "bounced", Edge::Down);

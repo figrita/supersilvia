@@ -281,8 +281,8 @@ pub fn config(
     ctx: &crate::nodes::TickContext<'_>,
 ) -> [bands::BandConfig; bands::BANDS] {
     std::array::from_fn(|b| bands::BandConfig {
-        freq: ctx.input(id, FREQS[b]).max(1.0),
-        q: ctx.input(id, QS[b]).max(0.05),
+        freq: (ctx.input(id, FREQS[b]) as f32).max(1.0),
+        q: (ctx.input(id, QS[b]) as f32).max(0.05),
         ..bands::DEFAULT[b]
     })
 }

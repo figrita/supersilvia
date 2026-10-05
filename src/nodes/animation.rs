@@ -139,7 +139,7 @@ struct Animation {
     running: bool,
     start_stop: Gate,
     restart: Gate,
-    value: f32,
+    value: f64,
     /// The last `TRACE_SPAN` seconds of published values, dated, for the trace on the body.
     history: TraceRing,
 }
@@ -189,7 +189,7 @@ impl CpuNode for Animation {
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
         let start = ctx.input(id, "startValue");
         let end = ctx.input(id, "endValue");
-        let duration = ctx.input(id, "duration").max(MIN_DURATION);
+        let duration = ctx.input(id, "duration").max(f64::from(MIN_DURATION));
         let return_curve = ctx.option(id, "return_curve");
         let approach_curve = ctx.option(id, "approach_curve");
 
@@ -212,7 +212,7 @@ impl CpuNode for Animation {
             .last_down(id, "restart", &mut self.restart)
             .map(|at| ctx.fraction(at));
         // A pass a duration.
-        let rate = 1.0 / f64::from(duration);
+        let rate = 1.0 / duration;
         let mut walk = self.phase.walk(rate, &ctx.time.carried());
         walk.hold(!self.running);
         if let Some(at) = restart {
@@ -245,13 +245,13 @@ impl CpuNode for Animation {
             } else {
                 1.0 - curve(t, return_curve)
             };
-            start + (end - start) * tweened
+            start + (end - start) * f64::from(tweened)
         } else {
             // Stopped, it holds the near end: an animation nobody has fired is at its start.
             start
         };
         ctx.publish(id, "output", self.value);
-        self.history.push(ctx.elapsed, self.value);
+        self.history.push(ctx.elapsed, self.value as f32);
     }
 }
 

@@ -871,7 +871,7 @@ A graph carries four kinds of value, not three:
 | `Action` | CPU | an event, many-to-many, never compiled |
 | `VaryingNumber` | GPU | `fn f(uv: vec2f) -> f32` — a field, one value per pixel |
 | `VaryingColor` | GPU | `fn f(uv: vec2f) -> vec4f` — a field |
-| **`UniformNumber`** | **CPU** | **one `f32` per frame** |
+| **`UniformNumber`** | **CPU** | **one `f64` per frame, an `f32` in a shader** |
 
 **A uniform number is not a new concept — `Control::Number` is already one.** A number
 control is a single `f32`, constant across the frame, uploaded as a uniform. The only
@@ -882,7 +882,7 @@ the same kind of thing.
 **Why it earns a type rather than being a convention.** `VaryingNumber` means a *field*, and
 the CPU cannot hold a field: there is no `uv` outside a shader. Without a second kind nothing
 could be evaluated outside a shader and the tick would stay empty forever. `UniformNumber`
-is exactly "the kind of value that fits in an `f32` on the CPU", so the type system carries
+is exactly "one number on the CPU", so the type system carries
 the control-rate/signal-rate boundary instead of a person carrying it. The corollary is
 enforced by a registry test: every input of a CPU node is a CPU type — `UniformNumber` or
 `Action`, never `VaryingNumber` or `VaryingColor` — because `tick` cannot sample a field.
@@ -1490,41 +1490,9 @@ Mold's and Cellular Automata's Rate in ×30 a second, Smooth Counter's Rate, Aut
 Response; the Star Gate's Drift is a step per drawn frame. The Cellular Automata owe their
 generations to `dt` with the fraction carried, so the pace is the same at any tick rate.
 
-**State is `f64`, and a count is published whole.** A gear's Cycles, the Time node's Seconds
-and an unplugged Time's ambient reading are **counts** (`TickContext::publish_count`), which a
-Time reads at the same precision at every count forever: a CPU node in `f64`, unbounded, and a
-shader as `vec2f(whole, fraction)` — the whole part wrapped at **80640**, twice the least
-common multiple of 2520 and 128, centered on zero, and the `f32` of the fraction (`phasor::split`) —
-reducing the whole part by its period before it adds the fraction, which is exact, since an
-`f32` holds every whole number to 2²⁴. A row prints the count itself, in `f64` and
-unwrapped, so a gear's Cycles climb for as long as the show runs, as the time readout's
-timecode does. Everything else reads one `f32`: Seconds' the playhead unwrapped, and a gear's
-wrapped at 2520, the least common multiple of one to ten, **keeping its sign**
-(`phasor::wrap_count`) — an odometer either way, zero up to 2520 for a count of zero or more
-and zero down to −2520 for one below zero. So forward time never reads negative, a count a
-hair below zero reads as the small negative it is, at zero's precision, and a reversed gear's
-count stays negative; it is always a whole number of wraps from the count, so a reader that
-unwraps it at 2520 takes a rollover either way as a frame's motion. Its cost is an `f32` that
-reaches 2520: 2⁻¹² of a cycle at worst. `u_time` is the playhead's fraction of a second, which
-is all a shader reads of it. **Rejected: the one `f32` wrapped centered on zero**, −1260 up to
-1260. It kept a count near zero exact as the sign-keeping wrap does, at 2⁻¹³ of a cycle at
-worst, but put time negative partway through a show: a one-second Master Gear's Cycles
-climbed to 1260 and jumped to −1260 21 minutes in, on its row and into every Math node it
-fed, and a show's clock going negative is confusing and looks broken. Negative is right only
-going backwards — a reversed gear, a warm-up before zero — which is where the sign-keeping
-wrap puts it. **Rejected: a count as one `f32` wrapped at 2520** for a Time to read. An `f32` rounds one moment differently by how large the count is, so −0.01
-and 0.99 are a hair apart once stored: through feedback, "Reverse the show" closed with 32
-pixels a level off after a warm-up at negative time, worse the longer the warm-up, and a
-noise at Repeat 16, Static at 16 to 128 and a clip on Hold met a seam once
-every 2520 cycles, since none of their periods divides 2520. **Rejected: the one `f32`
-wrapped into 0 up to 2520 for every count**, whatever its sign: a count a hair below zero read
-2519.99, where an `f32` resolves only 2⁻¹² of a cycle, and a reversed gear's read positive. **Rejected: an `f64` uniform**, which WGSL has
-none of on the GPUs supersilvia runs on. **Rejected: the wrap at 40320**, the least common
-multiple itself: a picture that never repeats can be told apart only round the wrap, and
-Static, six rolls a second, rolled through 40320 in 28 minutes at Speed 4, under the forty
-Repeat Never is held to. **Rejected: Seconds' one `f32` wrapped at 2520**,
-which jumped 21 minutes into a show, where it has to count on; at one a second an
-unwrapped `f32` resolves a frame for 36 hours.
+**State is `f64`, and so is every number between nodes**: a gear integrates in `f64`, and
+what it publishes reaches every CPU reader as that `f64`, never wrapped
+([Numbers between nodes are `f64` and never wrap](#numbers-between-nodes-are-f64-and-never-wrap)).
 
 **Nothing is saved, and nothing is an edit.** A project opens playing, at zero. A hand on the readout is playing, as a deck claim is,
 and enters no undo history.
@@ -1555,9 +1523,50 @@ back to where the live show was, as a seek, so every gear is born again where it
 been. **Rejected: a node on a closed tab keeping frozen time**: a tab reopened resumed where it
 froze, out of phase with everything that ran on. Suspension still stops the tick and keeps the
 state; it does not stop time. **Rejected: firing the crossings a waking node slept through**, a
-minute of beats in one frame. **Rejected: a gear's Cycles as one unbounded `f32`.** An `f32` at
-131 072 stops moving at 144 Hz; a count is published whole instead, and its one `f32` wraps at
-2520. **Rejected: saving the playhead.** Where the show stood is tonight's.
+minute of beats in one frame. **Rejected: saving the playhead.** Where the show stood is
+tonight's.
+
+### Numbers between nodes are `f64` and never wrap
+
+**Chosen.** A uniform number is an `f64` from the node that publishes it to every CPU node that
+reads it — `TickContext::publish` and `input`, a dual output's `eval` — and on the row that
+prints it. Nothing on the CPU wraps it, so a gear's Cycles, the Time node's Seconds and a Math
+node's sum of them are the count itself however long the show runs, and a reversed gear's count
+stays negative however far below zero it goes. A knob still holds an `f32`, as a control does,
+widened when a tick reads it. **A number becomes an `f32` where it enters a shader and nowhere
+else** (`Synth::resolve`). Into a Time it is split, `vec2f(whole, fraction)`: the whole part
+wrapped at **80640**, twice the least common multiple of 2520 — of one to ten — and 128,
+centered on zero, and the `f32` of the fraction (`phasor::split`), which a body reduces by its
+period before it adds the fraction, exact since an `f32` holds every whole number to 2²⁴, so it
+reads a count as precisely a million cycles on as at the first. Into any other shader input it
+is cast, with an `f32`'s precision at its size: a count cabled into a Speed, a size or a Math
+node that has become a field loses its fraction past 2²³ cycles and reads a sixteenth of a
+cycle at a million, so a picture that should read a count round a period reads it through a
+Time. `u_time` is the playhead's fraction of a second, which is all a shader reads of it. The
+wraps left on the CPU are meaning, not precision: a Phase is 0 up to 1 and a reader unwraps it
+at one (`OutputDef::wraps_at`), a Ping-pong is a triangle, and a node's period is where its
+picture comes back.
+
+**Rejected: one `f32` per cable, a count's wrapped at 2520 keeping its sign** — an odometer
+either way, zero up to 2520 for a count of zero or more and zero down to −2520 below it — beside
+the count in `f64` for a Time and a row. Every reader of a count had to unwrap it across 2520,
+and nothing that scaled one before a reader saw it could: a gear's Cycles times 0.37 through a
+Multiply jumped by 932 every 2520 cycles, 42 minutes into a show on a one-second gear, and a
+Math node's sum of Cycles reached a Time at an `f32`'s 2⁻¹² of a cycle. **Rejected: the same
+wrapped centered on zero**, −1260 up to 1260, which kept a count near zero at 2⁻¹³ of a cycle
+but put time negative partway through a show: a one-second Master Gear's Cycles climbed to 1260
+and jumped to −1260 21 minutes in, on its row and into every Math node it fed. **Rejected: the
+same wrapped into 0 up to 2520 whatever the sign**, which read a count a hair below zero as
+2519.99 and a reversed gear's as positive. **Rejected: one unwrapped `f32` per cable**: an `f32`
+at 131 072 stops moving at 144 Hz. **Rejected: a count as one `f32` for a Time to read**, wrapped
+or not. An `f32` rounds one moment differently by how large the count is, so −0.01 and 0.99 are
+a hair apart once stored: through feedback, "Reverse the show" closed with 32 pixels a level
+off after a warm-up at negative time, and a noise at Repeat 16, Static at 16 to 128 and a clip
+on Hold met a seam at every wrap no period of theirs divides. **Rejected: an `f64` uniform**,
+which WGSL has none of on the GPUs supersilvia runs on. **Rejected: the split's wrap at
+40320**, the least common multiple itself: a picture that never repeats can be told apart only
+round the wrap, and Static, six rolls a second, rolled through 40320 in 28 minutes at Speed 4,
+under the forty Repeat Never is held to.
 
 **A loop is the ordinary render, and its length is a Master Gear's.** The Output's own
 Render, with its PNG, video and GIF writers, is the one way to render
@@ -1576,9 +1585,8 @@ GStreamer's `gifenc` is a Rust plugin that a distribution's GStreamer often lack
 Output. A gear is where a rate is shared, changed on the beat or divided: one cable drives any
 number of looping nodes at one rate, and a chain of gears says whether they close. A node's
 own Speed, in Free mode, turns one node; a gear is what several nodes keep time by. Time on a wire is a float in cycles
-of some clock — **Cycles** the count, published whole for a Time and as one `f32` wrapped at
-2520 keeping its sign for anything else, **Phase** the fraction — and no new port type
-carries it.
+of some clock — **Cycles** the count, an `f64` that never wraps, **Phase** the fraction — and
+no new port type carries it.
 
 - **The Master Gear** (`mastergear`) is the show's clock at a length in seconds. It
   integrates the playhead's advance over its length in `f64`, so a length turned bends from
@@ -1587,10 +1595,9 @@ carries it.
   length. **Rejected: a length in beats or bars at a BPM, and a tap tempo**: a beat is a length in seconds and a bar a Ratio Gear below it, so a second way to
   say the length was a BPM knob read in two units of three and a Tap that wrote it.
 - **The Ratio Gear** (`ratiogear`) is its parent times its Teeth, `p : q`: what arrives at
-  Clock In, a count read whole, times `p ÷ q`, or the playhead's seconds times it with
+  Clock In, read exactly, times `p ÷ q`, or the playhead's seconds times it with
   nothing cabled, negated in Reverse, with its Offset added ([A Ratio Gear is a pure product of its parent](#a-ratio-gear-is-a-pure-product-of-its-parent)).
-- **The Time node** (`time`) is Seconds, the playhead published as a count, and nothing
-  else.
+- **The Time node** (`time`) is Seconds, the playhead published in `f64`, and nothing else.
 
 **A chain of gears closes**: its Teeth multiply, and a loop of the Master Gear is as many of
 its cycles as what the chains drive needs, so a sawtooth on a 1 : 4 below asks for four.

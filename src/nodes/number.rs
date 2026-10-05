@@ -50,7 +50,7 @@ pub static DEF: NodeDef = NodeDef {
 /// holds one.
 #[derive(Default)]
 struct Number {
-    value: f32,
+    value: f64,
 }
 
 impl CpuNode for Number {

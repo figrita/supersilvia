@@ -1852,7 +1852,7 @@ const DUAL_CASES: &[DualCase] = &[
 ];
 
 /// What the node's `eval` publishes on these values: a headless app, one tick, one read.
-fn diamond_value(slug: &'static str, values: &[(&str, f32)]) -> f32 {
+fn diamond_value(slug: &'static str, values: &[(&str, f32)]) -> f64 {
     let mut app = App::headless();
     let workspace = app.graph().default_workspace();
     app.apply(Command::AddNode {
@@ -1930,7 +1930,7 @@ fn a_dual_nodes_two_implementations_agree() {
             let cpu = diamond_value(slug, values);
             let gpu = circle_reading(slug, values);
             assert!(
-                (cpu - gpu).abs() < 1e-3,
+                (cpu - f64::from(gpu)).abs() < 1e-3,
                 "{slug} {values:?}: the tick says {cpu}, the shader says {gpu}"
             );
         }

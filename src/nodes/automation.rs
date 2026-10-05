@@ -274,11 +274,11 @@ impl CpuNode for Automation {
 
     fn tick(&mut self, id: NodeId, ctx: &mut TickContext<'_>) {
         let shape = Shape {
-            input: ctx.input(id, "input"),
-            duration: ctx.input(id, "duration").max(0.01),
-            trim: ctx.input(id, "trim").max(0.0),
-            min: ctx.input(id, "min"),
-            max: ctx.input(id, "max"),
+            input: ctx.input(id, "input") as f32,
+            duration: (ctx.input(id, "duration") as f32).max(0.01),
+            trim: (ctx.input(id, "trim") as f32).max(0.0),
+            min: ctx.input(id, "min") as f32,
+            max: ctx.input(id, "max") as f32,
             looping: ctx.option(id, "loop") != "once",
         };
         self.span = shape.duration;
@@ -377,7 +377,7 @@ impl CpuNode for Automation {
         ctx.publish(
             id,
             "output",
-            shape.min + normalized * (shape.max - shape.min),
+            f64::from(shape.min + normalized * (shape.max - shape.min)),
         );
     }
 }

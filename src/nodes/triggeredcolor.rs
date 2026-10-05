@@ -118,9 +118,9 @@ impl CpuNode for TriggeredColor {
             // Alpha is always opaque — silvia rolls three channels, not four.
         }
         ctx.publish_color(id, "color", [self.r, self.g, self.b, self.a]);
-        ctx.publish(id, "r", self.r);
-        ctx.publish(id, "g", self.g);
-        ctx.publish(id, "b", self.b);
-        ctx.publish(id, "a", self.a);
+        ctx.publish(id, "r", f64::from(self.r));
+        ctx.publish(id, "g", f64::from(self.g));
+        ctx.publish(id, "b", f64::from(self.b));
+        ctx.publish(id, "a", f64::from(self.a));
     }
 }

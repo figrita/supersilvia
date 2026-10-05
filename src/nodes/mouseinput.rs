@@ -122,8 +122,8 @@ impl CpuNode for MouseInput {
         self.over = reading.is_some();
 
         if let Some(r) = reading {
-            ctx.publish(id, "x", r.x);
-            ctx.publish(id, "y", r.y);
+            ctx.publish(id, "x", f64::from(r.x));
+            ctx.publish(id, "y", f64::from(r.y));
             for (i, (level, _)) in BUTTONS.iter().enumerate() {
                 let down = [r.left, r.right][i];
                 ctx.publish(id, level, if down { 1.0 } else { 0.0 });

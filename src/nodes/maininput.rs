@@ -169,7 +169,7 @@ impl CpuNode for MainInputNode {
             ctx.publish_frame(id, "frame", frame);
         }
         for (i, key) in OUTPUTS.iter().enumerate() {
-            ctx.publish(id, key, raw[i] * gain);
+            ctx.publish(id, key, f64::from(raw[i] * gain));
         }
     }
 

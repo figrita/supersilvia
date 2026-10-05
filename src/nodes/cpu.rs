@@ -698,12 +698,13 @@ impl Default for MainInputFeed<'_> {
 }
 
 /// The value on a uniform number input this frame: what its source published where it is
-/// connected, its control where it is not, and zero for anything else.
+/// connected, exactly as it was published, its control widened where it is not, and zero for
+/// anything else.
 pub fn number<S: std::hash::BuildHasher>(
     graph: &Graph,
-    uniforms: &HashMap<PortRef, f32, S>,
+    uniforms: &HashMap<PortRef, f64, S>,
     input: PortRef,
-) -> f32 {
+) -> f64 {
     if let Some(src) = graph.source_of(input) {
         return uniforms.get(&src).copied().unwrap_or(0.0);
     }
@@ -711,7 +712,7 @@ pub fn number<S: std::hash::BuildHasher>(
         .get(input.node)
         .and_then(|n| n.controls.get(input.key))
     {
-        Some(ControlValue::Float(v)) => *v,
+        Some(ControlValue::Float(v)) => f64::from(*v),
         _ => 0.0,
     }
 }
@@ -734,10 +735,9 @@ pub struct TickContext<'a> {
     /// through [`crate::nodes::phasor`]; a node on ambient time reads [`Self::clock`].
     pub time: crate::transport::Time,
     graph: &'a Graph,
-    uniforms: &'a mut HashMap<PortRef, f32>,
-    /// Every count published so far, in `f64` and unbounded: what a Time reads whole. See
-    /// [`Self::publish_count`].
-    counts: &'a mut HashMap<PortRef, f64>,
+    /// Every uniform number published so far this frame, in `f64` and never wrapped: a
+    /// gear's Cycles a million cycles in are the count itself.
+    uniforms: &'a mut HashMap<PortRef, f64>,
     uniform_colors: &'a mut HashMap<PortRef, [f32; 4]>,
     frames: &'a mut HashMap<PortRef, Arc<Frame>>,
     /// Every simulation published so far, with the passes the renderer has not run yet.
@@ -789,14 +789,13 @@ pub struct TickContext<'a> {
 }
 
 impl<'a> TickContext<'a> {
-    // Eleven borrows of the frame's state and two numbers, all of them separate fields of
+    // Ten borrows of the frame's state and two numbers, all of them separate fields of
     // `App` that a tick reads or writes. Bundling them into a struct would build that struct
-    // at the one call site and pass the same eleven things through it.
+    // at the one call site and pass the same ten things through it.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         graph: &'a Graph,
-        uniforms: &'a mut HashMap<PortRef, f32>,
-        counts: &'a mut HashMap<PortRef, f64>,
+        uniforms: &'a mut HashMap<PortRef, f64>,
         uniform_colors: &'a mut HashMap<PortRef, [f32; 4]>,
         frames: &'a mut HashMap<PortRef, Arc<Frame>>,
         sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
@@ -821,7 +820,6 @@ impl<'a> TickContext<'a> {
             time,
             graph,
             uniforms,
-            counts,
             uniform_colors,
             frames,
             sims,
@@ -893,8 +891,9 @@ impl<'a> TickContext<'a> {
         self.graph.get(id)
     }
 
-    /// The value on one of `id`'s uniform number inputs this frame.
-    pub fn input(&self, id: NodeId, key: &'static str) -> f32 {
+    /// The value on one of `id`'s uniform number inputs this frame: exactly what its source
+    /// published, unbounded, or its knob.
+    pub fn input(&self, id: NodeId, key: &'static str) -> f64 {
         number(self.graph, self.uniforms, PortRef::new(id, key))
     }
 
@@ -912,29 +911,21 @@ impl<'a> TickContext<'a> {
         }
     }
 
-    /// What arrives at one of `id`'s uniform number inputs read as a count, in `f64`: a count
-    /// its source published whole ([`Self::publish_count`]), unbounded and to `f64`'s
-    /// precision, or else the one `f32` [`Self::input`] reads.
-    pub fn count(&self, id: NodeId, key: &'static str) -> f64 {
+    /// Whether the output cabled into one of `id`'s inputs is a gear's — or the Time node's,
+    /// which is one of the Gears: a source that says when it puts its reading somewhere
+    /// rather than moving it there ([`Self::jump`]), so a reading of it going back with no
+    /// such word is a clock running backwards.
+    pub fn geared(&self, id: NodeId, key: &'static str) -> bool {
         self.graph
             .source_of(PortRef::new(id, key))
-            .and_then(|src| self.counts.get(&src).copied())
-            .unwrap_or_else(|| f64::from(self.input(id, key)))
+            .and_then(|src| self.graph.get(src.node))
+            .is_some_and(|n| n.def.category == crate::nodes::Category::Gear)
     }
 
-    /// Whether what arrives at one of `id`'s inputs is a count published whole, which
-    /// [`Self::count`] reads to `f64`'s precision and never wrapped; anything else is one
-    /// `f32`.
-    pub fn counted(&self, id: NodeId, key: &'static str) -> bool {
-        self.graph
-            .source_of(PortRef::new(id, key))
-            .is_some_and(|src| self.counts.contains_key(&src))
-    }
-
-    /// Where `id` is this tick, in its own cycles and unwrapped, with its Offset added: in
-    /// Loop mode its Time — what is cabled in, read as a count ([`Self::count`]), or ambient
-    /// time at its pace, from the `f64` playhead — and in Free mode its own playhead at its
-    /// pace. See [`crate::nodes::timing`].
+    /// Where `id` is this tick, in its own cycles, with its Offset added: in Loop mode its
+    /// Time — what is cabled in ([`Self::input`]), or ambient time at its pace, from the `f64`
+    /// playhead — and in Free mode its own playhead at its pace. See
+    /// [`crate::nodes::timing`].
     pub fn cycle(&mut self, id: NodeId) -> f64 {
         let timing = self.graph.get(id).and_then(|n| n.def.timing);
         self.cycle_at(id, timing.map_or(0.0, |t| t.pace))
@@ -943,9 +934,9 @@ impl<'a> TickContext<'a> {
     /// The same at a rate the node works out itself — a clip's one play over its length, which
     /// is its pace.
     ///
-    /// Where nothing is cabled into its Time, the reading before Offset is published as a count
-    /// under the Time key, as the synth publishes a drawing node's: what the loop meter on the
-    /// Time row reads.
+    /// Where nothing is cabled into its Time, the reading before Offset is published under the
+    /// Time key, as the synth publishes a drawing node's: what the loop meter on the Time row
+    /// reads.
     pub fn cycle_at(&mut self, id: NodeId, rate: f64) -> f64 {
         let own = match self.free {
             Some((node, at)) if node == id => Some(at * rate),
@@ -955,29 +946,25 @@ impl<'a> TickContext<'a> {
         let time = match own {
             Some(time) => {
                 let time = if time.is_finite() { time } else { 0.0 };
-                self.counts
+                self.uniforms
                     .insert(PortRef::new(id, crate::nodes::TIME), time);
                 time
             }
-            None => self.count(id, crate::nodes::TIME),
+            None => self.input(id, crate::nodes::TIME),
         };
-        time + f64::from(self.input(id, crate::nodes::timing::OFFSET))
+        time + self.input(id, crate::nodes::timing::OFFSET)
     }
 
-    /// Where the clock cabled into one of `id`'s inputs wraps as [`Self::count`] reads it:
-    /// never for a count published whole, and otherwise [`OutputDef::wraps_at`] of the output
-    /// feeding it — one for a Phase, 2520 for one `f32` of a count through a Math node
-    /// (`phasor::wrap_count`), or anything unplugged.
+    /// Where the clock cabled into one of `id`'s inputs wraps: [`OutputDef::wraps_at`] of the
+    /// output feeding it — one for a gear's Phase — and never for anything else or anything
+    /// unplugged.
     ///
     /// [`OutputDef::wraps_at`]: crate::nodes::OutputDef::wraps_at
     pub fn wraps_at(&self, id: NodeId, key: &'static str) -> f64 {
-        if self.counted(id, key) {
-            return f64::INFINITY;
-        }
         self.graph
             .source_of(PortRef::new(id, key))
             .and_then(|src| self.graph.get(src.node)?.def.output(src.key))
-            .map_or(crate::nodes::phasor::WRAP, |out| out.wraps_at)
+            .map_or(f64::INFINITY, |out| out.wraps_at)
     }
 
     /// The output plugged into one of `id`'s inputs, if any: what a node that keeps a reading
@@ -1033,22 +1020,13 @@ impl<'a> TickContext<'a> {
         self.assets.cache_dir()
     }
 
-    /// Publish one of `id`'s uniform number outputs for this frame.
-    pub fn publish(&mut self, id: NodeId, port: &'static str, value: f32) {
+    /// Publish one of `id`'s uniform number outputs for this frame, exactly: every CPU reader
+    /// gets this `f64`, a shader's Time gets it [split](crate::nodes::phasor::split) into a
+    /// whole part and a fraction, and any other shader input its `f32`.
+    pub fn publish(&mut self, id: NodeId, port: &'static str, value: f64) {
         // A NaN would travel into a uniform and paint an undefined frame.
         let value = if value.is_finite() { value } else { 0.0 };
         self.uniforms.insert(PortRef::new(id, port), value);
-    }
-
-    /// Publish one of `id`'s outputs as a **count**: a clock's reading in its own cycles,
-    /// `count`, unbounded, which a Time reads whole — a CPU node in `f64` through
-    /// [`Self::count`], a shader as its whole part and the `f32` of its fraction
-    /// ([`crate::nodes::phasor::split`]) and a row as the number it prints — and `one`, the
-    /// one `f32` everything else reads: a Math node, an input that is not a Time.
-    pub fn publish_count(&mut self, id: NodeId, port: &'static str, count: f64, one: f32) {
-        let count = if count.is_finite() { count } else { 0.0 };
-        self.counts.insert(PortRef::new(id, port), count);
-        self.publish(id, port, one);
     }
 
     /// Publish one of `id`'s uniform color outputs for this frame.
@@ -1066,7 +1044,6 @@ impl<'a> TickContext<'a> {
     /// of zero. The row then draws nothing, under the rule an unpublished port follows.
     pub fn withdraw(&mut self, id: NodeId, port: &'static str) {
         self.uniforms.remove(&PortRef::new(id, port));
-        self.counts.remove(&PortRef::new(id, port));
     }
 
     /// Take one of `id`'s uniform color outputs out of this frame. [`Self::withdraw`] for the

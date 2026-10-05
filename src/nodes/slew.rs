@@ -71,7 +71,7 @@ pub static DEF: NodeDef = NodeDef {
 struct Slew {
     /// `None` until the first tick, which snaps to the input rather than ramping up from
     /// zero.
-    value: Option<f32>,
+    value: Option<f64>,
 }
 
 impl CpuNode for Slew {
@@ -101,9 +101,9 @@ impl CpuNode for Slew {
             // value slows as it arrives and the ease takes the same wall time at any frame
             // rate. A negative rate would run the approach backwards, away from the target,
             // so a cable driving one below zero is held at a stop.
-            current + (target - current) * (1.0 - (-rate.max(0.0) * ctx.dt).exp())
+            current + (target - current) * (1.0 - (-rate.max(0.0) * f64::from(ctx.dt)).exp())
         } else {
-            let step = rate * ctx.dt;
+            let step = rate * f64::from(ctx.dt);
             if (target - current).abs() <= step {
                 target
             } else if target > current {

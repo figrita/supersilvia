@@ -279,9 +279,9 @@ fn label_room(block_width: f32, is_output: bool, has_control: bool, taken: f32, 
     (block_width - LABEL_INSET * zoom - far).max(0.0)
 }
 
-/// A published uniform number as text, into a buffer the caller reuses: a count whole and
-/// unwrapped ([`crate::synth::Uniforms::reading`]), so a gear's Cycles climb for as long as
-/// the show runs and the label beside them gives up its room a character at a time.
+/// A published uniform number as text, into a buffer the caller reuses: the `f64` as it was
+/// published ([`crate::synth::Uniforms::get`]), so a gear's Cycles climb for as long as the
+/// show runs and the label beside them gives up its room a character at a time.
 ///
 /// **Two fixed places, not three significant figures.** Everything on the canvas is
 /// monospace, so a fixed decimal count changes width only when the integer part gains a
@@ -839,7 +839,7 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
             at.x -= w + READOUT_GAP * zoom;
         }
         let published = (is_output && port.ty == PortType::UniformNumber)
-            .then(|| cx.frame.uniforms.reading(PortRef::new(cx.id, port.key)))
+            .then(|| cx.frame.uniforms.get(PortRef::new(cx.id, port.key)))
             .flatten();
         let declared = (is_output && port.ty.is_varying() && thumb.is_none())
             .then(|| out_def.and_then(|o| o.range))
@@ -1992,7 +1992,11 @@ fn input_controls(
                 // `NumberSpec::fraction` is a position on a track and a position off the
                 // track's end is the end, but rounding the number to the range would be the
                 // control lying about the arriving value a second time.
-                let shown = cx.frame.uniforms.arriving(source).unwrap_or(*value);
+                let shown = cx
+                    .frame
+                    .uniforms
+                    .arriving(source)
+                    .map_or(*value, |v| v as f32);
                 let spec = crate::ui::number::NumberSpec {
                     learning: cx.learning(port.key),
                     ghost: cx.ghost(port.key),
@@ -3630,8 +3634,8 @@ pub struct PortLook {
     /// dot, so a port says which wire leaves it without the wire having to be followed.
     /// `None` when the preference is off or the port carries nothing.
     pub outline: Option<Color32>,
-    /// What an output published this frame, as a number — a count whole and unwrapped
-    /// ([`crate::synth::Uniforms::reading`]) — or as a color.
+    /// What an output published this frame, as a number — the `f64` as it was published
+    /// ([`crate::synth::Uniforms::get`]) — or as a color.
     pub published: Option<f64>,
     pub published_color: Option<[f32; 4]>,
     /// How brightly this port is throbbing because it just fired: 1 on the frame it fired and

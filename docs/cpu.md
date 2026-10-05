@@ -142,8 +142,13 @@ first in this order like anything else.
 Each node's half gets a `TickContext`, which is the entire surface between a CPU node and the
 rest of the app:
 
-- `ctx.input(id, key)` — the value of a `UniformNumber` input: what the producer published this
-  frame, or the input's own control if nothing is connected.
+- `ctx.input(id, key)` — the value of a `UniformNumber` input, an `f64`: exactly what the
+  producer published this frame, or the input's own control, widened, if nothing is connected.
+  **Every number between nodes is an `f64` and nothing on the CPU wraps one**, so a gear's
+  Cycles a million cycles in arrive as the count itself, through a Math node or not. A node
+  that computes in `f32` — a simulation, an envelope, a device — narrows what it reads and
+  widens what it publishes; one whose job is the number, the arithmetic, a counter, a slew,
+  the XY Pad's outputs, keeps the `f64`. See [the shader boundary](#the-shader-boundary).
 - `ctx.color(id, key)` — the same resolution for a `UniformColor` input: the producer's
   published color, or the input's own swatch.
 - `ctx.connected(id, key)` — whether anything is plugged into an input, for a node whose
@@ -159,23 +164,20 @@ rest of the app:
   empty. A node asks for a path and never learns where the project is.
 - `ctx.cache_dir()` — where the files derived from the project's media go: a transcode, a
   decoded soundtrack. Inside the project folder, so it travels with it.
-- `ctx.cycle(id)` — where a node that moves with time is this tick, in its own cycles and
-  unwrapped, its Offset added: in Loop mode what is cabled into its Time, read as a count, or
-  the playhead at its rate; in Free mode its own playhead at its pace, which the synth
-  integrated from its Speed. `ctx.cycle_at(id, rate)` is the same at a rate the node works out
-  itself, and `ctx.runs_free(id)` says which mode it is in. With nothing cabled into its
-  Time, either publishes the reading before Offset as a count under the Time key, which the
-  loop meter on the row reads. See [ambient time](#ambient-time).
-- `ctx.count(id, key)` — what arrives at an input read as a **count**, in `f64`: a count its
-  source published whole, unbounded, or else the one `f32` `ctx.input` reads.
-  `ctx.counted(id, key)` says which. `ctx.publish_count(id, port, count, one)` publishes a
-  count: `count` for a Time and for the row's number, and `one`, the `f32` everything else
-  reads. See [gears](#gears).
-- `ctx.wraps_at(id, key)` — where the clock cabled into an input wraps as `ctx.count` reads
-  it: never for a count published whole, and otherwise the feeding output's
-  `OutputDef::wraps_at`, 1 for a Phase, 2520 for anything else, a count's one `f32` through a
-  Math node among them (`phasor::wrap_count`). Where a Ratio Gear unwraps its Clock In to
-  find the whole cycles its output passed in a frame.
+- `ctx.cycle(id)` — where a node that moves with time is this tick, in its own cycles, its
+  Offset added: in Loop mode what is cabled into its Time, or the playhead at its rate; in
+  Free mode its own playhead at its pace, which the synth integrated from its Speed.
+  `ctx.cycle_at(id, rate)` is the same at a rate the node works out itself, and
+  `ctx.runs_free(id)` says which mode it is in. With nothing cabled into its Time, either
+  publishes the reading before Offset under the Time key, which the loop meter on the row
+  reads. See [ambient time](#ambient-time).
+- `ctx.wraps_at(id, key)` — where the clock cabled into an input wraps: the feeding output's
+  `OutputDef::wraps_at`, 1 for a gear's Phase, and never for anything else. Where a Ratio Gear
+  unwraps its Clock In and Offset to find the whole cycles its output passed in a frame, and a
+  sequencer its Time, so a Phase passing one is a frame's motion.
+- `ctx.geared(id, key)` — whether the output cabled into an input is a gear's or the Time
+  node's: a source that says when it jumps, so its reading going back with no such word is a
+  clock running backwards.
 - `ctx.jump(id, key)` — one of the node's number outputs was put where it is this frame
   rather than moved there; `ctx.jumped(id, key)` asks it of the output cabled into an input,
   which ticked first. A gear says it of its three readings on a Reset, on a change of a Ratio
@@ -203,9 +205,9 @@ rest of the app:
   later, where it is the `SetControl` a hand would have sent and therefore one undo step. It
   is fitted to the control's own range. Everything else a tick has to say goes out through a
   port.
-- `ctx.publish(id, key, f32)` — a `UniformNumber` output's value for this frame. The canvas
-  draws it on that output's row, and a control fed by it draws it too — see
-  [ui.md](ui.md#the-value-on-the-row).
+- `ctx.publish(id, key, f64)` — a `UniformNumber` output's value for this frame, exactly, which
+  every CPU reader gets as it is. The canvas draws it on that output's row, and a control fed
+  by it draws it too — see [ui.md](ui.md#the-value-on-the-row).
 - `ctx.publish_color(id, key, [f32; 4])` — the same for a `UniformColor` output. The row
   draws a swatch where a number would print, and every color control fed by it draws the
   arriving color.
@@ -280,6 +282,20 @@ close a microphone. Its time is not suspended: the tick it wakes on hands it the
 distance the transport moved while it slept, as a jump, so a gear on it is born again where
 the playhead puts it and a node on ambient time reads the playhead as it is —
 [the transport](#the-transport).
+
+### The shader boundary
+
+**A number between nodes is an `f64` on the CPU, and nothing there wraps it**: what a node
+publishes is what every CPU reader gets, a count a million cycles in included, and it is an
+`f64` again on the row that prints it. **It becomes an `f32` in one place, where it enters a
+shader** (`Synth::resolve`), and in one of two ways. Into a Time it is split, `vec2f(whole,
+fraction)` (`phasor::split`), its whole part wrapped at `phasor::WHOLE_WRAP`, so a body reads
+it as precisely at any count as at zero ([gears](#gears)). Into any other shader input it is
+cast, with an `f32`'s precision at its size: exact for the numbers a knob, an envelope or a
+Phase makes, and a sixteenth of a cycle at a million cycles, so a count a picture should read
+round a period belongs in a Time and not in a Speed, a size or a Math node feeding a field. A
+knob's own value stays the `f32` the control holds, widened when a tick reads it. See
+[decisions.md](decisions.md#numbers-between-nodes-are-f64-and-never-wrap).
 
 ## The transport
 
@@ -373,7 +389,7 @@ kind's rate and pace.
 **Loop mode**: the first row is **Time**, `nodes::TIME` (key `clock`), a diamond with no knob,
 in the node's own cycles. Unplugged it is ambient time, the playhead at the node's pace: for a
 node that draws, with no `cpu` half, the synth writes `playhead × pace`, from the `f64`
-playhead, as a count ([gears](#gears)) under `(node, "clock")` at the node's place in each
+playhead, under `(node, "clock")` at the node's place in each
 tick's walk. Plugged, what arrives replaces it, usually a gear's Cycles. Time is a
 `UniformNumber`, so a field cabled into it is an ordinary type mismatch.
 
@@ -387,7 +403,8 @@ axis with a 50 ms closed-form glide. So the playhead it keeps pauses with the sh
 — a render starts every one again with the rest of the nodes, and puts the live ones back
 after. For a node that draws, the synth writes `playhead × pace` under `(node, "clock")`
 exactly where Loop mode writes its ambient reading, so the compiler, which reads an unplugged
-Time as that published count, `vec2f(whole, fraction)`, cannot tell the two modes apart.
+Time as that published number split, `vec2f(whole, fraction)`, cannot tell the two modes
+apart.
 
 A body takes its Time round its period through the prelude's helpers — `time_periodic`,
 `time_repeat`, `time_cells` and `time_unbounded` — by reducing the whole part first, adding the fraction, then
@@ -397,7 +414,7 @@ a varying input on a node that draws, where a field makes a ripple, and a unifor
 CPU node.
 
 **A CPU node reads where it is through `TickContext::cycle(id)`**, its Offset added: in Loop
-mode what is cabled into its Time, read as a count in `f64`, or the playhead times its rate;
+mode what is cabled into its Time, in `f64`, or the playhead times its rate;
 in Free mode its own playhead times its pace, handed to the tick by the synth
 (`TickContext::running_free`). `ctx.cycle_at(id, rate)` is the same at a rate the node works
 out itself — a clip's one play over its own length, which is its pace too. `ctx.runs_free(id)`
@@ -419,10 +436,9 @@ see what it crossed: an edge detector, not an accumulator.
 - **`stepsequencer` and `euclideanrhythm`** read `ctx.cycle` in bars, sixteen steps a bar,
   through one reading, `nodes::sequencer`, under two patterns. A new one stands still, its Speed
   at 0; Speed 1 is a bar every two seconds, and in Loop mode a Master Gear a bar long is the
-  tempo, its Hold and Reset the play and the reset. A cabled Time is read through `ctx.count`: a count whole, in `f64`,
-  and anything else unwrapped where its source declares its wrap, so a gear's Phase passing
-  one, or a count's one `f32` through a Math node rolling over from 2520 to zero, is a frame's
-  motion; a jump, or a cable plugged in, let go or moved onto another
+  tempo, its Hold and Reset the play and the reset. A cabled Time is read as it arrives, in
+  `f64`, and unwrapped where its source declares a wrap, so a gear's Phase passing one is a
+  frame's motion; a jump, or a cable plugged in, let go or moved onto another
   output, puts the reading back at what the source publishes. **A step fires on each crossing of
   `floor(16 × cycle)`**, stamped with its moment inside the frame, and each lane
   reads the absolute step modulo its own length, so a lane of five against sixteen keeps its
@@ -501,86 +517,76 @@ was made, and at playhead zero every Master Gear is at the start of its cycle. G
 Trigger's length, as a fraction of a cycle. A beat is a Master Gear a beat long, and a bar a
 Ratio Gear at ÷4 below it.
 
-**The Ratio Gear** (`ratiogear`) is **a pure product of its parent**: `±(parent × p ÷ q) +
-offset`, worked out in `f64` each tick from what arrives at Clock In — a count read whole
-(`ctx.count`), anything else the one `f32` it is, a Phase among them — or from the playhead's
-seconds with nothing cabled. Nothing is integrated or carried from one tick to the next, so it
-has no position of its own: a seek, a render's warm-up, a relaunch and a reopened tab land it
-on the same count to the bit, and its loop is its parent's times `p/q` exactly. Its **Teeth**,
-`p : q`, are two whole numbers from 1 to 64 with no port (`nodes::gear::TEETH_P` and
-`TEETH_Q`, hidden controls on the Teeth row): it turns `p` times for every `q` turns of its
-parent, so 3 : 2 is three turns against two and 2 : 1 twice the parent. They are kept as
-typed and reduced only in the arithmetic (`gear::product`, `p ÷ q` in lowest terms), so 2 : 4
-and 1 : 2 count the same to the bit and the row still says 2 : 4. **Its direction**,
-`gear::DIRECTION` — key `direction`, `forward` by default or `reverse` — is a runtime option the
-Teeth row draws (`OptionDef::in_region`): Reverse negates the product, `−(parent × p ÷ q)` to
-the bit, so the gear counts down as fast as it would count up. **Its Offset** is every CPU
-node's (`timing::offset_row`, key `phaseOffset`, a uniform number of −1 to 1 cycles stepping by
-a thousandth, with a port), on the row under Clock In, and is added after the product and its
-sign, so it moves a reversed gear forwards as it does any other. **A change of Teeth or
-direction jumps**: the output lands at once on the product for the new setting, where it would
-be had it always run that way, and fires nothing for the cycles it went over; the gear says its
-readings jumped (`ctx.jump`), so a gear counting it is born again with it. An Offset turned or
-swayed by a cable is motion: the gear fires on the whole cycles it carries the output past.
-Its Trigger fires at the whole cycles of its output, going down as going up: the one thing it
-keeps is the parent's and the Offset's last readings, to find the cycles a frame passed,
-unwrapped where the output feeding each declares its wrap (`OutputDef::wraps_at`, through
-`ctx.wraps_at`: 1 for a Phase, 2520 for a count's one `f32` through a Math node; a step over
-half the wrap is the wrap, `phasor::unwrap_at`). A Phase in Clock In is a parent like any
-other: the gear is the Phase times `p ÷ q`, and comes round with it. Plugging Clock In, pulling
-it out or moving its cable onto another output is a birth, since the clock it counts is then
-another one, and fires nothing for the distance between the two. **A cabled clock its source
-says was put where it is** (`ctx.jumped`) — a Master Gear's Reset above, a gear above born
-again or its Teeth or direction changed — **or anything but a count sent back more than a
-cycle in one frame** has jumped too: the gear fires nothing for the cycles it went over, only
-one downbeat, as a Reset is a beat, where a whole cycle of its own lies between where it now is
-and a frame's motion at the pace the clock was going, the way the gear runs — so a hand's
-Reset, which lands at the top of the frame and runs on, is a beat to every gear counting the
-clock, whatever its Teeth or direction, however little of its first cycle the clock had run.
-The pace is the clock's last step over the advance it took, with the rounding of the readings
-it was measured on allowed: an `f64`'s for a count, an `f32`'s for anything else. A count,
-which only a gear or the Time node publishes, says when it jumps, so one that goes back by any
-amount with no word is a clock running backwards — a fast gear in Reverse passes several
+**The Ratio Gear** (`ratiogear`) is **a pure product of its parent**:
+`±(parent × p ÷ q) + offset`, worked out in `f64` each tick from what arrives at Clock In,
+exactly as it was published, or from the playhead's seconds with nothing cabled. Nothing is
+integrated or carried from one tick to the next, so it has no position of its own: a seek, a
+render's warm-up, a relaunch and a reopened tab land it on the same count to the bit, and its
+loop is its parent's times `p/q` exactly. Its **Teeth**, `p : q`, are two whole numbers from 1
+to 64 with no port (`nodes::gear::TEETH_P` and `TEETH_Q`, hidden controls on the Teeth row): it
+turns `p` times for every `q` turns of its parent, so 3 : 2 is three turns against two and 2 : 1
+twice the parent. They are kept as typed and reduced only in the arithmetic (`gear::product`,
+`p ÷ q` in lowest terms), so 2 : 4 and 1 : 2 count the same to the bit and the row still says
+2 : 4. **Its direction**, `gear::DIRECTION` — key `direction`, `forward` by default or `reverse` —
+is a runtime option the Teeth row draws (`OptionDef::in_region`): Reverse negates the product,
+`−(parent × p ÷ q)` to the bit, so the gear counts down as fast as it would count up. **Its
+Offset** is every CPU node's (`timing::offset_row`, key `phaseOffset`, a uniform number of −1 to
+1 cycles stepping by a thousandth, with a port), on the row under Clock In, and is added after
+the product and its sign, so it moves a reversed gear forwards as it does any other. **A change
+of Teeth or direction jumps**: the output lands at once on the product for the new setting,
+where it would be had it always run that way, and fires nothing for the cycles it went over; the
+gear says its readings jumped (`ctx.jump`), so a gear counting it is born again with it. An
+Offset turned or swayed by a cable is motion: the gear fires on the whole cycles it carries the
+output past. Its Trigger fires at the whole cycles of its output, going down as going up: the
+one thing it keeps is the parent's and the Offset's last readings, to find the cycles a frame
+passed, unwrapped where the output feeding each declares its wrap (`OutputDef::wraps_at`,
+through `ctx.wraps_at`: 1 for a Phase, and nothing else wraps; a step over half the wrap is the
+wrap, `phasor::unwrap_at`). A Phase in Clock In is a parent like any other: the gear is the
+Phase times `p ÷ q`, and comes round with it. Plugging Clock In, pulling it out or moving its
+cable onto another output is a birth, since the clock it counts is then another one, and fires
+nothing for the distance between the two. **A cabled clock its source says was put where it is**
+(`ctx.jumped`) — a Master Gear's Reset above, a gear above born again or its Teeth or
+direction changed — **or anything but a gear's reading sent back more than a cycle in one frame** has
+jumped too: the gear fires nothing for the cycles it went over, only one downbeat, as a Reset is
+a beat, where a whole cycle of its own lies between where it now is and a frame's motion at the
+pace the clock was going, the way the gear runs — so a hand's Reset, which lands at the top of
+the frame and runs on, is a beat to every gear counting the clock, whatever its Teeth or
+direction, however little of its first cycle the clock had run. The pace is the clock's last
+step over the advance it took, with the `f64` rounding of the readings it was measured on
+allowed. A gear, or the Time node (`ctx.geared`), says when it jumps, so its reading going back
+by any amount with no word is a clock running backwards — a fast gear in Reverse passes several
 cycles a frame going down, as a fast one forwards does going up — and so is anything else sent
 back by less than a cycle with no word, an oscillator scrubbing, a number turned down. A gear
 has no Hold, no Reset and no way to bend: a layer that should pause or bend runs free on its
 Speed, and one that should be placed is placed by an Offset, the gear's or its own. See
 [decisions.md](decisions.md#a-ratio-gear-is-a-pure-product-of-its-parent).
 
-**Both publish the same four.** **Cycles** is a **count**, published whole
-(`ctx.publish_count`), which a Time reads at the same precision at every count forever. A CPU
-node reads it in `f64`, unbounded, through `ctx.count` and `ctx.cycle`. A shader reads it as
+**Both publish the same four.** **Cycles** is a **count**, unbounded and never wrapped: every
+CPU reader — a Math node, a sequencer, a Ratio Gear, `ctx.cycle` — gets the `f64` itself, so
+Cycles times 0.37 through a Multiply is the count times 0.37 a million cycles in, and a reversed
+gear's count stays negative however far below zero it runs. A shader's Time reads it as
 `vec2f(whole, fraction)` (`compile::UniformProvider::NodeCount`, `phasor::split`): the whole
-part wrapped at `phasor::WHOLE_WRAP`, 80640, centered on zero, −40320 up to 40320, and the
-`f32` of the fraction, zero within `phasor::REACH` of a whole number. 80640 is twice the least
-common multiple of 2520 and 128, so every period a body takes its Time round — one cycle, a
-noise's Repeat to 16, Static's to 128 — divides it, and an `f32` holds every
-whole number to 2²⁴ exactly: a body reduces the whole part by its period, which is exact, then
-adds the fraction and Offset, so a gear a million cycles on draws what it drew near zero, to
-the bit. A picture that never repeats can be told apart only round the wrap: a noise at Repeat
-Never takes its lattice cell round 80640 and keeps the fraction apart (`time_cells`), so it
-comes back there with no seam, Static 56 minutes on at Speed 4; the tunnel at Depth Wrap None
-adds the two parts, an `f32` that resolves 2⁻⁸ of a cycle at worst, and jumps where the whole
-part wraps, 40320 flights in, fifteen days at Speed 4. **The row prints the count itself**, in `f64` and unwrapped
-(`synth::Uniforms::reading`), at the two places every readout has: it climbs for as long as
-the show runs, as the time readout's timecode does, and gives the label beside it room a
-character at a time. **Everything else reads one `f32`**: a Math node, any input that is not a
-Time. That is the count wrapped at `phasor::WRAP`, 2520 — the least common multiple of one to
-ten, so a reader at a whole ratio, or at one whose denominator is ten or less, passes the wrap
-with no seam — **keeping its sign**, an odometer either way (`phasor::wrap_count`): a count of
-zero or more is zero up to 2520, so a show's clock never reads negative and rolls over to
-zero 42 minutes into a show on a one-second gear, and a count below zero is zero down to
-−2520, so a warm-up before zero and a reversed gear read negative, and a count a hair below
-zero reads as the small negative it is, at zero's precision. Within `phasor::REACH` of a whole
-number of wraps it is zero, never −0. It is always a whole number of wraps from the count, so
-a reader that unwraps it at 2520 (`phasor::unwrap_at`, a step of more than 1260 being the
-wrap) reads a rollover as a frame's motion either way. Near ±2520 an `f32` resolves 2⁻¹² of a
-cycle, a quarter of a thousandth. A count put through a Math node is that one `f32` from then
-on, and a noise at Repeat 16 behind one meets a seam once every 2520 cycles. **Phase** (key `wrapped`) is the fraction alone, 0 up to 1. **Ping-pong** is a
-triangle over two cycles. **Trigger** is an event on each whole cycle, stamped where inside the
-frame it fell (`phasor::Step::crossings`, bounded per frame); a boundary a step ends within
-`phasor::REACH`, 10⁻⁹, short of is passed by that step and not again, so a render that lands a
-whole cycle exactly on a frame fires it on that frame.
+part wrapped at `phasor::WHOLE_WRAP`, 80640, centered on zero, −40320 up to 40320, and the `f32`
+of the fraction, zero within `phasor::REACH` of a whole number. 80640 is twice the least common
+multiple of 2520 — of one to ten — and 128, so every period a body takes its Time round — one
+cycle, a noise's Repeat to 16, Static's to 128 — divides it, and an `f32` holds every whole
+number to 2²⁴ exactly: a body reduces the whole part by its period, which is exact, then adds
+the fraction and Offset, so a gear a million cycles on draws what it drew near zero, to the bit.
+A picture that never repeats can be told apart only round the wrap: a noise at Repeat Never
+takes its lattice cell round 80640 and keeps the fraction apart (`time_cells`), so it comes back
+there with no seam, Static 56 minutes on at Speed 4; the tunnel at Depth Wrap None adds the two
+parts, an `f32` that resolves 2⁻⁸ of a cycle at worst, and jumps where the whole part wraps,
+40320 flights in, fifteen days at Speed 4. Any number in a Time is read so, a Math node's sum of
+Cycles too. **The row prints the count itself** (`synth::Uniforms::get`), at the two places
+every readout has: it climbs for as long as the show runs, as the time readout's timecode does,
+and gives the label beside it room a character at a time. A count cabled into a shader input
+that is not a Time is the `f32` of it, with an `f32`'s precision at its size: a cycle's fraction
+is gone past 2²³ cycles, so a count that a picture should read round a period belongs in a Time
+([the shader boundary](#the-shader-boundary)). **Phase** (key `wrapped`) is the fraction alone,
+0 up to 1. **Ping-pong** is a triangle over two cycles. **Trigger** is an event on each whole
+cycle, stamped where inside the frame it fell (`phasor::Step::crossings`, bounded per frame); a
+boundary a step ends within `phasor::REACH`, 10⁻⁹, short of is passed by that step and not
+again, so a render that lands a whole cycle exactly on a frame fires it on that frame.
 
 **A Master Gear's Hold** is a toggle that freezes it where it stands and closes the gate it
 left open, so nothing downstream is held by a clock that is not moving. **Its Reset** puts it
@@ -655,11 +661,9 @@ Output's ordinary render**, for as long as the caption says; there is no loop ex
 ([testing.md](testing.md#3-the-gpu--the-actual-pixels)).
 
 **The Time node** (`time`), in Gears too, is ambient time as a number, with no inputs:
-Seconds, the playhead, published as a count, so it **counts on**. A Time reads it whole — a
-CPU node the `f64` playhead, a shader its whole part wrapped at 80640 and its fraction — and
-so does its row; its one `f32`, what a Math node reads, is the playhead unwrapped, which
-resolves a millisecond for the first two hours of a show and a sixtieth of a second for the
-first 36.
+Seconds, the playhead, published in `f64` and never wrapped, so it **counts on**: every CPU
+reader and its row get the playhead to the bit, and a shader's Time its whole part wrapped at
+80640 and its fraction.
 
 ## The event half
 
