@@ -389,7 +389,7 @@ exactly where Loop mode writes its ambient reading, so the compiler, which reads
 Time as that published count, `vec2f(whole, fraction)`, cannot tell the two modes apart.
 
 A body takes its Time round its period through the prelude's helpers — `time_periodic`,
-`time_repeat` and `time_unbounded` — by reducing the whole part first, adding the fraction, then
+`time_repeat`, `time_cells` and `time_unbounded` — by reducing the whole part first, adding the fraction, then
 adding **Offset**, `nodes::timing::OFFSET` (key `phaseOffset`), in the node's cycles, added in
 both modes; its knob reaches one period either way, −P to P (`nodes::timing::range`). Offset is
 a varying input on a node that draws, where a field makes a ripple, and a uniform number on a
@@ -529,14 +529,17 @@ motion, and forwards a fast gear passes several cycles a frame, which is motion.
 (`ctx.publish_count`), which a Time reads at the same precision at every count forever. A CPU
 node reads it in `f64`, unbounded, through `ctx.count` and `ctx.cycle`. A shader reads it as
 `vec2f(whole, fraction)` (`compile::UniformProvider::NodeCount`, `phasor::split`): the whole
-part wrapped at `phasor::WHOLE_WRAP`, 40320, centered on zero, −20160 up to 20160, and the
-`f32` of the fraction, zero within `phasor::REACH` of a whole number. 40320 is the least common
-multiple of 2520 and 128, so every period a body takes its Time round — one cycle, a noise's
-Repeat to 16, Static's to 128 — divides it, and an `f32` holds every whole
-number to 2²⁴ exactly: a body reduces the whole part by its period, which is exact, then adds
-the fraction and Offset, so a gear a million cycles on draws what it drew near zero, to the
-bit. A picture that never repeats adds the two parts, an `f32` that resolves 2⁻⁹ of a cycle at
-worst, and jumps where the whole part wraps, 20160 cycles in. **Everything else reads one
+part wrapped at `phasor::WHOLE_WRAP`, 80640, centered on zero, −40320 up to 40320, and the
+`f32` of the fraction, zero within `phasor::REACH` of a whole number. 80640 is twice the least
+common multiple of 2520 and 128, so every period a body takes its Time round — one cycle, a
+noise's Repeat to 16, Static's to 128 — divides it, and an `f32` holds every
+whole number to 2²⁴ exactly: a body reduces the whole part by its period, which is exact, then
+adds the fraction and Offset, so a gear a million cycles on draws what it drew near zero, to
+the bit. A picture that never repeats can be told apart only round the wrap: a noise at Repeat
+Never takes its lattice cell round 80640 and keeps the fraction apart (`time_cells`), so it
+comes back there with no seam, Static 56 minutes on at Speed 4; the tunnel at Depth Wrap None
+adds the two parts, an `f32` that resolves 2⁻⁸ of a cycle at worst, and jumps where the whole
+part wraps, 40320 flights in, fifteen days at Speed 4. **Everything else reads one
 `f32`**: a Math node, any input that is not a Time, the row's number. That is the count
 wrapped at `phasor::WRAP`, 2520 — the least common multiple of one to ten, so a reader at a
 whole ratio, or at one whose denominator is ten or less, passes the wrap with no seam — and
@@ -607,7 +610,7 @@ render**, for as long as the caption says; there is no loop export.
 
 **The Time node** (`time`), in Gears too, is ambient time as a number, with no inputs:
 Seconds, the playhead, published as a count, so it **counts on**. A Time reads it whole — a
-CPU node the `f64` playhead, a shader its whole part wrapped at 40320 and its fraction —
+CPU node the `f64` playhead, a shader its whole part wrapped at 80640 and its fraction —
 and its one `f32`, what a Math node reads, is the playhead unwrapped, which resolves a
 millisecond for the first two hours of a show and a sixtieth of a second for the first 36.
 

@@ -1493,8 +1493,8 @@ generations to `dt` with the fraction carried, so the pace is the same at any ti
 **State is `f64`, and a count is published whole.** A gear's Cycles, the Time node's Seconds
 and an unplugged Time's ambient reading are **counts** (`TickContext::publish_count`), which a
 Time reads at the same precision at every count forever: a CPU node in `f64`, unbounded, and a
-shader as `vec2f(whole, fraction)` — the whole part wrapped at **40320**, the least common
-multiple of 2520 and 128, centered on zero, and the `f32` of the fraction (`phasor::split`) —
+shader as `vec2f(whole, fraction)` — the whole part wrapped at **80640**, twice the least
+common multiple of 2520 and 128, centered on zero, and the `f32` of the fraction (`phasor::split`) —
 reducing the whole part by its period before it adds the fraction, which is exact, since an
 `f32` holds every whole number to 2²⁴. Everything else reads one `f32`: a gear's wrapped at
 2520, the least common multiple of one to ten, centered on zero, −1260 up to 1260
@@ -1503,11 +1503,14 @@ fraction of a second, which is all a shader reads of it. **Rejected: a count as 
 wrapped at 2520.** An `f32` rounds one moment differently by how large the count is, so −0.01
 and 0.99 are a hair apart once stored: through feedback, "Reverse the show" closed with 32
 pixels a level off after a warm-up at negative time, worse the longer the warm-up, and a
-noise at Repeat 16, Static at 16 to 128, the tunnel's 64 and a clip on Hold met a seam once
+noise at Repeat 16, Static at 16 to 128 and a clip on Hold met a seam once
 every 2520 cycles, since none of their periods divides 2520. **Rejected: the wrap into 0 up to
 2520**, before it, for the same reason at its worst: a count a hair below zero read 2519.99,
 where an `f32` resolves only 2⁻¹² of a cycle. **Rejected: an `f64` uniform**, which WGSL has
-none of on the GPUs supersilvia runs on. **Rejected: Seconds' one `f32` wrapped at 2520**,
+none of on the GPUs supersilvia runs on. **Rejected: the wrap at 40320**, the least common
+multiple itself: a picture that never repeats can be told apart only round the wrap, and
+Static, six rolls a second, rolled through 40320 in 28 minutes at Speed 4, under the forty
+Repeat Never is held to. **Rejected: Seconds' one `f32` wrapped at 2520**,
 which jumped 21 minutes into a show, where it has to count on; at one a second an
 unwrapped `f32` resolves a frame for 36 hours.
 
@@ -1691,6 +1694,31 @@ automatically**, which the show-wide Loop mode did: a circle through four dimens
 three, so repeating changes the picture and a person chooses it. **Rejected: both forms in
 every module, chosen by a uniform**, which would compile a four-dimensional noise into every
 shader holding a noise for the few that repeat.
+
+**Never means forty minutes at Speed 4, at least**, judged as seen: a noise at Repeat Never
+neither comes back exactly nor meets a seam sooner, at the Speed knob's top. A shader tells a
+count apart only round its whole part's wrap, so a noise at Never takes its time round that,
+80640 cells, as the cell it is in and the fraction into it, never added (`time_cells`): its
+lattice comes back exactly there, so the wrap has no seam, and the fraction is as fine at the
+end of a show as at the start. Static's rolls come back at 80640 too, 56 minutes on at
+Speed 4. The line's Perlin and simplex lattices are hashed by an integer hash, Chris Wellons'
+`lowbias32` chained over the corner (`LATTICE_HASH_WGSL`), and taken modulo 289 into
+webgl-noise's gradients, so the noise keeps its look and its share of gradients and only
+which blob sits where is new. The simplex corner is hashed by what a step of three cells along
+time leaves alone, `x − y` and `4x − z`, and by its depth `5z − x − y` modulo six wraps, so a
+corner hashes the same from either side of a step and the lattice comes back at the wrap and
+not before. **Rejected: webgl-noise's permutation, `(34x² + x) mod 289`**, on the line. It
+moves by 17 wherever its argument does, so it hashes `(x, y + 17, t − 17)` as `(x, y, t)`:
+17 cells on along time its noise is its noise 17 cells over, to the bit — half a Perlin's
+frame at its default scale slid across, 34 seconds into a show at Speed 1, 8½ at Speed 4 —
+and the whole lattice comes back every 289 cells, 867 along the simplex skew, 2.4 and 7
+minutes at Speed 4. No mixing of the time cell into it after the first block of 289 keeps the
+picture at the start without keeping the slide. **Rejected: the line as a circle 80640 round
+through the four-dimensional noise**, which comes back at the wrap too but costs every Never
+noise the fourth dimension, and whose angle an `f32` holds to a few thousandths of a cell
+there. **Rejected: Static on an integer hash too.** Its sine hash, measured on an integrated
+GPU, draws rolls as unlike each other 80000 rolls on as at the first — no two of 3000
+consecutive rolls correlated beyond 0.12 — so its field is kept.
 
 **The Tunnel's path is retuned so its flight repeats.** Every path frequency is multiplied by
 5π/16, so Sine and Lissajous repeat every 64 units of depth and Helix every 16 — whole numbers

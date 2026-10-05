@@ -159,8 +159,9 @@ pub fn varying<F: FnOnce(NodeId, &CompileContext<'_>) -> String>(f: F) -> Varyin
 /// before `after_time:`, its Timing heading and mode after its options, and a body reads where
 /// it is through the Time hole and the prelude's time helpers: `time_periodic({clock},
 /// {phaseOffset})` is the cycle, `time_repeat({clock}, n, {phaseOffset})` the time modulo a
-/// period `n` dividing `phasor::WHOLE_WRAP`, and `time_unbounded({clock}, {phaseOffset})` the
-/// whole count. Time is what the synth publishes each tick — the ambient reading or a cable in
+/// period `n` dividing `phasor::WHOLE_WRAP`, `time_cells({clock}, n, {phaseOffset})` the
+/// lattice cell it is in round `n` and the fraction into it, and
+/// `time_unbounded({clock}, {phaseOffset})` the whole count. Time is what the synth publishes each tick — the ambient reading or a cable in
 /// Loop mode, the node's own integrated Speed in Free mode — so a body never reads Speed.
 macro_rules! node {
     (

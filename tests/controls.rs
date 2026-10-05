@@ -422,7 +422,7 @@ fn control_edits_reach_the_generated_uniforms() {
     app.apply(Command::SetControl {
         node: cb,
         key: "frequency",
-        value: ControlValue::Float(40.0),
+        value: ControlValue::Float(47.25),
     })
     .unwrap();
 
@@ -434,7 +434,7 @@ fn control_edits_reach_the_generated_uniforms() {
             .contains_key("u_control_checkerboard1_frequency")
     );
     assert!(
-        !shader.body.contains("40"),
+        !shader.body.contains("47.25"),
         "a control value must never be baked into the WGSL"
     );
 }

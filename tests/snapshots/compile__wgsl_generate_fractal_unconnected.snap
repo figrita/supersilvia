@@ -24,15 +24,31 @@ struct Uniforms {
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
-fn mod289_3d_v3(x: vec3f) -> vec3f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-fn mod289_3d_v4(x: vec4f) -> vec4f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-fn permute3d(x: vec4f) -> vec4f { return mod289_3d_v4(((x * 34.0) + 1.0) * x); }
+fn latticeHash(v: vec4u) -> vec4u {
+    var x = v;
+    x ^= x >> vec4u(16u);
+    x *= vec4u(0x7feb352du);
+    x ^= x >> vec4u(15u);
+    x *= vec4u(0x846ca68bu);
+    x ^= x >> vec4u(16u);
+    return x;
+}
+
+fn latticeIndex(x: vec4i, y: vec4i, z: vec4i) -> vec4f {
+    let h = latticeHash(bitcast<vec4u>(x) + latticeHash(bitcast<vec4u>(y) + latticeHash(bitcast<vec4u>(z))));
+    return vec4f(h % vec4u(289u));
+}
+
 fn taylorInvSqrt3d(r: vec4f) -> vec4f { return 1.79284291400159 - 0.85373472095314 * r; }
 
-fn snoise3(v: vec3f) -> f32 {
+fn snoise3(q: vec2f, t: vec2f) -> f32 {
     const C = vec2f(1.0 / 6.0, 1.0 / 3.0);
     const D = vec4f(0.0, 0.5, 1.0, 2.0);
-    var i = floor(v + dot(v, C.yyy));
+    let k = floor(t.y);
+    let cell = i32(whole_mod(t.x + k, WHOLE_WRAP));
+    let steps = cell / 3;
+    let v = vec3f(q, f32(cell - 3 * steps) + t.y - k);
+    let i = floor(v + dot(v, C.yyy));
     let x0 = v - i + dot(i, C.xxx);
     let g = step(x0.yzx, x0.xyz);
     let l = 1.0 - g;
@@ -41,11 +57,12 @@ fn snoise3(v: vec3f) -> f32 {
     let x1 = x0 - i1 + C.xxx;
     let x2 = x0 - i2 + C.yyy;
     let x3 = x0 - D.yyy;
-    i = mod289_3d_v3(i);
-    let p = permute3d(permute3d(permute3d(
-        i.z + vec4f(0.0, i1.z, i2.z, 1.0))
-        + i.y + vec4f(0.0, i1.y, i2.y, 1.0))
-        + i.x + vec4f(0.0, i1.x, i2.x, 1.0));
+    let cx = vec4i(i.x + vec4f(0.0, i1.x, i2.x, 1.0));
+    let cy = vec4i(i.y + vec4f(0.0, i1.y, i2.y, 1.0));
+    let cz = vec4i(i.z + vec4f(0.0, i1.z, i2.z, 1.0));
+    let span = 6 * i32(WHOLE_WRAP);
+    let depth = 5 * cz - cx - cy + 18 * steps;
+    let p = latticeIndex(cx - cy, 4 * cx - cz, ((depth % span) + span) % span);
     let n_ = 0.142857142857;
     let ns = n_ * D.wyz - D.xzx;
     let j = p - 49.0 * floor(p * ns.z * ns.z);
@@ -75,14 +92,14 @@ fn snoise3(v: vec3f) -> f32 {
     return 42.0 * dot(m * m, vec4f(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
 }
 
-fn fbmNoise(p: vec2f, freq0: f32, octaves: i32, lacunarity: f32, gain: f32, t: f32, shape: i32) -> f32 {
+fn fbmNoise(p: vec2f, freq0: f32, octaves: i32, lacunarity: f32, gain: f32, t: vec2f, shape: i32) -> f32 {
     var freq = freq0;
     var sum = 0.0;
     var amp = 1.0;
     var total = 0.0;
     for (var i = 0; i < 8; i++) {
         if (i >= octaves) { break; }
-        var n = snoise3(vec3f(p * freq, t + f32(i) * 0.3)) * 0.5 + 0.5;
+        var n = snoise3(p * freq, vec2f(t.x, t.y + f32(i) * 0.3)) * 0.5 + 0.5;
         if (shape == 1) {
             n = abs(n * 2.0 - 1.0);
         } else if (shape == 2) {
@@ -188,7 +205,7 @@ fn loopCircle(turn: f32, reach: f32) -> vec2f {
 fn fractal1_color(uv: vec2f) -> vec4f {
     let contrast = u.u_control_fractal1_contrast;
     let octaves = i32(clamp(u.u_control_fractal1_octaves, 1.0, 8.0));
-    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_unbounded(u.u_count_fractal1_clock, u.u_control_fractal1_phaseOffset), 0);
+    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_cells(u.u_count_fractal1_clock, WHOLE_WRAP, u.u_control_fractal1_phaseOffset), 0);
     let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
     return mix(u.u_control_fractal1_background, u.u_control_fractal1_foreground, value);
 }
@@ -196,7 +213,7 @@ fn fractal1_color(uv: vec2f) -> vec4f {
 fn fractal1_value(uv: vec2f) -> f32 {
     let contrast = u.u_control_fractal1_contrast;
     let octaves = i32(clamp(u.u_control_fractal1_octaves, 1.0, 8.0));
-    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_unbounded(u.u_count_fractal1_clock, u.u_control_fractal1_phaseOffset), 0);
+    let raw = fbmNoise(uv * (u.u_control_fractal1_scale), 1.0, octaves, u.u_control_fractal1_lacunarity, u.u_control_fractal1_gain, time_cells(u.u_count_fractal1_clock, WHOLE_WRAP, u.u_control_fractal1_phaseOffset), 0);
     let value = clamp((raw - 0.5) * contrast + 0.5, 0.0, 1.0);
     return value;
 }

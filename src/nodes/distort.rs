@@ -47,8 +47,8 @@
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::noise::{
-    FBM_LOOP_WGSL, FBM_WGSL, LOOP_CIRCLE_WGSL, SIMPLEX3D_WGSL, SIMPLEX4D_WGSL, fbm_time,
-    noise_timing,
+    FBM_LOOP_WGSL, FBM_WGSL, LATTICE_HASH_WGSL, LOOP_CIRCLE_WGSL, SIMPLEX3D_WGSL, SIMPLEX4D_WGSL,
+    fbm_time, noise_timing,
 };
 use crate::nodes::{
     Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
@@ -629,7 +629,14 @@ node! {
             "16" => "Every 16",
         ],
     ],
-    wgsl_utils: [SIMPLEX3D_WGSL, FBM_WGSL, SIMPLEX4D_WGSL, FBM_LOOP_WGSL, LOOP_CIRCLE_WGSL],
+    wgsl_utils: [
+        LATTICE_HASH_WGSL,
+        SIMPLEX3D_WGSL,
+        FBM_WGSL,
+        SIMPLEX4D_WGSL,
+        FBM_LOOP_WGSL,
+        LOOP_CIRCLE_WGSL
+    ],
     wgsl_common: varying(|node, ctx| {
         let (shape, count) =
             warp_options(ctx.option(node, "type"), ctx.option(node, "iterations"));

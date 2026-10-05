@@ -3603,7 +3603,7 @@ the one turning.
 **Under a Master Gear, its caption**: what a loop of it needs, read from every Ratio Gear
 chain below it and every node those chains drive through its Time (`nodes::chain::caption`).
 The chains' ratios multiply down each chain, each node comes back after its own period on its
-chain — a noise's Repeat, the tunnel's 64, a sequencer's lanes against the bar — and a loop is
+chain — a noise's Repeat, a tunnel's Helix, a sequencer's figure against the bar — and a loop is
 as many of the master's cycles as the least common multiple of what they ask for —
 `loops in 1 cycle · 2.000 s`, or `loops in 4 cycles · 8.000 s (÷4 on ratiogear12)` or
 `(÷4 on perlin5)`, naming the gear or node that asks for the most — or `2 nodes will not

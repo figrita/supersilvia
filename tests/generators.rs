@@ -480,7 +480,11 @@ fn repeat_rebuilds_a_noise_on_its_circle() {
             .body
     };
     let line = body(&app);
-    assert!(line.contains("cnoise3(vec3f(") && !line.contains("loopCircle(time_repeat("));
+    assert!(
+        line.contains("cnoise3(uv * noiseScale, time_cells(")
+            && !line.contains("loopCircle(time_repeat("),
+        "{line}"
+    );
     option(&mut app, perlin, "repeat", "8");
     let circle = body(&app);
     assert!(

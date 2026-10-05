@@ -910,11 +910,13 @@ fn node_graph(def: &'static nodes::NodeDef, wired: bool, strict: bool) -> (Graph
 
 /// Whether `body` adds `offset` to `time`, a count `vec2f(whole, fraction)`, through the
 /// prelude's helper for its period: to its fraction on a periodic node, to the two parts on a
-/// line, or to its whole part taken modulo the tunnel's 64 and then its fraction.
+/// line — a noise's kept apart as a cell and a fraction, round the count's wrap — or to its
+/// whole part taken modulo the tunnel's 64 and then its fraction.
 fn added(body: &str, time: &str, offset: &str) -> bool {
     [
         format!("time_periodic({time}, {offset})"),
         format!("time_unbounded({time}, {offset})"),
+        format!("time_cells({time}, WHOLE_WRAP, {offset})"),
         format!("time_repeat({time}, 64.0, {offset})"),
     ]
     .iter()

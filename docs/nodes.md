@@ -106,7 +106,9 @@ after the `inputs:` list and before an optional `after_time:` list, and the Timi
 and its mode after the options. A body reads where the node is through the Time hole and
 Offset's, by the prelude's helper for its kind of period: `time_periodic({clock},
 {phaseOffset})` is the cycle on a periodic node, `time_repeat({clock}, N, {phaseOffset})` its
-time round a period `N`, and `time_unbounded({clock}, {phaseOffset})` its time on a line. The
+time round a period `N`, `time_cells({clock}, N, {phaseOffset})` the lattice cell it is in
+round `N` and the fraction into it, and `time_unbounded({clock}, {phaseOffset})` its time on a
+line. The
 arm adds no `cpu` half and no output: the Time hole is a count the synth writes each tick,
 and a body never reads Speed.
 
@@ -218,7 +220,8 @@ that wants two types is two names (`mod289_v3`, `mod289_v4`), and a name is uniq
 whole registry, which `every_wgsl_util_name_is_unique` checks by parsing every util into one
 module. The prelude, `compile/prelude.wgsl`, has `PI`, `floor_mod` (and `floor_mod2`, `3`,
 `4`), `whole_mod` for a clock's whole part (in integers, which Metal's fast math cannot fold into
-the fraction added after it), `hash2`, `hsv2rgb2`, `defaultUvMap` and the vertex stage.
+the fraction added after it), the time helpers and `WHOLE_WRAP` ([Timing](#timing)), `hash2`,
+`hsv2rgb2`, `defaultUvMap` and the vertex stage.
 
 **Every loop in the library** is a `for` over an integer counter that ends within a constant
 number of iterations: a literal bound, or an option's value the generator writes in as one,
@@ -539,8 +542,13 @@ or closed ([ui.md](ui.md#options-and-the-file-button) has the bar).
 **What a body reads.** One prelude helper per kind of period, each taking the Time count and
 Offset: `time_periodic` for a node that comes back every cycle, the fraction plus Offset;
 `time_repeat(time, n, offset)` for one that comes back every `n`, the whole part reduced by
-`n`, then the fraction, then Offset; and `time_unbounded` for one that never does, the whole
-count plus Offset. The tunnel is `time_periodic`, a cycle a flight of 64 units. The body
+`n`, then the fraction, then Offset; `time_cells(time, n, offset)` for one on a lattice,
+`vec2f(cell, fraction)`, the whole cell Time plus Offset is in, taken round `n`, and how far
+into it, the two never added, so the fraction is as fine ten thousand cells on as in the
+first; and `time_unbounded` for one that never does, the whole count plus Offset, an `f32`
+that resolves 2⁻⁸ of a cycle where the whole part wraps and jumps there. A noise at Repeat
+Never is `time_cells` round `WHOLE_WRAP`, the prelude's `phasor::WHOLE_WRAP`; the tunnel is
+`time_periodic`, a cycle a flight of 64 units. The body
 takes the result round its own period where it needs to.
 
 **The rate at rest is silvia's default speed** in the node's own cycles, so a node dropped in
@@ -556,9 +564,9 @@ pace is one chosen to look natural at Speed 1, with Speed starting at 0.
 | `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60: a cycle a minute | 1/60 | 1 | 1 |
 | `shakycam` | X: the 20π super-cycle; Y: a quarter of it, where its two waves line up | 1/60 on X, 1/15 on Y | 1/60 on X, 1/15 on Y | 1, per axis | 1 |
 | `geissflow` | the 20π flow cycle | 1/160 | 1/160 | 1 | 1 |
-| `perlin` | a lattice cell along the time axis | 0.5 cells a second | 0.5 | 1 | `N` under Repeat, else nothing |
-| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | 0.5 cells a second | 0 | `N` under Repeat, else nothing |
-| `static` | a roll | 0: still | 6 rolls a second | 0 | `N` under Repeat, else nothing |
+| `perlin` | a lattice cell along the time axis | 0.5 cells a second | 0.5 | 1 | `N` under Repeat, else 80640 |
+| `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | 0.5 cells a second | 0 | `N` under Repeat, else 80640 |
+| `static` | a roll | 0: still | 6 rolls a second | 0 | `N` under Repeat, else 80640 |
 | `tunnel3d` | a flight of 64 units of camera depth | 1/128: half a unit a second | 1/128 | 1 | 1 while the depth wraps, else nothing |
 | `oscillator` | one wave | 1: a wave a second | 1 | 1 | read unwrapped on the CPU |
 | `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length: its native speed | 1 ÷ the clip's length | 1 | read unwrapped on the CPU |
@@ -585,13 +593,26 @@ and `domainwarp` carry a **Repeat** option: Never, the default and silvia's look
 `N`, a noise walks a circle of circumference `N` through a four-dimensional noise, turned
 `time_repeat(Time, N, Offset) ÷ N` (`loopCircle`, with `PERLIN4D_WGSL`, `SIMPLEX4D_WGSL` and
 `FBM_LOOP_WGSL`, Gustavson's `webgl-noise`), so its picture comes back every `N`; Static reads
-its roll modulo `N`. Every `N` divides the 40320 the whole part wraps at, so a noise on a gear
-never meets a seam. It is a `Code` option and rebuilds, and a person chooses it, because a
+its roll modulo `N` (`time_cells`). Every `N` divides the 80640 the whole part wraps at, so a
+noise on a gear never meets a seam. It is a `Code` option and rebuilds, and a person chooses it, because a
 circle through four dimensions is not the line through three and the picture changes. Offset
 on a noise does not wrap unless Repeat is on, and then it wraps at `N`, which is also how far
 its knob reaches either way. At rest, Perlin at
 Repeat 4 comes back every 8 s; driven by a gear at a cell a cycle, Repeat 1 comes back every
 cycle.
+
+**Never is forty minutes at Speed 4, at least.** A picture that says it never repeats neither
+comes back nor meets a seam within forty minutes of the show at the Speed knob's top: 4800
+cells for a noise, 57600 rolls for Static. A shader tells a count apart only round its whole
+part's wrap, so a noise at Never walks its line round `WHOLE_WRAP`, 80640 cells — the cell
+hashed, the fraction kept apart (`time_cells`) — and comes back there exactly, with no seam,
+672 minutes on at Speed 4 and 2688 at Speed 1; Static's rolls come back at 80640, 56 minutes
+on at Speed 4. The line's lattice is hashed by an integer hash, `LATTICE_HASH_WGSL`, not
+webgl-noise's permutation, whose lattice comes back slid 17 cells across 17 cells on along
+time;
+the gradients are webgl-noise's, so the look is its own
+([decisions.md](decisions.md#two-modes-and-a-loop-is-read-from-the-clocks)). The four-dimensional
+circle keeps webgl-noise's hash, which never reaches 17 cells round a circle of 16.
 
 **The tunnel's path is tuned so its flight repeats.** Every path frequency is silvia's times
 5π/16: Sine's and Lissajous's 0.3 and 0.5 are 0.2945 and 0.4909, and the Helix's 0.4 is
@@ -672,8 +693,8 @@ workspace's Output through the ordinary render for as long as its Master Gear sa
   and so closes on any loop.
 
 **A loop that closes closes to the bit.** A node takes its Time round its own period before
-it adds Offset — the prelude's `time_periodic`, `time_repeat` and `time_unbounded` — Time's
-fraction plus Offset on a periodic node, `Time mod N` under Repeat, a
+it adds Offset — the prelude's `time_periodic`, `time_repeat`, `time_cells` and
+`time_unbounded` — Time's fraction plus Offset on a periodic node, `Time mod N` under Repeat, a
 noise's circle and Static's roll alike, each the whole part
 reduced and the fraction added — so a Time one whole period on draws exactly what a Time of
 zero drew, whatever the Offset or the field in it. Added the other way round, `Time + Offset`
@@ -1040,9 +1061,10 @@ The five noises — `perlin`, `simplex`, `worley`, `fractal`, `static` — each 
 and then choose a color from it, so each publishes that number as `value`. `worley` picks
 between the distance to its nearest feature point, one flat tone per cell, and the Voronoi
 edges; `fractal` sums octaves of `simplex`; `static` redraws its whole field once a roll,
-the `floor` of `Time + Offset`. `perlin`, `simplex` and `fractal` walk their time axis by the
-same sum, in lattice cells, and the three with `static` carry the Repeat option that walks a
-circle instead ([Timing](#timing)); `worley` has no time input at all.
+the whole cell `Time + Offset` is in. `perlin`, `simplex` and `fractal` walk their time axis
+in lattice cells, the cell and the fraction apart (`time_cells`), and the three with `static`
+carry the Repeat option that walks a circle instead ([Timing](#timing)); `worley` has no time
+input at all.
 Their gradient functions are `NodeDef::wgsl_utils`, so a shader with no noise in it carries
 none of them.
 
@@ -1514,10 +1536,11 @@ have put it and its downbeat is the input's.
 **Both publish the same four.** **Cycles** are a count, a time rather than a fraction, since
 a wrap at one would put a seam in front of every reader not periodic at one cycle. A Time
 reads it whole: a CPU node in `f64`, never wrapped, and a shader as its whole part, wrapped at
-40320 and centered on zero, and the `f32` of its fraction, so a gear reset and stepped back
+80640 and centered on zero, and the `f32` of its fraction, so a gear reset and stepped back
 reads −0.01, a render's warm-up counts before zero as precisely as after it, and the
-millionth cycle is as precise as the first. 40320 is the least common multiple of 2520 and 128,
-which every Repeat and Static's 128 divide. Anything else — a Math node, an
+millionth cycle is as precise as the first. 80640 is twice the least common multiple of 2520
+and 128, which every Repeat and Static's 128 divide, and the most a picture
+that never repeats can run before it comes back ([Timing](#timing)). Anything else — a Math node, an
 input that is not a Time, the row — reads one `f32`, wrapped at 2520 and centered on zero,
 −1260 up to 1260, the least common multiple of one to ten, which a reader at a whole ratio or
 a ratio in tenths passes with no seam: through a Math node, a gear at a cycle a second rolls

@@ -55,9 +55,11 @@
 //!
 //! **What a body reads.** One WGSL helper per kind of period, in the prelude: `time_periodic`
 //! for a node whose picture comes back every cycle, `time_repeat` for one that repeats every
-//! `n`, and `time_unbounded` for one that never does. Each reduces the count's whole part by
-//! the period, adds its fraction, then adds Offset, which is the order that closes a loop to
-//! the bit: a Time one period on draws exactly what a Time of zero drew, whatever the Offset.
+//! `n`, `time_cells` for one on a lattice — a noise at Repeat Never round the count's wrap, the
+//! cell and the fraction apart — and `time_unbounded` for one that never does. Each reduces the
+//! count's whole part by the period, adds its fraction, then adds Offset, which is the order
+//! that closes a loop to the bit: a Time one period on draws exactly what a Time of zero drew,
+//! whatever the Offset.
 //!
 //! **What a CPU node reads**: [`TickContext::cycle`](crate::nodes::TickContext::cycle), where
 //! the node is with its Offset added, or `cycle_at` for a clip, whose pace is one play over its
