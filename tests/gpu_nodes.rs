@@ -31,7 +31,8 @@ const DRAW: OutputMode = OutputMode::Draw;
 // --------------------------------------------------------------------------- the harness
 
 /// Every uniform of `shader` as the synth resolves it: a control and an option off the graph,
-/// a texture by the port that publishes it, and a published uniform number from `published`.
+/// a color control premultiplied, a texture by the port that publishes it, and a published
+/// uniform number from `published`.
 fn resolve(
     g: &Graph,
     shader: &Shader,
@@ -45,7 +46,9 @@ fn resolve(
                 UniformProvider::Control { node, key, .. } => {
                     match g.get(*node)?.controls.get(key)? {
                         ControlValue::Float(v) => UniformValue::Float(*v),
-                        ControlValue::Color(v) => UniformValue::Vec4(*v),
+                        ControlValue::Color(v) => {
+                            UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(*v))
+                        }
                     }
                 }
                 UniformProvider::NodeTexture { node, port } => {
@@ -847,6 +850,235 @@ fn a_regions_background_shows_through_a_transparent_input() {
     assert_eq!(outside, [0, 0, 0, 0], "and outside is transparent");
 }
 
+// ------------------------------------------------------ straight colors in, composites over
+
+/// Half-transparent red as a picker holds it: straight, `#ff000080`.
+const HALF_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
+const BLUE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+const CLEAR: [f32; 4] = [0.0; 4];
+
+/// A node whose picture is one color control, premultiplied as every color control is: a
+/// Layer Blend of nothing over that color. A color control is the one way in here whose
+/// conversion is the synth's own, so these tests hold whatever an `rgba` makes of its numbers.
+fn swatch(g: &mut Graph, color: [f32; 4]) -> NodeId {
+    let layer = add(g, "layerblend");
+    set_color(g, layer, "background", color);
+    set_color(g, layer, "foreground", CLEAR);
+    layer
+}
+
+/// The middle pixel of `node`'s color output, drawn through an Output.
+fn middle_of(mut g: Graph, node: NodeId, port: &'static str) -> [u8; 4] {
+    const SIZE: usize = 8;
+    let out = add(&mut g, "output");
+    g.connect(PortRef::new(node, port), PortRef::new(out, "input"))
+        .unwrap();
+    rendered(&g, out, SIZE as u32)[(SIZE / 2) * SIZE + SIZE / 2]
+}
+
+/// A color control reaches its shader premultiplied: a Region's background, which is the
+/// control itself outside the rectangle, of `#ff000080` is half of red at half alpha.
+#[test]
+fn a_color_control_reaches_the_shader_premultiplied() {
+    const SIZE: usize = 16;
+    let mut g = Graph::new();
+    let region = add(&mut g, "regionabsolute");
+    let out = add(&mut g, "output");
+    set(&mut g, region, "left", -0.5);
+    set(&mut g, region, "right", 0.5);
+    set_color(&mut g, region, "bgColor", HALF_RED);
+    g.connect(PortRef::new(region, "output"), PortRef::new(out, "input"))
+        .unwrap();
+    let pixels = rendered(&g, out, SIZE as u32);
+    assert_eq!(pixels[(SIZE / 2) * SIZE], [128, 0, 0, 128]);
+}
+
+/// Layer Blend's Normal is Porter–Duff over: a half-transparent red over nothing is itself,
+/// and over opaque blue is half of each, opaque.
+#[test]
+fn layer_blends_normal_is_over() {
+    let over = |bg: [f32; 4]| {
+        let mut g = Graph::new();
+        let layer = add(&mut g, "layerblend");
+        set_color(&mut g, layer, "background", bg);
+        set_color(&mut g, layer, "foreground", HALF_RED);
+        middle_of(g, layer, "output")
+    };
+    assert_eq!(over(CLEAR), [128, 0, 0, 128], "over nothing, as it was");
+    assert_eq!(over(BLUE), [128, 0, 128, 255], "over blue, half of each");
+}
+
+/// Every mode over nothing leaves the foreground as it is: the blend function only weighs
+/// where both layers cover.
+#[test]
+fn every_layer_blend_mode_over_nothing_is_the_foreground() {
+    for mode in [
+        "normal",
+        "add",
+        "multiply",
+        "screen",
+        "overlay",
+        "soft",
+        "hard",
+        "difference",
+        "exclusion",
+    ] {
+        let mut g = Graph::new();
+        let layer = add(&mut g, "layerblend");
+        set_color(&mut g, layer, "background", CLEAR);
+        set_color(&mut g, layer, "foreground", HALF_RED);
+        g.get_mut(layer)
+            .unwrap()
+            .options
+            .insert("blend_mode", mode.to_string());
+        assert_eq!(middle_of(g, layer, "output"), [128, 0, 0, 128], "{mode}");
+    }
+}
+
+/// An opaque foreground over an opaque background draws each mode's blend function as it
+/// always has, both branches of Overlay and Hard Light included.
+#[test]
+fn every_layer_blend_mode_is_its_blend_function_when_both_are_opaque() {
+    const FG: [f32; 3] = [0.5, 0.25, 0.75];
+    const BG: [f32; 3] = [0.25, 0.5, 0.125];
+    type Blend = fn(f32, f32) -> f32;
+    let modes: [(&str, Blend); 9] = [
+        ("normal", |_, f| f),
+        ("add", |b, f| b + f),
+        ("multiply", |b, f| b * f),
+        ("screen", |b, f| 1.0 - (1.0 - b) * (1.0 - f)),
+        ("overlay", |b, f| {
+            if b >= 0.5 {
+                1.0 - 2.0 * (1.0 - b) * (1.0 - f)
+            } else {
+                2.0 * b * f
+            }
+        }),
+        ("soft", |b, f| (1.0 - 2.0 * f) * b * b + 2.0 * b * f),
+        ("hard", |b, f| {
+            if f >= 0.5 {
+                1.0 - 2.0 * (1.0 - f) * (1.0 - b)
+            } else {
+                2.0 * f * b
+            }
+        }),
+        ("difference", |b, f| (b - f).abs()),
+        ("exclusion", |b, f| b + f - 2.0 * b * f),
+    ];
+    for (mode, blend) in modes {
+        let mut g = Graph::new();
+        let layer = add(&mut g, "layerblend");
+        set_color(&mut g, layer, "background", [BG[0], BG[1], BG[2], 1.0]);
+        set_color(&mut g, layer, "foreground", [FG[0], FG[1], FG[2], 1.0]);
+        g.get_mut(layer)
+            .unwrap()
+            .options
+            .insert("blend_mode", mode.to_string());
+        let got = middle_of(g, layer, "output");
+        for i in 0..3 {
+            let want = (blend(BG[i], FG[i]).clamp(0.0, 1.0) * 255.0).round() as u8;
+            assert!(
+                got[i].abs_diff(want) <= 1,
+                "{mode}: channel {i} is {} where {want} was drawn",
+                got[i]
+            );
+        }
+        assert_eq!(got[3], 255, "{mode}: opaque over opaque is opaque");
+    }
+}
+
+/// Chroma Key over opaque colors is the key it always was: green is keyed out to the
+/// background, red is kept.
+#[test]
+fn a_chroma_key_of_opaque_colors_keeps_and_keys_as_it_did() {
+    let keyed = |input: [f32; 4]| {
+        let mut g = Graph::new();
+        let color = swatch(&mut g, input);
+        let key = add(&mut g, "chromakey");
+        g.connect(PortRef::new(color, "output"), PortRef::new(key, "input"))
+            .unwrap();
+        middle_of(g, key, "color")
+    };
+    assert_eq!(keyed([1.0, 0.0, 0.0, 1.0]), [255, 0, 0, 255], "red stays");
+    assert_eq!(
+        keyed([0.0, 1.0, 0.0, 1.0]),
+        [255, 0, 255, 255],
+        "green is the magenta background"
+    );
+}
+
+/// Chroma Key keys a transparent picture by its own color and lays what it keeps over the
+/// background: a half-transparent red is half over blue, the same red keyed on red is all
+/// blue, and nothing at all is the background.
+#[test]
+fn a_chroma_key_keeps_a_transparent_picture_over_its_background() {
+    let keyed = |input: [f32; 4], key_color: Option<[f32; 4]>| {
+        let mut g = Graph::new();
+        let color = swatch(&mut g, input);
+        let key = add(&mut g, "chromakey");
+        set_color(&mut g, key, "background", BLUE);
+        if let Some(k) = key_color {
+            set_color(&mut g, key, "keyColor", k);
+        }
+        g.connect(PortRef::new(color, "output"), PortRef::new(key, "input"))
+            .unwrap();
+        middle_of(g, key, "color")
+    };
+    assert_eq!(keyed(HALF_RED, None), [128, 0, 128, 255], "kept, half over");
+    assert_eq!(
+        keyed(HALF_RED, Some([1.0, 0.0, 0.0, 1.0])),
+        [0, 0, 255, 255],
+        "its own color is red, which is the key"
+    );
+    assert_eq!(
+        keyed(CLEAR, None),
+        [0, 0, 255, 255],
+        "nothing shows the background"
+    );
+}
+
+/// Scatter lays each copy over what is under it. Opaque copies over an opaque background
+/// leave each pixel one or the other; half-transparent ones leave every pixel opaque, its red
+/// and blue adding up to the whole, and a pixel under one copy half of each.
+#[test]
+fn scatters_copies_are_laid_over_the_background() {
+    const SIZE: usize = 64;
+    let scattered = |input: [f32; 4]| {
+        let mut g = Graph::new();
+        let color = swatch(&mut g, input);
+        let scatter = add(&mut g, "scatter");
+        let out = add(&mut g, "output");
+        set_color(&mut g, scatter, "bgColor", BLUE);
+        g.connect(
+            PortRef::new(color, "output"),
+            PortRef::new(scatter, "input"),
+        )
+        .unwrap();
+        g.connect(PortRef::new(scatter, "output"), PortRef::new(out, "input"))
+            .unwrap();
+        rendered(&g, out, SIZE as u32)
+    };
+
+    let opaque = scattered([1.0, 0.0, 0.0, 1.0]);
+    assert!(
+        opaque
+            .iter()
+            .all(|p| *p == [255, 0, 0, 255] || *p == [0, 0, 255, 255]),
+        "every pixel a copy or the background"
+    );
+    assert!(opaque.contains(&[255, 0, 0, 255]) && opaque.contains(&[0, 0, 255, 255]));
+
+    let half = scattered(HALF_RED);
+    for p in &half {
+        assert_eq!(p[3], 255, "opaque over opaque: {p:?}");
+        assert!(
+            (254..=256).contains(&(u16::from(p[0]) + u16::from(p[2]))),
+            "red and blue are the whole: {p:?}"
+        );
+    }
+    assert!(half.contains(&[128, 0, 128, 255]), "one copy is half over");
+}
+
 // --------------------------------------------------- a distortion moves, a noise is a field
 
 /// A tile's picture repeats at exactly the period its width says: a width of 0.75 in a
@@ -994,7 +1226,8 @@ fn reframerange_maps_a_half_onto_the_middle_of_its_output_range() {
     );
 }
 
-/// `channelsplitter`'s four ports are the four channels of a color asymmetric in every one.
+/// `channelsplitter`'s four ports are the four channels of a color asymmetric in every one,
+/// built by an `rgba` from the same four numbers.
 #[test]
 fn a_channel_splitter_reads_the_four_channels_it_was_given() {
     const SIZE: usize = 8;
@@ -1002,12 +1235,12 @@ fn a_channel_splitter_reads_the_four_channels_it_was_given() {
     for (i, expected) in GIVEN.iter().enumerate() {
         let channel = ["r", "g", "b", "a"][i];
         let mut g = Graph::new();
-        let flat = add(&mut g, "checkerboard");
+        let flat = add(&mut g, "rgba");
         let split = add(&mut g, "channelsplitter");
         let rgba = add(&mut g, "rgba");
         let out = add(&mut g, "output");
-        for key in ["color1", "color2"] {
-            set_color(&mut g, flat, key, GIVEN);
+        for (key, value) in ["r", "g", "b", "a"].into_iter().zip(GIVEN) {
+            set(&mut g, flat, key, value);
         }
         g.connect(PortRef::new(flat, "output"), PortRef::new(split, "input"))
             .unwrap();

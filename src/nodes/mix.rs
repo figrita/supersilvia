@@ -4,18 +4,28 @@
 //!
 //! `mix` is the node that makes feedback expressible — mix a source with an Output's own
 //! previous frame and the picture accumulates. It is a straight crossfade between two
-//! colors by one amount, alpha included.
+//! colors by one amount, alpha included, which is exact on premultiplied colors as they are.
 //!
 //! `layerblend` is silvia's `layerblend.js`, and it sits **beside** `mix` rather than
-//! absorbing it. Its Normal mode is not the crossfade: it weights by the foreground's own
-//! alpha times an opacity, `mix(bg, fg, fg.a * opacity)`, and composites the alphas the way a
-//! layer stack does. A crossfade driven from an oscillator wants neither of those, and it is
-//! the one thing in this file that a feedback patch reaches for every time.
+//! absorbing it. It composites the way a layer stack does: the foreground, scaled by the
+//! opacity, over the background. A crossfade driven from an oscillator wants none of that, and
+//! it is the one thing in this file that a feedback patch reaches for every time.
 //!
-//! Two departures from the source. Every mode is one expression rather than a chain of
-//! per-channel `if`s — Overlay and Hard Light are `mix` over a `step`, which is the same
-//! function without three branches per fragment. And the opacity is clamped, because here a
-//! cable can drive it past its ends.
+//! **The composite is the W3C's** (*Compositing and Blending Level 1*), on premultiplied
+//! colors: `fg·(1 − bg.a) + bg·(1 − fg.a) + fg.a·bg.a·B(Cb, Cs)`, alpha `fg.a + bg.a·(1 −
+//! fg.a)`, where `B` is the mode's blend function of the two layers' own colors,
+//! unpremultiplied. Normal's `B` is the foreground, which makes it Porter–Duff over, `fg + bg·(1
+//! − fg.a)`, and it is written so. A mode blends only where both layers cover: over nothing,
+//! every mode is the foreground.
+//!
+//! Three departures from the source. silvia mixes straight colors by the foreground's alpha
+//! times the opacity, each mode weighting by it in a way of its own; here the formula above
+//! does it once for all nine, so a Text's soft edge is not darkened a second time. Opaque layers
+//! at full opacity draw silvia's blend exactly, and an opacity below one lerps toward it in every
+//! mode, Difference included, where silvia's was `|bg − fg·w|`. Every mode is one expression
+//! rather than a chain of per-channel `if`s — Overlay and Hard Light are `mix` over a `step`,
+//! which is the same function without three branches per fragment. And the opacity is clamped,
+//! because here a cable can drive it past its ends.
 //!
 //! **`method`** carries the three of silvia's eight crossfades that need no screen to sweep
 //! across: the plain mix and the two luminance fades, whose answer is a function of the
@@ -69,7 +79,8 @@ pub static DEF: NodeDef = NodeDef {
         ty: VaryingColor,
         kind: OutputKind::Shader,
         // `f` is `amount` after the chosen curve, and `lum` the luminance the two fades
-        // cross the picture in the order of.
+        // cross the picture in the order of: A's as it is, premultiplied, which is how bright
+        // it shows over black, so a transparent pixel is dark.
         wgsl: |node, ctx, _func| {
             let a = ctx.input(node, "a", "uv");
             let b = ctx.input(node, "b", "uv");
@@ -122,33 +133,29 @@ pub static DEF: NodeDef = NodeDef {
     ..NodeDef::EMPTY
 };
 
-/// The blended color one mode makes, over `bg`, `fg` and the coverage `w`.
-fn blend_mode_wgsl(mode: &str) -> &'static str {
-    match mode {
-        "add" => "    let blended = bg.rgb + fg.rgb * w;\n",
-        "multiply" => "    let blended = bg.rgb * mix(vec3f(1.0), fg.rgb, w);\n",
-        "screen" => "    let blended = 1.0 - (1.0 - bg.rgb) * (1.0 - fg.rgb * w);\n",
-        "overlay" => {
-            "    let lo = 2.0 * bg.rgb * fg.rgb;
-    let hi = 1.0 - 2.0 * (1.0 - bg.rgb) * (1.0 - fg.rgb);
-    let blended = mix(bg.rgb, mix(lo, hi, step(vec3f(0.5), bg.rgb)), w);
-"
-        }
-        "soft" => {
-            "    let soft = (1.0 - 2.0 * fg.rgb) * bg.rgb * bg.rgb + 2.0 * bg.rgb * fg.rgb;
-    let blended = mix(bg.rgb, soft, w);
-"
-        }
-        "hard" => {
-            "    let lo = 2.0 * fg.rgb * bg.rgb;
-    let hi = 1.0 - 2.0 * (1.0 - fg.rgb) * (1.0 - bg.rgb);
-    let blended = mix(bg.rgb, mix(lo, hi, step(vec3f(0.5), fg.rgb)), w);
-"
-        }
-        "difference" => "    let blended = abs(bg.rgb - fg.rgb * w);\n",
-        "exclusion" => "    let blended = bg.rgb + fg.rgb * w - 2.0 * bg.rgb * fg.rgb * w;\n",
-        _ => "    let blended = mix(bg.rgb, fg.rgb, w);\n",
-    }
+/// The body after `bg` and `fg`, premultiplied, for one mode: Normal is Porter–Duff over, and
+/// every other mode the W3C's general formula over `blended`, its blend function of the
+/// layers' own colors `b` and `s`.
+fn blend_mode_wgsl(mode: &str) -> String {
+    let blended = match mode {
+        "add" => "b + s",
+        "multiply" => "b * s",
+        "screen" => "1.0 - (1.0 - b) * (1.0 - s)",
+        "overlay" => "mix(2.0 * b * s, 1.0 - 2.0 * (1.0 - b) * (1.0 - s), step(vec3f(0.5), b))",
+        "soft" => "(1.0 - 2.0 * s) * b * b + 2.0 * b * s",
+        "hard" => "mix(2.0 * s * b, 1.0 - 2.0 * (1.0 - s) * (1.0 - b), step(vec3f(0.5), s))",
+        "difference" => "abs(b - s)",
+        "exclusion" => "b + s - 2.0 * b * s",
+        _ => return "    return fg + bg * (1.0 - fg.a);".to_string(),
+    };
+    format!(
+        "    let b = unpremultiply(bg).rgb;
+    let s = unpremultiply(fg).rgb;
+    let blended = {blended};
+    return vec4f(
+        fg.rgb * (1.0 - bg.a) + bg.rgb * (1.0 - fg.a) + fg.a * bg.a * blended,
+        fg.a + bg.a * (1.0 - fg.a));"
+    )
 }
 
 node! {
@@ -184,15 +191,13 @@ node! {
     ],
     outputs: [
         VaryingColor "output" "Output" = varying(|node, ctx| {
-            [
+            let mut body = String::from(
                 "    let bg = {background};
-    let fg = {foreground};
-    let w = fg.a * clamp({opacity}, 0.0, 1.0);
+    let fg = {foreground} * clamp({opacity}, 0.0, 1.0);
 ",
-                blend_mode_wgsl(ctx.option(node, "blend_mode")),
-                "    return vec4f(blended, w + bg.a * (1.0 - w));",
-            ]
-            .concat()
+            );
+            body.push_str(&blend_mode_wgsl(ctx.option(node, "blend_mode")));
+            body
         }),
     ],
 }

@@ -266,7 +266,9 @@ pub fn compiled(g: &Graph, out: NodeId) -> (Arc<Shader>, Vec<(Arc<str>, UniformV
             };
             let value = match g.get(*node)?.controls.get(key)? {
                 ControlValue::Float(v) => UniformValue::Float(*v),
-                ControlValue::Color(v) => UniformValue::Vec4(*v),
+                ControlValue::Color(v) => {
+                    UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(*v))
+                }
             };
             Some((Arc::clone(name), value))
         })
@@ -285,7 +287,9 @@ pub fn resolved(g: &Graph, shader: &Shader) -> Vec<(Arc<str>, UniformValue)> {
                 UniformProvider::Control { node, key, .. } => {
                     match g.get(*node)?.controls.get(key)? {
                         ControlValue::Float(v) => UniformValue::Float(*v),
-                        ControlValue::Color(v) => UniformValue::Vec4(*v),
+                        ControlValue::Color(v) => {
+                            UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(*v))
+                        }
                     }
                 }
                 UniformProvider::NodeTexture { node, port } => {

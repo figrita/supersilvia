@@ -1712,6 +1712,62 @@ fn a_published_color_is_a_vec4_uniform() {
     );
 }
 
+/// A color is straight on the CPU and premultiplied in the shader, converted where the synth
+/// resolves it: a swatch of `#ff000080` and a Color node publishing the same both reach the
+/// module as half of red at half alpha, and the Color node's row still reads what was picked.
+#[test]
+fn a_color_reaches_its_shader_premultiplied() {
+    const HALF_RED: [f32; 4] = [1.0, 0.0, 0.0, 0.5];
+    let mut app = App::headless();
+    let color = add_to(&mut app, "color");
+    let checker = add_to(&mut app, "checkerboard");
+    let out = add_to(&mut app, "output");
+    for (node, key) in [(color, "color"), (checker, "color2")] {
+        app.apply(Command::SetControl {
+            node,
+            key,
+            value: ControlValue::Color(HALF_RED),
+        })
+        .unwrap();
+    }
+    for (from, to) in [
+        (
+            PortRef::new(color, "output"),
+            PortRef::new(checker, "color1"),
+        ),
+        (PortRef::new(checker, "output"), PortRef::new(out, "input")),
+    ] {
+        app.apply(Command::Connect { from, to }).unwrap();
+    }
+    app.tick(1.0 / 60.0);
+    assert_eq!(
+        app.uniform_color(PortRef::new(color, "output")),
+        Some(HALF_RED),
+        "published straight"
+    );
+
+    let shader = compile::wgsl::build(app.graph(), out).expect("connected");
+    let resolved = app.resolve_uniforms(&shader);
+    let value = |name: String| {
+        let (_, v) = resolved
+            .iter()
+            .find(|(n, _)| **n == *name)
+            .unwrap_or_else(|| panic!("{name} is resolved"));
+        v.clone()
+    };
+    let premultiplied = supersilvia::render::UniformValue::Vec4([0.5, 0.0, 0.0, 0.5]);
+    assert_eq!(
+        value(format!("u_color_color{color}_output")),
+        premultiplied,
+        "a published color"
+    );
+    assert_eq!(
+        value(format!("u_control_checkerboard{checker}_color2")),
+        premultiplied,
+        "a color control"
+    );
+}
+
 // ---------------------------------------------------------------------------- random
 
 /// `random` is a choice, not a shake: the same seed answers the same number on every tick

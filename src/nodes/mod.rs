@@ -12,6 +12,7 @@
 pub mod action;
 pub mod adjust;
 pub mod adsr;
+pub mod alpha;
 pub mod animation;
 pub mod area;
 pub mod attach;

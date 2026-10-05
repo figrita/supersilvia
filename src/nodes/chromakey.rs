@@ -20,7 +20,15 @@
 //!
 //! [nodes.md]: ../../../docs/nodes.md
 //!
-//! Three departures from the source, all the shader's. The Background keeps silvia's magenta
+//! **The key reads the picture's own color, and what it keeps goes over the background.** A
+//! picture is premultiplied, so its color is unpremultiplied before the distance and the spill
+//! pull, which are nonlinear in it; the kept picture, its alpha times the key, is premultiplied
+//! again and laid over the background by Porter–Duff over, `kept + bg·(1 − kept.a)`. silvia's
+//! `mix(bg, picture, key)` is the same over an opaque picture; over a transparent one the
+//! background shows through wherever the picture does not cover, as it does around a keyed
+//! color.
+//!
+//! Three departures from the source besides, all the shader's. The Background keeps silvia's magenta
 //! default — `every_control_default_is_representable` now holds magenta to its own hex
 //! spelling rather than refusing it, since that text parses by being the color's own name. The
 //! softness is floored, because here a cable can drive it to zero where a `smoothstep` of
@@ -57,8 +65,9 @@ node! {
     ],
     // The chroma distance, weighted against the luminance difference, stepped about the
     // threshold. `distance` is a WGSL builtin, so the quantity carries the node's own name.
-    wgsl_common: "    let foreground = {input};
-    let key = {keyColor};
+    wgsl_common: "    let picture = {input};
+    let foreground = unpremultiply(picture);
+    let key = unpremultiply({keyColor});
     let thresh = {threshold};
     let soft = max({softness}, 1e-4);
     let keyY = dot(key.rgb, vec3f(0.299, 0.587, 0.114));
@@ -78,7 +87,8 @@ node! {
         despilled.b = min(despilled.b, (despilled.r + despilled.g) * 0.5);
     }
     despilled = mix(foreground.rgb, despilled, clamp({spill}, 0.0, 1.0) * (1.0 - mask));
-    return vec4f(mix(bg.rgb, despilled, mask), mix(bg.a, foreground.a, mask));",
+    let kept = premultiply(vec4f(despilled, picture.a * mask));
+    return kept + bg * (1.0 - kept.a);",
         VaryingNumber "mask" "Mask" in "[0, 1]" = "    return mask;",
     ],
 }

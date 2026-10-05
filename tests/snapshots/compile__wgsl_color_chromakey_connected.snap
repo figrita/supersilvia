@@ -82,8 +82,9 @@ fn vignette8_mask(uv: vec2f) -> f32 {
 }
 
 fn chromakey1_color(uv: vec2f) -> vec4f {
-    let foreground = checkerboard3_output(uv);
-    let key = checkerboard5_output(uv);
+    let picture = checkerboard3_output(uv);
+    let foreground = unpremultiply(picture);
+    let key = unpremultiply(checkerboard5_output(uv));
     let thresh = vignette6_mask(uv);
     let soft = max(vignette7_mask(uv), 1e-4);
     let keyY = dot(key.rgb, vec3f(0.299, 0.587, 0.114));
@@ -101,12 +102,14 @@ fn chromakey1_color(uv: vec2f) -> vec4f {
         despilled.b = min(despilled.b, (despilled.r + despilled.g) * 0.5);
     }
     despilled = mix(foreground.rgb, despilled, clamp(vignette8_mask(uv), 0.0, 1.0) * (1.0 - mask));
-    return vec4f(mix(bg.rgb, despilled, mask), mix(bg.a, foreground.a, mask));
+    let kept = premultiply(vec4f(despilled, picture.a * mask));
+    return kept + bg * (1.0 - kept.a);
 }
 
 fn chromakey1_mask(uv: vec2f) -> f32 {
-    let foreground = checkerboard3_output(uv);
-    let key = checkerboard5_output(uv);
+    let picture = checkerboard3_output(uv);
+    let foreground = unpremultiply(picture);
+    let key = unpremultiply(checkerboard5_output(uv));
     let thresh = vignette6_mask(uv);
     let soft = max(vignette7_mask(uv), 1e-4);
     let keyY = dot(key.rgb, vec3f(0.299, 0.587, 0.114));

@@ -46,10 +46,8 @@ fn vignette5_mask(uv: vec2f) -> f32 {
 
 fn layerblend1_output(uv: vec2f) -> vec4f {
     let bg = checkerboard3_output(uv);
-    let fg = checkerboard4_output(uv);
-    let w = fg.a * clamp(vignette5_mask(uv), 0.0, 1.0);
-    let blended = mix(bg.rgb, fg.rgb, w);
-    return vec4f(blended, w + bg.a * (1.0 - w));
+    let fg = checkerboard4_output(uv) * clamp(vignette5_mask(uv), 0.0, 1.0);
+    return fg + bg * (1.0 - fg.a);
 }
 
 @fragment

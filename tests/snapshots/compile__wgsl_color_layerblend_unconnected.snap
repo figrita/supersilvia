@@ -14,10 +14,8 @@ struct Uniforms {
 
 fn layerblend1_output(uv: vec2f) -> vec4f {
     let bg = u.u_control_layerblend1_background;
-    let fg = u.u_control_layerblend1_foreground;
-    let w = fg.a * clamp(u.u_control_layerblend1_opacity, 0.0, 1.0);
-    let blended = mix(bg.rgb, fg.rgb, w);
-    return vec4f(blended, w + bg.a * (1.0 - w));
+    let fg = u.u_control_layerblend1_foreground * clamp(u.u_control_layerblend1_opacity, 0.0, 1.0);
+    return fg + bg * (1.0 - fg.a);
 }
 
 @fragment

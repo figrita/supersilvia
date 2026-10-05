@@ -1130,8 +1130,11 @@ a function of the two texels under the fragment, its own picture's and its Backg
 distance is silvia's — the chroma difference in YCbCr plus a fifth of the luminance
 difference — one `smoothstep` about Threshold is the key, and Spill Suppression pulls the
 dominant channel of the key color off whatever survived, on a green or a blue key only,
-because that is what the pull means. It publishes that key as `mask`, 1 where the picture
-stays, so Mix and Layer Blend can do the stacking.
+because that is what the pull means. Both read the picture's own color, unpremultiplied, and
+what is kept — the picture with its alpha times the key — is laid over the Background by
+Porter–Duff over, so the Background shows through a transparent picture as it does through a
+keyed color. It publishes that key as `mask`, 1 where the picture stays, so Mix and Layer
+Blend can do the stacking.
 
 `stargate` is the one `Effect` that reads a *second* picture somewhere other than under the
 fragment. A thin slit shows the live picture and everywhere else is last frame, shifted along
@@ -1151,10 +1154,12 @@ two passes — so a half-width of `r` is `(2r+1)²` reads of everything upstream
 tooltips carry the counts.
 
 `layerblend` sits beside `mix` rather than replacing it. `mix` crossfades two colors by one
-amount; `layerblend` composites a foreground over a background through one of nine layer
-modes, weighted by the foreground's own alpha times an opacity, and composites the alphas the
-way a stack does. Its Normal mode is not the crossfade, and a feedback patch wants the
-crossfade. `mix` also carries three of silvia's eight crossfades as its `method` option —
+amount; `layerblend` composites a foreground, scaled by an opacity, over a background through
+one of nine layer modes, by the W3C's compositing formula on premultiplied colors:
+`fg·(1 − bg.a) + bg·(1 − fg.a) + fg.a·bg.a·B`, where `B` is the mode's blend function of the
+two layers' own colors. Normal is Porter–Duff over, every mode blends only where both layers
+cover, and opaque layers at full opacity draw silvia's modes. Its Normal mode is not the
+crossfade, and a feedback patch wants the crossfade. `mix` also carries three of silvia's eight crossfades as its `method` option —
 the plain mix and the two luminance fades, the three whose answer is a function of the color
 under the fragment — and its fader warp as `curve`, both `OptionKind::Uniform` so a change is
 a uniform write and not a rebuild; `amount` stays the port, 0…1, and `curve: fader` is what
@@ -1213,7 +1218,8 @@ says how many turns a cycle makes. `tile` wraps the whole
 plane onto one rectangle; `repeater` lays one bounded rectangle out in a finite grid over a
 background, and publishes `mask` — *Grid Mask* on the row, silvia's name, since a patch where
 three nodes publish a Mask needs to know which one a cable came from — for where a copy
-landed. `regionabsolute` and `regionsized` are one crop reached by two sets of handles, four
+landed. `scatter` lays each of its copies over what is already under it, Porter–Duff over,
+starting from its background. `regionabsolute` and `regionsized` are one crop reached by two sets of handles, four
 edges or a center and a size, in `region.rs`: outside the rectangle is a background color, the
 rectangle tiled, the rectangle mirror-tiled or the edge smeared out, and the coverage is the
 `mask` beside the picture. The background color is behind the input too, composited

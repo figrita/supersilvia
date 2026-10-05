@@ -21,8 +21,9 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn chromakey1_color(uv: vec2f) -> vec4f {
-    let foreground = defaultUvMap(uv);
-    let key = u.u_control_chromakey1_keyColor;
+    let picture = defaultUvMap(uv);
+    let foreground = unpremultiply(picture);
+    let key = unpremultiply(u.u_control_chromakey1_keyColor);
     let thresh = u.u_control_chromakey1_threshold;
     let soft = max(u.u_control_chromakey1_softness, 1e-4);
     let keyY = dot(key.rgb, vec3f(0.299, 0.587, 0.114));
@@ -40,12 +41,14 @@ fn chromakey1_color(uv: vec2f) -> vec4f {
         despilled.b = min(despilled.b, (despilled.r + despilled.g) * 0.5);
     }
     despilled = mix(foreground.rgb, despilled, clamp(u.u_control_chromakey1_spill, 0.0, 1.0) * (1.0 - mask));
-    return vec4f(mix(bg.rgb, despilled, mask), mix(bg.a, foreground.a, mask));
+    let kept = premultiply(vec4f(despilled, picture.a * mask));
+    return kept + bg * (1.0 - kept.a);
 }
 
 fn chromakey1_mask(uv: vec2f) -> f32 {
-    let foreground = defaultUvMap(uv);
-    let key = u.u_control_chromakey1_keyColor;
+    let picture = defaultUvMap(uv);
+    let foreground = unpremultiply(picture);
+    let key = unpremultiply(u.u_control_chromakey1_keyColor);
     let thresh = u.u_control_chromakey1_threshold;
     let soft = max(u.u_control_chromakey1_softness, 1e-4);
     let keyY = dot(key.rgb, vec3f(0.299, 0.587, 0.114));

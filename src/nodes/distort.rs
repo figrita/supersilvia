@@ -13,7 +13,7 @@
 //! `source(distortedUV)` and the transform composes into the caller's shader with no
 //! machinery of its own.
 //!
-//! Four departures from the source.
+//! Five departures from the source.
 //!
 //! **A falloff instead of an early return.** silvia's `whirlandpinch` returns the untouched
 //! input outside its radius and the distorted one inside, which is two samples of the same
@@ -36,6 +36,11 @@
 //!
 //! **`domainwarp` publishes `value`, not `mask`.** The length of its warp vector is the raw
 //! quantity the picture was made from, not coverage, and `mask` means coverage.
+//!
+//! **`scatter` lays each copy over what is under it**, Porter–Duff over on premultiplied
+//! colors, `copy + under·(1 − copy.a)`, starting from the background. silvia's
+//! `mix(under, copy, copy.a)` mixes straight colors and gives a half-transparent copy over an
+//! opaque background an alpha below one; over opaque copies the two are the same.
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
@@ -710,7 +715,7 @@ node! {
             if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) {{ continue; }}
 
             let sampled = {{input}};
-            result = mix(result, sampled, sampled.a);
+            result = sampled + result * (1.0 - sampled.a);
         }}
         }}
     }}

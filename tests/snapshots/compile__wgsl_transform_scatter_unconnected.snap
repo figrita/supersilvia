@@ -79,7 +79,7 @@ fn scatter1_output(uv: vec2f) -> vec4f {
             if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) { continue; }
 
             let sampled = defaultUvMap(scatterUV);
-            result = mix(result, sampled, sampled.a);
+            result = sampled + result * (1.0 - sampled.a);
         }
         }
     }

@@ -35,7 +35,9 @@ fn resolve(g: &Graph, shader: &Shader, published: f32) -> Vec<(Arc<str>, Uniform
                 UniformProvider::Control { node, key, .. } => {
                     match g.get(*node)?.controls.get(key)? {
                         ControlValue::Float(v) => UniformValue::Float(*v),
-                        ControlValue::Color(v) => UniformValue::Vec4(*v),
+                        ControlValue::Color(v) => {
+                            UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(*v))
+                        }
                     }
                 }
                 UniformProvider::NodeTexture { node, port } => {

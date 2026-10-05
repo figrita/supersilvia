@@ -68,7 +68,9 @@ use crate::graph::{ControlValue, Graph, NodeId, PortRef};
 use crate::maininput::MainInput;
 use crate::midi::Target;
 use crate::mixer::Channel;
-use crate::nodes::{CpuNode, Event, Frame, MainInputFeed, NodeNote, Simulation, TickContext};
+use crate::nodes::{
+    CpuNode, Event, Frame, MainInputFeed, NodeNote, Simulation, TickContext, alpha,
+};
 use crate::project::AssetPaths;
 use crate::render::{
     FrameJob, Gpu, Live, OutputJob, OutputMode, PassJob, ProbeJob, Published, Renderer, SimJob,
@@ -1727,6 +1729,9 @@ impl Synth {
     /// Turn each uniform provider into a concrete value, read fresh from the graph and from
     /// what this tick published.
     ///
+    /// A color — a color control, or a color a CPU node published — is straight on the CPU
+    /// and premultiplied here, the one place it enters a shader ([`alpha::premultiply`]).
+    ///
     /// The name is an `Arc<str>` clone, not a new `String`: this runs for every uniform of
     /// every Output on every tick.
     fn resolve(
@@ -1741,7 +1746,7 @@ impl Synth {
                     UniformProvider::Control { node, key, .. } => {
                         match graph.get(*node)?.controls.get(key)? {
                             ControlValue::Float(v) => UniformValue::Float(*v),
-                            ControlValue::Color(v) => UniformValue::Vec4(*v),
+                            ControlValue::Color(v) => UniformValue::Vec4(alpha::premultiply(*v)),
                         }
                     }
                     UniformProvider::NodeTexture { node, port } => {
@@ -1750,9 +1755,9 @@ impl Synth {
                     UniformProvider::NodeUniform { node, port, ty } => {
                         let at = PortRef::new(*node, port);
                         match ty {
-                            UniformType::Vec4 => UniformValue::Vec4(
+                            UniformType::Vec4 => UniformValue::Vec4(alpha::premultiply(
                                 self.uniform_colors.get(&at).copied().unwrap_or([0.0; 4]),
-                            ),
+                            )),
                             _ => {
                                 UniformValue::Float(self.uniforms.get(&at).copied().unwrap_or(0.0))
                             }
