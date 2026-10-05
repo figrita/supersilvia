@@ -189,7 +189,8 @@ has finished, so its last GPU time arrives on time rather than on the tick it ne
 it would describe a frame long gone.
 
 **What asks for a picture draws it for the tick it asks.** A thumbnail a save wants, a Snap,
-a first picture, the render, and a deck a press, an edge or MIDI claims inside a tick are all
+a first picture, the render, a [recording](#live-recording)'s new slot, and a deck a press, an
+edge or MIDI claims inside a tick are all
 the synth's before the editor has seen them, so `Synth::drawing` adds each to the plan's set
 with what the plan says it needs — one closure, the plan's, so a picture asked for reads this
 tick's frames and this tick's readings. The frame is the one continuous drawing would have
@@ -379,6 +380,7 @@ by. The decision and what it rejected is in
 | Port thumbnails | `node_widget::thumb_color` | none; the rgb is the color over black |
 | Snap, the project card, PNG sequences, GIFs | the picture read's `fs_straight`, after filtering | unpremultiplied |
 | A video render | a capture with `Alpha::Premultiplied` | none; alpha dropped, so over black |
+| A live recording | its read, premultiplied | none; alpha dropped, so over black |
 | Syphon and NDI sent opaque | the blit over black, alpha one | none |
 | Syphon sent transparent | the blit over nothing | none; premultiplied |
 | NDI sent transparent | `Viewer::show_straight` | unpremultiplied |
@@ -824,10 +826,8 @@ The stamp is **UTC**: there is no timezone database in this binary, and what the
 telling two snaps apart and sorting them — UTC does exactly as local time would. Two inside
 one second get a counter rather than overwriting each other.
 
-**There is no Rec.** silvia's fourth button records until it is pressed again; a realtime
-recorder is an encoder running beside the show at the rate the show is going, dropping
-nothing, while the graph keeps its own time. That is machinery rather than a button and is
-left out until it is wanted on its own terms.
+silvia's fourth button, Rec, is the Output's [live recording](#live-recording): a section of
+its own on the node rather than an action input, since what it starts runs until it is stopped.
 
 ## The capture
 
@@ -1007,6 +1007,68 @@ instrument, not an edit — so they are `start_render` and `cancel_render`. A re
 numbered folder under `renders/` in the project, beside `assets/`, so it travels with the set
 and never overwrites the last one. `tests/gpu_app.rs` renders a feedback patch under each
 warm-up and reads the PNGs back.
+
+## Live recording
+
+**A recording is an Output's picture written to a video while the show plays** — hands, MIDI, a
+live camera — where [the render job](#the-render-job) steps time a frame at a time. It is the
+Output's own, started and stopped by the Record row under its own **Record** heading
+([ui.md](ui.md#the-record-section)), and **picture only**: no sound is in the file.
+`synth/record.rs` is the synth's half, `video/record.rs` the file and `app/record.rs` the
+editor's.
+
+**Slots of the show's clock.** A recording keeps the moment it began on the one clock —
+`Clock::elapsed`, wall time with every stall in it, which a pause of the transport does not stop
+— and cuts what follows into slots of `1 / fps`, the **FPS** in the Output's Record section
+(`recordFps`, apart from the render's), read when it begins. Each slot is one frame of the file.
+On the first tick in a slot the synth asks the Output's renderer to read the frame it draws back
+for that slot, and `Synth::drawing` draws the Output on that tick as it would a deck, with what
+it needs — so an Output on an open tab nobody is looking at is drawn once a slot and no more.
+**A slot holds the first frame drawn in it**; a show drawing faster than the rate has its other
+frames skipped. **A slot nothing reached repeats the frame before it and counts as dropped**:
+the show drew slower than the rate, the GPU skipped the draw, every read was still out, or the
+writer had no room. A paused loop is not drawn ([pause freezes feedback](#which-outputs-draw)),
+and its slots repeat the frame before **on purpose**, a marker in the same queue as the reads,
+counted as nothing. A first slot with nothing before it is black. So the file is as long as the
+show was — sixty seconds of performance is sixty seconds of film, to the nearest frame — and the
+row's **dropped** count is exactly the frames in the file that are a repeat it did not mean.
+
+**Nothing waits.** The read is the never-waiting one: `Readbacks::request_record` before the
+draw, a pass copying the frame whole and premultiplied into a target the Output's size and a
+staging buffer from three kept for it, and the map collected on a later tick, in slot order —
+with all three still on the GPU, the slot gets nothing. What lands goes to a thread named
+`recorder` through a queue four pictures deep, by `try_send`, and a picture with no room is
+refused. That thread writes one frame per slot through `video/encode.rs`, the hardware encoder
+the render's video writer uses, a slot with nothing in it as `Encoder::repeat` — the frame
+before at the next frame's time, its memory shared rather than copied — and holds the
+encoder's own queue to a few frames, so a slow encoder backs up into refusals rather than
+into memory. One picture is held back until the next arrives or the stop says how long the
+file is, so a slot the stop cuts off is never written. **Opaque**, as a video render is: the
+picture premultiplied, its alpha dropped by the encoder, which is the picture over black.
+
+**Where it goes**: `recordings/` in the project, beside `renders/` and made by the first
+recording, named for the Output and the moment in UTC as a Snap is —
+`output3-20261005-134501.mp4` — written as `.part` and renamed when it closes. **What ends
+one**, each closing the file under its name with what was recorded: **Stop**; the Output
+deleted; its **resolution changed**, since a file is one size from its first frame to its last;
+its tab closed, which suspends it; another project; the app quitting, which waits for each file
+to close. Every one but Stop is said on the status line with the file — *recorded 0:12 to
+recordings/output3-….mp4 — stopped: the resolution changed*. A stop lets the reads still on the
+GPU land, for at most two seconds of the clock, then closes the queue; the writer finishes the
+file on its own thread and the synth polls it. A crash leaves the `.part`. A writer that fails —
+no encoder, a full disk — ends the recording, and its reason is the row's.
+
+**A render and a recording never run at once.** A render steps the clock a recording follows,
+and suspends every Output but its own, so whichever is running refuses the other: the Render
+button reads *Stop recording to render* while anything records, and the Record row *not while
+rendering* while a render runs.
+
+`video/record.rs`'s tests hold the slot rule to a stand-in encoder — a gap repeated and counted,
+a marker repeated and not, a sixty-picture burst at a writer twenty milliseconds a frame refused
+and counted with no offer waiting — and `tests/gpu_app.rs` records a hundred and twenty ticks at
+sixty hertz on the GPU to sixty frames at 30 fps, at the Output's size, with the checkerboard in
+them. `tests/record.rs` holds the stops, the refusals, and the rate: a second at a Record FPS of
+24 beside a Render FPS of 30 is twenty-four frames.
 
 ## The cost probe
 

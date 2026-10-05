@@ -1419,16 +1419,18 @@ fn new_project_offers_the_next_free_untitled() {
     assert_eq!(project::next_untitled(&projects), "Untitled 4");
 }
 
-/// **Save as copies the person's work and not the cache**: `renders/` and `snaps/` go with the
-/// copy, `cache/` and `.autosave/` stay behind, and the original keeps all of it.
+/// **Save as copies the person's work and not the cache**: `renders/`, `recordings/` and
+/// `snaps/` go with the copy, `cache/` and `.autosave/` stay behind, and the original keeps all
+/// of it.
 #[test]
-fn save_as_copies_renders_and_snaps_and_leaves_the_cache() {
+fn save_as_copies_the_persons_work_and_leaves_the_cache() {
     let base = dir("save-as-cache");
     let root = base.join("friday");
     let mut app = App::headless();
     app.new_project(root.clone());
     for (folder, file) in [
         ("renders", "output3-001.mp4"),
+        ("recordings", "output3-20261001-120000.mp4"),
         ("snaps", "output3-20261001-120000.png"),
         (project::CACHE, "clip.mp4"),
     ] {
@@ -1440,6 +1442,11 @@ fn save_as_copies_renders_and_snaps_and_leaves_the_cache() {
     app.save_project_as(elsewhere.clone());
     assert_eq!(app.project().root(), elsewhere, "{}", app.file_status());
     assert!(elsewhere.join("renders/output3-001.mp4").is_file());
+    assert!(
+        elsewhere
+            .join("recordings/output3-20261001-120000.mp4")
+            .is_file()
+    );
     assert!(
         elsewhere
             .join("snaps/output3-20261001-120000.png")

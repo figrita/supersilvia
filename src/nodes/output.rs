@@ -29,6 +29,21 @@ pub const RENDER_SELECTS: [&str; 3] = ["supersampling", "warmupMode", "writer"];
 /// holds — while the heading reads **Render**, which is what is under it.
 pub const OFFLINE: &str = "offline";
 
+/// The live recording's frame rate: a hidden control of its own, drawn on the Record
+/// section's first row and read once, at Record. Apart from the Render section's FPS, so a
+/// film rendered at one rate and a set recorded at another are both set once.
+pub const RECORD_FPS: &str = "recordFps";
+
+/// The heading the live recording folds under: its FPS and its Record row. Closed on a new
+/// Output, as the Render section is.
+///
+/// Not `record`, which is the Record row's button's name.
+pub const RECORD: &str = "recording";
+
+/// The Output's numbers no MIDI or OSC binding reaches: the render's three and the
+/// recording's FPS.
+const UNBINDABLE: [&str; 4] = ["fps", "duration", "warmup", RECORD_FPS];
+
 pub static DEF: NodeDef = NodeDef {
     slug: "output",
     category: Category::Output,
@@ -86,6 +101,12 @@ pub static DEF: NodeDef = NodeDef {
             label: "Warm-up",
             ty: UniformNumber,
             control: Control::num(0.0, 0.0, 600.0, 1.0, "fr"),
+        },
+        InputDef {
+            key: RECORD_FPS,
+            label: "FPS",
+            ty: UniformNumber,
+            control: Control::num(30.0, 1.0, 120.0, 1.0, ""),
         },
     ],
     outputs: &[OutputDef {
@@ -167,6 +188,7 @@ pub static DEF: NodeDef = NodeDef {
             ..OptionDef::EMPTY
         },
         OptionDef::heading(OFFLINE, "Render", false, OptionKind::Presentation),
+        OptionDef::heading(RECORD, "Record", false, OptionKind::Presentation),
         // Sent over NDI to every machine on the network and, on a Mac, published over Syphon to
         // every other app there, top row first rather than Syphon's bottom row first where Flip
         // says; both ways with its own alpha rather than opaque over black where Alpha says.
@@ -208,10 +230,10 @@ pub static DEF: NodeDef = NodeDef {
         },
     ],
     is_output: true,
-    row_headings: &[OFFLINE, SEND],
+    row_headings: &[OFFLINE, RECORD, SEND],
     // silvia's Frame History is `midi-disabled`, and these are its kin: settings for a
-    // render, which nobody turns mid-set.
-    unbindable: &RENDER_CONTROLS,
+    // render or a recording, which nobody turns mid-set.
+    unbindable: &UNBINDABLE,
     regions: &[crate::nodes::Region::Render],
     ..NodeDef::EMPTY
 };
@@ -494,6 +516,8 @@ pub enum Press {
     Stop,
     /// Open the page the runtime is downloaded from.
     GetIt,
+    /// Start recording.
+    Record,
 }
 
 impl Press {
@@ -502,6 +526,7 @@ impl Press {
             Self::Send => "Send",
             Self::Stop => "Stop",
             Self::GetIt => "Get it",
+            Self::Record => "Record",
         }
     }
 }
@@ -573,6 +598,67 @@ pub fn name_hover(default: &str) -> String {
          its own. Renamed while on air, the stream starts again under the new name: receivers \
          see the old source go and a new one appear."
     )
+}
+
+/// What the Record row under the Record heading says, the way a way out's row does: lit while
+/// it records, with how long on the show's clock and how many frames repeat the one before for
+/// lack of a picture; why not while a render runs; and otherwise why the last press failed, or
+/// *off*. `recording` is the seconds and the dropped frames.
+pub fn record_status(
+    recording: Option<(f64, u64)>,
+    error: Option<&str>,
+    rendering: bool,
+) -> Status<'_> {
+    use std::borrow::Cow;
+    match (recording, rendering, error) {
+        (Some((seconds, dropped)), _, _) => Status {
+            on_air: true,
+            line: Cow::Owned(format!("{} · {dropped} dropped", clock(seconds))),
+            press: Press::Stop,
+        },
+        (None, true, _) => Status {
+            on_air: false,
+            line: Cow::Borrowed("not while rendering"),
+            press: Press::Record,
+        },
+        (None, false, Some(error)) => Status {
+            on_air: false,
+            line: Cow::Borrowed(error),
+            press: Press::Record,
+        },
+        (None, false, None) => Status {
+            on_air: false,
+            line: Cow::Borrowed("off"),
+            press: Press::Record,
+        },
+    }
+}
+
+/// What the Record row says under the pointer: the whole of a failure its line cut short, or
+/// what recording does.
+pub fn record_hover(error: Option<&str>) -> String {
+    error.map_or_else(
+        || {
+            "Records this Output's picture to a video in recordings/ as the show plays, at \
+             the FPS above and the Output's resolution, until Stop. Picture only. A \
+             frame the show did not draw in time repeats the one before and counts as \
+             dropped. No render runs beside it."
+                .to_string()
+        },
+        str::to_string,
+    )
+}
+
+/// A recording's length as its row and the status line say it: minutes and seconds, and hours
+/// in front past the first.
+pub fn clock(seconds: f64) -> String {
+    let whole = seconds.max(0.0).floor() as u64;
+    let (h, m, s) = (whole / 3600, (whole % 3600) / 60, whole % 60);
+    if h > 0 {
+        format!("{h}:{m:02}:{s:02}")
+    } else {
+        format!("{m}:{s:02}")
+    }
 }
 
 /// What an Output renders at when its option says nothing this build understands. Kept
@@ -849,6 +935,42 @@ mod tests {
             (false, "runtime won't load", Press::Stop)
         );
         assert_eq!(Press::GetIt.caption(), "Get it");
+    }
+
+    /// What the Record row says in each state it can be in: how long and how many dropped
+    /// while it runs, the reason where the last press failed, and why not while a render runs.
+    #[test]
+    fn the_record_row_says_what_it_is_doing() {
+        let off = record_status(None, None, false);
+        assert_eq!(
+            (off.on_air, &*off.line, off.press),
+            (false, "off", Press::Record)
+        );
+        let on = record_status(Some((83.4, 2)), None, false);
+        assert_eq!(
+            (on.on_air, &*on.line, on.press),
+            (true, "1:23 · 2 dropped", Press::Stop)
+        );
+        let failed = record_status(None, Some("no hardware video encoder"), false);
+        assert_eq!(
+            (failed.on_air, &*failed.line, failed.press),
+            (false, "no hardware video encoder", Press::Record)
+        );
+        let rendering = record_status(None, Some("old news"), true);
+        assert_eq!(
+            (rendering.on_air, &*rendering.line, rendering.press),
+            (false, "not while rendering", Press::Record)
+        );
+        assert_eq!(Press::Record.caption(), "Record");
+    }
+
+    #[test]
+    fn a_recordings_clock_is_minutes_and_seconds_then_hours() {
+        assert_eq!(clock(0.0), "0:00");
+        assert_eq!(clock(7.9), "0:07");
+        assert_eq!(clock(754.0), "12:34");
+        assert_eq!(clock(3723.0), "1:02:03");
+        assert_eq!(clock(-1.0), "0:00");
     }
 
     /// The hover is the whole of what the line cut short, or what the way does.

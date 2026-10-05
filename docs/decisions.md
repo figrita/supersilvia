@@ -2672,9 +2672,10 @@ folder that carries its own plays on another machine at once, and the cost is di
 its owner already has. It is still a cache: made on demand, listed nowhere, never written by
 Save, deletable for the price of a re-import.
 
-**Chosen: Save as leaves `cache/` behind**, and copies `renders/` and `snaps/`, which are the
-person's work. **Rejected: copying the cache with the fork.** The fork is on the same machine
-as its original, so the copy is gigabytes of transcodes made again only if a clip in it plays.
+**Chosen: Save as leaves `cache/` behind**, and copies `renders/`, `recordings/` and `snaps/`,
+which are the person's work. **Rejected: copying the cache with the fork.** The fork is on the
+same machine as its original, so the copy is gigabytes of transcodes made again only if a clip
+in it plays.
 
 **Rejected: Save deleting an unreferenced asset.** Save deletes nothing under `assets/` or
 `cache/` but a painting file it wrote itself and no longer names — [A painting is saved with
@@ -6294,10 +6295,9 @@ that made it — the project folder is the thing that travels — and nothing lo
 carries the Output and a UTC stamp, because what a name is for here is telling two apart and
 sorting them, and there is no timezone database in this binary to do better.
 
-**Rejected: Rec.** silvia's fourth button records until it is pressed again. A realtime
-recorder is an encoder running beside the show at the rate the show is going, dropping
-nothing, while the graph keeps its own time — machinery rather than a button, and worth having
-one day on its own terms.
+silvia's fourth button, Rec, is [the Output's live recording](#recording-is-the-outputs-picture-only):
+a section of its own on the node rather than an action input beside Snap, since what it starts
+runs until it is stopped.
 
 **The render section folds under a heading, not a tick.** A tick in the shared row at the foot
 of a node is the port-visibility control: it hides runs of *ports*, and a ticked-off one says
@@ -6336,6 +6336,55 @@ and a lift the size of the one token silvia's own indicator steps.
 **Rejected: throbbing only outputs.** An input fired down a cable is the same event, and it is
 the end a person is usually looking at: the sequencer lane is off to the left and the node it
 is driving is what you are watching.
+
+### Recording is the Output's, picture only
+
+**Chosen.** A **Record** section on the Output, under a heading of its own between Render and
+Send and closed on a new Output: an **FPS** of its own, then a row with one button that toggles
+**Record** and **Stop** and a line that says how long and how many frames dropped. It writes the
+Output's picture, at its resolution and that FPS, to an `.mp4` in `recordings/` on the hardware
+encoder the render's video writer uses, while the show plays, and stops on Stop, a delete, a
+resize, a closed tab, another project or quitting. No sound. See
+[rendering.md](rendering.md#live-recording) and [ui.md](ui.md#the-record-section).
+
+**Chosen: slots of the show's clock, a repeat counted as dropped.** The file has one frame per
+`1 / fps` of the clock since Record, the first frame drawn in each; a slot nothing reached is
+the frame before again and is what the row counts, and a paused loop's slots repeat on purpose
+and are not counted. So a minute of performance is a minute of film, and the count is the
+stutters in it. **Rejected: stamping each picture with the time it was drawn**, a variable
+frame rate: the file would be the show's own jitter, and an editor handed it would have to
+conform it first. **Rejected: never dropping.** That is the render job, and it can promise it
+only because it owns the clock; a recording that waited for its writer would stall the show it
+is recording.
+
+**Chosen: a section of its own, with an FPS of its own.** A recording shares the encoder with a
+render and nothing a hand sets: not the duration, the warm-up, the supersampling or the writer,
+and not the rate, since a take recorded for the web and a film rendered for an editor want
+different ones. A heading of its own says the recording is there with the section closed, and
+puts the FPS read at Record beside the button that reads it. **Rejected: the Render section as
+its home**, under the Render button and at the render's FPS: one number would be two settings,
+and opening the recording would open six rows it does not read. A render and a recording refuse
+each other — a render steps the clock a recording follows, and suspends every Output but its own
+— and the Render button says so while anything records.
+
+**Chosen: `recordings/`, beside `renders/`.** A take of a performance and a film made a frame
+at a time are different things, and a folder each sorts them apart without opening either. It
+is made by the first recording, as `renders/` is by the first render, and Save as carries it
+with the rest of the person's work.
+
+**Rejected: a way out under Send.** Send's rows are options, saved and undone, and each leaves
+while the option is on; a recording is a thing done to the instrument that runs until it is
+stopped, and a project opened with one "on" would start a file nobody asked for.
+
+**Rejected: a Recorder node with frame and audio inputs.** There is no sound cable type to
+plug into it, and a picture cable is a field — a function of the coordinate asked at — not a
+finished image: the node would have to pick a resolution and draw the field into a target of
+its own, which is an Output in disguise. The Output already is the finished picture, at its
+resolution.
+
+**Rejected: recording with audio.** Keeping sound and picture in sync — two clocks, an
+encoder's latency, a dropped frame against a continuous stream — is the hard part of a
+recorder, and it was left out to keep this simple. The render job's own video is silent too.
 
 ### The Status box is a terminal pane with a verdict first, and waiting is what the CPU clock did not see
 

@@ -154,6 +154,8 @@ pub struct Events {
     pub snaps: Log<(NodeId, u32, u32, Vec<u8>), SNAPS>,
     /// Every MIDI message the tick read, for the window's monitor and for learning.
     pub midi: Log<crate::midi::Message, KEPT>,
+    /// A live recording that ended: its file, or why there is none.
+    pub recorded: Log<super::RecordEnd, KEPT>,
 }
 
 /// What [`Events`] asks of each of its logs whatever it holds.
@@ -183,7 +185,7 @@ impl<T: Clone, const KEEP: usize> Counted for Log<T, KEEP> {
 }
 
 impl Events {
-    fn all(&self) -> [&dyn Counted; 7] {
+    fn all(&self) -> [&dyn Counted; 8] {
         [
             &self.decks,
             &self.fired,
@@ -192,10 +194,11 @@ impl Events {
             &self.thumbnails,
             &self.snaps,
             &self.midi,
+            &self.recorded,
         ]
     }
 
-    fn all_mut(&mut self) -> [&mut dyn Counted; 7] {
+    fn all_mut(&mut self) -> [&mut dyn Counted; 8] {
         [
             &mut self.decks,
             &mut self.fired,
@@ -204,6 +207,7 @@ impl Events {
             &mut self.thumbnails,
             &mut self.snaps,
             &mut self.midi,
+            &mut self.recorded,
         ]
     }
 
@@ -229,7 +233,8 @@ impl Events {
     }
 
     /// Another project replaced the one these were made in: none of them is delivered. MIDI's
-    /// messages are the run's, and stay.
+    /// messages are the run's, and stay, and so does a recording's end: its file was written,
+    /// whichever project is open.
     pub fn forget_project(&mut self) {
         self.decks.skip();
         self.fired.skip();
@@ -248,6 +253,7 @@ impl Events {
         self.thumbnails.copy_into(&mut out.thumbnails);
         self.snaps.copy_into(&mut out.snaps);
         self.midi.copy_into(&mut out.midi);
+        self.recorded.copy_into(&mut out.recorded);
     }
 }
 

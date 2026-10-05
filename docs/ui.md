@@ -2582,7 +2582,7 @@ heading instead —
 both idioms and they are about two different things.
 
 A heading usually sits on the region it folds, which is where the region declares it. An
-Output's Render and Send sections and a moving node's Time fold a run of **rows**, which is not
+Output's Render, Record and Send sections and a moving node's Time fold a run of **rows**, which is not
 a band and has nowhere to hang a heading of its own, so the node names each option in
 `NodeDef::row_headings` and `ui/node_widget` draws the same bar over the rows — one
 `widgets::heading_row`, so they cannot drift apart by a point. A registry test holds every
@@ -2749,6 +2749,39 @@ cancels at its right. Behind it the document is closed: `App::apply` refuses eve
 every Render number goes inert. See [rendering.md](rendering.md#the-render-job) for what the
 band is over.
 
+## The Record section
+
+**An Output records itself live under a heading of its own**, **Record**, between Render and
+Send: the same bar and triangle, closed on a new Output as Render is: a set that never
+records should not carry its rows. (Option `recording`, `on`/`off`, saved and undone like the
+other two; not `record`, which is the Record button's name.) Under it, two rows:
+
+- **FPS**, the recording's own frame rate, 1 to 120 and 30 on a new Output: a hidden control,
+  so document data, undoable and saved, and unbindable as the Render numbers are. It is apart
+  from the Render section's FPS, so a film rendered at one rate and a set recorded at another
+  are each set once. It is read once, at Record, so it goes inert while this Output records,
+  and while any render runs, as every Render number does.
+- **The Record row**, which records the Output live, to a video in `recordings/`, while the
+  show plays — the [live recording](rendering.md#live-recording). It is a way out's row in
+  shape and size: its label, a dot and one line, and one button at its right.
+
+| the line | the dot | the button |
+| --- | --- | --- |
+| *off* | `○` | **Record** |
+| *0:12 · 0 dropped* — how long on the show's clock, and the frames that repeat the one before for lack of a picture | `●`, in the accent | **Stop** |
+| why the last press or recording failed — *the Output has nothing connected*, *no hardware video encoder…* — until the next press | `○` | **Record** |
+| *not while rendering*, while any render runs | `○` | **Record**, inert |
+
+Its rows are `canvas::Row::Record` under `canvas::Row::RecordHeading`. The render's other
+settings — supersampling, warm-up, writer, duration — do not apply to a recording; its size is
+the Output's **Resolution**. A click is a request, not a command, as Render's is: a recording
+is done to the instrument, so nothing enters the undo history and nothing is saved. The line
+is cut short where the row runs out and never wrapped, so the row is the one height whatever
+it says; the pointer on it shows the whole of a failure, or what recording does. A recording
+that ends says so on the status line with the file and a Show — and why, where it was not the
+button. While anything records, the Render button reads **Stop recording to render** and does
+nothing.
+
 ## An Output's status line
 
 **One line directly above an Output's own picture**, which is where silvia puts its own — the
@@ -2759,14 +2792,14 @@ render sits in.
 | --- | --- |
 | `● Input` / `○ No Input` | something is cabled into it |
 | `● On A` · `● On B` · `● A & B` / `○ Hidden` | which deck of the mixer claimed it |
-| `● Rendering` / `○ Ready` | a render of **this** Output is running |
+| `● Rendering` / `● Recording` / `○ Ready` | a render, or a live recording, of **this** Output is running |
 
 **Color says the same thing twice and never says it alone.** silvia's cells are green, gray,
 amber and red; the palette here derives from four anchors and carries no green and no red, so
 the hue cannot be ported. The filled and hollow dots carry the state — `●` against `○`, which
 reads with the hue turned off — and the ink under them is the neutral ladder. The one
-exception is the capture cell, which takes the accent while a render runs: that is the only
-state here somebody needs to see from across a room.
+exception is the capture cell, which takes the accent while a render or a recording runs: that
+is the only state here somebody needs to see from across a room.
 
 **It is not behind View ▸ Costs.** A cost strip is a measurement and is off by default; a
 status line is what the node *is*, and silvia shows its own always.

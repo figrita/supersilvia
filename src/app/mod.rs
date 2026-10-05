@@ -48,6 +48,7 @@ mod midi;
 mod onair;
 pub use onair::OnAir;
 mod problems;
+mod record;
 pub mod render;
 mod show;
 mod tabs;
@@ -2000,6 +2001,7 @@ impl App {
         self.media
             .collect_thumbnails(self.link.snapshot(), &self.project);
         self.collect_snaps();
+        self.collect_recordings();
         // A finished render says where it went where a person sees it, with a Show.
         if self.media.observe_render(self.link.snapshot())
             && let Some(file) = self.media.status_shows().map(std::path::Path::to_path_buf)
@@ -2275,6 +2277,7 @@ impl App {
     pub(super) fn output_readouts(&self) -> HashMap<NodeId, crate::ui::OutputReadout> {
         use crate::render::publish::Via;
         let rendering = self.render_progress().map(|p| p.output);
+        let recording_anywhere = self.recording();
         let mixer = self.project.mixer();
         let graph = self.doc.graph();
         // Empty, and so no allocation, on every frame nothing is failing.
@@ -2302,6 +2305,12 @@ impl App {
                     connected: !graph.cables_into(id).is_empty(),
                     decks: mixer.decks_of(id),
                     rendering: rendering == Some(id),
+                    recording: self.recording_of(id),
+                    record_error: match self.record_outcome(id) {
+                        Some(Err(e)) => Some(e.clone()),
+                        _ => None,
+                    },
+                    recording_anywhere,
                     ndi_error: failure(id, true),
                     syphon_error: failure(id, false),
                 };

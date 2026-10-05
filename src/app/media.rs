@@ -87,6 +87,9 @@ pub(super) struct Media {
     /// Where the render in progress is writing, and how the last one ended.
     render_destination: Option<PathBuf>,
     render_outcome: Option<Outcome>,
+    /// The live recordings asked for and how each Output's last one ended. The recording
+    /// itself is the synth's — see [`crate::synth::record`].
+    pub(super) records: super::record::Records,
 }
 
 impl Media {
@@ -160,6 +163,7 @@ impl Media {
         self.posterless.clear();
         self.poster = None;
         self.thumbnails_pending.clear();
+        self.records.forget_project();
         self.refresh_assets(project);
     }
 

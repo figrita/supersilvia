@@ -981,6 +981,217 @@ fn a_render_puts_a_feedback_outputs_frame_back() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+// ---------------------------------------------------------------------- live recording
+
+/// A project of its own with a checkerboard into an Output, recording at `fps`: the app, the
+/// Output and the project folder.
+fn recording_patch(
+    name: &str,
+    fps: f32,
+) -> (
+    supersilvia::App,
+    supersilvia::graph::NodeId,
+    std::path::PathBuf,
+) {
+    use supersilvia::graph::{ControlValue, PortRef};
+    use supersilvia::{App, Command};
+    let root = std::env::temp_dir().join(format!("supersilvia-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("a project folder");
+    let mut app = App::headless();
+    app.attach_gpu_on(gpu::gpu());
+    app.new_project(root.clone());
+    let cb = add_node(&mut app, "checkerboard");
+    let out = add_node(&mut app, "output");
+    app.apply(Command::Connect {
+        from: PortRef::new(cb, "output"),
+        to: PortRef::new(out, "input"),
+    })
+    .unwrap();
+    app.apply(Command::SetControls {
+        node: out,
+        values: vec![(
+            supersilvia::nodes::output::RECORD_FPS,
+            ControlValue::Float(fps),
+        )],
+    })
+    .unwrap();
+    for _ in 0..4 {
+        app.publish_plan();
+        app.tick(1.0 / 60.0);
+    }
+    (app, out, root)
+}
+
+/// Tick until the recording of `out` has ended and say how.
+fn recording_ends(
+    app: &mut supersilvia::App,
+    out: supersilvia::graph::NodeId,
+) -> Result<supersilvia::synth::Recorded, String> {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    loop {
+        app.publish_plan();
+        app.tick(1.0 / 60.0);
+        if app.recording_of(out).is_none()
+            && let Some(outcome) = app.record_outcome(out)
+        {
+            return outcome.clone();
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the recording never ended"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+}
+
+/// **A recording of live ticks is a film as long as the show was.** Two seconds of the show,
+/// a hundred and twenty ticks at sixty hertz, recorded at the Output's 30 fps, is sixty
+/// frames at the Output's own size, in `recordings/` under the Output's name and the time, and
+/// the picture in it is the checkerboard rather than black.
+#[test]
+fn a_recording_of_live_ticks_is_a_film_as_long_as_the_show() {
+    if supersilvia::video::clip::Codec::probe().is_none() {
+        eprintln!("no hardware codec pair here; skipping");
+        return;
+    }
+    let (mut app, out, root) = recording_patch("record", 30.0);
+    app.start_recording(out)
+        .expect("a connected Output records");
+    let mut parts = 0;
+    for _ in 0..120 {
+        app.publish_plan();
+        app.tick(1.0 / 60.0);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let view = app.recording_of(out).expect("recording while it runs");
+        assert!(
+            view.seconds <= 2.01,
+            "the row's clock is the show's: {}",
+            view.seconds
+        );
+        parts = std::fs::read_dir(root.join("recordings")).map_or(0, |d| {
+            d.flatten()
+                .filter(|e| e.path().extension().is_some_and(|x| x == "part"))
+                .count()
+        });
+    }
+    assert_eq!(parts, 1, "written as a .part while it runs");
+    // The clock starts on the first tick that asks for a picture, its first slot, so a hundred
+    // and twenty ticks are a hundred and nineteen of the show's sixtieths after it.
+    let seconds = app.recording_of(out).expect("still recording").seconds;
+    assert!(
+        (seconds - 119.0 / 60.0).abs() < 0.01,
+        "two seconds of the show, less the tick it began on: {seconds}"
+    );
+    app.stop_recording(out);
+    let recorded = recording_ends(&mut app, out).expect("the recording closes");
+
+    let file = recorded.destination.clone();
+    let name = file.file_name().unwrap().to_string_lossy().into_owned();
+    assert_eq!(file.parent(), Some(root.join("recordings").as_path()));
+    assert!(
+        name.starts_with(&format!("output{out}-")) && file.extension().is_some_and(|e| e == "mp4"),
+        "the Output, the time, and an .mp4: {name}"
+    );
+    assert!(
+        !file.with_extension("part").exists(),
+        "the .part is renamed"
+    );
+    let info = supersilvia::video::clip::discover(&file).expect("a playable clip");
+    assert_eq!(
+        (info.width, info.height),
+        (1280, 720),
+        "the Output's own size"
+    );
+    assert!((info.fps - 30.0).abs() < 1e-3, "{}", info.fps);
+    assert_eq!(info.frames, 60, "two seconds at 30 fps: {info:?}");
+    assert_eq!(recorded.frames, 60);
+    eprintln!("{} of 60 frames dropped", recorded.dropped);
+    assert!(
+        recorded.dropped < 60,
+        "a GPU that kept up gave most slots a picture of their own"
+    );
+    assert_eq!(
+        app.file_status_shows(),
+        Some(file.as_path()),
+        "the status line offers to show the film: {}",
+        app.file_status()
+    );
+
+    let poster = root.join("poster.png");
+    supersilvia::video::clip::write_poster(&file, &poster).expect("a frame decodes");
+    let picture = supersilvia::video::png::read(&poster).expect("the frame reads back");
+    assert!(
+        picture.rgba.iter().step_by(4).any(|r| *r > 200),
+        "the checkerboard, not black"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// **A recording's first frame is a picture, however long the encoder took to open.** A slow
+/// first tick — a hardware encoder opening takes tens of milliseconds — must not put the
+/// recording past its first slot before it has asked for it: the clock starts on the tick that
+/// first asks, so nothing is dropped and the file does not open on black.
+#[test]
+fn a_slow_first_tick_drops_no_frame() {
+    if supersilvia::video::clip::Codec::probe().is_none() {
+        eprintln!("no hardware codec pair here; skipping");
+        return;
+    }
+    let (mut app, out, root) = recording_patch("record-slow-start", 30.0);
+    app.start_recording(out)
+        .expect("a connected Output records");
+    // The tick the encoder opens on, as long as one is in the app.
+    app.publish_plan();
+    app.tick(0.1);
+    for _ in 0..60 {
+        app.publish_plan();
+        app.tick(1.0 / 60.0);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    app.stop_recording(out);
+    let recorded = recording_ends(&mut app, out).expect("the recording closes");
+    assert_eq!(
+        recorded.dropped, 0,
+        "no slot went without a picture: {recorded:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// **Deleting the Output mid-recording closes the file**: what was recorded up to the delete
+/// is a playable film under its name, and the Output's row has nothing left to say.
+#[test]
+fn deleting_the_output_mid_recording_finalizes_the_file() {
+    use supersilvia::Command;
+    if supersilvia::video::clip::Codec::probe().is_none() {
+        eprintln!("no hardware codec pair here; skipping");
+        return;
+    }
+    let (mut app, out, root) = recording_patch("record-delete", 30.0);
+    app.start_recording(out)
+        .expect("a connected Output records");
+    // Twenty-nine ticks, and the delete lands on the thirtieth: half a second of the show.
+    for _ in 0..29 {
+        app.publish_plan();
+        app.tick(1.0 / 60.0);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+    app.apply(Command::RemoveNodes(vec![out])).unwrap();
+    let recorded = recording_ends(&mut app, out).expect("the recording closes");
+    assert!(
+        recorded
+            .why
+            .as_deref()
+            .is_some_and(|w| w.contains("deleted")),
+        "it says why it stopped: {:?}",
+        recorded.why
+    );
+    assert!(!recorded.destination.with_extension("part").exists());
+    let info = supersilvia::video::clip::discover(&recorded.destination).expect("a playable clip");
+    assert_eq!(info.frames, 15, "half a second at 30 fps: {info:?}");
+    let _ = std::fs::remove_dir_all(&root);
+}
+
 /// Add `slug` to `app`'s default workspace, returning its id.
 fn add_node(app: &mut supersilvia::App, slug: &'static str) -> supersilvia::graph::NodeId {
     let ws = app.graph().default_workspace();

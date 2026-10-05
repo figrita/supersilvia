@@ -130,10 +130,23 @@ pub const CABLE_CLEARANCE: f32 = 24.0;
 pub const CONTROL_ROW_PITCH: f32 = 34.0;
 
 /// The rows of an Output's Render section, under the **Render** heading that folds them: its
-/// three selects, then one row per number, then the button.
+/// three selects, then one row per number, then the Render button.
 pub const RENDER_SELECTS: usize = crate::nodes::output::RENDER_SELECTS.len();
 pub const RENDER_CONTROLS: usize = crate::nodes::output::RENDER_CONTROLS.len();
 pub const RENDER_ROWS: usize = RENDER_SELECTS + RENDER_CONTROLS + 1;
+
+/// The Render section's last row, holding the Render button.
+pub const RENDER_BUTTON: usize = RENDER_ROWS - 1;
+
+/// The rows of an Output's Record section, under the **Record** heading that folds them: the
+/// recording's FPS, then the Record row.
+pub const RECORD_ROWS: usize = 2;
+
+/// The Record section's first row: the recording's FPS.
+pub const RECORD_FPS_ROW: usize = 0;
+
+/// The Record section's last row: the live recording's status and its Record button.
+pub const RECORD_ROW: usize = 1;
 
 /// How tall the status line is. A line of `FONT_TINY` and the air around it, well under
 /// `OPTION_ROW_PITCH`: it is a line of monospace, not a control, and giving it a control's
@@ -141,7 +154,8 @@ pub const RENDER_ROWS: usize = RENDER_SELECTS + RENDER_CONTROLS + 1;
 pub const READOUT_ROW_PITCH: f32 = 15.0;
 
 /// Does this node carry the Render heading — the bar and disclosure triangle over the render
-/// rows, drawn open or closed on every Output and on nothing else.
+/// rows, drawn open or closed on every Output and on nothing else. The Record and Send
+/// headings are on exactly the same nodes.
 pub fn render_heading(node: &Node) -> bool {
     node.def.is_output && !node.collapsed
 }
@@ -149,6 +163,11 @@ pub fn render_heading(node: &Node) -> bool {
 /// Is the Output's render section open: its heading's option, which reads absent as closed.
 pub fn render_shown(node: &Node) -> bool {
     node.def.is_output && tick(node, crate::nodes::output::OFFLINE).unwrap_or(false)
+}
+
+/// Is the Output's Record section open: its heading's option, which reads absent as closed.
+pub fn record_shown(node: &Node) -> bool {
+    render_heading(node) && tick(node, crate::nodes::output::RECORD).unwrap_or(false)
 }
 
 /// Where a moving node's Timing heading sits: the index of its first time row, on a node that
@@ -177,6 +196,7 @@ fn heading_open(node: &Node, row: Row) -> Option<bool> {
     match row {
         Row::TimingHeading => Some(timing_shown(node)),
         Row::RenderHeading => Some(render_shown(node)),
+        Row::RecordHeading => Some(record_shown(node)),
         Row::SendHeading => Some(send_shown(node)),
         _ => None,
     }
@@ -376,13 +396,20 @@ pub enum Row {
     /// One value the node declares, drawn by its own `ValueKind` — a box of text on a
     /// `note`, and later a pad or a step grid. Its height is the lines it asked for.
     Value(usize),
-    /// One row of an Output's Render section: its three numbers, then the button that
-    /// starts a render with its progress behind it. `RENDER_ROWS` of them, on every Output.
+    /// One row of an Output's Render section: its three selects and three numbers, and the
+    /// button that starts a render with its progress behind it. `RENDER_ROWS` of them, on
+    /// every Output.
     Render(usize),
     /// The bar over those rows: a region's heading, over rows rather than over a band. On
     /// every Output whether the section is open or closed — a closed section still says it
     /// is there, which is the whole of why it is a heading and not a tick.
     RenderHeading,
+    /// One row of an Output's Record section: the recording's FPS, then the Record row with
+    /// its status and its button. `RECORD_ROWS` of them, on every Output.
+    Record(usize),
+    /// The bar over those rows, the same bar the Render section wears, on every Output
+    /// whether they are open or closed.
+    RecordHeading,
     /// The bar over an Output's Send rows, the same bar the Render section wears, on every
     /// Output whether they are open or closed.
     SendHeading,
@@ -413,6 +440,8 @@ impl Row {
             | Row::Value(_)
             | Row::Render(_)
             | Row::RenderHeading
+            | Row::Record(_)
+            | Row::RecordHeading
             | Row::SendHeading
             | Row::Send(_)
             | Row::Readout => None,
@@ -437,6 +466,8 @@ impl Row {
             | Row::Value(_)
             | Row::Render(_)
             | Row::RenderHeading
+            | Row::Record(_)
+            | Row::RecordHeading
             | Row::SendHeading
             | Row::Send(_)
             | Row::Readout => 2,
@@ -511,6 +542,8 @@ pub fn row_block(body: Rect, row: Row, top: f32, height: f32) -> Rect {
         | Row::Checks
         | Row::Render(_)
         | Row::RenderHeading
+        | Row::Record(_)
+        | Row::RecordHeading
         | Row::SendHeading
         | Row::Send(_)
         | Row::Readout => full,
@@ -571,13 +604,19 @@ pub fn row_height(node: &Node, measured: &[f32], row: Row) -> f32 {
     match row {
         Row::Input(i) if input_has_control(node, i) || speed_tall(node, i) => CONTROL_ROW_PITCH,
         Row::Input(_) | Row::Output(_) => PORT_PITCH,
-        // A render's numbers are control rows; its selects and its button are option rows.
+        // A render's numbers and a recording's FPS are control rows; the selects, the Render
+        // button and the Record row are option rows.
         Row::Render(i) if (RENDER_SELECTS..RENDER_SELECTS + RENDER_CONTROLS).contains(&i) => {
             CONTROL_ROW_PITCH
         }
-        Row::Option(_) | Row::Checks | Row::Render(_) | Row::Send(_) => OPTION_ROW_PITCH,
+        Row::Record(RECORD_FPS_ROW) => CONTROL_ROW_PITCH,
+        Row::Option(_) | Row::Checks | Row::Render(_) | Row::Record(_) | Row::Send(_) => {
+            OPTION_ROW_PITCH
+        }
         // The same bar a region's heading is, so the two read as one affordance.
-        Row::RenderHeading | Row::SendHeading | Row::TimingHeading => HEADING_HEIGHT,
+        Row::RenderHeading | Row::RecordHeading | Row::SendHeading | Row::TimingHeading => {
+            HEADING_HEIGHT
+        }
         Row::Readout => READOUT_ROW_PITCH,
         // A value's height is the lines it declares: one line is an option row, and each
         // line after that adds a line of text rather than a whole row's padding.
@@ -654,6 +693,7 @@ pub fn rows<'a>(node: &'a Node, measured: &'a [f32]) -> impl Iterator<Item = (Ro
             + send_options(node),
     );
     let render = if render_shown(node) { RENDER_ROWS } else { 0 };
+    let record = if record_shown(node) { RECORD_ROWS } else { 0 };
     let time = timing_heading(node);
     (0..node.inputs.len().min(n))
         .flat_map(move |i| {
@@ -670,6 +710,9 @@ pub fn rows<'a>(node: &'a Node, measured: &'a [f32]) -> impl Iterator<Item = (Ro
         .chain((0..selects.min(n)).map(Row::Option))
         .chain(render_heading(node).then_some(Row::RenderHeading))
         .chain((0..render.min(n)).map(Row::Render))
+        // The live recording, under a heading of its own.
+        .chain(render_heading(node).then_some(Row::RecordHeading))
+        .chain((0..record.min(n)).map(Row::Record))
         // A value a region draws has no row of its own, and says so by declaring no lines.
         .chain(
             (0..node.def.values.len().min(n))
@@ -1237,7 +1280,7 @@ mod tests {
     }
 
     /// Every node kind as it is laid out open, with every heading turned the other way and the
-    /// Output's render section open, and collapsed, with a name for each.
+    /// Output's render and record sections open, and collapsed, with a name for each.
     fn every_kind_every_way(mut check: impl FnMut(&Graph, NodeId, &str)) {
         for def in crate::nodes::REGISTRY {
             let mut g = Graph::new();
@@ -1252,6 +1295,7 @@ mod tests {
             }
             if def.is_output {
                 set(&mut g, id, crate::nodes::output::OFFLINE, true);
+                set(&mut g, id, crate::nodes::output::RECORD, true);
             }
             check(&g, id, &format!("{} turned", def.slug));
             g.get_mut(id).unwrap().collapsed = true;
@@ -1526,8 +1570,9 @@ mod tests {
                         + selects
                         + node.def.values.iter().filter(|v| v.rows() > 0).count()
                         + usize::from(node.def.checks() > 0)
-                        + 2 * usize::from(render_heading(node))
+                        + 3 * usize::from(render_heading(node))
                         + if render_shown(node) { RENDER_ROWS } else { 0 }
+                        + if record_shown(node) { RECORD_ROWS } else { 0 }
                         + send_rows(node).count()
                         + usize::from(node.def.is_output),
                     "{what}: every row is walked"

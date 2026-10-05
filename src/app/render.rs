@@ -99,6 +99,11 @@ impl App {
         if self.rendering() {
             return Err("a render is already running".to_string());
         }
+        // A render steps the show's clock a frame at a time, and a recording follows it as it
+        // plays: never both.
+        if self.recording() {
+            return Err("a recording is running: stop it first".to_string());
+        }
         let node = self
             .doc
             .graph()

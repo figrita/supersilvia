@@ -1068,6 +1068,43 @@ impl Renderer {
             .unwrap_or_default()
     }
 
+    /// Read this Output's next drawn frame back for slot `slot` of its recording. Never waits;
+    /// see [`readback::Readbacks::request_record`].
+    pub fn request_record(&mut self, node: NodeId, slot: u64) {
+        if let Some(o) = self.outputs.get_mut(&node) {
+            o.readbacks().request_record(slot);
+        }
+    }
+
+    /// The tick that asked for `slot` is over; `undrawn` where the Output was not drawn in it
+    /// on purpose.
+    pub fn record_done(&mut self, node: NodeId, slot: u64, undrawn: bool) {
+        if let Some(o) = self.outputs.get_mut(&node) {
+            o.readbacks().record_done(slot, undrawn);
+        }
+    }
+
+    pub fn take_recorded(&mut self, node: NodeId) -> Vec<(u64, readback::Recorded)> {
+        self.outputs
+            .get_mut(&node)
+            .map(|o| o.readbacks().take_recorded())
+            .unwrap_or_default()
+    }
+
+    /// Whether a slot of this Output's recording is still on its way back. False for an
+    /// Output with no renderer, whose reads went with it.
+    pub fn record_pending(&self, node: NodeId) -> bool {
+        self.outputs
+            .get(&node)
+            .is_some_and(|o| o.readbacks_ref().record_pending())
+    }
+
+    pub fn forget_record(&mut self, node: NodeId) {
+        if let Some(o) = self.outputs.get_mut(&node) {
+            o.readbacks().forget_record();
+        }
+    }
+
     pub fn dropped_frames(&self, node: NodeId) -> u64 {
         self.drops(node).total()
     }

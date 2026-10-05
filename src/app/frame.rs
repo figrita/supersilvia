@@ -766,6 +766,8 @@ impl eframe::App for App {
             // graph: the notes, the scopes, the playheads, the traces and what was published.
             // Read before the snapshot is taken out from under `faults`.
             let faults: std::collections::HashMap<_, _> = self.faults().into_iter().collect();
+            // The Outputs' rows read the recordings out of the snapshot, so before it is taken.
+            let readouts = self.output_readouts();
             let snapshot = std::mem::take(self.link.snapshot_mut());
             // One reading of the probes' counts, thresholded for the header warning and
             // formatted for the strip.
@@ -776,7 +778,6 @@ impl eframe::App for App {
             } else {
                 std::collections::HashMap::new()
             };
-            let readouts = self.output_readouts();
             let sampling = super::link::SynthLink::sampling_warnings(self.doc.graph(), &taps);
             let render_view = self.render_view();
             let live = self.live_sources();
@@ -1214,6 +1215,9 @@ impl App {
             } else {
                 self.start_render_on(request.node);
             }
+        }
+        for node in out.record_requests {
+            self.toggle_recording(node);
         }
         // Read by the *next* tick, with the held buttons: the UI is drawn after the ticks, so
         // where a hand let the scrubber go lands a frame later, which is one sixteenth of a

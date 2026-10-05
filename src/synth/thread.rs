@@ -118,6 +118,10 @@ pub enum Msg {
     /// Run an offline render. The synth owns the clock and the nodes, so it runs the loop.
     StartRender(Box<RenderRequest>),
     CancelRender,
+    /// Record an Output live, as the show plays. See [`super::record`].
+    StartRecord(Box<super::RecordRequest>),
+    /// The Stop button on an Output's recording.
+    StopRecord(NodeId),
 }
 
 /// An offline render, as the editor asks for one.
@@ -375,7 +379,10 @@ impl Host {
     /// before eframe tears its window down.
     pub fn stop(&mut self) {
         match self {
-            Self::Inline { synth, .. } => synth.destroy_gpu(),
+            Self::Inline { synth, .. } => {
+                synth.finish_recordings();
+                synth.destroy_gpu();
+            }
             Self::Thread { tx, handle, .. } => {
                 // Dropping the sender is what ends the loop: the receiver disconnects and
                 // the thread drops its renderer with everything it holds.
@@ -448,6 +455,8 @@ fn run(
         std::thread::sleep(deadline - now);
         synth.slept(now.elapsed());
     }
+    // The run is over, so its recordings may be waited for: each file is closed and renamed.
+    synth.finish_recordings();
     synth.destroy_gpu();
 }
 

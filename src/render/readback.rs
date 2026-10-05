@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! What an Output reads back off the GPU: its tap words, a thumbnail, a Snap and a render's
-//! capture — and [`read_texture`], the one blocking read the tests use.
+//! What an Output reads back off the GPU: its tap words, a thumbnail, a Snap, a render's
+//! capture and a recording's frames — and [`read_texture`], the one blocking read the tests
+//! use.
 //!
 //! **Every read is a staging buffer and a map, collected when its callback has fired, never
 //! waited for** (`proposals/wgpu.md`, 1.6). wgpu has no persistent mapping of a buffer the GPU
@@ -29,6 +30,14 @@
 //! and 2x, two at 4x through a half-float target twice the film's size, so each written pixel
 //! averages all sixteen drawn behind it. A capture drops no frame: [`Readbacks::settle`] waits
 //! for the previous frame's submission, bounded at two seconds, before the next is drawn.
+//!
+//! **A recording's read is the other way round: it never waits and may drop.** The synth asks
+//! for one per slot of the recording it enters ([`Readbacks::request_record`]); the next draw
+//! copies the frame whole into a target of its own and a read from a few kept for it, and with
+//! all of them still on the GPU the slot gets nothing. A slot the Output was not drawn in on
+//! purpose joins the same queue as a marker ([`Readbacks::record_done`]), so what comes out of
+//! [`Readbacks::take_recorded`] is in slot order whichever it is. See
+//! [docs/rendering.md](../../docs/rendering.md#live-recording).
 //!
 //! **Alpha.** The frame is premultiplied, as every color in the graph is, and a file for
 //! another app is straight, so the pass that writes the bytes unpremultiplies ([`Alpha`]): a
@@ -66,6 +75,10 @@ const READ_WAIT: Duration = Duration::from_secs(10);
 /// How long a capture waits for its previous frame, or for a read still out when it stops,
 /// before deciding the GPU has hung and losing that frame rather than the session.
 const CAPTURE_WAIT: Duration = Duration::from_secs(2);
+
+/// How many of a recording's reads may be on the GPU at once. A read lands a tick or two after
+/// its draw, and a slot is at least a tick long, so three is room with one to spare.
+const RECORD_READS: usize = 3;
 
 /// The pass every picture read is drawn by: the frame, sampled over the rectangle the pass's
 /// viewport covers, by fragment position — premultiplied as the frame holds it from `fs_main`,
@@ -603,6 +616,60 @@ impl Capture {
     }
 }
 
+/// What one slot of a recording comes back as.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Recorded {
+    /// The frame drawn in it, RGBA8 at the Output's size, rows top first, premultiplied.
+    Frame(Vec<u8>),
+    /// The Output was not drawn in it on purpose: the frame before stands.
+    Same,
+}
+
+/// A recording's target, its reads in slot order, and the reads collected and free again.
+struct Record {
+    target: Target,
+    /// Oldest first: a read on its way for a slot, or `None` for a slot that is the same as
+    /// the one before.
+    queue: VecDeque<(u64, Option<Read>)>,
+    spare: Vec<Read>,
+}
+
+impl Record {
+    /// Reads on the GPU.
+    fn out(&self) -> usize {
+        self.queue.iter().filter(|(_, r)| r.is_some()).count()
+    }
+
+    /// Collect from the front, in order, up to the first read that has not landed.
+    fn collect(&mut self, gpu: &Gpu, recorded: &mut VecDeque<(u64, Recorded)>) {
+        let (w, h) = (self.target.width, self.target.height);
+        while let Some((slot, read)) = self.queue.front_mut() {
+            let slot = *slot;
+            let Some(read) = read else {
+                recorded.push_back((slot, Recorded::Same));
+                self.queue.pop_front();
+                continue;
+            };
+            if read.stage == Stage::Copied {
+                // Recorded and never submitted: the draw it was in did not go to the GPU.
+                self.queue.pop_front();
+                continue;
+            }
+            if read.due(gpu) {
+                gpu.poll();
+            }
+            match read.take(|b| unpad_flipped(b, w, h)) {
+                Landed::Pending => return,
+                Landed::Bytes(bytes) => recorded.push_back((slot, Recorded::Frame(bytes))),
+                Landed::Lost => log::warn!("a recorded frame's read was lost"),
+            }
+            if let Some((_, Some(read))) = self.queue.pop_front() {
+                self.spare.push(read);
+            }
+        }
+    }
+}
+
 /// One Output's readbacks.
 #[derive(Default)]
 pub struct Readbacks {
@@ -628,6 +695,10 @@ pub struct Readbacks {
     capture: Option<Capture>,
     captures_issued: u64,
     captured: VecDeque<Vec<u8>>,
+    /// The slot of a recording the next draw reads back for, until it does.
+    wants_record: Option<u64>,
+    record: Option<Record>,
+    recorded: VecDeque<(u64, Recorded)>,
 }
 
 impl Readbacks {
@@ -797,13 +868,18 @@ impl Readbacks {
             encoder.copy_buffer_to_buffer(&taps.buffer, 0, &staging.buffer, 0, None);
             staging.copied();
         }
-        if !(self.wants_thumbnail || self.wants_snap || self.wants_capture) {
+        if !(self.wants_thumbnail
+            || self.wants_snap
+            || self.wants_capture
+            || self.wants_record.is_some())
+        {
             return;
         }
         let blit = shared.picture();
         self.issue_thumbnail(gpu, blit, encoder, slot);
         self.issue_snap(gpu, blit, encoder, slot);
         self.issue_capture(gpu, blit, encoder, slot);
+        self.issue_record(gpu, blit, encoder, slot);
     }
 
     /// The frame drawn at ring count `drawn` went in `ticket`'s submission.
@@ -817,6 +893,11 @@ impl Readbacks {
         }
         for picture in [&mut self.thumb, &mut self.snap].into_iter().flatten() {
             picture.read.map(ticket);
+        }
+        if let Some(r) = &mut self.record {
+            for read in r.queue.iter_mut().filter_map(|(_, r)| r.as_mut()) {
+                read.map(ticket);
+            }
         }
         if let Some(c) = &mut self.capture {
             for read in &mut c.reads {
@@ -892,6 +973,42 @@ impl Readbacks {
         self.captured.drain(..).collect()
     }
 
+    /// Read the next frame drawn back for slot `slot` of a recording. Asked again before a draw
+    /// is asking for the newer slot.
+    pub fn request_record(&mut self, slot: u64) {
+        self.wants_record = Some(slot);
+    }
+
+    /// The tick that asked for `slot` is over: a request no draw took is let go, and where the
+    /// Output was not drawn on purpose — `undrawn` — the slot joins the queue as the same as the
+    /// one before.
+    pub fn record_done(&mut self, slot: u64, undrawn: bool) {
+        if self.wants_record.take() != Some(slot) || !undrawn {
+            return;
+        }
+        match &mut self.record {
+            Some(r) => r.queue.push_back((slot, None)),
+            None => self.recorded.push_back((slot, Recorded::Same)),
+        }
+    }
+
+    /// Every slot of a recording that has come back, in slot order, each taken once.
+    pub fn take_recorded(&mut self) -> Vec<(u64, Recorded)> {
+        self.recorded.drain(..).collect()
+    }
+
+    /// Whether a slot of a recording is still on its way back.
+    pub fn record_pending(&self) -> bool {
+        !self.recorded.is_empty() || self.record.as_ref().is_some_and(|r| !r.queue.is_empty())
+    }
+
+    /// The recording is over: its target and reads go, and whatever is still out with them.
+    pub fn forget_record(&mut self) {
+        self.wants_record = None;
+        self.record = None;
+        self.recorded.clear();
+    }
+
     /// Whether a picture has been asked for that only a draw makes: a thumbnail or a Snap
     /// not yet issued.
     pub fn wants_picture(&self) -> bool {
@@ -914,6 +1031,9 @@ impl Readbacks {
         }
         for picture in [&mut self.thumb, &mut self.snap].into_iter().flatten() {
             picture.poll();
+        }
+        if let Some(r) = &mut self.record {
+            r.collect(gpu, &mut self.recorded);
         }
         if let Some(c) = &mut self.capture {
             c.collect(gpu, &mut self.captured, !self.wants_capture);
@@ -1017,6 +1137,52 @@ impl Readbacks {
         c.film.copy_into(encoder, &mut read);
         c.reads.push_back(read);
         self.captures_issued += 1;
+    }
+
+    /// Draw the frame just drawn into a recording's target, whole and premultiplied, and start a
+    /// read of it for the slot asked — or, with every read still on the GPU, let the slot go.
+    fn issue_record(
+        &mut self,
+        gpu: &Gpu,
+        blit: &Blit,
+        encoder: &mut wgpu::CommandEncoder,
+        slot: &Slot,
+    ) {
+        let Some(at) = self.wants_record.take() else {
+            return;
+        };
+        let size = (slot.width, slot.height);
+        // A frame of another size is not this recording's: the synth ends it on a resize.
+        if self
+            .record
+            .as_ref()
+            .is_some_and(|r| (r.target.width, r.target.height) != size)
+        {
+            return;
+        }
+        let r = self.record.get_or_insert_with(|| Record {
+            target: Target::new(gpu, size.0, size.1, wgpu::TextureFormat::Rgba8Unorm),
+            queue: VecDeque::new(),
+            spare: Vec::new(),
+        });
+        let mut read = match r.spare.pop() {
+            Some(read) => read,
+            None if r.out() < RECORD_READS => r.target.read(gpu, "record"),
+            None => return,
+        };
+        let alpha = Alpha::Premultiplied;
+        blit.draw(
+            gpu,
+            encoder,
+            &slot.view,
+            size,
+            &r.target,
+            (0, 0),
+            size,
+            alpha,
+        );
+        r.target.copy_into(encoder, &mut read);
+        r.queue.push_back((at, Some(read)));
     }
 }
 

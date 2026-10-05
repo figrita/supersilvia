@@ -224,6 +224,8 @@ pub struct Snapshot {
     pub main_input: MainInputReport,
     pub render: RenderReport,
     pub offline: RenderState,
+    /// Every live recording running, one per Output. See [`super::record`].
+    pub recordings: Vec<super::RecordProgress>,
     /// What the last frame drew, for a viewer to blit.
     pub published: Arc<Published>,
 }

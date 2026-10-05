@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A video file written one frame at a time, for an offline render.
+//! A video file written one frame at a time, for an offline render and a live recording.
 //!
 //! The same hardware encoder `clip.rs` probes for the import transcode, in a delivery's
 //! shape rather than the cache's: constant quality and the encoder's own keyframe interval,
@@ -8,7 +8,10 @@
 //! RGBA8 rows-top-first — what `nodes::Frame` and the capture readback already are — each
 //! stamped with its index over the frame rate, so the file's clock is the render's and not
 //! the wall's. It writes to a `.part` beside the destination and renames at the end, so a
-//! half-written file is never mistaken for a clip.
+//! half-written file is never mistaken for a clip. A live recording stamps its frames the same
+//! way, one per slot of the show's clock, and fills a slot no picture reached with
+//! [`Encoder::repeat`], the frame before sent again over the same memory
+//! (`video/record.rs`).
 //!
 //! **Alpha is dropped** by the conversion to the encoder's format, so the render hands a
 //! frame over premultiplied, as the graph holds it (`render::readback::Alpha`): premultiplied
@@ -34,6 +37,9 @@ pub struct Encoder {
     frame_ns: u64,
     /// Frames pushed so far, which is also the next frame's index.
     frames: u64,
+    /// The frame pushed last, for [`Encoder::repeat`]: a buffer shares its memory with its
+    /// copies.
+    last: Option<gst::Buffer>,
 }
 
 impl Encoder {
@@ -91,6 +97,7 @@ impl Encoder {
             height,
             frame_ns: (1.0e9 / fps).round() as u64,
             frames: 0,
+            last: None,
         })
     }
 
@@ -121,11 +128,37 @@ impl Encoder {
             let mut map = reference.map_writable().map_err(|e| e.to_string())?;
             map.copy_from_slice(rgba);
         }
+        self.send(buffer)
+    }
+
+    /// The frame pushed last, once more, at the next frame's time. Its memory is shared, not
+    /// copied.
+    ///
+    /// # Errors
+    /// Nothing was pushed yet, or the pipeline refused it.
+    pub fn repeat(&mut self) -> Result<(), String> {
+        let mut buffer = self.last.as_ref().ok_or("no frame to repeat")?.copy();
+        {
+            let reference = buffer.get_mut().ok_or("buffer is shared")?;
+            reference.set_pts(gst::ClockTime::from_nseconds(self.frames * self.frame_ns));
+            reference.set_duration(gst::ClockTime::from_nseconds(self.frame_ns));
+        }
+        self.send(buffer)
+    }
+
+    fn send(&mut self, buffer: gst::Buffer) -> Result<(), String> {
+        self.last = Some(buffer.clone());
         self.src
             .push_buffer(buffer)
             .map_err(|e| format!("{}: {e}", self.dest.display()))?;
         self.frames += 1;
         Ok(())
+    }
+
+    /// Frames handed to the pipeline that it has not yet taken in.
+    pub fn queued(&self) -> u64 {
+        let frame = u64::from(self.width) * u64::from(self.height) * 4;
+        self.src.current_level_bytes() / frame.max(1)
     }
 
     /// End the stream, wait for the file to close, and put it under its name.

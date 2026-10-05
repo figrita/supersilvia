@@ -875,13 +875,15 @@ friday/
                        on demand, deletable, and left behind by Save as
   renders/
     output3-001.mp4    an Output's render: a film, a GIF, or a folder of numbered PNGs
+  recordings/
+    output3-20261001-201500.mp4   an Output recorded live, named as a Snap is
   snaps/
     output3-20261001-201500.png   a Snap, named by its Output and the UTC time it was taken
   .autosave/           the unsaved edits: a project folder of its own, while there are any
 ```
 
-`renders/` and `snaps/` are the person's own pictures, written beside the patch that made them
-and read back by nothing; Save as copies them with the rest.
+`renders/`, `recordings/` and `snaps/` are the person's own pictures, written beside the patch
+that made them and read back by nothing; Save as copies them with the rest.
 
 **The two extensions say which file is which.** A `.ssw` is always one workspace and opens on
 its own; a `.ssp` is always a project, and means nothing without the folder around it. Nothing
@@ -1090,9 +1092,9 @@ makes a project named after the file in the projects directory and imports it in
   and Open does the same first, before it reads anything, for a save that was cut off after
   its commit. So a save cut off at any file opens as the last save whole or as this one
   whole. Any other temporary workspace file is what a save that never committed left, and
-  both delete it. Save as… copies the folder — the media, the pictures, `renders/` and
-  `snaps/`, which are the person's own work — but not `cache/`, which the copy makes again on
-  demand the first time a clip plays, nor `.autosave/`.
+  both delete it. Save as… copies the folder — the media, the pictures, `renders/`,
+  `recordings/` and `snaps/`, which are the person's own work — but not `cache/`, which the copy
+  makes again on demand the first time a clip plays, nor `.autosave/`.
 - **Save also asks for a picture of every open workspace** — the workspace's first Output in id
   order, or the selected preview Output when it is on that workspace. It is *asked for*: the
   readback lands a frame or two later, because [nothing waits on the GPU for a picture of

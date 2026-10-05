@@ -729,6 +729,14 @@ pub struct RenderView {
     pub frames: u32,
 }
 
+/// An Output's recording, as its Record row draws it: how long it has run on the show's
+/// clock, and how many of its frames repeat the one before for lack of a picture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RecordView {
+    pub seconds: f64,
+    pub dropped: u64,
+}
+
 /// An Output's Render button was clicked: start one, or cancel the one running.
 ///
 /// A *request*, like `pop_outs`: a render is done to the instrument rather than to the
@@ -795,7 +803,7 @@ pub struct Cost {
 /// Live state rather than the node's own — every field is read from the graph, the mixer or
 /// the publisher each frame — which is why it arrives as a lane beside [`Cost`] rather than as
 /// a `Node::values` entry. Nothing here is saved and nothing here is an edit.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct OutputReadout {
     /// Something is cabled into its input. silvia's `● Input` / `○ No Input`.
     pub connected: bool,
@@ -803,6 +811,12 @@ pub struct OutputReadout {
     pub decks: (bool, bool),
     /// A render of *this* Output is running.
     pub rendering: bool,
+    /// This Output's live recording, while one runs.
+    pub recording: Option<RecordView>,
+    /// Why the last recording asked of this Output failed, until the next press.
+    pub record_error: Option<String>,
+    /// Some Output is recording, so no render can start.
+    pub recording_anywhere: bool,
     /// Why it is not going out over NDI, where it is asked to and the sender says why not.
     pub ndi_error: Option<String>,
     /// The same over Syphon.

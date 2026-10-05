@@ -175,6 +175,9 @@ pub struct Effects {
     pub pop_outs: Vec<PopOutRequest>,
     /// Render buttons clicked this frame.
     pub render_requests: Vec<RenderRequest>,
+    /// Record buttons clicked this frame, each the Output whose recording to start or stop.
+    /// Done to the instrument, as a render is.
+    pub record_requests: Vec<NodeId>,
     /// The `!` popup asked for the Main Input panel: unfold it.
     pub reveal_main_input: bool,
     /// *Look for devices again* in a node's device select: ask the machine for its capture

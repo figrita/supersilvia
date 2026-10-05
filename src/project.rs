@@ -790,8 +790,9 @@ impl Project {
     ///
     /// Save as: last week's set is forked for tonight without being touched. The caller
     /// saves into the copy, so whatever is on screen lands in it too. Everything goes —
-    /// `renders/` and `snaps/` are the person's work — but `.autosave/`, which belongs to the
-    /// folder it was written for, and `cache/`, which the copy makes again on demand.
+    /// `renders/`, `recordings/` and `snaps/` are the person's work — but `.autosave/`, which
+    /// belongs to the folder it was written for, and `cache/`, which the copy makes again on
+    /// demand.
     ///
     /// A project whose folder was never written — the launch's scratch one, saved for the
     /// first time — has nothing to copy, and the copy is the save alone.

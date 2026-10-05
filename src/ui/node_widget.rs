@@ -551,7 +551,10 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
     let is_bar = |row: canvas::Row| {
         matches!(
             row,
-            canvas::Row::RenderHeading | canvas::Row::SendHeading | canvas::Row::TimingHeading
+            canvas::Row::RenderHeading
+                | canvas::Row::RecordHeading
+                | canvas::Row::SendHeading
+                | canvas::Row::TimingHeading
         )
     };
     while let Some(&canvas::RowBox { row, top, height }) = rows.next() {
@@ -1355,9 +1358,11 @@ fn readout_lines(ui: &Ui, cx: &NodeCtx<'_>, readout: &crate::ui::OutputReadout) 
             },
         ),
         (
-            readout.rendering,
+            readout.rendering || readout.recording.is_some(),
             if readout.rendering {
                 "Rendering"
+            } else if readout.recording.is_some() {
+                "Recording"
             } else {
                 "Ready"
             },
@@ -1404,6 +1409,8 @@ fn readout_lines(ui: &Ui, cx: &NodeCtx<'_>, readout: &crate::ui::OutputReadout) 
             },
             if readout.rendering {
                 "rendering"
+            } else if readout.recording.is_some() {
+                "recording"
             } else {
                 "ready"
             },
@@ -1896,7 +1903,15 @@ pub fn controls(
             canvas::Row::RenderHeading,
             canvas::render_shown(cx.node),
         );
-        // And the one over its Send rows, the same bar again.
+        // The one over its Record rows, and the one over its Send rows, the same bar again.
+        row_heading(
+            ui,
+            cx,
+            fx,
+            crate::nodes::output::RECORD,
+            canvas::Row::RecordHeading,
+            canvas::record_shown(cx.node),
+        );
         row_heading(
             ui,
             cx,
@@ -1910,6 +1925,9 @@ pub fn controls(
     let mut live_at = None;
     if canvas::render_shown(cx.node) {
         render_section(ui, cx, fx, open, &mut live_at);
+    }
+    if canvas::record_shown(cx.node) {
+        record_section(ui, cx, fx, open);
     }
     if canvas::send_shown(cx.node) {
         send_section(ui, cx, fx);
@@ -2199,13 +2217,7 @@ fn render_section(
     open: &mut Option<crate::ui::OpenControl>,
     live_at: &mut Option<Pos2>,
 ) {
-    use crate::graph::ControlValue;
-    use crate::ui::number;
-    let (node, def, theme, zoom) = (cx.node, cx.node.def, cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
-        crate::ui::theme::FONT_TINY,
-        zoom,
-    ));
+    let node = cx.node;
     // The selects, drawn by the row the option block draws its own with.
     for (i, key) in crate::nodes::output::RENDER_SELECTS.iter().enumerate() {
         if let (Some(band), Some(value)) = (cx.block(canvas::Row::Render(i)), node.options.get(key))
@@ -2213,39 +2225,186 @@ fn render_section(
             option_row(ui, cx, fx, open, band, key, value);
         }
     }
+    let enabled = cx.frame.render.is_none();
     for (i, key) in crate::nodes::output::RENDER_CONTROLS.iter().enumerate() {
-        let Some(band) = cx.block(canvas::Row::Render(canvas::RENDER_SELECTS + i)) else {
-            continue;
-        };
-        let Some(input) = def.input(key) else {
-            continue;
-        };
-        let Some(ControlValue::Float(value)) = node.controls.get(key) else {
-            continue;
-        };
-        ui.painter().text(
-            band.left_center() + vec2(12.0 * zoom, 0.0),
-            Align2::LEFT_CENTER,
-            input.label,
-            font.clone(),
-            theme.text_secondary(),
-        );
-        let slot = control_slot(band, zoom);
-        // An Output's render settings are the node's own numbers; no port, so no cable and
-        // nothing to arrive.
-        let spec = number_spec(node, key, *value, false);
-        let enabled = cx.frame.render.is_none();
-        let lock = cx.frame.prefs.lock_cursor;
-        // Not learnable: the Output lists these as `NodeDef::unbindable`, so `Alt` + click
-        // does nothing here and the range editor offers no binding.
-        if let Some(action) =
-            number::scrub(ui, slot, cx.control(key), &spec, theme, enabled, lock, zoom)
-        {
-            number_action(cx, key, action, cx.world(slot.left_bottom()), fx, open);
+        if let Some(band) = cx.block(canvas::Row::Render(canvas::RENDER_SELECTS + i)) {
+            setting_row(ui, cx, fx, open, band, key, enabled);
         }
     }
-    if let Some(band) = cx.block(canvas::Row::Render(canvas::RENDER_ROWS - 1)) {
+    if let Some(band) = cx.block(canvas::Row::Render(canvas::RENDER_BUTTON)) {
         render_button(ui, cx, fx, band, live_at);
+    }
+}
+
+/// An Output's Record section, under its heading: the recording's FPS on a row of its own, and
+/// the Record row. The FPS is read once, at Record, so it goes inert while this Output records,
+/// and while any render runs, as the Render section's numbers do.
+fn record_section(
+    ui: &mut Ui,
+    cx: &NodeCtx<'_>,
+    fx: &mut Effects,
+    open: &mut Option<crate::ui::OpenControl>,
+) {
+    if let Some(band) = cx.block(canvas::Row::Record(canvas::RECORD_FPS_ROW)) {
+        let recording = cx
+            .frame
+            .readouts
+            .get(&cx.id)
+            .is_some_and(|r| r.recording.is_some());
+        let enabled = cx.frame.render.is_none() && !recording;
+        setting_row(
+            ui,
+            cx,
+            fx,
+            open,
+            band,
+            crate::nodes::output::RECORD_FPS,
+            enabled,
+        );
+    }
+    if let Some(band) = cx.block(canvas::Row::Record(canvas::RECORD_ROW)) {
+        record_row(ui, cx, fx, band);
+    }
+}
+
+/// One of an Output's own numbers on a row of its own: its label at the left and an s-number
+/// in the control slot, inert where `enabled` is false.
+fn setting_row(
+    ui: &mut Ui,
+    cx: &NodeCtx<'_>,
+    fx: &mut Effects,
+    open: &mut Option<crate::ui::OpenControl>,
+    band: Rect,
+    key: &'static str,
+    enabled: bool,
+) {
+    use crate::graph::ControlValue;
+    use crate::ui::number;
+    let (node, theme, zoom) = (cx.node, cx.theme(), cx.zoom());
+    let Some(input) = node.def.input(key) else {
+        return;
+    };
+    let Some(ControlValue::Float(value)) = node.controls.get(key) else {
+        return;
+    };
+    ui.painter().text(
+        band.left_center() + vec2(12.0 * zoom, 0.0),
+        Align2::LEFT_CENTER,
+        input.label,
+        FontId::monospace(crate::ui::theme::font_size(
+            crate::ui::theme::FONT_TINY,
+            zoom,
+        )),
+        theme.text_secondary(),
+    );
+    let slot = control_slot(band, zoom);
+    // The node's own number; no port, so no cable and nothing to arrive.
+    let spec = number_spec(node, key, *value, false);
+    let lock = cx.frame.prefs.lock_cursor;
+    // Not learnable: the Output lists these as `NodeDef::unbindable`, so `Alt` + click does
+    // nothing here and the range editor offers no binding.
+    if let Some(action) =
+        number::scrub(ui, slot, cx.control(key), &spec, theme, enabled, lock, zoom)
+    {
+        number_action(cx, key, action, cx.world(slot.left_bottom()), fx, open);
+    }
+}
+
+/// What the Record row is called.
+const RECORD_LABEL: &str = "Record";
+
+/// The live recording's row, under the recording's FPS: its label, a dot and one line saying
+/// what it is doing — *off*, how long and how many dropped while it records, the reason the
+/// last press failed, or why not while a render runs — and the one button, **Record** or
+/// **Stop**. A way out's row, in shape and in size: the line is cut short and never wrapped,
+/// so the row is one height whatever it says.
+fn record_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
+    use crate::nodes::output::{self, Press as Asks};
+    use crate::ui::press;
+    let (theme, zoom) = (cx.theme(), cx.zoom());
+    let font = FontId::monospace(crate::ui::theme::font_size(
+        crate::ui::theme::FONT_TINY,
+        zoom,
+    ));
+    let advance = advance(ui.ctx(), &font);
+    ui.painter().text(
+        band.left_center() + vec2(12.0 * zoom, 0.0),
+        Align2::LEFT_CENTER,
+        RECORD_LABEL,
+        font.clone(),
+        theme.text_secondary(),
+    );
+    let readout = cx.frame.readouts.get(&cx.id);
+    let recording = readout.and_then(|r| r.recording);
+    let error = readout.and_then(|r| r.record_error.as_deref());
+    let rendering = cx.frame.render.is_some();
+    let status = output::record_status(recording.map(|r| (r.seconds, r.dropped)), error, rendering);
+
+    let (w, h) = (SEND_BUTTON * zoom, press::SIZE * zoom);
+    let button = Rect::from_min_size(
+        Pos2::new(
+            band.max.x - CONTROL_INSET * zoom - w,
+            band.center().y - h * 0.5,
+        ),
+        vec2(w, h),
+    );
+    let column = band.min.x + 12.0 * zoom + (RECORD_LABEL.chars().count() + 1) as f32 * advance;
+    // The accent, as the status line's capture cell: a recording running is the state a
+    // person needs to see from across a room.
+    let ink = if status.on_air {
+        theme.accent()
+    } else if error.is_some() && !rendering {
+        theme.text_secondary()
+    } else {
+        theme.text_muted()
+    };
+    ui.painter().text(
+        Pos2::new(column, band.center().y),
+        Align2::LEFT_CENTER,
+        if status.on_air {
+            "\u{25cf}"
+        } else {
+            "\u{25cb}"
+        },
+        font.clone(),
+        ink,
+    );
+    let text_at = column + 2.0 * advance;
+    let room = (button.min.x - SEND_GAP * zoom - text_at).max(0.0);
+    ui.painter().text(
+        Pos2::new(text_at, band.center().y),
+        Align2::LEFT_CENTER,
+        fit(&status.line, advance, room, Keep::Start),
+        font,
+        ink,
+    );
+    let line = Rect::from_min_max(
+        Pos2::new(column, band.min.y),
+        Pos2::new(button.min.x, band.max.y),
+    );
+    let hover = ui.interact(line, ui.id().with(("record-status", cx.id)), Sense::hover());
+    crate::ui::accessible(
+        &hover,
+        WidgetType::Label,
+        format_args!("{}.status {}", cx.control("record"), status.line),
+    );
+    if hover.hovered() {
+        hover.on_hover_text(output::record_hover(error.filter(|_| !rendering)));
+    }
+
+    let asks = status.press;
+    // Inert while a render runs, as every other control is with the document closed.
+    if press::click(
+        ui,
+        button,
+        asks.caption(),
+        cx.control("record"),
+        theme,
+        zoom,
+        None,
+    ) && (asks == Asks::Stop || !rendering)
+    {
+        fx.record_requests.push(cx.id);
     }
 }
 
@@ -2306,15 +2465,22 @@ fn render_button(
         crate::ui::accessible(&w, WidgetType::Button, format_args!("{name}.live"));
     }
     let mine = render.filter(|r| r.node == id);
+    // A recording anywhere holds the button: a render would step the clock it follows.
+    let recording = cx
+        .frame
+        .readouts
+        .get(&id)
+        .is_some_and(|r| r.recording_anywhere);
     let (caption, progress) = match mine {
         Some(r) => (
             format!("Cancel  {} / {}", r.written, r.frames),
             Some(r.written as f32 / r.frames.max(1) as f32),
         ),
+        None if recording => ("Stop recording to render".to_string(), None),
         None => ("Render".to_string(), None),
     };
     // Another Output's render closes this one's button with the rest of the document.
-    let enabled = mine.is_some() || render.is_none();
+    let enabled = mine.is_some() || (render.is_none() && !recording);
     if press::click(
         ui,
         slot,
@@ -2532,6 +2698,7 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
             Asks::GetIt => ui.ctx().open_url(eframe::egui::OpenUrl::new_tab(
                 crate::video::ndi::RUNTIME_URL,
             )),
+            Asks::Record => {}
             Asks::Send | Asks::Stop => fx.commands.push(crate::command::Command::SetOption {
                 node: cx.id,
                 key: way.key(),

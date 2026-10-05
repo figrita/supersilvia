@@ -53,12 +53,14 @@ pub mod maininput;
 pub mod meter;
 pub mod offline;
 pub mod plan;
+pub mod record;
 pub mod snapshot;
 pub mod thread;
 
 pub use events::Events;
 pub use meter::{Phases, Work};
 pub use plan::{Mix, Mode, OutputPlan, PassPlan, Plan, ProbePlan, Sampling, Why};
+pub use record::{RecordEnd, RecordProgress, RecordRequest, Recorded};
 pub use snapshot::{ClockReport, MainInputReport, PortThumb, RenderReport, Snapshot, Uniforms};
 pub use thread::{Beat, Host, Msg};
 
@@ -284,6 +286,11 @@ pub struct Synth {
     offline: Option<offline::Render>,
     /// How the last render ended, until the next one starts.
     outcome: Option<(u64, crate::app::render::Outcome)>,
+    /// Every live recording, running or stopped and waiting for its last reads. See
+    /// [`record`].
+    recordings: Vec<record::Recording>,
+    /// Recordings whose writer is closing the file, polled each tick until it has.
+    finishing: Vec<record::Finishing>,
     /// The renderer, on the synth's own [`Gpu`], which it holds. `None` where there is no GPU
     /// at all — every test, and egui_kittest.
     ///
@@ -449,6 +456,8 @@ impl Default for Synth {
             playheads: HashMap::new(),
             offline: None,
             outcome: None,
+            recordings: Vec::new(),
+            finishing: Vec::new(),
             renderer: None,
             published: Arc::default(),
             live: Arc::default(),
@@ -687,6 +696,8 @@ impl Synth {
                     r.cancel();
                 }
             }
+            Msg::StartRecord(request) => self.start_recording(*request),
+            Msg::StopRecord(output) => self.stop_recording(output),
         }
     }
 
@@ -753,7 +764,9 @@ impl Synth {
             self.events.decks.push(claim);
         }
         self.laps.lap(Work::Nodes);
+        self.record_ask();
         self.render();
+        self.record_collect();
         self.publish();
     }
 
@@ -1442,6 +1455,7 @@ impl Synth {
     /// [`Msg::Inputs`], since the last one named the old project's assets.
     fn replace_project(&mut self, project: u64) {
         self.project = project;
+        self.close_recordings("the project closed");
         self.cpu.clear();
         self.reset_cpu();
         self.frames.clear();
@@ -1566,6 +1580,10 @@ impl Synth {
             })
             .collect::<Vec<_>>();
         self.drawn = outputs.iter().filter(|o| o.mode.draws()).count();
+        for r in &mut self.recordings {
+            let output = r.output();
+            r.set_drawn(outputs.iter().any(|o| o.node == output && o.mode.draws()));
+        }
         // Resolved after the walk above, because resolving borrows `self`.
         for (job, plan) in outputs.iter_mut().zip(&self.plan.outputs) {
             if job.mode.draws() {
@@ -1695,6 +1713,13 @@ impl Synth {
             .collect();
         let decks = [self.decks.0, self.decks.1];
         let render = self.offline.as_ref().map(offline::Render::output);
+        // A recording's Output on the first tick of a slot, which is the tick its frame is
+        // read back on: drawn as a deck is, so a paused loop holds its frame.
+        let recorded: Vec<NodeId> = self
+            .recordings
+            .iter()
+            .filter_map(record::Recording::asking)
+            .collect();
         for o in &self.plan.outputs {
             let pictured = render == Some(o.node)
                 || self
@@ -1704,7 +1729,9 @@ impl Synth {
             if pictured {
                 drawing.insert(o.node);
                 drawing.extend(o.needs.iter().copied());
-            } else if decks.contains(&Some(o.node)) && !frozen.contains(&o.node) {
+            } else if (decks.contains(&Some(o.node)) || recorded.contains(&o.node))
+                && !frozen.contains(&o.node)
+            {
                 drawing.insert(o.node);
                 drawing.extend(o.needs.iter().filter(|n| !frozen.contains(n)).copied());
             }
@@ -1955,6 +1982,7 @@ impl Synth {
         // it on `self`.
         self.out.render = self.render_report();
         self.out.offline = self.offline_report();
+        self.out.recordings = self.record_report();
         // Each taken off the renderer once, so each is an event.
         if let Some(r) = &mut self.renderer {
             let probes = r.take_probes();

@@ -50,6 +50,7 @@ pub mod encode;
 pub mod gif;
 pub mod ndi;
 pub mod png;
+pub mod record;
 pub mod silence;
 pub mod syphon;
 pub mod text;

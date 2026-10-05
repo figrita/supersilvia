@@ -11084,6 +11084,96 @@ fn the_render_section_carries_the_supersampling_multiplier() {
     h.snapshot("output_render_section");
 }
 
+/// **An Output's Record section**, under a heading of its own between Render and Send, closed
+/// on a new Output: its own FPS, then the Record row with a status and one button. Pressed on
+/// an Output with nothing cabled into it, the row says why rather than recording, and nothing
+/// on the node moves whatever the row says.
+#[test]
+fn an_outputs_record_row_says_what_it_is_doing() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let out = h.state().graph().iter().next().expect("one node").0;
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![(out, egui::pos2(60.0, 60.0))],
+        })
+        .unwrap();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("output1.record").is_none(),
+        "closed on a new Output"
+    );
+    let heading = h.get_by_label("output1.recording").rect();
+    let render_heading = h.get_by_label("output1.offline").rect();
+    let send_heading = h.get_by_label("output1.send").rect();
+    assert!(
+        render_heading.max.y <= heading.min.y && heading.max.y <= send_heading.min.y,
+        "Render, Record, Send"
+    );
+    let closed = h.state().graph().get(out).unwrap().options.clone();
+
+    h.get_by_label("output1.recording").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state()
+            .graph()
+            .get(out)
+            .unwrap()
+            .options
+            .get(supersilvia::nodes::output::RECORD),
+        Some(&supersilvia::nodes::ON.to_string()),
+        "the triangle writes its option, saved like the other headings'"
+    );
+    assert_ne!(h.state().graph().get(out).unwrap().options, closed);
+    assert!(
+        h.query_by_label("output1.record.status off").is_some(),
+        "off on a new Output"
+    );
+    let fps = h.get_by_label_contains("output1.recordFps 30").rect();
+    let button = h.get_by_label("output1.record").rect();
+    assert!(
+        fps.min.y > heading.max.y && button.min.y > fps.max.y,
+        "the FPS under the heading, the Record row under it"
+    );
+    assert!(
+        h.query_by_label("output1.render").is_none(),
+        "the Render section folds on its own"
+    );
+    h.snapshot("output_record_section");
+
+    h.get_by_label("output1.record").click();
+    h.run_steps(2);
+    assert!(!h.state().recording(), "nothing to record");
+    assert!(
+        h.query_by_label_contains("output1.record.status the Output has nothing connected")
+            .is_some(),
+        "the row says why"
+    );
+    assert_eq!(
+        h.get_by_label("output1.record").rect(),
+        button,
+        "the row is the same height whatever it says"
+    );
+
+    // The Render section open above it moves it down and leaves the Record button out of it.
+    h.state_mut()
+        .apply(Command::SetOption {
+            node: out,
+            key: "offline",
+            value: supersilvia::nodes::ON.to_string(),
+        })
+        .unwrap();
+    h.run_steps(2);
+    let render = h.get_by_label("output1.render").rect();
+    let heading = h.get_by_label("output1.recording").rect();
+    let below = h.get_by_label("output1.record").rect();
+    assert!(
+        render.max.y <= heading.min.y && heading.max.y <= below.min.y,
+        "the Record heading is under the Render button, and its row under that"
+    );
+}
+
 /// **An Output's Send rows.** Under the Send heading, a row per way out with its status and
 /// one button, and — once one is on — the Alpha both ways share, a choice between its two
 /// values by their names. A click on either is one undo step, and the heading folds the lot.

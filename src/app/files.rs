@@ -1074,7 +1074,7 @@ const SNAPS_PER_SECOND: u32 = 999;
 /// **UTC**, because there is no timezone database in this binary and there is not going to
 /// be one for a file name. What the stamp is for is telling two Snaps apart and sorting
 /// them, and UTC does both exactly as local time would.
-fn stamp(at: std::time::SystemTime) -> String {
+pub(super) fn stamp(at: std::time::SystemTime) -> String {
     let secs = at
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());

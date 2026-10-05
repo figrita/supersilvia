@@ -290,6 +290,11 @@ impl Synth {
         if self.offline.is_some() {
             return;
         }
+        // A render steps the clock a recording follows: never both.
+        if self.recording() {
+            self.outcome = Some((seq, Outcome::Failed("a recording is running".to_string())));
+            return;
+        }
         let size = self
             .graph
             .get(output)
@@ -371,6 +376,8 @@ impl Synth {
     /// One tick of a render: collect, step, draw. Called by [`Synth::step`] in place of the
     /// live beat for as long as one is running.
     pub(super) fn render_frame(&mut self) {
+        // Only a recording's writer still closing its file: nothing records beside a render.
+        self.record_collect();
         self.render_collect();
         self.render_step();
         // Always, whether or not a frame was stepped: a job built while the render holds
