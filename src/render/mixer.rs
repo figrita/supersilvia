@@ -24,6 +24,12 @@
 //! black texel at the mix's size in its place while the mix goes on being drawn underneath, so
 //! letting go shows the mix as it stands — or the frozen frame, where Freeze is still held.
 //!
+//! **Alpha.** The decks are premultiplied, as every Output's frame is, and so is the mix: the
+//! crossfade lerps all four channels, which is exact on premultiplied colors, and every wipe
+//! shows one deck or the other whole. The two luma wipes weigh deck A's premultiplied rgb,
+//! which is its luma over black, as a viewer shows it. An empty deck and Blackout are opaque
+//! black.
+//!
 //! **A claim allocates nothing**: the tick's bind group names the deck's latest view, or the
 //! shared black texel for an empty deck. The fragment builds its `uv` from
 //! `@builtin(position)`, so the mix keeps GL's rows, bottom first, as an Output's frame does

@@ -22,7 +22,9 @@
 //! warm-up at negative time, three by default — an echo dimmed by 0.94 a frame leaves 8-bit
 //! crumbs that take that long to settle onto the loop — and one frame more: frame `F` is compared with frame zero for the seam, and only frames
 //! `0..F` go into the GIF. It writes a PNG sequence at the Output's own resolution into a
-//! scratch folder, and each frame is brought down to a size a page can carry
+//! scratch folder, and each frame is composited over black — the PNGs are straight and the GIF
+//! is opaque, so a transparent part kept at its own color would show at full strength — then
+//! brought down to a size a page can carry
 //! — 480 wide, or 400 for a square or upright Output — mapped onto one palette the loop
 //! shares, and written through `video::gif`, the app's own GIF writer, as
 //! `renders/<workspace>.gif`. The Output's resolution is a closed list whose smallest is
@@ -293,9 +295,9 @@ fn file_stem(name: &str) -> String {
         .join("-")
 }
 
-/// Frames `0..frames` of a PNG sequence, brought down to `width` (`square` for a square or
-/// upright picture), mapped onto one palette of `colors` shared by the whole loop and written
-/// as a GIF at `fps`. The size written.
+/// Frames `0..frames` of a PNG sequence, over black, brought down to `width` (`square` for a
+/// square or upright picture), mapped onto one palette of `colors` shared by the whole loop
+/// and written as a GIF at `fps`. The size written.
 ///
 /// One palette for every frame, rather than the writer's own palette per frame: a colour does
 /// not shimmer from one frame to the next, and a frame of at most 256 colours goes through the
@@ -305,9 +307,10 @@ fn write_gif(dir: &Path, frames: u32, fps: f64, file: &Path, size: Size) -> (u32
     let small: Vec<image::RgbaImage> = (0..frames)
         .map(|i| {
             let path = dir.join(format!("{i:05}.png"));
-            let image = image::open(&path)
+            let mut image = image::open(&path)
                 .unwrap_or_else(|e| panic!("{}: {e}", path.display()))
                 .to_rgba8();
+            over_black(&mut image);
             let (w, h) = image.dimensions();
             let width = if w > h { size.width } else { size.square };
             let height = (u64::from(h) * u64::from(width) / u64::from(w)) as u32;
@@ -325,6 +328,18 @@ fn write_gif(dir: &Path, frames: u32, fps: f64, file: &Path, size: Size) -> (u32
     }
     writer.finish().unwrap_or_else(|e| panic!("{e}"));
     (width, height)
+}
+
+/// A straight frame, as the PNG sequence is written, composited over black and made opaque,
+/// as a viewer shows it.
+fn over_black(image: &mut image::RgbaImage) {
+    for p in image.pixels_mut() {
+        let a = u16::from(p[3]);
+        for c in 0..3 {
+            p[c] = ((u16::from(p[c]) * a + 127) / 255) as u8;
+        }
+        p[3] = u8::MAX;
+    }
 }
 
 /// How small a GIF is written.
