@@ -519,7 +519,8 @@ format is zero, as frameworks built before October 2025 leave it, is read as BGR
 **Two ticks**, on the node and beside the panel's server menu: **Flip** reads the surface top
 row first, where Syphon's convention — and the default — is bottom row first; **Transparent**
 keeps the surface's alpha, where the default reads it opaque, the fourth byte written one by
-the copy. A server that publishes the other way up, or with alpha a patch wants, ticks its way
+the copy. The alpha kept is sampled as it lies, premultiplied: Syphon documents no convention,
+and the Mac's servers draw premultiplied, as Core Animation and Metal do. A server that publishes the other way up, or with alpha a patch wants, ticks its way
 out.
 
 **Linux has no Syphon, and shows none of it** (`platform::syphon::available`): the Main
@@ -590,7 +591,10 @@ as a Syphon server is, since it opens no device.
 **A received source is a camera** (`Source::Ndi`): `ndisrc ndi-name=… ! ndisrcdemux`, its
 video pad into the camera's own appsink, capped to what the renderer uploads, with `sync=false`,
 `max-buffers=1` and `drop=true`. `ndisrc` hands UYVY for a source with no alpha and BGRA for
-one with it, both uploaded as they are as `Pixels::Mapped`, top row first, and a Main Input and
+one with it, both as `Pixels::Mapped`, top row first. **NDI's alpha is straight** — the SDK
+says of BGRA and RGBA, "This data is not pre-multiplied" — so a BGRA frame received with it is
+marked `Mapped::straight_alpha` and premultiplied by the renderer's [conversion
+pass](rendering.md#source-textures) as it goes up, never on the CPU. A Main Input and
 a node on the same source share one pipeline, keyed apart from every device. A
 `video::ndi::Receiver` keeps it open: it opens a source when the listing has it, or every ten
 seconds whether or not it does, asks each second whether its pipeline has ended — `ndisrc` ends
@@ -942,7 +946,8 @@ for exactly the image the import makes. A compressed tiling carries a second pla
 does not pass, so it is never offered. Before the synth has made its renderer there is no
 device to ask, and nothing is offered but bytes. `XR24` and `XB24` carry a padding byte where
 alpha would be, so their frames go through the renderer's conversion pass, which writes alpha
-one.
+one. `AR24` and `AB24` carry a premultiplied alpha, as every Wayland buffer does by the
+protocol, and are sampled as they lie; the bytes a cast falls back to are the same.
 
 **Either way it can fail, it falls back to bytes.** Negotiation can find nothing — a
 compositor that shares memory only in a format outside the list — and the pipeline errors

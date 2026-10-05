@@ -1070,6 +1070,7 @@ pub(crate) fn mapped(caps: &gst::CapsRef, buffer: &gst::BufferRef) -> Result<Fra
             layout,
             strides,
             yuv: yuv_of(&info),
+            straight_alpha: false,
             data: Arc::new(Held { frame, swapped }),
         }),
     })

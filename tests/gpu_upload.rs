@@ -258,6 +258,7 @@ fn mapped(
             layout,
             strides,
             yuv,
+            straight_alpha: false,
             data: Arc::clone(&held) as Arc<dyn Planes>,
         }),
     };
@@ -689,6 +690,65 @@ fn every_rgb_layout_uploads_as_rgba_with_its_own_stride() {
                 let i = ((y * w + x) * 4) as usize;
                 assert_eq!(got[i..i + 3], want(x, y), "{layout:?} at ({x}, {y})");
                 let a = if opaque { 255 } else { alpha };
+                assert_eq!(got[i + 3], a, "{layout:?} alpha at ({x}, {y})");
+            }
+        }
+    }
+}
+
+/// A frame whose alpha is straight — NDI's, which its SDK documents as not premultiplied —
+/// is premultiplied on its way into the texture, in either byte order and with its rows
+/// unsheared: a half-transparent texel's color is scaled by its alpha, an opaque one is as it
+/// was, and a transparent one is transparent black whatever color it carried.
+#[test]
+fn a_straight_frame_uploads_premultiplied() {
+    let gpu = gpu::gpu();
+    let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
+    let port = PortRef::new(NodeId(1), "frame");
+    let (w, h, stride) = (6u32, 3u32, 6 * 4 + 12);
+    let color = |x: u32, y: u32| {
+        [
+            (40 * x + 7) as u8,
+            (60 * y + 11) as u8,
+            (x * y * 13 + 3) as u8,
+        ]
+    };
+    let alpha = |x: u32| [255u8, 128, 0][(x % 3) as usize];
+    for layout in [Layout::Rgba, Layout::Bgra] {
+        let bytes = plane(w, h, 4, stride, |x, y| {
+            let [r, g, b] = color(x, y);
+            if layout == Layout::Bgra {
+                vec![b, g, r, alpha(x)]
+            } else {
+                vec![r, g, b, alpha(x)]
+            }
+        });
+        let (frame, _) = mapped(w, h, layout, [stride, 0, 0], Yuv::default(), vec![bytes]);
+        let Pixels::Mapped(m) = &frame.pixels else {
+            unreachable!("made mapped")
+        };
+        let frame = Arc::new(Frame {
+            width: w,
+            height: h,
+            pixels: Pixels::Mapped(Mapped {
+                straight_alpha: true,
+                ..m.clone()
+            }),
+        });
+        upload_only(&gpu, &mut renderer, port, &frame);
+        let got = uploaded(&gpu, &renderer, port.node);
+        for y in 0..h {
+            for x in 0..w {
+                let i = ((y * w + x) * 4) as usize;
+                let a = alpha(x);
+                for (c, want) in color(x, y).into_iter().enumerate() {
+                    let want = (f32::from(want) * f32::from(a) / 255.0).round() as u8;
+                    assert!(
+                        got[i + c].abs_diff(want) <= 1,
+                        "{layout:?} channel {c} at ({x}, {y}): {} for {want}",
+                        got[i + c]
+                    );
+                }
                 assert_eq!(got[i + 3], a, "{layout:?} alpha at ({x}, {y})");
             }
         }

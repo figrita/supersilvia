@@ -277,6 +277,7 @@ fn nv12_in_a_texture_per_plane_is_drawn_as_its_bytes_are() {
             layout: Layout::Nv12,
             strides: [SIZE.0, cw * 2, 0],
             yuv: Yuv::default(),
+            straight_alpha: false,
             data: Arc::new(Copied(vec![luma, chroma])),
         }),
     });

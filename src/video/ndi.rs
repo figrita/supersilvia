@@ -37,9 +37,12 @@
 //! ([`labels`], [`menu`]), each by the name NDI gives it, `MACHINE (Stream)`, which is what a
 //! project saves. A [`Receiver`] opens `ndisrc ndi-name=… ! ndisrcdemux` as a [`Camera`]
 //! (`Source::Ndi`): the demuxer's video into the camera's appsink, UYVY for an opaque source and
-//! BGRA for one with alpha, both uploaded as they are. A source that goes away keeps its last
-//! frame up, says so, and is opened again when it is listed again; one read opaque has its BGRA
-//! read as BGRx. The demuxer's sound is the Main Input's to take, through [`audio_head`].
+//! BGRA for one with alpha. **NDI's alpha is straight** — its SDK says of BGRA and RGBA, "This
+//! data is not pre-multiplied" — so a frame received with it is marked
+//! [`Mapped::straight_alpha`](crate::nodes::Mapped::straight_alpha) and premultiplied by the
+//! renderer's conversion pass as it is uploaded, never on this thread; one read opaque has its
+//! BGRA read as BGRx. A source that goes away keeps its last frame up, says so, and is opened
+//! again when it is listed again. The demuxer's sound is the Main Input's to take, through [`audio_head`].
 //!
 //! NDI® is a registered trademark of Vizrt NDI AB.
 
@@ -619,19 +622,21 @@ pub fn audio_head(name: &str) -> Result<String, String> {
     ))
 }
 
-/// A frame read opaque: BGRA and RGBA read with their fourth byte as padding, which reads as
-/// one. Every other frame as it is.
-fn opaque(frame: Arc<Frame>) -> Arc<Frame> {
+/// A received frame as the renderer is to read it: with its alpha, which NDI's SDK defines as
+/// straight ("This data is not pre-multiplied"), for the upload to premultiply where
+/// `transparent`, and opaque where not — BGRA and RGBA read with their fourth byte as padding,
+/// which reads as one. A frame with no alpha as it is.
+fn received(frame: Arc<Frame>, transparent: bool) -> Arc<Frame> {
     let Pixels::Mapped(mapped) = &frame.pixels else {
         return frame;
     };
-    let layout = match mapped.layout {
-        Layout::Bgra => Layout::Bgrx,
-        Layout::Rgba => Layout::Rgbx,
-        _ => return frame,
-    };
     let mut mapped = mapped.clone();
-    mapped.layout = layout;
+    match (mapped.layout, transparent) {
+        (Layout::Bgra | Layout::Rgba, true) => mapped.straight_alpha = true,
+        (Layout::Bgra, false) => mapped.layout = Layout::Bgrx,
+        (Layout::Rgba, false) => mapped.layout = Layout::Rgbx,
+        _ => return frame,
+    }
     Arc::new(Frame {
         width: frame.width,
         height: frame.height,
@@ -723,11 +728,7 @@ impl Receiver {
             && !self.taken.as_ref().is_some_and(|t| Arc::ptr_eq(t, &frame))
         {
             self.taken = Some(Arc::clone(&frame));
-            self.last = Some(if self.transparent {
-                frame
-            } else {
-                opaque(frame)
-            });
+            self.last = Some(received(frame, self.transparent));
             if !self.receiving {
                 self.receiving = true;
                 self.error = None;
@@ -849,5 +850,41 @@ mod tests {
             gst::Rank::NONE,
             "out of a camera listing's reach"
         );
+    }
+
+    /// A frame received with its alpha is marked straight, NDI's own convention, for the upload
+    /// to premultiply; one read opaque has its fourth byte read as padding; a frame with no
+    /// alpha is the very frame that arrived.
+    #[test]
+    fn a_received_frames_alpha_is_straight_or_padding() {
+        struct Bytes(Vec<u8>);
+        impl crate::nodes::Planes for Bytes {
+            fn plane(&self, _: usize) -> &[u8] {
+                &self.0
+            }
+        }
+        let frame = |layout| {
+            Arc::new(Frame {
+                width: 1,
+                height: 1,
+                pixels: Pixels::Mapped(crate::nodes::Mapped {
+                    layout,
+                    strides: [4, 0, 0],
+                    yuv: crate::nodes::Yuv::default(),
+                    straight_alpha: false,
+                    data: Arc::new(Bytes(vec![255, 0, 0, 128])),
+                }),
+            })
+        };
+        let mapped = |f: &Arc<Frame>| match &f.pixels {
+            Pixels::Mapped(m) => (m.layout, m.straight_alpha),
+            other => panic!("{other:?}"),
+        };
+        for (layout, opaque) in [(Layout::Bgra, Layout::Bgrx), (Layout::Rgba, Layout::Rgbx)] {
+            assert_eq!(mapped(&received(frame(layout), true)), (layout, true));
+            assert_eq!(mapped(&received(frame(layout), false)), (opaque, false));
+        }
+        let uyvy = frame(Layout::Uyvy);
+        assert!(Arc::ptr_eq(&received(Arc::clone(&uyvy), true), &uyvy));
     }
 }

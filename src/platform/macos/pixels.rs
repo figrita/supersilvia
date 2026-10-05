@@ -146,6 +146,7 @@ pub(super) fn frame(buffer: CFRetained<CVPixelBuffer>) -> Result<Frame, String> 
         layout: Layout::Bgrx,
         strides: [stride, 0, 0],
         yuv: Yuv::default(),
+        straight_alpha: false,
         data: Arc::new(lock(buffer)?),
     };
     Ok(Frame {

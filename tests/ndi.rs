@@ -10,7 +10,8 @@
 //! the same through the app's own halves: an Output's picture sent by the publisher's thread
 //! (`render::publish`), drawn and read back off the GPU, arriving top row first with its alpha;
 //! and that stream listed by `video::ndi::labels` and received through `video::ndi::Receiver`, a
-//! camera, with its alpha or read opaque.
+//! camera, with its alpha — straight, as NDI's SDK defines it, for the upload to premultiply —
+//! or read opaque.
 //!
 //! **Without the runtime it skips**, saying so: the runtime is proprietary and the user's to
 //! install (`proposals/ndi.md`), so a machine without it — any CI box, and a Mac nobody put it
@@ -442,10 +443,14 @@ fn publisher(name: &str) {
             panic!("a mapped frame: {:?}", frame.pixels);
         };
         assert_eq!(mapped.layout, layout, "transparent {transparent}");
+        assert_eq!(
+            mapped.straight_alpha, transparent,
+            "NDI's alpha is straight on the wire, and premultiplied as it is uploaded"
+        );
         assert_eq!((frame.width, frame.height), (W, H));
         assert!(receiver.receiving() && receiver.error().is_none());
     }
-    println!("ndi: a source is received through the camera, opaque or with its alpha");
+    println!("ndi: a source is received through the camera, opaque or with its straight alpha");
     publisher.stop();
     running.store(false, Ordering::Relaxed);
     let _ = setter.join();

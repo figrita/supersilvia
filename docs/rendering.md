@@ -445,7 +445,16 @@ wgpu's staging and queues the copy ahead of the next submission. That copy is th
 work on the synth thread. A padded row is `bytes_per_row` equal to the source's own stride,
 never a repack — `write_texture` has no 256-byte row rule; BGR is a `Bgra8Unorm` texture,
 which samples as RGBA. **An `x` byte goes through the conversion pass below**, which writes
-alpha one: wgpu has no alpha swizzle. It costs one pass per new frame, for `x` layouts only.
+alpha one: wgpu has no alpha swizzle. **So does a straight alpha**, a frame marked
+`Mapped::straight_alpha` — NDI's, which its SDK defines as not premultiplied — whose color the
+pass multiplies by its alpha, the sixth arrangement. Each costs one pass per new frame, for
+those frames only.
+
+**What goes up as it lies is premultiplied already**, as [every color in the graph
+is](#alpha): a straight picture made on the CPU — an image, a GIF, the drawing canvas — is
+premultiplied by the node that made it (`nodes::alpha`), and a Wayland screen's alpha is
+premultiplied by the protocol. A data texture — a simulation's cells, an audio meter — is not a
+picture, and its alpha is uploaded as the data it is.
 
 **YUV is converted by a pass** (`sources::CONVERT`, recorded into the tick's first
 submission). Each plane goes into a texture of its own — a byte, a pair or a packed 4:2:2 pair
@@ -460,8 +469,8 @@ it.
 **A surface its producer draws into again goes through the same pass**, BGRA included: a
 Syphon server's, marked `nodes::Redrawn` ([media.md](media.md#syphon)). The pass is the copy
 into the source's own texture that keeps a frame from being sampled half drawn; its fourth
-byte is kept as alpha (`Layout::Bgra`, the pass's fifth arrangement) or written one
-(`Layout::Bgrx`), and the pass reads the planes bottom row first where the surface is laid out
+byte is kept as alpha (`Layout::Bgra`, the pass's fifth arrangement), premultiplied as the
+Mac's servers draw it, or written one (`Layout::Bgrx`), and the pass reads the planes bottom row first where the surface is laid out
 so (its `flip`), so the source's texture is top row first like every other.
 
 A decoded video file and a screen cast pay no upload at all where the machine can export and
@@ -1724,6 +1733,10 @@ itself changes. Each frame is stamped with the pipeline's clock as it is pushed 
 `do-timestamp`, live), which `ndisink` turns into its NDI timecode, the clock's own time, and
 sends as it arrives (`sync=false`). The synth's rate varies by a frame here and there; how every
 receiver treats an uneven stream is not known.
+
+**A received picture's alpha is straight**, as NDI's SDK defines its BGRA and RGBA ("This data
+is not pre-multiplied"), so a source received with its alpha is premultiplied by the
+[conversion pass](#source-textures) as it is uploaded.
 
 **The cost is a readback and an encode per sent picture per frame**: 1080p BGRA is about 8 MB a
 frame, copied off the GPU into staging and once more into the pipeline's buffer, and compressed

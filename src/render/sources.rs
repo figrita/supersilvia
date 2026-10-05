@@ -10,12 +10,22 @@
 //! stride, never a repack; `write_texture` has no 256-byte row rule. BGR is a `Bgra8Unorm`
 //! texture, which samples as RGBA.
 //!
-//! **An `x` layout and every YUV layout go through one conversion pass** ([`CONVERT`]),
-//! recorded into the prelude's [`Recording`]: the planes are uploaded into textures of their
-//! own — a byte, a pair or a quad a texel — and one fullscreen pass writes RGB with alpha one
-//! into the source's `Rgba8Unorm` texture. wgpu has no `TEXTURE_SWIZZLE_A`, so a padding byte
-//! is dropped by that pass rather than swizzled; it costs one pass per new frame, for `x`
-//! layouts only. What a node samples is an RGBA texture like any other either way.
+//! **A texture holds what the graph samples: premultiplied color** where its alpha is coverage
+//! ([decisions.md](../../docs/decisions.md#colors-in-the-graph-are-premultiplied)). A straight
+//! picture made on the CPU — an image, a GIF, the drawing canvas — is premultiplied by the node
+//! that made it ([`crate::nodes::alpha`]), a Wayland screen's buffer is premultiplied by the
+//! protocol and a Syphon surface by the Mac's convention, so each goes up as it lies; a frame
+//! whose alpha is straight on the wire says so ([`Mapped::straight_alpha`]) and is
+//! premultiplied by the conversion pass. A data texture's alpha is its own and nothing
+//! converts it.
+//!
+//! **An `x` layout, every YUV layout and a straight alpha go through one conversion pass**
+//! ([`CONVERT`]), recorded into the prelude's [`Recording`]: the planes are uploaded into
+//! textures of their own — a byte, a pair or a quad a texel — and one fullscreen pass writes
+//! RGB with alpha one, or a straight quad times its alpha, into the source's `Rgba8Unorm`
+//! texture. wgpu has no `TEXTURE_SWIZZLE_A`, so a padding byte is dropped by that pass rather
+//! than swizzled; it costs one pass per new frame, for those layouts only. What a node samples
+//! is an RGBA texture like any other either way.
 //!
 //! **Nothing changes until a frame is known to fit.** Every plane's length and stride is
 //! checked before a texture is made or written, so a frame that does not fit leaves the
@@ -103,8 +113,9 @@ impl SourceJob {
 ///
 /// The layouts are numbered as [`layout_code`] numbers them: three planes, a luma plane and an
 /// interleaved chroma plane, the two packed 4:2:2 orders whose texel is a pair of pixels, an
-/// RGB quad whose fourth byte is padding, and an RGB quad whose fourth byte is alpha — a
-/// surface copied as it lies, alpha and all. `flip` reads the planes bottom row first, for a
+/// RGB quad whose fourth byte is padding, an RGB quad whose fourth byte is premultiplied alpha
+/// — a surface copied as it lies, alpha and all — and one whose fourth byte is straight alpha,
+/// premultiplied as it is drawn. `flip` reads the planes bottom row first, for a
 /// surface laid out that way, so the target is always top row first. Luma and packed texels are read by
 /// `textureLoad`; chroma is sampled linearly between its texels, which is the upsampling, with
 /// an explicit level as every stage the renderer writes.
@@ -138,6 +149,10 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     }
     if c.arrangement == 5u {
         return textureLoad(plane0, p, 0);
+    }
+    if c.arrangement == 6u {
+        let straight = textureLoad(plane0, p, 0);
+        return vec4f(straight.rgb * straight.a, straight.a);
     }
     var yuv: vec3f;
     if c.arrangement >= 2u {
@@ -361,7 +376,7 @@ impl Sources {
                                 source,
                                 planes.into_iter().map(Plane::from).collect(),
                                 (frame.width, frame.height),
-                                &convert_block(t.layout, t.yuv, false),
+                                &convert_block(t.layout, t.yuv, false, false),
                             );
                             recording.encoder().transition_resources(
                                 std::iter::empty(),
@@ -390,7 +405,10 @@ impl Sources {
                     let size = (frame.width, frame.height);
                     // A surface its producer draws into again is copied, however it is
                     // laid out, so a frame is never sampled half drawn.
-                    let old = if s.mapped.layout == Layout::Bgra && s.redrawn.is_none() {
+                    let old = if s.mapped.layout == Layout::Bgra
+                        && s.redrawn.is_none()
+                        && !s.mapped.straight_alpha
+                    {
                         let texture = planes.into_iter().next().expect("one BGR plane");
                         let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
                         source.target = Some(Target { texture, view });
@@ -399,7 +417,12 @@ impl Sources {
                         source.imported.take()
                     } else {
                         let bottom_first = s.redrawn.is_some_and(|r| r.bottom_first);
-                        let block = convert_block(s.mapped.layout, s.mapped.yuv, bottom_first);
+                        let block = convert_block(
+                            s.mapped.layout,
+                            s.mapped.yuv,
+                            bottom_first,
+                            s.mapped.straight_alpha,
+                        );
                         let planes = planes.into_iter().map(Plane::whole).collect();
                         self.convert
                             .imported(gpu, shared, recording, source, planes, size, &block)
@@ -430,7 +453,7 @@ impl Sources {
                                     source,
                                     vec![Plane::whole(texture)],
                                     (frame.width, frame.height),
-                                    &convert_block(Layout::Rgbx, any, false),
+                                    &convert_block(Layout::Rgbx, any, false, false),
                                 )
                             } else {
                                 let view =
@@ -581,7 +604,7 @@ fn parts(frame: &Frame) -> Result<Parts<'_>, String> {
             })
         }
         Pixels::Mapped(m) | Pixels::IoSurface(IoSurface { mapped: m, .. })
-            if matches!(m.layout, Layout::Rgba | Layout::Bgra) =>
+            if matches!(m.layout, Layout::Rgba | Layout::Bgra) && !m.straight_alpha =>
         {
             let bytes = m
                 .plane(0, width, height)
@@ -601,7 +624,9 @@ fn parts(frame: &Frame) -> Result<Parts<'_>, String> {
                 let texel = m.layout.texel_bytes(i);
                 let (w, h) = m.layout.plane_size(i, width, height);
                 let format = match (m.layout, texel) {
-                    (Layout::Rgbx | Layout::Bgrx, _) => rgb_format(m.layout),
+                    (Layout::Rgba | Layout::Rgbx | Layout::Bgra | Layout::Bgrx, _) => {
+                        rgb_format(m.layout)
+                    }
                     (_, 1) => wgpu::TextureFormat::R8Unorm,
                     (_, 2) => wgpu::TextureFormat::Rg8Unorm,
                     _ => wgpu::TextureFormat::Rgba8Unorm,
@@ -635,13 +660,14 @@ fn whole_texels(stride: u32, texel_bytes: u32) -> Result<u32, String> {
     }
 }
 
-/// Which branch of [`CONVERT`] a layout takes.
-fn layout_code(layout: Layout) -> u32 {
+/// Which branch of [`CONVERT`] a layout takes, its alpha straight where `straight_alpha` says.
+fn layout_code(layout: Layout, straight_alpha: bool) -> u32 {
     match layout {
         Layout::Nv12 => 1,
         Layout::Yuy2 => 2,
         Layout::Uyvy => 3,
         Layout::Rgbx | Layout::Bgrx => 4,
+        Layout::Rgba | Layout::Bgra if straight_alpha => 6,
         Layout::Rgba | Layout::Bgra => 5,
         _ => 0,
     }
@@ -843,7 +869,7 @@ impl Convert {
                     shared,
                     recording,
                     source,
-                    &convert_block(m.layout, m.yuv, false),
+                    &convert_block(m.layout, m.yuv, false, m.straight_alpha),
                 );
                 old
             }
@@ -945,8 +971,14 @@ impl Convert {
 
 /// [`CONVERT`]'s uniform struct for a frame of `layout` and `yuv`: `rgb = matrix * (yuv -
 /// offset)`, the matrix's columns each padded to sixteen bytes, the planes read bottom row
-/// first where `bottom_first` says so.
-fn convert_block(layout: Layout, yuv: Yuv, bottom_first: bool) -> [u8; CONVERT_BLOCK as usize] {
+/// first where `bottom_first` says so, and an RGB quad's alpha premultiplied where
+/// `straight_alpha` says it is straight.
+fn convert_block(
+    layout: Layout,
+    yuv: Yuv,
+    bottom_first: bool,
+    straight_alpha: bool,
+) -> [u8; CONVERT_BLOCK as usize] {
     let (matrix, offset) = coefficients(yuv);
     let subsample = match layout {
         Layout::I420 | Layout::Nv12 => [0.5f32, 0.5],
@@ -965,7 +997,7 @@ fn convert_block(layout: Layout, yuv: Yuv, bottom_first: bool) -> [u8; CONVERT_B
     }
     put(64, subsample[0]);
     put(68, subsample[1]);
-    block[60..64].copy_from_slice(&layout_code(layout).to_le_bytes());
+    block[60..64].copy_from_slice(&layout_code(layout, straight_alpha).to_le_bytes());
     block[72..76].copy_from_slice(&u32::from(bottom_first).to_le_bytes());
     block
 }

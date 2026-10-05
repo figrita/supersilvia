@@ -526,6 +526,9 @@ fn frame_of(surface: Surface, look: Look) -> Frame {
                 },
                 strides: [stride, 0, 0],
                 yuv: Yuv::default(),
+                // Syphon documents no convention, and the Mac's servers draw premultiplied,
+                // as Core Animation and Metal do, so its alpha is sampled as it lies.
+                straight_alpha: false,
                 data: Arc::new(Mapping {
                     surface,
                     locked: OnceLock::new(),

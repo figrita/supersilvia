@@ -145,6 +145,10 @@ pub struct Mapped {
     /// repacking.
     pub strides: [u32; 3],
     pub yuv: Yuv,
+    /// The fourth byte of an `Rgba` or `Bgra` layout is straight alpha, which the renderer
+    /// premultiplies as it uploads: NDI's, whose SDK defines it so. `false` where it is
+    /// premultiplied already, as a Wayland or a Syphon surface's is, and for every other layout.
+    pub straight_alpha: bool,
     pub data: Arc<dyn Planes>,
 }
 
@@ -169,6 +173,7 @@ impl std::fmt::Debug for Mapped {
             .field("layout", &self.layout)
             .field("strides", &self.strides)
             .field("yuv", &self.yuv)
+            .field("straight_alpha", &self.straight_alpha)
             .finish_non_exhaustive()
     }
 }
@@ -178,6 +183,7 @@ impl PartialEq for Mapped {
         self.layout == other.layout
             && self.strides == other.strides
             && self.yuv == other.yuv
+            && self.straight_alpha == other.straight_alpha
             && Arc::ptr_eq(&self.data, &other.data)
     }
 }
