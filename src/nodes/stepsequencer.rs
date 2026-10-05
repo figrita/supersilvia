@@ -10,8 +10,9 @@
 //! Where the playhead is, is a function of its Time; a new one stands still in Free mode, as
 //! silvia's does, and plays with the show in Loop mode.
 //!
-//! **The clock is `nodes::sequencer`'s**, the one `euclideanrhythm` runs behind: Time and Offset
-//! in bars — a Master Gear a bar long cabled into Time is the tempo, with its Hold and Reset —
+//! **The clock is `nodes::sequencer`'s**, the one `euclideanrhythm` runs behind, and so is its
+//! period: the least shift the lit cells repeat at, so four on the floor comes back every
+//! quarter of a bar. Time and Offset in bars — a Master Gear a bar long cabled into Time is the tempo, with its Hold and Reset —
 //! Step as an action row, Gate as a knob with a port where silvia draws an s-number in the
 //! body, and four lanes out. The grid is
 //! [`Region::Grid`](super::Region::Grid), drawn by `widgets::steps` with the cells Euclidean
@@ -34,7 +35,10 @@ pub static DEF: NodeDef = NodeDef {
     label: "Step Sequencer",
     tooltip: "Multi-step sequencer with programmable patterns. Click a cell to light it; Speed 1 walks the playhead across a bar every two seconds, or a Master Gear a bar long cabled into Time does, a bar a cycle.",
     inputs: sequencer::INPUTS,
-    timing: Some(sequencer::TIMING),
+    timing: Some(crate::nodes::Timing {
+        period: |node| Some(bars(node)),
+        ..sequencer::TIMING
+    }),
     options: crate::nodes::timing::options![],
     row_headings: crate::nodes::timing::ROW_HEADINGS,
     outputs: sequencer::OUTPUTS,
@@ -62,6 +66,13 @@ pub fn masks(pattern: Option<&Value>) -> [u32; LANES] {
             .filter(|&step| pattern.is_some_and(|p| p.lit(lane, step)))
             .fold(0, |mask, step| mask | 1 << step)
     })
+}
+
+/// How many bars the pattern comes back in: the least shift every lane's sixteen cells repeat
+/// at (`sequencer::bars`) — a bar for a pattern with no shorter repeat, a quarter of one for
+/// four on the floor, a sixteenth for an empty grid.
+fn bars(node: &crate::graph::Node) -> f64 {
+    sequencer::bars(masks(node.values.get(PATTERN)).map(|mask| (u64::from(mask), STEPS as u32)))
 }
 
 #[derive(Default)]
@@ -118,5 +129,27 @@ mod tests {
             written.cells().map(|c| c[0].as_str()),
             Some("x....x....x....x")
         );
+    }
+
+    /// The pattern comes back at the least shift every lane repeats at: a bar where one lane
+    /// has no shorter repeat, a quarter of one for four on the floor, half for a lane every
+    /// other eighth beside it, and a sixteenth for an empty grid.
+    #[test]
+    fn the_pattern_comes_back_at_its_least_repeat() {
+        let mut g = crate::graph::Graph::new();
+        let id = crate::nodes::add_to_graph(&mut g, DEF.slug, emath::Pos2::ZERO).unwrap();
+        let period = |g: &crate::graph::Graph| (DEF.timing.unwrap().period)(g.get(id).unwrap());
+        assert_eq!(period(&g), Some(1.0 / 16.0), "an empty grid");
+        let mut write = |lanes: [&str; 4]| {
+            g.get_mut(id).unwrap().values.insert(
+                PATTERN,
+                Value::Cells(lanes.iter().map(|l| (*l).to_string()).collect()),
+            );
+            period(&g)
+        };
+        let floor = "x...x...x...x...";
+        assert_eq!(write([floor, "..x...x...x...x.", floor, ""]), Some(0.25));
+        assert_eq!(write([floor, "x.......x.......", "", ""]), Some(0.5));
+        assert_eq!(write([floor, "", "", "x..x.x....x..x.."]), Some(1.0));
     }
 }

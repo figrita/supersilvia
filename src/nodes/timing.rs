@@ -136,6 +136,10 @@ pub struct Timing {
     /// `None` for a picture that never repeats.
     pub period: fn(&Node) -> Option<f64>,
     pub axes: Axes,
+    /// Whether the node's pace is one play over a length of its own — a clip's, a GIF's — that
+    /// the node reads off its file and hands to `TickContext::cycle_at`, so [`Self::pace`] is
+    /// a play and nothing outside the node knows how long one is.
+    pub clip: bool,
 }
 
 impl Timing {
@@ -151,6 +155,7 @@ impl Timing {
             still: false,
             period,
             axes: Axes::One,
+            clip: false,
         }
     }
 
@@ -165,6 +170,13 @@ impl Timing {
     #[must_use]
     pub const fn xy(mut self) -> Self {
         self.axes = Axes::Two;
+        self
+    }
+
+    /// The same paced by a length of its own: a play a cycle ([`Self::clip`]).
+    #[must_use]
+    pub const fn clip(mut self) -> Self {
+        self.clip = true;
         self
     }
 
@@ -407,7 +419,8 @@ pub const MAX_DIVIDED: u64 = 16;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Span {
     /// A loop `period` of the node's cycles long, `cycles` of them counted whole — a period
-    /// that is not whole rounded up — and the cycle within it the node is in, from zero.
+    /// that is not whole rounded up, and one under a cycle counted as one — and the cycle within
+    /// it the node is in, from zero.
     Loop {
         cycle: u64,
         cycles: u64,
@@ -429,7 +442,10 @@ pub struct Progress {
 impl Progress {
     /// Where a Time reading of `time` is in a loop of `period` of the node's cycles, or in its
     /// current cycle where `period` is `None` or not above zero. Wrapped as a body takes Time
-    /// round ([`phasor::fraction`]), so a Time a whole loop on reads as zero.
+    /// round ([`phasor::fraction`]), so a Time a whole loop on reads as zero. A period that is
+    /// a small fraction `p/q` — half a cycle, two and a half, a tenth — is read as that fraction
+    /// (`chain::Fraction::near`): the Time is taken round it as `q × Time` round the whole `p`,
+    /// so no rounding of `p/q` gathers over a long show.
     pub fn of(time: f64, period: Option<f64>) -> Self {
         let time = if time.is_finite() { time } else { 0.0 };
         let Some(period) = period.filter(|p| p.is_finite() && *p > 0.0) else {
@@ -441,7 +457,13 @@ impl Progress {
                 },
             };
         };
-        let at = phasor::fraction(time, period);
+        let (at, period) = match crate::nodes::chain::Fraction::near(period) {
+            Some(f) if f.q > 1 => {
+                let (p, q) = (f.p as f64, f.q as f64);
+                (phasor::fraction(time * q, p) / q, p / q)
+            }
+            _ => (phasor::fraction(time, period), period),
+        };
         let cycles = (period - phasor::REACH).ceil().max(1.0) as u64;
         let cycle = ((at + phasor::REACH).floor().max(0.0) as u64).min(cycles - 1);
         Self {
@@ -697,6 +719,35 @@ mod tests {
         assert_eq!(p.dividers().collect::<Vec<_>>(), [0.4, 0.8]);
     }
 
+    /// A loop shorter than a cycle — four on the floor's quarter of a bar, a tenth — is one
+    /// cycle counted, no hairline, and filled across the loop, wrapping as often as it comes
+    /// back in a cycle; a third, which an `f64` cannot hold, is read as a third, so a Time
+    /// a million loops on reads where it read at the start.
+    #[test]
+    fn a_loop_shorter_than_a_cycle_fills_as_often_as_it_comes_back() {
+        let p = Progress::of(0.3, Some(0.25));
+        assert_eq!(loop_of(p), (0, 1));
+        assert!((p.fill - 0.2).abs() < 1e-9, "{}", p.fill);
+        assert_eq!(p.dividers().count(), 0);
+        assert_eq!(Progress::of(7.0, Some(0.25)).fill, 0.0);
+        let tenth = Progress::of(2.37, Some(0.1));
+        assert!((tenth.fill - 0.7).abs() < 1e-6, "{}", tenth.fill);
+        let third = 1.0 / 3.0;
+        let a = Progress::of(0.25, Some(third));
+        let b = Progress::of(0.25 + 1e6, Some(third));
+        assert!((a.fill - 0.75).abs() < 1e-9, "{}", a.fill);
+        assert!((a.fill - b.fill).abs() < 1e-6, "{} {}", a.fill, b.fill);
+        assert_eq!(
+            Progress::of(1e6, Some(third)).fill,
+            0.0,
+            "a whole number of thirds"
+        );
+        // Two and a half cycles, written as the fraction a sequencer's lanes give.
+        let p = Progress::of(2.2 + 2.5 * 4000.0, Some(40.0 / 16.0));
+        assert_eq!(loop_of(p), (2, 3));
+        assert!((p.fill - 0.88).abs() < 1e-9, "{}", p.fill);
+    }
+
     /// A picture that never comes back has no loop: the cycle it is in, filled, with the
     /// whole cycles behind it, and nothing to divide.
     #[test]
@@ -869,12 +920,24 @@ mod tests {
         assert_eq!(reach(&g, clip), 1.0);
         let euclid =
             crate::nodes::add_to_graph(&mut g, "euclideanrhythm", emath::Pos2::ZERO).unwrap();
-        assert_eq!(reach(&g, euclid), 1.0, "four lanes of 16 meet every bar");
+        assert_eq!(reach(&g, euclid), 1.0, "four figures of 16 meet every bar");
+        let controls = &mut g.get_mut(euclid).unwrap().controls;
+        controls.insert("lane2steps", ControlValue::Float(12.0));
+        controls.insert("lane2pulses", ControlValue::Float(5.0));
+        assert_eq!(
+            reach(&g, euclid),
+            3.0,
+            "16 and E(5, 12) meet every three bars"
+        );
         g.get_mut(euclid)
             .unwrap()
             .controls
-            .insert("lane2steps", ControlValue::Float(12.0));
-        assert_eq!(reach(&g, euclid), 3.0, "16 and 12 meet every three bars");
+            .insert("lane2pulses", ControlValue::Float(3.0));
+        assert_eq!(
+            reach(&g, euclid),
+            1.0,
+            "E(3, 12) comes back every four steps"
+        );
     }
 
     /// Fitting a node's Offsets after its period shrank: taken round the new period on each

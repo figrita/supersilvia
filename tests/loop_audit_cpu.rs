@@ -386,54 +386,66 @@ fn oscillator_periodic_waveforms_come_back_every_wave_and_not_before() {
     check(&failures);
 }
 
-/// **Noise comes back when the oscillator says it does**: its period, which the loop meter
-/// fills over, the Offset knob reaches and the caption counts, is the period of a fresh value
-/// each wave keyed by `floor(Time + Offset)` — ambient, free, and on a Master Gear.
+/// **Noise says it never comes back, and does not**: a fresh value each wave keyed by
+/// `floor(Time + Offset)` repeats only after 2³⁰ waves, which no loop is, so its period is none
+/// — the loop meter open, the Offset knob a wave either way — `closes_alone` says no length
+/// closes it, ambient or free, and on a Master Gear the caption says it will not close. Nor
+/// does it come back at a whole number of waves a loop could be.
 #[test]
 fn oscillator_noise_comes_back_when_it_says() {
     let mut failures = Vec::new();
+    let mut waves = |app: &mut App, osc: NodeId, rate: f64, label: &str| {
+        let n = app.graph().get(osc).unwrap();
+        if (n.def.timing.unwrap().period)(n).is_some() {
+            failures.push(format!("{label}: claims a period"));
+        }
+        for k in [1.0, 2.0, 3.0, 4.0, 7.0] {
+            let seconds = k / rate;
+            if chain::closes_alone(app.graph(), osc, seconds) != Some(false) {
+                failures.push(format!("{label}: closes_alone({seconds}) does not say no"));
+            }
+            let port = PortRef::new(osc, "output");
+            let same = TIMES[..6]
+                .iter()
+                .all(|&t| (sample(app, port, t) - sample(app, port, t + seconds)).abs() <= TOL);
+            if same {
+                failures.push(format!("{label}: comes back after {k} waves"));
+            }
+        }
+    };
     for offset in [0.0f32, 0.37] {
         let mut app = App::headless();
         let osc = add(&mut app, "oscillator");
         choose(&mut app, osc, "waveform", "noise");
         set(&mut app, osc, "phaseOffset", offset);
         ambient(&mut app, osc);
-        let p = claimed_alone(&app, osc);
-        failures.extend(audit_numbers(
+        waves(
             &mut app,
-            PortRef::new(osc, "output"),
-            p,
-            &[],
+            osc,
+            1.0,
             &format!("noise ambient offset {offset}"),
-        ));
+        );
         let mut app = App::headless();
         let osc = add(&mut app, "oscillator");
         choose(&mut app, osc, "waveform", "noise");
         set(&mut app, osc, "phaseOffset", offset);
         set(&mut app, osc, "speed", 0.5);
-        let p = claimed_alone(&app, osc);
-        failures.extend(audit_numbers(
+        waves(
             &mut app,
-            PortRef::new(osc, "output"),
-            p,
-            &[],
+            osc,
+            0.5,
             &format!("noise free speed 0.5 offset {offset}"),
-        ));
+        );
     }
     let mut app = App::headless();
     let m = master(&mut app, 1.5);
     let osc = add(&mut app, "oscillator");
     choose(&mut app, osc, "waveform", "noise");
     connect(&mut app, (m, "cycles"), (osc, timing::TIME));
-    let p = claimed_master(&app, m);
     let cap = chain::caption(app.graph(), m);
-    failures.extend(audit_numbers(
-        &mut app,
-        PortRef::new(osc, "output"),
-        p,
-        &[],
-        &format!("noise on a master: {cap}"),
-    ));
+    if chain::master_length(app.graph(), m).is_some() || !cap.contains("will not close") {
+        failures.push(format!("noise on a master: {cap}"));
+    }
     check(&failures);
 }
 
@@ -467,6 +479,14 @@ fn bars_in(seconds: f64, seconds_a_bar: f64) -> u64 {
     let bars = seconds / seconds_a_bar;
     assert!((bars - bars.round()).abs() < 1e-9, "{bars} bars");
     bars.round() as u64
+}
+
+/// A claim in seconds as whole steps, sixteen a bar: a rhythm whose lanes repeat inside a bar
+/// comes back in a fraction of one.
+fn steps_in(seconds: f64, seconds_a_bar: f64) -> u64 {
+    let steps = 16.0 * seconds / seconds_a_bar;
+    assert!((steps - steps.round()).abs() < 1e-9, "{steps} steps");
+    steps.round() as u64
 }
 
 /// **A Euclidean Rhythm whose lanes are truly coprime comes back when it says**: lanes whose
@@ -572,10 +592,11 @@ fn euclidean_rhythm_with_honest_lanes_comes_back_when_it_says() {
     check(&failures);
 }
 
-/// **A Euclidean Rhythm does not come back before the whole bars it says**, where a lane's
-/// figure repeats inside its own length — E(2, 32) every 16 steps, E(6, 30) every 5 — or is
-/// silent (no pulses) or full (pulses at or above its steps). The fourth is the configuration
-/// `chain::tests::a_sequencer_loops_when_every_lane_does` counts as fifteen bars.
+/// **A Euclidean Rhythm does not come back before the steps it says**, where a lane's figure
+/// repeats inside its own length — E(2, 32) every 16 steps, E(6, 30) every 5 — or is silent
+/// (no pulses) or full (pulses at or above its steps). The fourth is the configuration
+/// `chain::tests::a_sequencer_loops_when_every_lane_does` counts: forty steps, two and a half
+/// bars, so the claim is read in steps and the early loops looked for at every prime of them.
 #[test]
 fn euclidean_rhythm_does_not_come_back_before_the_bars_it_says() {
     let configs: [(&str, Lanes); 5] = [
@@ -629,14 +650,14 @@ fn euclidean_rhythm_does_not_come_back_before_the_bars_it_says() {
     for (name, l) in configs {
         let (mut app, e) = euclid(l, 0.0);
         let p = claimed_alone(&app, e);
-        let bars = bars_in(p, 2.0);
+        let steps = steps_in(p, 2.0);
         failures.extend(audit_events(
             &mut app,
             &lanes_of(e),
             10.0,
             p,
-            &primes_of(bars),
-            &format!("{name}: claims {bars} bars"),
+            &primes_of(steps),
+            &format!("{name}: claims {steps} steps"),
         ));
     }
     check(&failures);
@@ -986,7 +1007,9 @@ fn what_a_trigger_drives_comes_back_when_the_caption_says() {
 }
 
 /// **A gear's Cycles in an input that is not a Time comes back when the caption says**: in a
-/// Euclidean Rhythm's Offset, its lanes five bars long, and in an oscillator's Amplitude.
+/// Euclidean Rhythm's Offset, its lanes five bars long. In an oscillator's Amplitude it is a
+/// number that grows without bound, which no loop closes, and the caption says it cannot tell
+/// rather than claim one.
 #[test]
 fn a_count_into_an_offset_or_an_amplitude_comes_back_when_the_caption_says() {
     let mut failures = Vec::new();
@@ -1021,15 +1044,10 @@ fn a_count_into_an_offset_or_an_amplitude_comes_back_when_the_caption_says() {
     let osc = add(&mut app, "oscillator");
     connect(&mut app, (m, "cycles"), (osc, timing::TIME));
     connect(&mut app, (m, "cycles"), (osc, "amplitude"));
-    let p = claimed_master(&app, m);
     let cap = chain::caption(app.graph(), m);
-    failures.extend(audit_numbers(
-        &mut app,
-        PortRef::new(osc, "output"),
-        p,
-        &[],
-        &format!("sine, Cycles in Amplitude: {cap}"),
-    ));
+    if chain::master_length(app.graph(), m).is_some() || !cap.starts_with("can't tell") {
+        failures.push(format!("sine, Cycles in Amplitude: claims {cap}"));
+    }
     check(&failures);
 }
 

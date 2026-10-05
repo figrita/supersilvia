@@ -34,6 +34,12 @@
 //! advances the grid by exactly one and holds every lane exactly as long as that step is a
 //! pulse — the one stateful path, since an event clock (a tap, a threshold) is not a gear.
 //! While something is cabled into Step the sequencer ignores its Time.
+//!
+//! **A sequencer comes back after the shortest run of steps every lane repeats in** ([`bars`]):
+//! each lane's figure read round its own length, the least shift that leaves it as it is
+//! ([`repeat`]) — four on the floor every four steps, a silent or a full lane every step — and
+//! the least common multiple of the four, in bars. So a pattern that repeats inside a bar says
+//! so, and a loop of it on a slow gear is as short as the pattern is (`nodes::chain`).
 
 use crate::graph::NodeId;
 use crate::graph::PortType::{Action, UniformNumber};
@@ -59,15 +65,43 @@ pub const INPUTS: &[InputDef] = crate::nodes::timing::inputs![
 ];
 
 /// A sequencer's timing: a bar a cycle, standing still when new, and a bar every two
-/// seconds — 120 beats a minute. Each node's period is its own, where its lanes meet again.
+/// seconds — 120 beats a minute. Each node's period is its own, the [`bars`] its lanes come
+/// back in.
 pub const TIMING: Timing = Timing::periodic(0.5).still();
 
-/// Whether a node reads a cabled Time unwrapped where its source declares the wrap, as a
-/// sequencer does: a gear's Phase in its Time is then a count, and not a fraction that jumps
-/// back every cycle.
-pub fn reads_unwrapped(def: &crate::nodes::NodeDef) -> bool {
+/// The key of **Step**, the action input that advances the grid by one step a down.
+pub const STEP: &str = "step";
+
+/// Whether a node runs behind this clock: it reads a cabled Time unwrapped where its source
+/// declares the wrap, so a gear's Phase in its Time is a count and not a fraction that jumps
+/// back every cycle, and while [`STEP`] is cabled it advances one step a down on it and reads
+/// nothing else of time.
+pub fn is_sequencer(def: &crate::nodes::NodeDef) -> bool {
     def.slug == crate::nodes::stepsequencer::DEF.slug
         || def.slug == crate::nodes::euclideanrhythm::DEF.slug
+}
+
+/// The least shift that leaves a lane of `steps` steps as it is, read round its own length:
+/// bit `i` of `figure` lit where step `i` is. A divisor of `steps`; one for a lane all silent or
+/// all lit.
+pub fn repeat(figure: u64, steps: u32) -> u32 {
+    let steps = steps.clamp(1, 64);
+    let lit = |i: u32| figure >> (i % steps) & 1 == 1;
+    (1..=steps)
+        .filter(|d| steps.is_multiple_of(*d))
+        .find(|&d| (0..steps).all(|i| lit(i) == lit(i + d)))
+        .unwrap_or(steps)
+}
+
+/// How many bars four lanes come back in: the least common multiple of each lane's
+/// [`repeat`], `(figure, steps)` a lane, over the bar's sixteen steps — a fraction of a bar
+/// where every lane repeats inside one.
+pub fn bars(lanes: impl IntoIterator<Item = (u64, u32)>) -> f64 {
+    let steps = lanes
+        .into_iter()
+        .map(|(figure, steps)| i64::from(repeat(figure, steps)))
+        .fold(1, lcm);
+    steps as f64 / BAR
 }
 
 /// The four lanes, each an action output holding its gate while its step is lit.
@@ -115,7 +149,7 @@ const BAR: f64 = STEPS_A_BAR as f64;
 /// for the same reason: a `tick` never waits and never allocates without one.
 const MAX_EVENTS_PER_FRAME: u32 = 64;
 
-/// The least common multiple of two lane lengths, for [`Transport::playhead`].
+/// The least common multiple of two lane lengths, for [`Transport::playhead`] and [`bars`].
 pub fn lcm(a: i64, b: i64) -> i64 {
     let (mut x, mut y) = (a.max(1), b.max(1));
     while y != 0 {
@@ -415,5 +449,38 @@ mod tests {
             Some(17.0),
             "a step an f32 holds is itself"
         );
+    }
+
+    /// A lane comes back after the least shift that leaves its figure alone: four on the
+    /// floor every four steps, a figure with no shorter repeat its whole length, a silent or a
+    /// full lane every step, and a lane of 64 lit at 0 and 32 every 32.
+    #[test]
+    fn a_lane_repeats_at_its_least_shift() {
+        let figure = |s: &str| {
+            s.chars()
+                .enumerate()
+                .fold(0u64, |m, (i, c)| if c == 'x' { m | 1 << i } else { m })
+        };
+        assert_eq!(repeat(figure("x...x...x...x..."), 16), 4);
+        assert_eq!(repeat(figure("x..x.x....x..x.."), 16), 16);
+        assert_eq!(repeat(figure("x.x.x.x.x.x.x.x."), 16), 2);
+        assert_eq!(repeat(0, 5), 1, "silent");
+        assert_eq!(repeat(0b11111, 5), 1, "full");
+        assert_eq!(repeat(figure("x.x.."), 5), 5);
+        assert_eq!(repeat(1 | 1 << 32, 64), 32);
+        assert_eq!(repeat(u64::MAX, 64), 1);
+        // Lanes of 4, 5 and 8 steps meet after 40, two and a half bars; four on the floor in
+        // every lane is a quarter of one.
+        let floor = figure("x...x...x...x...");
+        assert_eq!(
+            bars([
+                (floor, 16),
+                (figure("x.x.."), 5),
+                (figure("x......."), 8),
+                (0, 3)
+            ]),
+            2.5
+        );
+        assert_eq!(bars([(floor, 16); 4]), 0.25);
     }
 }

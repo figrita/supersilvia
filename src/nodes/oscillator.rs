@@ -15,7 +15,8 @@
 //! starts at −1, a sawtooth starts at 0 rising, a square is a comparison against π rather
 //! than `sign(sin)` and so never reads 0 at a crossing, and a pulse is a quarter duty. **Noise
 //! draws a fresh value each wave**, keyed by `floor(Time + Offset)` and the node's id, so it
-//! holds for a wave, loops when its Time does and is the same twice. The field version — an
+//! holds for a wave and is the same twice; it never comes back, so its period is none and its
+//! loop meter is open. The field version — an
 //! oscillator whose frequency and phase could themselves be pictures — is cut, and recorded
 //! in `proposals/field-oscillator.md`. **Level** is silvia's Offset, the level added to the
 //! wave, relabelled so Offset means one thing across the library.
@@ -94,8 +95,11 @@ pub static DEF: NodeDef = NodeDef {
     ..NodeDef::EMPTY
 };
 
-/// A wave a second, at rest and at a Speed of 1.
-const TIMING: Timing = Timing::periodic(1.0);
+/// A wave a second, at rest and at a Speed of 1, coming back every wave — and never on Noise,
+/// which draws a fresh value each one.
+const TIMING: Timing = Timing::repeating(1.0, |node| {
+    (node.options.get("waveform").map(String::as_str) != Some("noise")).then_some(1.0)
+});
 
 /// How many seconds the trace holds: silvia's `historySize` of 300 for the same picture, at
 /// the 60 Hz it was drawn at. Seconds rather than samples, since the band draws by time.
@@ -232,5 +236,17 @@ mod tests {
             waves[3],
             "another node, another noise"
         );
+    }
+
+    /// Every periodic waveform comes back every wave; Noise never does, so it claims no period.
+    #[test]
+    fn noise_claims_no_period() {
+        let mut g = crate::graph::Graph::new();
+        let id = crate::nodes::add_to_graph(&mut g, DEF.slug, emath::Pos2::ZERO).unwrap();
+        for (waveform, want) in [("sine", Some(1.0)), ("pulse", Some(1.0)), ("noise", None)] {
+            let node = g.get_mut(id).unwrap();
+            node.options.insert("waveform", waveform.to_string());
+            assert_eq!((TIMING.period)(node), want, "{waveform}");
+        }
     }
 }

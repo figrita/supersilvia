@@ -130,11 +130,13 @@ pub static DEF: NodeDef = NodeDef {
 };
 
 /// A clip's timing: a play a cycle, at the clip's native speed — one over its own length,
-/// which the node reads off the clip and hands to `TickContext::cycle_at`. A looping clip
-/// comes back every play, and one holding its last frame never does.
+/// which the node reads off the clip and hands to `TickContext::cycle_at`, and which the graph
+/// does not hold (`Timing::clip`). A looping clip comes back every play, and one holding its
+/// last frame never does.
 pub const TIMING: crate::nodes::Timing = crate::nodes::Timing::repeating(1.0, |node| {
     (node.options.get("loop").map(String::as_str) != Some("hold")).then_some(1.0)
-});
+})
+.clip();
 
 /// An elapsed time as a clock reads it: `0:07`, `1:42`, `13:05`.
 ///

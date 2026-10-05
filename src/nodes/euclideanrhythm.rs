@@ -139,13 +139,15 @@ pub static DEF: NodeDef = NodeDef {
     ..NodeDef::EMPTY
 };
 
-/// How many bars a Euclidean Rhythm takes to come back: until every lane's length and the
-/// bar's sixteen steps meet again, their least common multiple in steps.
+/// How many bars a Euclidean Rhythm takes to come back: until every lane's figure comes round
+/// again, each at the least shift that leaves it as it is (`sequencer::bars`). A lane's figure
+/// is E(k, n) repeated, `n ÷ gcd(n, k)` steps long, and one step where the lane is silent or
+/// full; Rotation moves a figure and not its length.
 fn bars(node: &crate::graph::Node) -> f64 {
-    let steps = (0..4)
-        .map(|lane| i64::from(LaneParams::of(node, lane).steps))
-        .fold(sequencer::STEPS_A_BAR, sequencer::lcm);
-    steps as f64 / sequencer::STEPS_A_BAR as f64
+    sequencer::bars((0..4).map(|lane| {
+        let lane = LaneParams::of(node, lane);
+        (lane.pattern, lane.steps)
+    }))
 }
 
 /// The three keys each lane is shaped by, which the grid on the node reads as well as the
@@ -409,6 +411,45 @@ mod tests {
                 "every step is a pulse at {steps} of {steps}"
             );
             assert_eq!(euclidean_pattern(steps + 1, steps), full, "and past it");
+        }
+    }
+
+    /// A rhythm comes back when every lane's figure does, not when the lanes' lengths meet:
+    /// E(2, 32) every sixteen steps, E(6, 30) every five, a silent or full lane every step, at
+    /// any rotation; the lanes then meet at the least common multiple, in bars.
+    #[test]
+    fn a_rhythm_comes_back_when_its_figures_do() {
+        let lane = |pulses: u32, steps: u32, rotation: i32| {
+            let lane = LaneParams {
+                steps,
+                rotation,
+                pattern: euclidean_pattern(pulses, steps),
+            };
+            sequencer::repeat(lane.pattern, lane.steps)
+        };
+        assert_eq!(lane(2, 32, 0), 16);
+        assert_eq!(lane(6, 30, 0), 5);
+        assert_eq!(
+            lane(6, 30, 7),
+            5,
+            "rotation moves the figure, not its length"
+        );
+        assert_eq!(lane(0, 5, 0), 1);
+        assert_eq!(lane(5, 5, 0), 1);
+        assert_eq!(lane(4, 16, 0), 4);
+        assert_eq!(lane(3, 16, 0), 16);
+        assert_eq!(lane(13, 64, 5), 64);
+        for steps in 1..=64u32 {
+            for pulses in 0..=steps {
+                let want = if pulses == 0 || pulses == steps {
+                    1
+                } else {
+                    steps
+                        / crate::nodes::gear::ladder::gcd(u64::from(steps), u64::from(pulses))
+                            as u32
+                };
+                assert_eq!(lane(pulses, steps, 0), want, "E({pulses}, {steps})");
+            }
         }
     }
 }
