@@ -32,8 +32,7 @@ fn tunnel3d1_output(uv: vec2f) -> vec4f {
     let p = uv - vec2f(u.u_control_tunnel3d1_centerX, u.u_control_tunnel3d1_centerY);
     let twist = u.u_control_tunnel3d1_twist;
     let tubeRadius = max(u.u_control_tunnel3d1_radius, 1e-3);
-    let flight = time_repeat(u.u_count_tunnel3d1_clock, 64.0, u.u_control_tunnel3d1_phaseOffset);
-    let camZ = flight - 64.0 * floor(flight / 64.0);
+    let camZ = fract(time_periodic(u.u_count_tunnel3d1_clock, u.u_control_tunnel3d1_phaseOffset)) * 64.0;
     let origin = vec3f(tunnelPathSine(camZ, twist), camZ);
     let lookZ = camZ + 0.5;
     let lookAt = vec3f(tunnelPathSine(lookZ, twist), lookZ);

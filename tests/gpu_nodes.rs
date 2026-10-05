@@ -610,19 +610,28 @@ fn a_gear_in_time_is_the_node_at_the_gears_reading() {
     }
 }
 
-/// **The tunnel comes back every 64 units.** Its path is retuned so Sine, Lissajous and the
-/// Helix repeat inside 64 units of depth, a whole number of both depth wraps, so its Time at
-/// 64 draws what its Time at zero draws, and five units on does not.
+/// **The tunnel comes back after its period.** Its path is retuned so Sine and Lissajous come
+/// back in a cycle, a flight of 64 units, and the Helix in a quarter of one, each a whole
+/// number of both depth wraps, so its Time a period on draws what its Time at zero draws, and
+/// half a period on does not; a cycle on, every path is back.
 #[test]
-fn the_tunnel_comes_back_after_64() {
+fn the_tunnel_comes_back_after_its_period() {
     const SIZE: u32 = 64;
     for path in ["sine", "helix", "lissajous"] {
         for wrap in ["mirror", "repeat"] {
+            let (mut g, out, under) = timed("tunnel3d", "output", 0.0);
+            let node = g.get_mut(under).unwrap();
+            node.options.insert("path", path.to_string());
+            node.options.insert("wrap", wrap.to_string());
+            let node = g.get(under).unwrap();
+            let period = node
+                .def
+                .timing
+                .unwrap()
+                .period_of(node, nodes::timing::Axis::X);
+            let period = period.expect("it comes back while the depth wraps") as f32;
+            assert_eq!(period, if path == "helix" { 0.25 } else { 1.0 }, "{path}");
             let draw = |time: f32| {
-                let (mut g, out, under) = timed("tunnel3d", "output", 0.0);
-                let node = g.get_mut(under).unwrap();
-                node.options.insert("path", path.to_string());
-                node.options.insert("wrap", wrap.to_string());
                 rendered_publishing(&g, out, SIZE, &move |port| {
                     if port.node == under && port.key == nodes::TIME {
                         time
@@ -631,16 +640,19 @@ fn the_tunnel_comes_back_after_64() {
                     }
                 })
             };
-            let (start, round, half) = (draw(0.0), draw(64.0), draw(5.0));
+            let start = draw(0.0);
             let pixels = start.len();
+            for round in [period, 1.0] {
+                let back = draw(round);
+                assert!(
+                    differ(&start, &back) * 1000 <= pixels,
+                    "{path} {wrap}: {round} on is the start, but {} of {pixels} differ",
+                    differ(&start, &back)
+                );
+            }
             assert!(
-                differ(&start, &round) * 1000 <= pixels,
-                "{path} {wrap}: 64 units on is the start, but {} of {pixels} differ",
-                differ(&start, &round)
-            );
-            assert!(
-                differ(&start, &half) * 20 > pixels,
-                "{path} {wrap}: and five units on is not"
+                differ(&start, &draw(period / 2.0)) * 20 > pixels,
+                "{path} {wrap}: and half its period on is not"
             );
         }
     }
@@ -695,8 +707,8 @@ fn static_under_repeat_comes_back_with_a_field_in_its_offset() {
 
 /// **A negative Offset comes back with the period too.** Time is taken round the period
 /// before Offset is added, whatever its sign, so a Perlin at Repeat 4 with its Offset at −2.7
-/// draws at a Time of 1024.5 exactly what it draws at 0.5, as does the tunnel at −5.3 a flight
-/// of 64 on, and Static at Repeat 4 with a field a hair over −0.5 in its Offset. An Offset of
+/// draws at a Time of 1024.5 exactly what it draws at 0.5, as does the tunnel at −0.3 a
+/// thousand flights on, and Static at Repeat 4 with a field a hair over −0.5 in its Offset. An Offset of
 /// −1.5 at Repeat 4 is 2.5 there: one period apart, the same picture.
 #[test]
 fn a_negative_offset_comes_back_with_the_period() {
@@ -728,11 +740,11 @@ fn a_negative_offset_comes_back_with_the_period() {
         differ(&start, &draw("perlin", "color", &four, -2.7, 1.5)) > 0,
         "perlin: and a cell on is not"
     );
-    let tunnel = draw("tunnel3d", "output", &[], -5.3, 0.0);
+    let tunnel = draw("tunnel3d", "output", &[], -0.3, 0.0);
     assert_eq!(
-        differ(&tunnel, &draw("tunnel3d", "output", &[], -5.3, 64.0)),
+        differ(&tunnel, &draw("tunnel3d", "output", &[], -0.3, 1000.0)),
         0,
-        "tunnel: a flight on is the same picture"
+        "tunnel: a thousand flights on is the same picture"
     );
     let below = draw("perlin", "color", &four, -1.5, 0.25);
     let above = draw("perlin", "color", &four, 2.5, 0.25);

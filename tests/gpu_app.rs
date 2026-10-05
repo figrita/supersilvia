@@ -1280,17 +1280,17 @@ fn a_noise_under_repeat_closes_with_its_offset() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// **The tunnel's flight closes every 64 units.** A Tunnel on a Ratio Gear at ×32 under a
-/// one-second Master Gear flies 64 units in two seconds, and frame 20 is frame zero to the
-/// byte, since its depth is taken modulo 64 while the wall wraps; a third of a second in is
+/// **The tunnel's flight closes every cycle.** A Tunnel on a Ratio Gear at ÷2 under a
+/// one-second Master Gear flies its cycle of 64 units in two seconds, and frame 20 is frame
+/// zero to the byte, since its depth is taken round the cycle; three tenths of a second in is
 /// another picture. Its wall is a checkerboard, so a frame has hard edges to tell apart.
 #[test]
-fn the_tunnels_flight_closes_every_64_units() {
+fn the_tunnels_flight_closes_every_cycle() {
     use supersilvia::Command;
     use supersilvia::graph::PortRef;
     let root = std::env::temp_dir().join(format!("supersilvia-tunnel-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    let (mut app, out, _) = geared("tunnel3d", "output", 1.0, 32.0);
+    let (mut app, out, _) = geared("tunnel3d", "output", 1.0, 0.5);
     let tunnel = app
         .graph()
         .iter()
@@ -1309,7 +1309,10 @@ fn the_tunnels_flight_closes_every_64_units() {
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     let frame = render_frames(&mut app, out, 10.0, 21, &root.join("png"));
-    assert!(frame(0) == frame(20), "64 units on is the start");
+    assert!(
+        frame(0) == frame(20),
+        "a flight of 64 units on is the start"
+    );
     assert!(frame(0) != frame(3), "and 9.6 units on is not");
     let _ = std::fs::remove_dir_all(&root);
 }

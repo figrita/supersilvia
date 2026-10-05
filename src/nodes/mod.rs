@@ -2627,7 +2627,7 @@ mod tests {
             ("shakycam", 1.0 / 60.0, false),
             ("geissflow", 1.0 / 160.0, false),
             ("perlin", 0.5, false),
-            ("tunnel3d", 0.5, false),
+            ("tunnel3d", 0.5 / 64.0, false),
             ("oscillator", 1.0, false),
             ("video", 1.0, false),
             ("imagegif", 1.0, false),
@@ -2644,6 +2644,11 @@ mod tests {
             assert_eq!(t.speed_default(), if still { 0.0 } else { 1.0 }, "{slug}");
         }
         assert_eq!(timed("shakycam").axes, timing::Axes::Two, "a Time per axis");
+        assert_eq!(
+            timed("shakycam").pace_of(timing::Axis::Y),
+            1.0 / 15.0,
+            "and Y's cycle of its own, four a minute"
+        );
         assert!(find("oscillator").unwrap().input("frequency").is_none());
         for def in REGISTRY.iter().filter(|d| d.timing.is_some()) {
             for speed in [

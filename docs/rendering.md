@@ -914,7 +914,7 @@ starts again from its first frame, so the film is the same twice. Cabled, Time
 reads what arrives the same way, usually a gear's Cycles. A count is a `vec2f`, its whole part
 wrapped at 40320 and the `f32` of its fraction (`nodes::phasor::split`, resolved by the synth
 from `UniformProvider::NodeCount`), and a body, through the prelude's time helpers, reduces the whole part by its period — one
-cycle, `N` under Repeat, 64 for the Tunnel while its depth wraps — before it adds the
+cycle, `N` under Repeat — before it adds the
 fraction. So a module holds no clock and no loop: there is no Loop bit in the compiler,
 the link or the plan, one module has one form, and a pause, a seek or a render changes numbers
 and rebuilds nothing. What does rebuild is a noise's or Static's **Repeat**, an ordinary
@@ -989,8 +989,8 @@ seam check, and writes frames `0` to `F − 1` as a GIF on one shared palette.
 
 `tests/gpu_app.rs` renders a Cosine Gradient under ÷2 of a one-second Master Gear, which
 `master_length` makes two seconds: frame 20 is frame zero to the byte, frame 10 is not, and
-the same length through the Output's GIF writer is twenty frames. A Tunnel at ×32 of that
-master closes in two seconds to the byte; a two-second clip on ambient time comes back to its
+the same length through the Output's GIF writer is twenty frames. A Tunnel at ÷2 of that
+master flies its cycle in two seconds and closes to the byte; a two-second clip on ambient time comes back to its
 first frame, the render holding for its decoder; a Rotozoom over a Perlin draws the same frame
 at one moment whatever warm-up and frame rate came before; and a render hands the playhead
 back as a seek.

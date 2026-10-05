@@ -913,12 +913,12 @@ impl Synth {
                             if axis.index == 0 {
                                 free = Some(at);
                             }
-                            Some(at * timing.pace)
+                            Some(at * timing.pace_of(*axis))
                         }
                         None => graph
                             .source_of(key)
                             .is_none()
-                            .then_some(time.playhead * timing.pace),
+                            .then_some(time.playhead * timing.pace_of(*axis)),
                     };
                     if let Some(at) = at.filter(|_| def.cpu.is_none()) {
                         self.counts.insert(key, at);

@@ -443,11 +443,26 @@ the WGSL it reads them through, what a CPU node reads, and what the loop arithme
 `pace` is how many of its own cycles one second is, at a Speed of 1 in Free mode and on
 ambient time in Loop mode; `still` starts a new node's Speed at 0, as silvia keeps it still;
 `period: fn(&Node) -> Option<f64>` is
-how long its picture takes to come back in its own units by what its options say — one for a
-periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps, `None` for a picture
-that never repeats; and `axes` is one, or X and Y on Shaky Cam. `Timing::periodic(pace)` is
-a periodic node, `Timing::repeating(pace, period)` one with a period of its own, `.still()`
-one that stands still when new, and `.xy()` a second axis.
+how long its picture takes to come back in its own cycles by what its options and controls
+say — one for a periodic node, a noise's Repeat, a fraction of a cycle where a setting brings
+the picture back sooner, `None` for a picture that never repeats; and `axes` is one, or X and
+Y on Shaky Cam, whose Y keeps a pace and a period of its own (`pace_y`, `period_y`, read
+through `Timing::pace_of` and `Timing::period_of`). `Timing::periodic(pace)` is a periodic
+node, `Timing::repeating(pace, period)` one with a period of its own, `.still()` one that
+stands still when new, `.xy()` a second axis, and `.y(pace, period)` a second axis with its
+own cycle.
+
+**One cycle is the least the node comes back after as it opens**, at its defaults, so a gear's
+turn, the loop meter and the picture agree: Rotozoom's and Shaky Cam's X's 20π of silvia's
+time, Shaky Cam's Y a quarter of that, the tunnel's flight of 64 units. **A period is the
+least the picture comes back after, or none is claimed**, and a setting can shorten it to a
+fraction of a cycle: a coefficient at zero stills the waves it scales and what still moves
+comes back sooner — Rotozoom with its cosines off and an even Turns every half cycle, Shaky
+Cam's X with its cosine off every tenth — and a straight tunnel, Twist at zero, every eighth
+under Mirror. A period reads the node's controls, which keep the knob a cable has replaced, so
+`nodes::timing::period_in` takes every cabled control off the node first and a period reads a
+missing control as any value it could be: the period every value shares, the cycle on each of
+these.
 
 **Two modes, so the first time row means one thing at a time.** The option `clockMode`
 (`nodes::timing::MODE`), values `free` and `loop`, shown "Free" and "Loop", default `free`:
@@ -503,7 +518,7 @@ no pixel, it is a uniform number.
 **Its knob reaches one whole period either way**, `−P` to `P`, by the period `P` the node's
 options give it now (`Timing::period`, read by `nodes::timing::range`, which
 `nodes::control_range` asks): −1 to 1 on a periodic node, −4 to 4 on a Perlin at Repeat 4 and
-−16 to 16 at 16, −64 to 64 on the tunnel while its depth wraps, a sequencer's bars where its
+−16 to 16 at 16, a quarter either way on the tunnel's Helix, a sequencer's bars where its
 lanes meet again, and −1 to 1 where the picture never comes back — Repeat Never, Depth Wrap
 None, a clip on Hold. The range follows the options live, with nothing stored on the node, so
 the range editor's Default column says it too and a hand's own range, once set, stays where it
@@ -525,8 +540,8 @@ or closed ([ui.md](ui.md#options-and-the-file-button) has the bar).
 Offset: `time_periodic` for a node that comes back every cycle, the fraction plus Offset;
 `time_repeat(time, n, offset)` for one that comes back every `n`, the whole part reduced by
 `n`, then the fraction, then Offset; and `time_unbounded` for one that never does, the whole
-count plus Offset. The tunnel is `time_repeat` at 64 while its depth wraps. The body takes the
-result round its own period where it needs to.
+count plus Offset. The tunnel is `time_periodic`, a cycle a flight of 64 units. The body
+takes the result round its own period where it needs to.
 
 **The rate at rest is silvia's default speed** in the node's own cycles, so a node dropped in
 moves as silvia's does. Where silvia's period was 20π it is rounded to whole seconds, which
@@ -539,19 +554,23 @@ pace is one chosen to look natural at Speed 1, with Speed starting at 0.
 | `mandelbrot`, `juliaset` | one drift of the Map orbit | 0.5: a drift every 2 s | 0.5 | 1 | 1 |
 | `cosinegradient` | one shift of the palette | 0: still | 0.1: a shift every 10 s | 0 | 1 |
 | `rotozoom` | silvia's 20π super-cycle: one set of zoom waves | 1/60: a cycle a minute | 1/60 | 1 | 1 |
-| `shakycam` | the 20π super-cycle: one X wave, four Y waves | 1/60 | 1/60, per axis | 1, per axis | 1 |
+| `shakycam` | X: the 20π super-cycle; Y: a quarter of it, where its two waves line up | 1/60 on X, 1/15 on Y | 1/60 on X, 1/15 on Y | 1, per axis | 1 |
 | `geissflow` | the 20π flow cycle | 1/160 | 1/160 | 1 | 1 |
 | `perlin` | a lattice cell along the time axis | 0.5 cells a second | 0.5 | 1 | `N` under Repeat, else nothing |
 | `simplex`, `fractal`, `domainwarp` | a lattice cell | 0: still | 0.5 cells a second | 0 | `N` under Repeat, else nothing |
 | `static` | a roll | 0: still | 6 rolls a second | 0 | `N` under Repeat, else nothing |
-| `tunnel3d` | a unit of camera depth | 0.5 units a second | 0.5 | 1 | 64 while the depth wraps, else nothing |
+| `tunnel3d` | a flight of 64 units of camera depth | 1/128: half a unit a second | 1/128 | 1 | 1 while the depth wraps, else nothing |
 | `oscillator` | one wave | 1: a wave a second | 1 | 1 | read unwrapped on the CPU |
 | `video`, `imagegif` | one play of the clip | 1 ÷ the clip's length: its native speed | 1 ÷ the clip's length | 1 | read unwrapped on the CPU |
 | `stepsequencer`, `euclideanrhythm` | one bar of sixteen steps | 0: stopped | 0.5: a bar every 2 s, 120 BPM | 0 | read unwrapped on the CPU |
 
 Rotozoom, Shaky Cam and Geiss Flow keep silvia's uneven wave rates inside their cycle — 1,
 0.7, 0.8 and 1.2, which line up over 20π — and scale the cycle, `time_periodic`, back to
-silvia's units in the body, so their knobs and their looks are hers. **Rotozoom's Turns**, a
+silvia's units in the body, so their knobs and their looks are hers: Rotozoom's waves run 10,
+7, 8 and 12 times a cycle. Shaky Cam's X runs its 1 and 0.7 as 10 and 7 waves a cycle, and its
+Y, whose 0.8 and 1.2 line up four times over 20π, runs them as 2 and 3 a cycle of its own at
+four times the pace, so the shake on screen is silvia's and each axis's cycle is its true
+repeat. **Rotozoom's Turns**, a
 whole number from −10 to 10, default 5, is how many turns one cycle makes: silvia's equal
 speeds give five, 4π into 20π. Zero is zoom alone and a sign reverses the turn; being whole, it
 is a ratio inside the node, which still comes back every cycle. **Shaky Cam has its time rows
@@ -577,9 +596,13 @@ cycle.
 **The tunnel's path is tuned so its flight repeats.** Every path frequency is silvia's times
 5π/16: Sine's and Lissajous's 0.3 and 0.5 are 0.2945 and 0.4909, and the Helix's 0.4 is
 0.3927. Sine and Lissajous then come back every 64 units of depth and the Helix every 16,
-each a whole number of the wall's depth wrap under Mirror and under Repeat. While the wall
-wraps, the shader takes the camera's depth modulo 64, Time's whole part reduced by 64 first,
-so Time 64 draws Time 0 to the byte at any count. Depth Wrap None never repeats.
+each a whole number of the wall's depth wrap, 8 units under Mirror and 4 under Repeat. One
+cycle is a flight of 64 units, which the camera's depth is Time's fraction plus Offset of, so
+a Time a cycle on draws Time 0 to the byte at any count. Its period is what its path and its
+wall come back after together: a cycle on Sine and Lissajous, a quarter on the Helix, and with
+Twist at zero — a straight tube — the wall's own eighth or sixteenth. Depth Wrap None never
+repeats: the camera's depth still turns round the flight, which every path comes back after,
+and the wall is read on from the whole flights behind it.
 
 **What a CPU node reads.** No uniform is written for a CPU node. Its tick asks
 `TickContext::cycle(id)` — where the node is with its Offset added: in Loop mode what is
@@ -627,14 +650,14 @@ workspace's Output through the ordinary render for as long as its Master Gear sa
 - A node on a chain of Ratio Gears rooted at a Master Gear `M` advances `m × Πr ÷ P` of its
   periods over `m` cycles of `M`, `Πr` the product of the ratios on the chain and `P` its
   period in its own units (`Timing::period`: one on a periodic node and a looping clip, `N`
-  under Repeat, 64 on the tunnel while its depth wraps, `lcm(16, lanes) ÷ 16` bars on a
+  under Repeat, a quarter on the tunnel's Helix, `lcm(16, lanes) ÷ 16` bars on a
   sequencer, where its lanes and the bar's sixteen steps meet again). It closes when that is
   whole. A gear's Phase in a Time comes back every cycle of that gear, `P` one, except in a
   sequencer, which reads it as a count. `chain::master_loop` is the least such `m` for every
   Ratio Gear under a master and every node they and the master drive through a Time — any
   of a node's Times (`nodes::is_time`), Shaky Cam's Time Y as well as its Time X — the
-  least common multiple of what each asks for, so a ÷4 below asks for four cycles, a Perlin
-  at Repeat 4 on the master four, and the tunnel on a ×32 two; a ratio that is not a
+  least common multiple of what each asks for, so a ÷4 below asks for four cycles and a
+  Perlin at Repeat 4 on the master four; a ratio that is not a
   fraction, or has a cable in it, leaves its chain open, and so does a node whose Time a gear
   reaches through anything but gears — a Math node between them, which the caption cannot
   follow.
@@ -651,7 +674,7 @@ workspace's Output through the ordinary render for as long as its Master Gear sa
 **A loop that closes closes to the bit.** A node takes its Time round its own period before
 it adds Offset — the prelude's `time_periodic`, `time_repeat` and `time_unbounded` — Time's
 fraction plus Offset on a periodic node, `Time mod N` under Repeat, a
-noise's circle and Static's roll alike, `Time mod 64` in the tunnel, each the whole part
+noise's circle and Static's roll alike, each the whole part
 reduced and the fraction added — so a Time one whole period on draws exactly what a Time of
 zero drew, whatever the Offset or the field in it. Added the other way round, `Time + Offset`
 rounds the Offset differently a period on, and a loop comes back a grey level off in a few
@@ -1235,7 +1258,8 @@ all eighteen read their input through the macro's `at`. `translate` is the plain
 remap between straight and round coordinates in four directions, the two into round ones
 each also Smooth, which folds the input's width around the circle as a curved mirror where the
 plain mode cuts its two edges together; `rotozoom` and `shakycam`
-read Time and Offset in their 20π cycle, where silvia read `u_time`, and Rotozoom's Turns
+read Time and Offset in their 20π cycle — a quarter of it on Shaky Cam's Y — where silvia
+read `u_time`, and Rotozoom's Turns
 says how many turns a cycle makes. `tile` wraps the whole
 plane onto one rectangle; `repeater` lays one bounded rectangle out in a finite grid over a
 background, and publishes `mask` — *Grid Mask* on the row, silvia's name, since a patch where
@@ -1247,8 +1271,8 @@ rectangle tiled, the rectangle mirror-tiled or the edge smeared out, and the cov
 `mask` beside the picture. The background color is behind the input too, composited
 premultiplied, so it shows through wherever the input is transparent. `domainwarp` and `tunnel3d` read Time and Offset where silvia
 read `u_time` and drove a CPU phase accumulator respectively: the warp in lattice cells with
-the noises' Repeat, the tunnel in units of camera depth on its retuned path, which comes back
-every 64 while the depth wraps.
+the noises' Repeat, the tunnel in flights of 64 units of camera depth on its retuned path,
+which comes back every flight while the depth wraps, its Helix every quarter.
 
 `slew` is the reference CPU node: three `UniformNumber` inputs — `input`, `rise` and `fall` —
 one `UniformNumber` out, and a `tick` that integrates `dt`. `Shape` picks which of the two
@@ -1493,7 +1517,7 @@ reads it whole: a CPU node in `f64`, never wrapped, and a shader as its whole pa
 40320 and centered on zero, and the `f32` of its fraction, so a gear reset and stepped back
 reads −0.01, a render's warm-up counts before zero as precisely as after it, and the
 millionth cycle is as precise as the first. 40320 is the least common multiple of 2520 and 128,
-which every Repeat, Static's 128 and the tunnel's 64 divide. Anything else — a Math node, an
+which every Repeat and Static's 128 divide. Anything else — a Math node, an
 input that is not a Time, the row — reads one `f32`, wrapped at 2520 and centered on zero,
 −1260 up to 1260, the least common multiple of one to ten, which a reader at a whole ratio or
 a ratio in tenths passes with no seam: through a Math node, a gear at a cycle a second rolls

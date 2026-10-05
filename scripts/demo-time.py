@@ -689,14 +689,14 @@ def wont_loop(p):
         "takes, thirty times a second; it keeps no Time.\n"
         "- The XY Pad steers the porthole. It throws its puck with physics, and its Temperature "
         "keeps it wandering.\n"
-        "- The Tunnel flies on a Ratio Gear at ×0.35 with nothing in its Clock In: ambient "
-        "time, 0.35 units a second. Its flight comes back only every 64 units, three minutes "
-        "on.\n\n"
+        "- The Tunnel flies on a Ratio Gear at ÷128 with nothing in its Clock In: ambient "
+        "time, a 128th of its cycle a second, half a unit. Its cycle is a flight of 64 units, "
+        "which comes back only every two minutes.\n\n"
         "No Master Gear here at all, so the render is the Output's Duration, four seconds, and "
         "it does not close.\n\n"
         "Try:\n"
-        "- Put a four-second Master Gear into the tunnel gear's Clock In and set it to ×16: its "
-        "flight now closes every four seconds. The mold and the pad still do not.",
+        "- Put a four-second Master Gear into the tunnel gear's Clock In and set it to ÷4: its "
+        "flight now closes every sixteen seconds. The mold and the pad still do not.",
         width=420,
     )
     mold = ws.add(
@@ -722,7 +722,7 @@ def wont_loop(p):
         560,
         controls={"temperature": 1.5, "drag": 0.01, "minX": -0.5, "maxX": 0.5, "minY": -0.25, "maxY": 0.25},
     )
-    fly = ws.gear(800, 800, 0.35)
+    fly = ws.gear(800, 800, 1.0 / 128.0)
     tunnel = ws.add(
         "tunnel3d",
         800,

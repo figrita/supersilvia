@@ -17,13 +17,13 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn shakycam1_output(uv: vec2f) -> vec4f {
-    let tx = fract(time_periodic(u.u_count_shakycam1_clock, u.u_control_shakycam1_phaseOffset)) * 20.0 * PI;
-    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, u.u_control_shakycam1_phaseOffsetY)) * 20.0 * PI;
+    let tx = fract(time_periodic(u.u_count_shakycam1_clock, u.u_control_shakycam1_phaseOffset)) * 2.0 * PI;
+    let ty = fract(time_periodic(u.u_count_shakycam1_clockY, u.u_control_shakycam1_phaseOffsetY)) * 2.0 * PI;
     let amplitude = u.u_control_shakycam1_amplitude;
-    var xOffset = sin(tx) * (u.u_control_shakycam1_sinCoeff) * amplitude;
-    xOffset += cos(tx * 0.7) * (u.u_control_shakycam1_cosCoeff) * amplitude * 0.5;
-    var yOffset = sin(ty * 0.8) * (u.u_control_shakycam1_sinCoeff) * amplitude;
-    yOffset += cos(ty * 1.2) * (u.u_control_shakycam1_cosCoeff) * amplitude * 0.5;
+    var xOffset = sin(tx * 10.0) * (u.u_control_shakycam1_sinCoeff) * amplitude;
+    xOffset += cos(tx * 7.0) * (u.u_control_shakycam1_cosCoeff) * amplitude * 0.5;
+    var yOffset = sin(ty * 2.0) * (u.u_control_shakycam1_sinCoeff) * amplitude;
+    yOffset += cos(ty * 3.0) * (u.u_control_shakycam1_cosCoeff) * amplitude * 0.5;
     let shakenUV = uv + vec2f(xOffset, yOffset);
     return defaultUvMap(shakenUV);
 }
