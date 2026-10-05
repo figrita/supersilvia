@@ -8,8 +8,8 @@
 //!
 //! **One clock.** The transport's playhead is the only clock (`transport.rs`); nothing here
 //! keeps a timer. A node that moves with time declares a [`Timing`] and nothing else about
-//! time: its rate at rest, its pace, the period its picture comes back after, and whether it
-//! has one axis or two. Everything else is expanded from that, so no two nodes can disagree
+//! time: its pace, whether a new one stands still, the period its picture comes back after,
+//! and whether it has one axis or two. Everything else is expanded from that, so no two nodes can disagree
 //! about what a time row is.
 //!
 //! **Two modes, so the first time row means one thing at a time** ([`MODE`], key
@@ -24,8 +24,9 @@
 //!   deterministic and Speed 1 reads exactly what Loop mode's ambient reading does. A cable
 //!   into Speed — an LFO, an envelope — changes how fast the node runs, not where it is.
 //! - **Loop**: the row is **Time** ([`TIME`]), a diamond with no knob. Unplugged it is
-//!   ambient time, `playhead × rate`; plugged, what arrives replaces it, usually a gear's
-//!   Cycles, which drives the node exactly and closes a loop to the bit.
+//!   ambient time, `playhead × pace`, so every node in Loop mode moves with the show with
+//!   nothing cabled in; plugged, what arrives replaces it, usually a gear's Cycles, which
+//!   drives the node exactly and closes a loop to the bit.
 //!
 //! Either way the synth publishes where the node is as a **count** under the Time key —
 //! `u_count_{slug}{id}_clock`, split into a whole part and a fraction (`phasor::split`) — so
@@ -67,7 +68,7 @@ use crate::nodes::{Control, InputDef, OptionDef, OptionKind, phasor};
 use crate::transport::Time;
 
 /// The key of a time-driven node's **Time**, the first time row in Loop mode: a diamond with
-/// no knob, in the node's own cycles. Unplugged, ambient time at the node's rest rate, which
+/// no knob, in the node's own cycles. Unplugged, ambient time at the node's pace, which
 /// the synth writes under this key every tick; plugged, what arrives replaces it. In Free mode
 /// the synth writes the node's own playhead here instead.
 pub const TIME: &str = "clock";
@@ -123,14 +124,13 @@ pub enum Axes {
 /// How a node keeps time: the one thing it says about it.
 #[derive(Debug, Clone, Copy)]
 pub struct Timing {
-    /// How many of the node's own cycles one ambient second is at rest in Loop mode: silvia's
-    /// default speed, rounded to whole seconds where it was 20π, and zero where silvia is
-    /// still.
-    pub rate: f64,
-    /// How many of its cycles one second is at a Speed of 1 in Free mode: the rate where that
-    /// is not zero, and a pace that looks natural where silvia sits still — whose Speed then
-    /// starts at zero, so a new one still sits still.
+    /// How many of the node's own cycles one second is: at a Speed of 1 in Free mode, and on
+    /// ambient time in Loop mode. silvia's default speed, rounded to whole seconds where it was
+    /// 20π, and a pace that looks natural where silvia sits still.
     pub pace: f64,
+    /// Whether a new node stands still: its Speed starts at 0 rather than 1, as silvia's sits
+    /// still at rest. Free mode alone; Loop mode always moves with its Time.
+    pub still: bool,
     /// How long the picture takes to come back, in its own units, by what its options say:
     /// one for a periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps, and
     /// `None` for a picture that never repeats.
@@ -139,26 +139,25 @@ pub struct Timing {
 }
 
 impl Timing {
-    /// A node whose picture comes back after one of its own cycles, at `rate` at rest and as
-    /// its pace.
-    pub const fn periodic(rate: f64) -> Self {
-        Self::repeating(rate, |_| Some(1.0))
+    /// A node whose picture comes back after one of its own cycles, at `pace`.
+    pub const fn periodic(pace: f64) -> Self {
+        Self::repeating(pace, |_| Some(1.0))
     }
 
-    /// A node whose picture comes back where `period` says, at `rate` at rest and as its pace.
-    pub const fn repeating(rate: f64, period: fn(&Node) -> Option<f64>) -> Self {
+    /// A node whose picture comes back where `period` says, at `pace`.
+    pub const fn repeating(pace: f64, period: fn(&Node) -> Option<f64>) -> Self {
         Self {
-            rate,
-            pace: rate,
+            pace,
+            still: false,
             period,
             axes: Axes::One,
         }
     }
 
-    /// The same with a pace of its own: a node whose rate at rest is zero.
+    /// The same, standing still when it is new: its Speed starts at 0.
     #[must_use]
-    pub const fn paced(mut self, pace: f64) -> Self {
-        self.pace = pace;
+    pub const fn still(mut self) -> Self {
+        self.still = true;
         self
     }
 
@@ -169,10 +168,9 @@ impl Timing {
         self
     }
 
-    /// Where a new node's Speed starts: 1 on a node that moves at rest, 0 on one that sits
-    /// still.
+    /// Where a new node's Speed starts: 1, or 0 on one that stands still.
     pub const fn speed_default(&self) -> f32 {
-        if self.rate == 0.0 { 0.0 } else { 1.0 }
+        if self.still { 0.0 } else { 1.0 }
     }
 
     /// The axes this node has, X first.
@@ -728,7 +726,7 @@ mod tests {
     #[test]
     fn a_timing_expands_into_its_rows() {
         let moving = Timing::periodic(0.5);
-        let still = Timing::periodic(0.0).paced(0.1);
+        let still = Timing::periodic(0.1).still();
         let shaky = Timing::periodic(1.0 / 60.0).xy();
         let time = time_row(moving, 0);
         assert_eq!((time.key, time.label), (TIME, "Time"));

@@ -893,7 +893,7 @@ impl Synth {
                 time
             });
             // Where a node that moves with time is: running free, its Speed integrated here into
-            // a playhead of its own; looping, the playhead at its rest rate where nothing is in
+            // a playhead of its own; looping, the playhead at its pace where nothing is in
             // its Time. A node that draws reads it as a count published under each Time's key, a
             // CPU node through `TickContext::cycle`. See `nodes::timing`.
             let mut free = None;
@@ -918,7 +918,7 @@ impl Synth {
                         None => graph
                             .source_of(key)
                             .is_none()
-                            .then_some(time.playhead * timing.rate),
+                            .then_some(time.playhead * timing.pace),
                     };
                     if let Some(at) = at.filter(|_| def.cpu.is_none()) {
                         self.counts.insert(key, at);

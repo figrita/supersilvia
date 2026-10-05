@@ -397,10 +397,9 @@ pub fn repeat_of(node: &crate::graph::Node) -> Option<f64> {
         .filter(|n| *n > 0.0)
 }
 
-/// A noise's timing: `rate` cells a second at rest, `pace` at a Speed of 1, coming back where
-/// its Repeat says.
-pub const fn noise_timing(rate: f64, pace: f64) -> Timing {
-    Timing::repeating(rate, repeat_of).paced(pace)
+/// A noise's timing: `pace` cells a second, coming back where its Repeat says.
+pub const fn noise_timing(pace: f64) -> Timing {
+    Timing::repeating(pace, repeat_of)
 }
 
 /// A Repeat option's length as a WGSL literal, or `None` for Never.
@@ -443,7 +442,7 @@ node! {
     tooltip: "Smooth gradient noise. Scale sets the lattice size and Time walks through the \
               third dimension, half a cell a second; its value is the field the colors are \
               mixed along. Repeat makes the walk a circle that comes back.",
-    timing: noise_timing(0.5, 0.5),
+    timing: noise_timing(0.5),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
@@ -497,7 +496,7 @@ node! {
     tooltip: "Gradient noise on a triangular lattice, which has fewer directional artifacts \
               than Perlin. Offset X and Y pan the field without moving the picture; it is still \
               until its Speed or a gear drives it.",
-    timing: noise_timing(0.0, 0.5),
+    timing: noise_timing(0.5).still(),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
@@ -643,7 +642,7 @@ node! {
     tooltip: "Octaves of simplex noise summed at falling amplitude. Lacunarity is how much \
               finer each octave is, gain how much quieter; Ridged and Turbulence fold each \
               octave about its middle.",
-    timing: noise_timing(0.0, 0.5),
+    timing: noise_timing(0.5).still(),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
@@ -698,7 +697,7 @@ node! {
     tooltip: "One random tone per cell of a square lattice. Time counts rolls, each one the \
               whole field redrawn — still until its Speed or a gear drives it; smoothness \
               blurs each cell into its neighbors, and Repeat plays the same rolls again.",
-    timing: noise_timing(0.0, 6.0),
+    timing: noise_timing(6.0).still(),
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),

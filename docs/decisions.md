@@ -77,8 +77,8 @@ keys the drawing on it.
 **Chosen.** Every node that moves with time keeps it in one of **two modes**, its option
 `clockMode` (`nodes::timing::MODE`), so its first time row means one thing at a time. In
 **Loop** mode it has a **Time** input, key `clock`: a diamond with no knob, in the node's own
-cycles. Unplugged, it reads ambient time — the transport's playhead — at a rate the node
-declares (`NodeDef::timing`), which the synth writes under the input's own key every tick and
+cycles. Unplugged, it reads ambient time — the transport's playhead — at the pace the node
+declares (`NodeDef::timing`), the pace Free mode runs at at a Speed of 1, which the synth writes under the input's own key every tick and
 the compiler reads as a published uniform. Plugged, what arrives **replaces** it, usually a
 gear's Cycles. In **Free** mode, the default, the row is **Speed**, key `speed`: a knob and a
 port, a multiple of the node's pace, which the synth integrates against the transport's

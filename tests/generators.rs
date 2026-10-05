@@ -68,15 +68,18 @@ fn ambient_slugs() -> Vec<&'static str> {
         .collect()
 }
 
-/// **Unplugged, Time is ambient time**: the playhead times the node's own rate, published as
+/// **Unplugged, Time is ambient time**: the playhead times the node's own pace, published as
 /// a count, which the shader reads modulo its period — one cycle for a periodic node — or
 /// whole, for a picture that never repeats.
 #[test]
-fn unplugged_time_is_the_playhead_at_the_nodes_rate() {
+fn unplugged_time_is_the_playhead_at_the_nodes_pace() {
     let slugs = ambient_slugs();
     assert_eq!(slugs.len(), 12, "{slugs:?}");
     let mut app = App::headless();
     let ids: Vec<(NodeId, &str)> = slugs.iter().map(|s| (add(&mut app, s), *s)).collect();
+    for (id, _) in &ids {
+        option(&mut app, *id, "clockMode", "loop");
+    }
     app.transport(Transport::Seek(37.25));
     app.tick(FRAME);
     let playhead = app.transport_state().playhead;
@@ -85,20 +88,21 @@ fn unplugged_time_is_the_playhead_at_the_nodes_rate() {
         let ambient = def.timing.unwrap();
         let node = app.graph().get(id).unwrap();
         let expected = match (ambient.period)(node) {
-            Some(period) => (playhead * ambient.rate).rem_euclid(period),
-            None => playhead * ambient.rate,
+            Some(period) => (playhead * ambient.pace).rem_euclid(period),
+            None => playhead * ambient.pace,
         };
         let got = time(&app, id);
         assert!(
             (got - expected).abs() < 1e-4,
-            "{slug}: Time reads {got}, the playhead at its rate is {expected}"
+            "{slug}: Time reads {got}, the playhead at its pace is {expected}"
         );
     }
 }
 
 /// **A CPU node's unplugged Time is published too**, under its own key, before its Offset:
-/// the playhead at its rate in Loop mode, its own playhead at its pace in Free mode — what the
-/// loop meter on its Time row reads.
+/// the playhead at its pace in Loop mode, its own playhead at its pace in Free mode — what the
+/// loop meter on its Time row reads. A sequencer that stands still when new in Free mode plays
+/// with the show in Loop mode.
 #[test]
 fn a_cpu_nodes_unplugged_time_is_published_under_its_key() {
     let mut app = App::headless();
@@ -121,10 +125,9 @@ fn a_cpu_nodes_unplugged_time_is_published_under_its_key() {
         (at(&app, osc) - playhead).abs() < 1e-9,
         "a cycle a second, Offset left out"
     );
-    assert_eq!(
-        at(&app, seq),
-        0.0,
-        "a sequencer sits still in Loop mode with nothing in it"
+    assert!(
+        (at(&app, seq) - playhead * 0.5).abs() < 1e-9,
+        "a sequencer in Loop mode with nothing in it plays at its pace, half a bar a second"
     );
     option(&mut app, seq, "clockMode", "free");
     app.apply(Command::SetControl {

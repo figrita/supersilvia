@@ -439,22 +439,23 @@ and `nodes::timing` — whose module doc is the one place these rules are writte
 code — expands everything else from that declaration: its time rows, its heading, its mode,
 the WGSL it reads them through, what a CPU node reads, and what the loop arithmetic reads.
 
-**A `Timing`** is the node's rate at rest, its pace, its period and its axes. `rate` is how
-many of its own cycles one ambient second is in Loop mode with nothing cabled in; `pace` is
-how many one second is at a Speed of 1 in Free mode; `period: fn(&Node) -> Option<f64>` is
+**A `Timing`** is the node's pace, whether a new one stands still, its period and its axes.
+`pace` is how many of its own cycles one second is, at a Speed of 1 in Free mode and on
+ambient time in Loop mode; `still` starts a new node's Speed at 0, as silvia keeps it still;
+`period: fn(&Node) -> Option<f64>` is
 how long its picture takes to come back in its own units by what its options say — one for a
 periodic node, a noise's Repeat, the tunnel's 64 while its depth wraps, `None` for a picture
-that never repeats; and `axes` is one, or X and Y on Shaky Cam. `Timing::periodic(rate)` is
-a periodic node whose pace is its rate, `Timing::repeating(rate, period)` one with a period
-of its own, `.paced(pace)` gives a node resting at zero a pace, and `.xy()` a second axis.
+that never repeats; and `axes` is one, or X and Y on Shaky Cam. `Timing::periodic(pace)` is
+a periodic node, `Timing::repeating(pace, period)` one with a period of its own, `.still()`
+one that stands still when new, and `.xy()` a second axis.
 
 **Two modes, so the first time row means one thing at a time.** The option `clockMode`
 (`nodes::timing::MODE`), values `free` and `loop`, shown "Free" and "Loop", default `free`:
 
 - **Free** — the row is **Speed** (key `speed`, `nodes::timing::SPEED`): a uniform number with
   a knob and a port, −4 to 4, a multiple of the node's pace. 1 is its normal pace, 0 stands
-  still, negative runs backwards. Its knob starts at 1 on a node whose rate at rest is not
-  zero, so a new one moves as silvia's does, and at 0 on one that silvia keeps still. The
+  still, negative runs backwards. Its knob starts at 1, so a new one moves as silvia's does,
+  and at 0 on a `still` one that silvia keeps still. The
   synth integrates it against the transport's advance — the same advance a gear integrates,
   never a frame's raw `dt` — into the node's own playhead in `f64`, one per axis
   (`nodes::timing::Pace`), and publishes `playhead × pace` under the Time key. So it pauses
@@ -466,7 +467,8 @@ of its own, `.paced(pace)` gives a node resting at zero a pace, and `.xy()` a se
   phase at 30, 60 or 144 frames a second. A cable into Speed — an LFO, an envelope — changes
   how fast the node runs, not where it is.
 - **Loop** — the row is **Time** (key `clock`, `nodes::TIME`): a diamond with **no knob**, in
-  the node's own cycles. Unplugged it is ambient time, `playhead × rate`. Plugged, whatever
+  the node's own cycles. Unplugged it is ambient time, `playhead × pace`, so every node in
+  Loop mode moves with the show, a `still` one too. Plugged, whatever
   arrives **replaces** it — usually a gear's Cycles, which drives the node exactly and closes
   a loop to the bit. Time is one moment per node, which the CPU reads as well as the shader,
   so a field cabled into it is an ordinary type mismatch. Where Speed's knob stands in Free

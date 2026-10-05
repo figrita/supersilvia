@@ -7,7 +7,8 @@
 //! **The pattern is one of the node's own values**, a `ValueKind::Cells` — silvia's
 //! `values.stepStates`, four arrays of sixteen booleans, written as four strings of `x` and
 //! `.` — so it is saved with the patch and a click on a cell is one `SetValue`, one step back.
-//! Where the playhead is, is a function of its Time, and it is still at rest, as silvia's is.
+//! Where the playhead is, is a function of its Time; a new one stands still in Free mode, as
+//! silvia's does, and plays with the show in Loop mode.
 //!
 //! **The clock is `nodes::sequencer`'s**, the one `euclideanrhythm` runs behind: Time and Offset
 //! in bars — a Master Gear a bar long cabled into Time is the tempo, with its Hold and Reset —

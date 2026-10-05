@@ -58,9 +58,9 @@ pub const INPUTS: &[InputDef] = crate::nodes::timing::inputs![
     },
 ];
 
-/// A sequencer's timing: a bar a cycle, still at rest, and at a Speed of 1 a bar every two
+/// A sequencer's timing: a bar a cycle, standing still when new, and a bar every two
 /// seconds — 120 beats a minute. Each node's period is its own, where its lanes meet again.
-pub const TIMING: Timing = Timing::periodic(0.0).paced(0.5);
+pub const TIMING: Timing = Timing::periodic(0.5).still();
 
 /// Whether a node reads a cabled Time unwrapped where its source declares the wrap, as a
 /// sequencer does: a gear's Phase in its Time is then a count, and not a fraction that jumps
@@ -347,9 +347,8 @@ impl Transport {
         pulse: &impl Fn(usize, i64) -> bool,
     ) {
         let whole = at.round();
-        // On a gear, or running free at a Speed that moves.
-        let moving = ctx.connected(id, crate::nodes::TIME)
-            || (ctx.runs_free(id) && ctx.input(id, crate::nodes::timing::SPEED) != 0.0);
+        // On a clock, ambient or a gear's, or running free at a Speed that moves.
+        let moving = !ctx.runs_free(id) || ctx.input(id, crate::nodes::timing::SPEED) != 0.0;
         let driven = moving && ctx.time.playing;
         self.landed = !(driven && (at - whole).abs() <= REACH);
         self.standing = !self.landed;

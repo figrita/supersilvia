@@ -553,7 +553,7 @@ node! {
               the coordinate the last one moved, which is what makes the distortion organic \
               rather than wavy. Value is how far the coordinate moved: the length of the \
               displacement, and the only field this node has beside its picture.",
-    timing: noise_timing(0.0, 0.5),
+    timing: noise_timing(0.5).still(),
     inputs: [
         VaryingColor "input" "Input" at "warpedUV" = Control::None,
     ],

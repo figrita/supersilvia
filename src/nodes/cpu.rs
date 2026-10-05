@@ -933,16 +933,15 @@ impl<'a> TickContext<'a> {
 
     /// Where `id` is this tick, in its own cycles and unwrapped, with its Offset added: in
     /// Loop mode its Time — what is cabled in, read as a count ([`Self::count`]), or ambient
-    /// time at its rest rate, from the `f64` playhead — and in Free mode its own playhead at
-    /// its pace. See [`crate::nodes::timing`].
+    /// time at its pace, from the `f64` playhead — and in Free mode its own playhead at its
+    /// pace. See [`crate::nodes::timing`].
     pub fn cycle(&mut self, id: NodeId) -> f64 {
         let timing = self.graph.get(id).and_then(|n| n.def.timing);
-        let rate = timing.map_or(0.0, |t| if self.runs_free(id) { t.pace } else { t.rate });
-        self.cycle_at(id, rate)
+        self.cycle_at(id, timing.map_or(0.0, |t| t.pace))
     }
 
     /// The same at a rate the node works out itself — a clip's one play over its length, which
-    /// is both its rate at rest and its pace.
+    /// is its pace.
     ///
     /// Where nothing is cabled into its Time, the reading before Offset is published as a count
     /// under the Time key, as the synth publishes a drawing node's: what the loop meter on the

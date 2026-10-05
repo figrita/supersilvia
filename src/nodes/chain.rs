@@ -211,7 +211,7 @@ fn whole(period: f64) -> Option<i64> {
 }
 
 /// How many of its own cycles a second `node`'s Time runs at on its own clock, on one axis:
-/// in Loop mode with nothing in that Time, its rate at rest; running free with nothing in that
+/// in Loop mode with nothing in that Time, its pace; running free with nothing in that
 /// Speed, its Speed's knob times its pace (`nodes::timing`). `None` where a cable drives it. A
 /// clip's pace is one play over its length, which the graph does not hold, so a clip reads as
 /// a play a second here.
@@ -233,7 +233,7 @@ pub fn own_rate(graph: &Graph, node: NodeId, axis: timing::Axis) -> Option<f64> 
         graph
             .source_of(crate::graph::PortRef::new(node, axis.time))
             .is_none()
-            .then_some(t.rate)
+            .then_some(t.pace)
     }
 }
 
@@ -412,7 +412,7 @@ mod tests {
     /// **A node on its own clock closes where its rate times the length over its period is
     /// whole**: running free, its Speed times its pace — Mandelbrot at Speed 1, half a drift a
     /// second, closes over 2 s and not 3 s, and at Speed 1.5 over 4 s — and in Loop mode with
-    /// nothing in its Time, its rate at rest. A node standing still closes on anything, a noise
+    /// nothing in its Time, its pace. A node standing still closes on anything, a noise
     /// that never repeats closes on nothing, and a cable in its Speed leaves it to its chain.
     #[test]
     fn a_node_on_its_own_clock_closes_where_its_rate_comes_round() {
@@ -431,7 +431,7 @@ mod tests {
         assert_eq!(
             own_rate(&g, fractal, timing::Axis::X),
             Some(0.5),
-            "its rest rate"
+            "its pace"
         );
 
         let simplex = crate::nodes::add_to_graph(&mut g, "simplex", emath::Pos2::ZERO).unwrap();

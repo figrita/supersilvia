@@ -60,7 +60,7 @@ node! {
     tooltip: "Turns a number into a color with one cosine per channel: bias + amp · \
               cos(2π(freq · t + phase)). Offsetting the three phases is what makes a ramp \
               run through the spectrum; its Speed or a gear in Time drifts all three.",
-    timing: Timing::periodic(0.0).paced(0.1),
+    timing: Timing::periodic(0.1).still(),
     inputs: [
         VaryingNumber "t" "Input" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
     ],

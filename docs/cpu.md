@@ -370,8 +370,8 @@ sit beside the code; [nodes.md](nodes.md#timing) has them from the shader's side
 kind's rate and pace.
 
 **Loop mode**: the first row is **Time**, `nodes::TIME` (key `clock`), a diamond with no knob,
-in the node's own cycles. Unplugged it is ambient time, the playhead at the node's rate: for a
-node that draws, with no `cpu` half, the synth writes `playhead × rate`, from the `f64`
+in the node's own cycles. Unplugged it is ambient time, the playhead at the node's pace: for a
+node that draws, with no `cpu` half, the synth writes `playhead × pace`, from the `f64`
 playhead, as a count ([gears](#gears)) under `(node, "clock")` at the node's place in each
 tick's walk. Plugged, what arrives replaces it, usually a gear's Cycles. Time is a
 `UniformNumber`, so a field cabled into it is an ordinary type mismatch.

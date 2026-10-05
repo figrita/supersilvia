@@ -944,8 +944,8 @@ pub struct NodeDef {
     pub resizable: bool,
     /// Which group of the Nodes menu this belongs to.
     pub category: Category,
-    /// How this node keeps time, for a node that moves with it: its rate at rest, its pace,
-    /// its period and its axes, from which its time rows, its Timing heading and its mode are
+    /// How this node keeps time, for a node that moves with it: its pace, whether a new one
+    /// stands still, its period and its axes, from which its time rows, its Timing heading and its mode are
     /// expanded. `None` for every node that does not move with time. See [`timing`].
     pub timing: Option<Timing>,
     /// The CPU half, for a node that computes something outside a shader: a uniform number
@@ -2569,12 +2569,11 @@ mod tests {
     }
 
     /// **Which nodes move with time, and how fast**: the twelve that draw and the five on the
-    /// CPU, each at silvia's rest rate in Loop mode, and a pace for Free mode — the rate
-    /// itself, or for a node silvia keeps still a pace that looks natural, with its Speed
-    /// starting at zero so a new one still sits still. No node keeps a speed of its own
-    /// beside its time rows.
+    /// CPU, each at one pace in both modes — silvia's speed, or for a node silvia keeps still a
+    /// pace that looks natural, with its Speed starting at zero so a new one still sits still
+    /// in Free mode. No node keeps a speed of its own beside its time rows.
     #[test]
-    fn the_moving_nodes_and_their_rates_and_paces() {
+    fn the_moving_nodes_and_their_paces() {
         let timed = |slug: &str| {
             find(slug)
                 .and_then(|d| d.timing)
@@ -2621,32 +2620,28 @@ mod tests {
             ],
             "and every node on the CPU that does"
         );
-        for (slug, rate, pace) in [
-            ("mandelbrot", 0.5, 0.5),
-            ("juliaset", 0.5, 0.5),
-            ("rotozoom", 1.0 / 60.0, 1.0 / 60.0),
-            ("shakycam", 1.0 / 60.0, 1.0 / 60.0),
-            ("geissflow", 1.0 / 160.0, 1.0 / 160.0),
-            ("perlin", 0.5, 0.5),
-            ("tunnel3d", 0.5, 0.5),
-            ("oscillator", 1.0, 1.0),
-            ("video", 1.0, 1.0),
-            ("imagegif", 1.0, 1.0),
-            ("cosinegradient", 0.0, 0.1),
-            ("simplex", 0.0, 0.5),
-            ("fractal", 0.0, 0.5),
-            ("domainwarp", 0.0, 0.5),
-            ("static", 0.0, 6.0),
-            ("stepsequencer", 0.0, 0.5),
-            ("euclideanrhythm", 0.0, 0.5),
+        for (slug, pace, still) in [
+            ("mandelbrot", 0.5, false),
+            ("juliaset", 0.5, false),
+            ("rotozoom", 1.0 / 60.0, false),
+            ("shakycam", 1.0 / 60.0, false),
+            ("geissflow", 1.0 / 160.0, false),
+            ("perlin", 0.5, false),
+            ("tunnel3d", 0.5, false),
+            ("oscillator", 1.0, false),
+            ("video", 1.0, false),
+            ("imagegif", 1.0, false),
+            ("cosinegradient", 0.1, true),
+            ("simplex", 0.5, true),
+            ("fractal", 0.5, true),
+            ("domainwarp", 0.5, true),
+            ("static", 6.0, true),
+            ("stepsequencer", 0.5, true),
+            ("euclideanrhythm", 0.5, true),
         ] {
             let t = timed(slug);
-            assert_eq!((t.rate, t.pace), (rate, pace), "{slug}");
-            assert_eq!(
-                t.speed_default(),
-                if rate == 0.0 { 0.0 } else { 1.0 },
-                "{slug}"
-            );
+            assert_eq!((t.pace, t.still), (pace, still), "{slug}");
+            assert_eq!(t.speed_default(), if still { 0.0 } else { 1.0 }, "{slug}");
         }
         assert_eq!(timed("shakycam").axes, timing::Axes::Two, "a Time per axis");
         assert!(find("oscillator").unwrap().input("frequency").is_none());
