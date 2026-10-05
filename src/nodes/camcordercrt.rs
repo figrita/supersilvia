@@ -218,9 +218,9 @@ fn screen_wgsl(node: NodeId, ctx: &mut CompileContext) -> String {
 /// Everything the tube does to a picture, in silvia's own order: fringing, glow, scanlines
 /// and phosphor, brightness, vignette, the tape's warm cast, the bezel, and the camera.
 ///
-/// The alpha is 1 from the first read to the last line, so the tube's work is carried as `rgb`
-/// alone and the alpha written once at the end, rather than every step rebuilding a `vec4f`
-/// around the same 1.
+/// The picture is opaque: a premultiplied read's `rgb` is that picture over black, so the
+/// tube's work is carried as `rgb` alone and the alpha written once, as 1, at the end, rather
+/// than every step rebuilding a `vec4f` around the same 1.
 fn picture_wgsl(node: NodeId, ctx: &mut CompileContext) -> String {
     let aberration = ctx.input(node, "aberration", "uv");
     let scanlines = ctx.input(node, "scanlines", "uv");

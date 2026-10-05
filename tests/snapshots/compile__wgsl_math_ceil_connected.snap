@@ -26,7 +26,7 @@ fn ceil1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba4_output(uv: vec2f) -> vec4f {
-    return vec4f(ceil1_output(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a);
+    return premultiply(vec4f(ceil1_output(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a));
 }
 
 @fragment

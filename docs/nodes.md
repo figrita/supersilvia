@@ -987,7 +987,9 @@ a build failure. **The same table is a `tap`'s
 things about any of them. `luminosity` weights the channels the way the eye does, `lightness`
 and `value` disagree about what makes a saturated red bright, and `hue`, `saturation` and
 `chroma` are guarded on a gray pixel so a flat region reads 0 rather than turning the frame
-to NaN. **`channelsplitter` is the twelfth**, and it reads the same table: one color in and
+to NaN. Every one reads the color's own channels, its input through the prelude's
+`unpremultiply`, so half-transparent red reads a red of one and an alpha of a half.
+**`channelsplitter` is the twelfth**, and it reads the same table: one color in and
 `r`, `g`, `b`, `a` out of one node, taking its four expressions from the table's `red`,
 `green`, `blue` and `alpha` entries by slug, so it cannot say anything the four nodes beside
 it do not. **`sliderule` and `reframerange` are the thirteenth and fourteenth and read no color at
@@ -1113,6 +1115,19 @@ against an ordered pattern over the pixel grid. `posterize` is the one on the li
 Pattern and Scale are silvia's Color Dither, so at a scale wider than a pixel it reads its
 input at the cell's center — but the default scale *is* one pixel of a 720-high frame, which
 is the texel under the fragment, so it stays a `Color`.
+
+**What is nonlinear in a color works on its own channels**
+([decisions.md](decisions.md#colors-in-the-graph-are-premultiplied)). The color maps, the
+recolorings, `palette`, `wavefold` and `halftone` take their input through the prelude's
+`unpremultiply` and hand their answer back through `premultiply` at the input's alpha, so a
+half-transparent picture comes out as the opaque one would, scaled by its alpha. A node that
+builds one color out of several samples — `glitch` and `chromaticaberration` splitting the
+channels, `edgedetection`, `kuwahara`, `emboss` and `sharpen` — reads each sample's own
+channels and premultiplies the result at the center's alpha, so no channel outgrows its
+coverage across an edge of alpha. A luminance a node compares or thresholds — `bloom`,
+`dilate`, `erode`, `heighttonormal`, `pixelsort`'s keys — is the own color's. The sums are
+left as they are: a blur, a bloom's gather and its add-back, a `vignette`'s factor and every
+`mix` are exact on premultiplied colors.
 
 `pixelsort` is the third shape an `Effect` takes, and it is its own file: it reads the
 picture along a **run** rather than over a patch or inside a cell. Each row or column is cut
@@ -1321,7 +1336,8 @@ measures a field is still a tap, and the picture still passes through — so the
 inert and reads `Number` while that cable is there. Whatever is measured is signed, and read
 to 1/65536 over a range of -32768 to 32767. The centroid weights by the positive part of the
 quantity, so `x` and `y` say where it is positive and a field that is negative everywhere
-leaves them at the origin. A tap publishes its input's **mean color** beside all of that, which is a different question
+leaves them at the origin. The quantity, and the mean color below, are read from the
+input's own channels, as a `Convert` node reads them. A tap publishes its input's **mean color** beside all of that, which is a different question
 from the picked quantity — *what color is this picture on average*, rather than *how much of
 this quantity is in it*. Its alpha is opaque rather than averaged, so a mostly-transparent
 picture still shows the hue it is being asked about instead of reporting itself invisible.
@@ -1329,7 +1345,7 @@ picture still shows the hue it is being asked about instead of reporting itself 
 two nodes it is the input leaving untouched and the row under it is a color as well;
 `autoexposure` keeps *Output*, since what leaves it is the picture times its gain.
 `sample` takes `x` and `y` as uniform number inputs and publishes the
-`color` of its input at exactly that point, with `r`, `g`, `b`, `a`, `luma`, `hue`,
+`color` of its input at exactly that point, as its own channels and its alpha, with `r`, `g`, `b`, `a`, `luma`, `hue`,
 `saturation` and `lightness` beside it — one call, no tolerance, so a transform downstream
 cannot put the point off the screen. The reading is published twice over because the two are
 wanted for different things: the `color` lands on any color input and shows itself on that

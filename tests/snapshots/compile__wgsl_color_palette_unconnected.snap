@@ -67,7 +67,7 @@ fn oklab2srgb(lab: vec3f) -> vec3f {
 }
 
 fn palette1_a(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -76,11 +76,11 @@ fn palette1_a(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (-1.000000) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (-1.000000) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn palette1_b(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -89,7 +89,7 @@ fn palette1_b(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (-0.714286) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (-0.714286) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix3_output(uv: vec2f) -> vec4f {
@@ -112,7 +112,7 @@ fn mix3_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_c(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -121,7 +121,7 @@ fn palette1_c(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (-0.428571) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (-0.428571) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix4_output(uv: vec2f) -> vec4f {
@@ -144,7 +144,7 @@ fn mix4_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_d(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -153,7 +153,7 @@ fn palette1_d(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (-0.142857) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (-0.142857) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix5_output(uv: vec2f) -> vec4f {
@@ -176,7 +176,7 @@ fn mix5_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_e(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -185,7 +185,7 @@ fn palette1_e(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (0.142857) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (0.142857) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix6_output(uv: vec2f) -> vec4f {
@@ -208,7 +208,7 @@ fn mix6_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_f(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -217,7 +217,7 @@ fn palette1_f(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (0.428571) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (0.428571) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix7_output(uv: vec2f) -> vec4f {
@@ -240,7 +240,7 @@ fn mix7_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_g(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -249,7 +249,7 @@ fn palette1_g(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (0.714286) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (0.714286) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix8_output(uv: vec2f) -> vec4f {
@@ -272,7 +272,7 @@ fn mix8_output(uv: vec2f) -> vec4f {
 }
 
 fn palette1_h(uv: vec2f) -> vec4f {
-    let src = u.u_control_palette1_input;
+    let src = unpremultiply(u.u_control_palette1_input);
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -281,7 +281,7 @@ fn palette1_h(uv: vec2f) -> vec4f {
     lab.x = clamp(lab.x + (1.000000) * (u.u_control_palette1_lSpread) * 0.5, 0.0, 1.0);
     C = max(C + (1.000000) * (u.u_control_palette1_cSpread) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);
+    return premultiply(vec4f(oklab2srgb(lab), src.a));
 }
 
 fn mix9_output(uv: vec2f) -> vec4f {

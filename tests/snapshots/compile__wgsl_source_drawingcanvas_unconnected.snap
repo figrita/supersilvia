@@ -33,11 +33,11 @@ fn drawingcanvas1_mask(uv: vec2f) -> f32 {
     let aspect = texSize.x / max(texSize.y, 1.0);
     var t = vec2f((uv.x / aspect + 1.0) * 0.5, 1.0 - (uv.y + 1.0) * 0.5);
     let c = textureSampleLevel(u_texture_drawingcanvas1_output, sampler_mirror_linear, t, 0.0);
-    return dot(c.rgb, vec3f(0.299, 0.587, 0.114)) * c.a;
+    return dot(c.rgb, vec3f(0.299, 0.587, 0.114));
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(drawingcanvas1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(drawingcanvas1_mask(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 fn mix4_output(uv: vec2f) -> vec4f {

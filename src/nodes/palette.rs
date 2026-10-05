@@ -8,6 +8,10 @@
 //! under it, so a picture in gives eight recolored versions of that picture rather than
 //! eight swatches, and it is `Category::Color`.
 //!
+//! OKLab is nonlinear in the channels, so the pixel is read for its own color through the
+//! prelude's `unpremultiply`, and each of the eight goes back through `premultiply` at the
+//! input's alpha.
+//!
 //! silvia has no table of preset palettes behind this: the eight are computed from the
 //! input color and the five knobs, so nothing here is baked at compile time and every knob
 //! takes a cable.
@@ -31,7 +35,7 @@ const SLOTS: usize = 8;
 
 /// One slot's body, with `$T` its place from 0 to 1 across the eight and `$TC` the same
 /// place centered, -1 at A and +1 at H.
-const SLOT_WGSL: &str = "    let src = {input};
+const SLOT_WGSL: &str = "    let src = unpremultiply({input});
     var lab = srgb2oklab(src.rgb);
     var C = length(lab.yz);
     var H = atan2(lab.z, lab.y);
@@ -40,7 +44,7 @@ const SLOT_WGSL: &str = "    let src = {input};
     lab.x = clamp(lab.x + ($TC) * ({lSpread}) * 0.5, 0.0, 1.0);
     C = max(C + ($TC) * ({cSpread}) * 0.2, 0.0);
     lab = vec3f(lab.x, C * cos(H), C * sin(H));
-    return vec4f(oklab2srgb(lab), src.a);";
+    return premultiply(vec4f(oklab2srgb(lab), src.a));";
 
 /// sRGB to OKLab. silvia's `shaderUtils.SRGB2OKLAB`.
 pub const SRGB2OKLAB_WGSL: &str = "fn srgb2oklab(c: vec3f) -> vec3f {

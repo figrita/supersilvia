@@ -20,7 +20,7 @@ fn worldcoordinates1_y(uv: vec2f) -> f32 {
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(worldcoordinates1_x(uv), worldcoordinates1_y(uv), u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(worldcoordinates1_x(uv), worldcoordinates1_y(uv), u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 @fragment

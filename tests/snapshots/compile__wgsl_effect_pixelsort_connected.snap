@@ -115,7 +115,7 @@ fn pixelsort1_color(uv: vec2f) -> vec4f {
     for (var i = 0; i < 32; i++) {
         if (i >= subLen) { break; }
         psUV = chunkStart + dir * f32(i);
-        let k = pixelSortLuma((checkerboard3_output(psUV)).rgb);
+        let k = pixelSortLuma(unpremultiply(checkerboard3_output(psUV)).rgb);
         keys[i] = k;
         order[i] = i;
         minKey = min(minKey, k);
@@ -170,7 +170,7 @@ fn pixelsort1_mask(uv: vec2f) -> f32 {
     for (var i = 0; i < 32; i++) {
         if (i >= subLen) { break; }
         psUV = chunkStart + dir * f32(i);
-        let k = pixelSortLuma((checkerboard3_output(psUV)).rgb);
+        let k = pixelSortLuma(unpremultiply(checkerboard3_output(psUV)).rgb);
         keys[i] = k;
         order[i] = i;
         minKey = min(minKey, k);
@@ -182,7 +182,7 @@ fn pixelsort1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba6_output(uv: vec2f) -> vec4f {
-    return vec4f(pixelsort1_mask(uv), u.u_control_rgba6_g, u.u_control_rgba6_b, u.u_control_rgba6_a);
+    return premultiply(vec4f(pixelsort1_mask(uv), u.u_control_rgba6_g, u.u_control_rgba6_b, u.u_control_rgba6_a));
 }
 
 fn mix7_output(uv: vec2f) -> vec4f {

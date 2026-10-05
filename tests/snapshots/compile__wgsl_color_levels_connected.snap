@@ -68,13 +68,13 @@ fn vignette8_mask(uv: vec2f) -> f32 {
 }
 
 fn levels1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let inBlack = vignette4_mask(uv);
     let outBlack = vignette7_mask(uv);
     let inRange = max(vignette5_mask(uv) - inBlack, 1e-4);
     var t = clamp((color.rgb - inBlack) / inRange, vec3f(0.0), vec3f(1.0));
     t = pow(t, vec3f(1.0 / max(vignette6_mask(uv), 1e-4)));
-    return vec4f(outBlack + t * ((vignette8_mask(uv)) - outBlack), color.a);
+    return premultiply(vec4f(outBlack + t * ((vignette8_mask(uv)) - outBlack), color.a));
 }
 
 @fragment

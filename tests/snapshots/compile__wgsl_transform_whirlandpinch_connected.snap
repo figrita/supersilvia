@@ -95,7 +95,7 @@ fn whirlandpinch1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba9_output(uv: vec2f) -> vec4f {
-    return vec4f(whirlandpinch1_mask(uv), u.u_control_rgba9_g, u.u_control_rgba9_b, u.u_control_rgba9_a);
+    return premultiply(vec4f(whirlandpinch1_mask(uv), u.u_control_rgba9_g, u.u_control_rgba9_b, u.u_control_rgba9_a));
 }
 
 fn mix10_output(uv: vec2f) -> vec4f {

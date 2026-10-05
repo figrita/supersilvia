@@ -35,7 +35,7 @@ fn add1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba5_output(uv: vec2f) -> vec4f {
-    return vec4f(add1_output(uv), u.u_control_rgba5_g, u.u_control_rgba5_b, u.u_control_rgba5_a);
+    return premultiply(vec4f(add1_output(uv), u.u_control_rgba5_g, u.u_control_rgba5_b, u.u_control_rgba5_a));
 }
 
 @fragment

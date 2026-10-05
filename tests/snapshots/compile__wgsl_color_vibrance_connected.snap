@@ -47,12 +47,12 @@ fn vignette4_mask(uv: vec2f) -> f32 {
 }
 
 fn vibrance1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     var hsv = rgb2hsv(color.rgb);
     let amount = vignette4_mask(uv);
     let weight = select(hsv.y, 1.0 - hsv.y, amount >= 0.0);
     hsv.y = clamp(hsv.y + amount * weight, 0.0, 1.0);
-    return vec4f(hsv2rgb(hsv), color.a);
+    return premultiply(vec4f(hsv2rgb(hsv), color.a));
 }
 
 @fragment

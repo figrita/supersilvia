@@ -109,7 +109,8 @@ pub static DEF: NodeDef = NodeDef {
 ///
 /// Luminance, and only luminance: an exposure is a statement about brightness, so this is
 /// not the picker a `tap` carries. The expression is the same table entry the `luminosity`
-/// node is, over the `color` declared here. No jitter either — a gain that wanders with the
+/// node is, over the `color` declared here, which is the input's own channels as that node
+/// reads them; the gain multiplies those same channels, so it lands the brightness it measured. No jitter either — a gain that wanders with the
 /// dither of its own measurement is a gain that breathes.
 fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
     let input = ctx.input(node, "input", "p");
@@ -118,7 +119,7 @@ fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
         .expect("luminosity is in the table")
         .wgsl;
     let body = format!(
-        "    let color = {input};\n{}",
+        "    let color = unpremultiply({input});\n{}",
         tap::stats_wgsl(base, luma, "p")
     );
     ctx.measure_grid(node, tap::DEFAULT_GRID, None, &body);

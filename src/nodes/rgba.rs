@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+//! Four numbers into a color. The numbers are the color's own channels, as a picker's are, and
+//! the color is premultiplied as it is built, so an Alpha of zero is transparent black
+//! whatever the other three say. See
+//! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
 
@@ -42,7 +47,7 @@ pub static DEF: NodeDef = NodeDef {
         kind: OutputKind::Shader,
         wgsl: |node, ctx, _func| {
             format!(
-                "    return vec4f({}, {}, {}, {});",
+                "    return premultiply(vec4f({}, {}, {}, {}));",
                 ctx.input(node, "r", "uv"),
                 ctx.input(node, "g", "uv"),
                 ctx.input(node, "b", "uv"),

@@ -32,8 +32,8 @@ fn vignette4_mask(uv: vec2f) -> f32 {
 }
 
 fn invert1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
-    return vec4f(mix(color.rgb, 1.0 - color.rgb, clamp(vignette4_mask(uv), 0.0, 1.0)), color.a);
+    let color = unpremultiply(checkerboard3_output(uv));
+    return premultiply(vec4f(mix(color.rgb, 1.0 - color.rgb, clamp(vignette4_mask(uv), 0.0, 1.0)), color.a));
 }
 
 @fragment

@@ -800,8 +800,8 @@ fn a_mandelbrots_mask_is_one_inside_the_set() {
     }
 }
 
-/// A region's background is behind the input as well as around it: a half-transparent red,
-/// premultiplied as a Text's edge is, over opaque blue is half red and half blue, opaque.
+/// A region's background is behind the input as well as around it: a half-transparent red
+/// over opaque blue is half red and half blue, opaque.
 /// Over the default transparent background the input is untouched, which is what silvia's
 /// `mix(bg, input, mask)` drew and what every patch already relies on.
 #[test]
@@ -812,7 +812,7 @@ fn a_regions_background_shows_through_a_transparent_input() {
         let color = add(&mut g, "rgba");
         let region = add(&mut g, "regionabsolute");
         let out = add(&mut g, "output");
-        for (channel, value) in [("r", 0.5), ("g", 0.0), ("b", 0.0), ("a", 0.5)] {
+        for (channel, value) in [("r", 1.0), ("g", 0.0), ("b", 0.0), ("a", 0.5)] {
             set(&mut g, color, channel, value);
         }
         set(&mut g, region, "left", -0.5);
@@ -2163,4 +2163,321 @@ fn a_probe_counts_a_blurs_nine_taps_exactly() {
         9 * pixels,
         "the call site counts every one of the blur's nine calls"
     );
+}
+
+// ------------------------------------------------------------------- premultiplied colors
+
+/// An `rgba` of `rgb` at alpha `a`: a color the shader builds, so nothing on the CPU converts
+/// it on the way in.
+fn solid(g: &mut Graph, rgb: [f32; 3], a: f32) -> NodeId {
+    let n = add(g, "rgba");
+    for (key, value) in [("r", rgb[0]), ("g", rgb[1]), ("b", rgb[2]), ("a", a)] {
+        set(g, n, key, value);
+    }
+    n
+}
+
+/// `node`'s `port` into a new Output: the Output.
+fn shown(g: &mut Graph, node: NodeId, port: &'static str) -> NodeId {
+    let out = add(g, "output");
+    g.connect(PortRef::new(node, port), PortRef::new(out, "input"))
+        .unwrap();
+    out
+}
+
+/// **RGBA and HSLA premultiply what they build**: half-transparent red is half red at half
+/// alpha, and an Alpha of zero is transparent black whatever the channels say.
+#[test]
+fn a_color_built_from_numbers_is_premultiplied() {
+    for (rgb, a, expected) in [
+        ([1.0, 0.0, 0.0], 0.5, [128, 0, 0, 128]),
+        ([1.0, 1.0, 1.0], 0.0, [0, 0, 0, 0]),
+        ([0.5, 1.0, 0.25], 1.0, [128, 255, 64, 255]),
+    ] {
+        let mut g = Graph::new();
+        let color = solid(&mut g, rgb, a);
+        let out = shown(&mut g, color, "output");
+        for p in rendered(&g, out, 4) {
+            assert_eq!(p, expected, "rgba {rgb:?} at alpha {a}");
+        }
+    }
+    let mut g = Graph::new();
+    let color = add(&mut g, "hsla");
+    for (key, value) in [("h", 0.0), ("s", 1.0), ("l", 0.5), ("a", 0.5)] {
+        set(&mut g, color, key, value);
+    }
+    let out = shown(&mut g, color, "output");
+    for p in rendered(&g, out, 4) {
+        assert_eq!(p, [128, 0, 0, 128], "hsla red at half alpha");
+    }
+}
+
+/// **A number read out of a color is the color's own**: every conversion of a
+/// half-transparent color reads what it reads of the same color opaque, and `alpha` reads
+/// the alpha. Each is drawn through an opaque `rgba`'s red.
+#[test]
+fn a_conversion_reads_the_colors_own_channels() {
+    const RGB: [f32; 3] = [1.0, 0.5, 0.25];
+    let read = |slug: &str, port: &'static str, a: f32| {
+        let mut g = Graph::new();
+        let color = solid(&mut g, RGB, a);
+        let under = add(&mut g, slug);
+        let carrier = add(&mut g, "rgba");
+        let out = add(&mut g, "output");
+        g.connect(PortRef::new(color, "output"), PortRef::new(under, "input"))
+            .unwrap();
+        g.connect(PortRef::new(under, port), PortRef::new(carrier, "r"))
+            .unwrap();
+        g.connect(PortRef::new(carrier, "output"), PortRef::new(out, "input"))
+            .unwrap();
+        red_at(&rendered(&g, out, 4), 4, 2, 2)
+    };
+    assert_eq!(
+        read("red", "output", 0.5),
+        255,
+        "red of half-transparent red"
+    );
+    assert_eq!(read("channelsplitter", "r", 0.5), 255);
+    assert_eq!(read("alpha", "output", 0.5), 128);
+    for conversion in nodes::decompose::CONVERSIONS {
+        if conversion.slug == "alpha" {
+            continue;
+        }
+        let opaque = read(conversion.slug, "output", 1.0);
+        let half = read(conversion.slug, "output", 0.5);
+        assert!(
+            opaque.abs_diff(half) <= 1,
+            "{}: {half} at half alpha, {opaque} opaque",
+            conversion.slug
+        );
+    }
+}
+
+/// A sample publishes the color's own channels, and its alpha beside them.
+#[test]
+fn a_sample_reads_the_colors_own_channels() {
+    let mut g = Graph::new();
+    let color = solid(&mut g, [1.0, 0.5, 0.25], 0.5);
+    let s = add(&mut g, "sample");
+    let out = add(&mut g, "output");
+    g.connect(PortRef::new(color, "output"), PortRef::new(s, "input"))
+        .unwrap();
+    g.connect(PortRef::new(s, "output"), PortRef::new(out, "input"))
+        .unwrap();
+    let read = sample::decode(&slot(tap_words(&g, out, 2))).expect("the point was measured");
+    assert_eq!(read, [1.0, 0.5, 0.25, 0.5]);
+}
+
+/// A tap measures the color's own channels: its picked quantity and its mean color are those
+/// of the same color opaque.
+#[test]
+fn a_tap_reads_the_colors_own_channels() {
+    let mut g = Graph::new();
+    let color = solid(&mut g, [1.0, 0.5, 0.25], 0.5);
+    let (t, out) = tapped(&mut g, PortRef::new(color, "output"));
+    g.get_mut(t)
+        .unwrap()
+        .options
+        .insert("measure", "red".to_string());
+    let s = tap::decode(&slot(tap_words(&g, out, 2)));
+    assert_eq!(s.count, 64 * 64);
+    assert_eq!(s.mean, 1.0, "the red of half-transparent red is one");
+    let [r, g_, b, a] = s.color;
+    assert!(
+        (r - 1.0).abs() < 1e-3 && (g_ - 0.5).abs() < 1e-3 && (b - 0.25).abs() < 1e-3,
+        "the mean color is the color's own: {:?}",
+        s.color
+    );
+    assert_eq!(a, 1.0, "and opaque");
+}
+
+/// A node that reads its input more than once: the slug, the port drawn, its controls and
+/// its options.
+type SampledCase = (
+    &'static str,
+    &'static str,
+    &'static [(&'static str, f32)],
+    &'static [(&'static str, &'static str)],
+);
+
+/// **A color assembled from several samples stays premultiplied.** A checkerboard of opaque
+/// red and transparent black puts an edge of alpha under every node that takes a channel
+/// from one sample and the alpha from another, or measures an edge and paints it with the
+/// center's alpha: no channel of any pixel may exceed its alpha.
+#[test]
+fn a_color_assembled_from_several_samples_never_exceeds_its_alpha() {
+    const SIZE: u32 = 32;
+    let cases: &[SampledCase] = &[
+        (
+            "glitch",
+            "color",
+            &[("intensity", 1.0), ("rgbSplit", 0.1)],
+            &[],
+        ),
+        ("chromaticaberration", "output", &[("offset", 0.1)], &[]),
+        (
+            "chromaticaberration",
+            "output",
+            &[("offset", 0.1)],
+            &[("mode", "linear")],
+        ),
+        ("edgedetection", "output", &[], &[]),
+        (
+            "edgedetection",
+            "output",
+            &[],
+            &[("mode", "laplacian_gray")],
+        ),
+        ("kuwahara", "color", &[], &[("size", "5x5")]),
+        ("emboss", "output", &[], &[]),
+        ("sharpen", "color", &[("amount", 4.0)], &[]),
+        ("dilate", "color", &[("radius", 0.05)], &[]),
+    ];
+    for (slug, output, controls, options) in cases {
+        let mut g = Graph::new();
+        let cb = add(&mut g, "checkerboard");
+        set_color(&mut g, cb, "color1", [1.0, 0.0, 0.0, 1.0]);
+        set_color(&mut g, cb, "color2", [0.0, 0.0, 0.0, 0.0]);
+        let under = add(&mut g, slug);
+        g.connect(PortRef::new(cb, "output"), PortRef::new(under, "input"))
+            .unwrap();
+        for (key, value) in *controls {
+            set(&mut g, under, key, *value);
+        }
+        for (key, value) in *options {
+            g.get_mut(under)
+                .unwrap()
+                .options
+                .insert(key, (*value).to_string());
+        }
+        let out = shown(&mut g, under, output);
+        for (i, p) in rendered(&g, out, SIZE).iter().enumerate() {
+            assert!(
+                p[..3].iter().all(|c| *c <= p[3]),
+                "{slug} {options:?}, pixel {i}: {p:?} has a channel above its alpha"
+            );
+        }
+    }
+}
+
+/// `slug` with `input` cabled into each of `ports`, `controls` and `options` set, drawn from
+/// its `output` port at 8x8.
+fn through(
+    slug: &str,
+    ports: &[&'static str],
+    output: &'static str,
+    controls: &[(&'static str, f32)],
+    options: &[(&'static str, &'static str)],
+    rgb: [f32; 3],
+    a: f32,
+) -> Vec<[u8; 4]> {
+    let mut g = Graph::new();
+    let color = solid(&mut g, rgb, a);
+    let under = add(&mut g, slug);
+    for port in ports {
+        g.connect(PortRef::new(color, "output"), PortRef::new(under, port))
+            .unwrap();
+    }
+    for (key, value) in controls {
+        set(&mut g, under, key, *value);
+    }
+    for (key, value) in options {
+        g.get_mut(under)
+            .unwrap()
+            .options
+            .insert(key, (*value).to_string());
+    }
+    let out = shown(&mut g, under, output);
+    rendered(&g, out, 8)
+}
+
+/// A node's map, one case per row: the slug, the ports the color goes into, the port drawn,
+/// its controls and its options.
+type MapCase = (
+    &'static str,
+    &'static [&'static str],
+    &'static str,
+    &'static [(&'static str, f32)],
+    &'static [(&'static str, &'static str)],
+);
+
+const MAPS: &[MapCase] = &[
+    (
+        "contrast",
+        &["input"],
+        "output",
+        &[("contrast", 1.5), ("brightness", 0.1)],
+        &[],
+    ),
+    ("gamma", &["input"], "output", &[("gamma", 2.0)], &[]),
+    (
+        "levels",
+        &["input"],
+        "output",
+        &[
+            ("inBlack", 0.1),
+            ("inWhite", 0.9),
+            ("gamma", 1.5),
+            ("outBlack", 0.05),
+            ("outWhite", 0.95),
+        ],
+        &[],
+    ),
+    ("invert", &["input"], "output", &[("mix", 0.75)], &[]),
+    ("posterize", &["input"], "output", &[("levels", 3.0)], &[]),
+    ("colorize", &["input"], "output", &[], &[]),
+    ("colormapping", &["input"], "color", &[], &[]),
+    (
+        "colorshift",
+        &["input"],
+        "output",
+        &[("hue", 0.25), ("saturation", 1.5), ("value", 0.8)],
+        &[],
+    ),
+    ("saturate", &["input"], "output", &[("amount", 1.5)], &[]),
+    ("vibrance", &["input"], "output", &[("amount", 0.5)], &[]),
+    ("palette", &["input"], "c", &[("lSpread", 0.5)], &[]),
+    ("wavefold", &["input"], "output", &[("drive", 3.0)], &[]),
+    (
+        "wavefold",
+        &["input"],
+        "output",
+        &[("drive", 3.0)],
+        &[("channel", "luminance")],
+    ),
+    ("halftone", &["input"], "color", &[], &[("mode", "cmyk")]),
+    ("halftone", &["input"], "color", &[], &[("mode", "rgb")]),
+    ("emboss", &["input"], "output", &[], &[]),
+    ("lyapunov", &["foreground", "background"], "color", &[], &[]),
+];
+
+/// **A color map on a half-transparent color is the map on the opaque color, at half
+/// strength**: each node in [`MAPS`] does its work on the color's own channels and
+/// premultiplies what it hands back, so a half-transparent input draws the opaque answer
+/// scaled by its alpha, and never a channel above it.
+#[test]
+fn a_color_map_on_a_transparent_color_is_the_opaque_map_scaled_by_alpha() {
+    const RGB: [f32; 3] = [0.8, 0.45, 0.2];
+    for (slug, ports, output, controls, options) in MAPS {
+        let opaque = through(slug, ports, output, controls, options, RGB, 1.0);
+        let half = through(slug, ports, output, controls, options, RGB, 0.5);
+        for (i, (o, h)) in opaque.iter().zip(&half).enumerate() {
+            for c in 0..4 {
+                let expected = f32::from(o[c]) * 0.5;
+                assert!(
+                    (f32::from(h[c]) - expected).abs() <= 1.0,
+                    "{slug} {options:?}, pixel {i}: {h:?} at half alpha against {o:?} opaque"
+                );
+            }
+        }
+    }
+}
+
+/// `invert` of half-transparent white is half-transparent black: what is inverted is the
+/// color's own white, not the gray its premultiplied channels hold.
+#[test]
+fn inverting_half_transparent_white_reads_transparent_black() {
+    for p in through("invert", &["input"], "output", &[], &[], [1.0; 3], 0.5) {
+        assert_eq!(p, [0, 0, 0, 128]);
+    }
 }

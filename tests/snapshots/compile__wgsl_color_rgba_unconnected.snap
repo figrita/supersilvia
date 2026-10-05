@@ -14,7 +14,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn rgba1_output(uv: vec2f) -> vec4f {
-    return vec4f(u.u_control_rgba1_r, u.u_control_rgba1_g, u.u_control_rgba1_b, u.u_control_rgba1_a);
+    return premultiply(vec4f(u.u_control_rgba1_r, u.u_control_rgba1_g, u.u_control_rgba1_b, u.u_control_rgba1_a));
 }
 
 @fragment

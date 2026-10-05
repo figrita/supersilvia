@@ -23,7 +23,7 @@ fn heighttonormal1_color(uv: vec2f) -> vec4f {
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
             offset = vec2f(f32(x), f32(y)) * texel;
-            h[(y + 1) * 3 + (x + 1)] = dot((defaultUvMap(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
+            h[(y + 1) * 3 + (x + 1)] = dot(unpremultiply(defaultUvMap(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
         }
     }
     let strength = u.u_control_heighttonormal1_strength;
@@ -40,7 +40,7 @@ fn heighttonormal1_value(uv: vec2f) -> f32 {
     for (var y = -1; y <= 1; y++) {
         for (var x = -1; x <= 1; x++) {
             offset = vec2f(f32(x), f32(y)) * texel;
-            h[(y + 1) * 3 + (x + 1)] = dot((defaultUvMap(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
+            h[(y + 1) * 3 + (x + 1)] = dot(unpremultiply(defaultUvMap(uv + offset)).rgb, vec3f(0.299, 0.587, 0.114));
         }
     }
     let strength = u.u_control_heighttonormal1_strength;
@@ -51,7 +51,7 @@ fn heighttonormal1_value(uv: vec2f) -> f32 {
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(heighttonormal1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(heighttonormal1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 fn mix4_output(uv: vec2f) -> vec4f {

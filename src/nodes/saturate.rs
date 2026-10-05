@@ -14,6 +14,10 @@
 //! shader, where a `wgsl_utils` entry is emitted only into a shader that reaches a node
 //! asking for it.
 //!
+//! A hexcone is nonlinear in the channels, so both take the picture through the prelude's
+//! `unpremultiply` and give it back through `premultiply`: the saturation moved is the color's
+//! own, at whatever alpha it arrived with.
+//!
 //! The two differ in one line. Saturate multiplies the saturation, so the vivid parts move
 //! furthest; Vibrance adds a weighted amount, and the weight is `1 - s` going up and `s`
 //! coming down, so the dull parts move furthest one way and the vivid parts the other.
@@ -54,10 +58,10 @@ node! {
     ],
     wgsl_utils: [RGB2HSV_WGSL, HSV2RGB_WGSL],
     outputs: [
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     var hsv = rgb2hsv(color.rgb);
     hsv.y = clamp(hsv.y * ({amount}), 0.0, 1.0);
-    return vec4f(hsv2rgb(hsv), color.a);",
+    return premultiply(vec4f(hsv2rgb(hsv), color.a));",
     ],
 }
 
@@ -79,11 +83,11 @@ node! {
         // The weight is what makes this the gentle half: going up it is what is left of the
         // saturation, so a gray pixel moves fully and a vivid one not at all; coming down it
         // is the saturation itself, so the vivid ones move first.
-        VaryingColor "output" "Output" = "    let color = {input};
+        VaryingColor "output" "Output" = "    let color = unpremultiply({input});
     var hsv = rgb2hsv(color.rgb);
     let amount = {amount};
     let weight = select(hsv.y, 1.0 - hsv.y, amount >= 0.0);
     hsv.y = clamp(hsv.y + amount * weight, 0.0, 1.0);
-    return vec4f(hsv2rgb(hsv), color.a);",
+    return premultiply(vec4f(hsv2rgb(hsv), color.a));",
     ],
 }

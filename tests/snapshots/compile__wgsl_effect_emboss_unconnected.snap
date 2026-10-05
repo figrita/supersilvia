@@ -19,12 +19,12 @@ fn emboss1_output(uv: vec2f) -> vec4f {
     var alpha = 1.0;
     for (var k = -1; k <= 1; k++) {
         let offset = lightDir * f32(k);
-        let sampled = defaultUvMap(uv + offset);
+        let sampled = unpremultiply(defaultUvMap(uv + offset));
         if (k == 0) { alpha = sampled.a; }
         lum[k + 1] = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
     }
     let relief = (lum[2] - lum[0]) * (u.u_control_emboss1_strength);
-    return vec4f(vec3f(clamp(relief + (u.u_control_emboss1_offset), 0.0, 1.0)), alpha);
+    return premultiply(vec4f(vec3f(clamp(relief + (u.u_control_emboss1_offset), 0.0, 1.0)), alpha));
 }
 
 @fragment

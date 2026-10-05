@@ -32,9 +32,9 @@ fn vignette4_mask(uv: vec2f) -> f32 {
 }
 
 fn gamma1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let corrected = pow(max(color.rgb, vec3f(0.0)), vec3f(1.0 / max(vignette4_mask(uv), 1e-4)));
-    return vec4f(corrected, color.a);
+    return premultiply(vec4f(corrected, color.a));
 }
 
 @fragment

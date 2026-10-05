@@ -229,7 +229,7 @@ fn juliaset1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba14_output(uv: vec2f) -> vec4f {
-    return vec4f(juliaset1_smooth(uv), juliaset1_mask(uv), u.u_control_rgba14_b, u.u_control_rgba14_a);
+    return premultiply(vec4f(juliaset1_smooth(uv), juliaset1_mask(uv), u.u_control_rgba14_b, u.u_control_rgba14_a));
 }
 
 fn mix16_output(uv: vec2f) -> vec4f {

@@ -15,13 +15,13 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn levels1_output(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let inBlack = u.u_control_levels1_inBlack;
     let outBlack = u.u_control_levels1_outBlack;
     let inRange = max(u.u_control_levels1_inWhite - inBlack, 1e-4);
     var t = clamp((color.rgb - inBlack) / inRange, vec3f(0.0), vec3f(1.0));
     t = pow(t, vec3f(1.0 / max(u.u_control_levels1_gamma, 1e-4)));
-    return vec4f(outBlack + t * ((u.u_control_levels1_outWhite) - outBlack), color.a);
+    return premultiply(vec4f(outBlack + t * ((u.u_control_levels1_outWhite) - outBlack), color.a));
 }
 
 @fragment

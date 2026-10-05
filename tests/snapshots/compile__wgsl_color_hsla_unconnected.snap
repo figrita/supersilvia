@@ -35,7 +35,7 @@ fn hsl2rgb(h: f32, s: f32, l: f32) -> vec3f {
 }
 
 fn hsla1_output(uv: vec2f) -> vec4f {
-    return vec4f(hsl2rgb(u.u_control_hsla1_h, u.u_control_hsla1_s, u.u_control_hsla1_l), u.u_control_hsla1_a);
+    return premultiply(vec4f(hsl2rgb(u.u_control_hsla1_h, u.u_control_hsla1_s, u.u_control_hsla1_l), u.u_control_hsla1_a));
 }
 
 @fragment

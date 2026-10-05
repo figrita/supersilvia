@@ -11,6 +11,9 @@
 //! apart or only the brightness, which between them are eight different pictures and eight
 //! different bodies.
 //!
+//! A fold is as nonlinear as a color map gets, so the color is folded in its own channels,
+//! through the prelude's `unpremultiply`, and handed back through `premultiply` at its alpha.
+//!
 //! silvia emits the fold as a function per node, `hd_fold`. Here the choice is inlined into
 //! the body instead: a `wgsl_utils` entry is one global per shader, and two Wavefolds in
 //! different modes in one Output would be two definitions of one name.
@@ -65,11 +68,11 @@ fn channel_wgsl(channel: &str) -> (&'static str, &'static str) {
 fn body_wgsl(node: NodeId, ctx: &CompileContext<'_>) -> String {
     let (drive, result) = channel_wgsl(ctx.option(node, "channel"));
     [
-        "    let color = {input};\n",
+        "    let color = unpremultiply({input});\n",
         drive,
         fold_wgsl(ctx.option(node, "mode")),
         result,
-        "    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);",
+        "    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));",
     ]
     .concat()
 }

@@ -147,7 +147,7 @@ fn lyapunov1_color(uv: vec2f) -> vec4f {
     let light = normalize(vec3f(0.4, 0.4, 1.0));
     let diffuse = max(dot(normal, light), 0.0);
     let specular = pow(max(reflect(-light, normal).z, 0.0), 20.0);
-    return vec4f(base.rgb * (0.12 + 0.88 * diffuse) + specular * 0.25, base.a);
+    return vec4f(base.rgb * (0.12 + 0.88 * diffuse) + specular * 0.25 * base.a, base.a);
 }
 
 fn lyapunov1_mask(uv: vec2f) -> f32 {
@@ -175,7 +175,7 @@ fn lyapunov1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba11_output(uv: vec2f) -> vec4f {
-    return vec4f(lyapunov1_mask(uv), u.u_control_rgba11_g, u.u_control_rgba11_b, u.u_control_rgba11_a);
+    return premultiply(vec4f(lyapunov1_mask(uv), u.u_control_rgba11_g, u.u_control_rgba11_b, u.u_control_rgba11_a));
 }
 
 fn mix12_output(uv: vec2f) -> vec4f {

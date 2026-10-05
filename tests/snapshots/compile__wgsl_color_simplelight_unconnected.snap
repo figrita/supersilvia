@@ -22,7 +22,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn simplelight1_color(uv: vec2f) -> vec4f {
-    let unpacked = (defaultUvMap(uv)).rgb * 2.0 - 1.0;
+    let unpacked = unpremultiply(defaultUvMap(uv)).rgb * 2.0 - 1.0;
     let normal = unpacked / max(length(unpacked), 1e-4);
     let lamp = vec3f(u.u_control_simplelight1_lightX, u.u_control_simplelight1_lightY, u.u_control_simplelight1_lightZ);
     let lightDir = lamp / max(length(lamp), 1e-4);
@@ -30,11 +30,11 @@ fn simplelight1_color(uv: vec2f) -> vec4f {
     let surface = u.u_control_simplelight1_surfaceColor;
     let ambient = clamp(u.u_control_simplelight1_ambient, 0.0, 1.0);
     let lit = ambient + (1.0 - ambient) * diffuse;
-    return vec4f(surface.rgb * (u.u_control_simplelight1_lightColor).rgb * lit, surface.a);
+    return vec4f(surface.rgb * unpremultiply(u.u_control_simplelight1_lightColor).rgb * lit, surface.a);
 }
 
 fn simplelight1_value(uv: vec2f) -> f32 {
-    let unpacked = (defaultUvMap(uv)).rgb * 2.0 - 1.0;
+    let unpacked = unpremultiply(defaultUvMap(uv)).rgb * 2.0 - 1.0;
     let normal = unpacked / max(length(unpacked), 1e-4);
     let lamp = vec3f(u.u_control_simplelight1_lightX, u.u_control_simplelight1_lightY, u.u_control_simplelight1_lightZ);
     let lightDir = lamp / max(length(lamp), 1e-4);
@@ -43,7 +43,7 @@ fn simplelight1_value(uv: vec2f) -> f32 {
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(simplelight1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(simplelight1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 fn mix4_output(uv: vec2f) -> vec4f {

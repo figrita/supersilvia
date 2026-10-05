@@ -20,6 +20,11 @@
 //! Output, and an Output of another height draws the same cells at its own pixel pitch;
 //! [decisions.md](../../../docs/decisions.md) states the cost.
 //!
+//! `halftone` sizes its dots by the color's own channels, read through the prelude's
+//! `unpremultiply`, and prints its ink at the input's alpha through `premultiply`, so a
+//! half-transparent picture prints the same dots at half strength. `mosaic` and `dither` only
+//! mix whole colors, which is exact on premultiplied colors as they are.
+//!
 //! `mosaic` publishes `mask` for the cell interior and `halftone` for its ink, which are both
 //! coverage; `dither`'s is its own thresholded output, 1 where the light color won.
 //!
@@ -125,7 +130,7 @@ node! {
     wgsl_common: varying(|node, ctx| {
         let grid = pixel_grid_wgsl();
         [
-            "    let color = {input};
+            "    let color = unpremultiply({input});
     let dotSize = max({dotSize}, 1.0);
     let angle = ({angle}) * 2.0 * PI;
     let smoothness = max({smoothness}, 1e-3);
@@ -136,7 +141,7 @@ node! {
         .concat()
     }),
     outputs: [
-        VaryingColor "color" "Color" = "    return vec4f(ink, color.a);",
+        VaryingColor "color" "Color" = "    return premultiply(vec4f(ink, color.a));",
         VaryingNumber "mask" "Mask" = "    return mask;",
     ],
 }

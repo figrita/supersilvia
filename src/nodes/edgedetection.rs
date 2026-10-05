@@ -5,6 +5,11 @@
 //! silvia builds the neighbor sample by string surgery on the generated expression —
 //! `inputColor.replace('(uv)', '(uv_offset)')`. Here the offset coordinate is just what is
 //! asked for: `ctx.input(node, "input", "uv_offset")`.
+//!
+//! The kernels run over the color's own channels, each sample read through the prelude's
+//! `unpremultiply`, and the edge is premultiplied at the center's alpha: an edge's magnitude
+//! is nonlinear in the samples, and a half-transparent picture draws the edges the opaque one
+//! does, at its own alpha.
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::{
@@ -95,7 +100,7 @@ pub static DEF: NodeDef = NodeDef {
     for (var i = -1; i <= 1; i++) {{
         for (var j = -1; j <= 1; j++) {{
             let uv_offset = uv + vec2f(f32(i), f32(j)) * kernelStep;
-            let sampled = {neighbor};
+            let sampled = unpremultiply({neighbor});
             if (i == 0 && j == 0) {{ centerAlpha = sampled.a; }}
 
             let wx = KX[i + 1][j + 1];
@@ -113,7 +118,7 @@ pub static DEF: NodeDef = NodeDef {
     }}
 
 {combine}
-    return vec4f(clamp(edge * ({strength}), vec3f(0.0), vec3f(1.0)), centerAlpha);"
+    return premultiply(vec4f(clamp(edge * ({strength}), vec3f(0.0), vec3f(1.0)), centerAlpha));"
             )
         },
         ..OutputDef::EMPTY

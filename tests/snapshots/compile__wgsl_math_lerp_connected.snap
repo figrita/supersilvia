@@ -44,7 +44,7 @@ fn lerp1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba6_output(uv: vec2f) -> vec4f {
-    return vec4f(lerp1_output(uv), u.u_control_rgba6_g, u.u_control_rgba6_b, u.u_control_rgba6_a);
+    return premultiply(vec4f(lerp1_output(uv), u.u_control_rgba6_g, u.u_control_rgba6_b, u.u_control_rgba6_a));
 }
 
 @fragment

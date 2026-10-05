@@ -211,7 +211,7 @@ fn mandelbrot1_mask(uv: vec2f) -> f32 {
 }
 
 fn rgba12_output(uv: vec2f) -> vec4f {
-    return vec4f(mandelbrot1_smooth(uv), mandelbrot1_mask(uv), u.u_control_rgba12_b, u.u_control_rgba12_a);
+    return premultiply(vec4f(mandelbrot1_smooth(uv), mandelbrot1_mask(uv), u.u_control_rgba12_b, u.u_control_rgba12_a));
 }
 
 fn mix14_output(uv: vec2f) -> vec4f {

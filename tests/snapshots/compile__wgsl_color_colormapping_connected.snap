@@ -68,30 +68,30 @@ fn checkerboard6_output(uv: vec2f) -> vec4f {
 }
 
 fn colormapping1_color(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let lum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
-    let midColor = checkerboard5_output(uv);
+    let midColor = unpremultiply(checkerboard5_output(uv));
     var graded: vec3f;
     if (lum < 0.5) {
-        graded = mix((checkerboard4_output(uv)).rgb, midColor.rgb, lum * 2.0);
+        graded = mix(unpremultiply(checkerboard4_output(uv)).rgb, midColor.rgb, lum * 2.0);
     } else {
-        graded = mix(midColor.rgb, (checkerboard6_output(uv)).rgb, (lum - 0.5) * 2.0);
+        graded = mix(midColor.rgb, unpremultiply(checkerboard6_output(uv)).rgb, (lum - 0.5) * 2.0);
     }
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let saturation = select((maxc - minc) / maxc, 0.0, maxc <= 0.0);
     let result = mix(graded, color.rgb, saturation * 0.3);
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 fn colormapping1_value(uv: vec2f) -> f32 {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let lum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
     return lum;
 }
 
 fn rgba7_output(uv: vec2f) -> vec4f {
-    return vec4f(colormapping1_value(uv), u.u_control_rgba7_g, u.u_control_rgba7_b, u.u_control_rgba7_a);
+    return premultiply(vec4f(colormapping1_value(uv), u.u_control_rgba7_g, u.u_control_rgba7_b, u.u_control_rgba7_a));
 }
 
 fn mix8_output(uv: vec2f) -> vec4f {

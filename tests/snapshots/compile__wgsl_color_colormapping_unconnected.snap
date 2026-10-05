@@ -19,30 +19,30 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn colormapping1_color(uv: vec2f) -> vec4f {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let lum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
-    let midColor = u.u_control_colormapping1_midtones;
+    let midColor = unpremultiply(u.u_control_colormapping1_midtones);
     var graded: vec3f;
     if (lum < 0.5) {
-        graded = mix((u.u_control_colormapping1_shadows).rgb, midColor.rgb, lum * 2.0);
+        graded = mix(unpremultiply(u.u_control_colormapping1_shadows).rgb, midColor.rgb, lum * 2.0);
     } else {
-        graded = mix(midColor.rgb, (u.u_control_colormapping1_highlights).rgb, (lum - 0.5) * 2.0);
+        graded = mix(midColor.rgb, unpremultiply(u.u_control_colormapping1_highlights).rgb, (lum - 0.5) * 2.0);
     }
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let saturation = select((maxc - minc) / maxc, 0.0, maxc <= 0.0);
     let result = mix(graded, color.rgb, saturation * 0.3);
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 fn colormapping1_value(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let lum = dot(color.rgb, vec3f(0.2126, 0.7152, 0.0722));
     return lum;
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(colormapping1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(colormapping1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 fn mix4_output(uv: vec2f) -> vec4f {

@@ -97,7 +97,7 @@ fn radialgradient3_output(uv: vec2f) -> vec4f {
 }
 
 fn tap4_measure(p: vec2f) {
-    let color = radialgradient3_output(p);
+    let color = unpremultiply(radialgradient3_output(p));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;

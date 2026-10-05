@@ -56,12 +56,12 @@ fn emboss1_output(uv: vec2f) -> vec4f {
     var alpha = 1.0;
     for (var k = -1; k <= 1; k++) {
         let offset = lightDir * f32(k);
-        let sampled = checkerboard3_output(uv + offset);
+        let sampled = unpremultiply(checkerboard3_output(uv + offset));
         if (k == 0) { alpha = sampled.a; }
         lum[k + 1] = dot(sampled.rgb, vec3f(0.299, 0.587, 0.114));
     }
     let relief = (lum[2] - lum[0]) * (vignette4_mask(uv));
-    return vec4f(vec3f(clamp(relief + (vignette6_mask(uv)), 0.0, 1.0)), alpha);
+    return premultiply(vec4f(vec3f(clamp(relief + (vignette6_mask(uv)), 0.0, 1.0)), alpha));
 }
 
 @fragment

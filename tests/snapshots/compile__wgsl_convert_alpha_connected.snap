@@ -26,7 +26,7 @@ fn checkerboard3_output(uv: vec2f) -> vec4f {
 }
 
 fn alpha1_output(uv: vec2f) -> f32 {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -34,7 +34,7 @@ fn alpha1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba4_output(uv: vec2f) -> vec4f {
-    return vec4f(alpha1_output(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a);
+    return premultiply(vec4f(alpha1_output(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a));
 }
 
 @fragment

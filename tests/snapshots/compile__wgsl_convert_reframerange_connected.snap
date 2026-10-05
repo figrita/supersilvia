@@ -68,7 +68,7 @@ fn reframerange1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba8_output(uv: vec2f) -> vec4f {
-    return vec4f(reframerange1_output(uv), u.u_control_rgba8_g, u.u_control_rgba8_b, u.u_control_rgba8_a);
+    return premultiply(vec4f(reframerange1_output(uv), u.u_control_rgba8_g, u.u_control_rgba8_b, u.u_control_rgba8_a));
 }
 
 @fragment

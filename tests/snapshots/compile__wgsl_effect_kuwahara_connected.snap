@@ -38,7 +38,7 @@ fn kuwahara1_color(uv: vec2f) -> vec4f {
     for (var y = -3; y <= 3; y++) {
         for (var x = -3; x <= 3; x++) {
             offset = vec2f(f32(x), f32(y)) * kernelStep;
-            let sampled = checkerboard3_output(uv + offset);
+            let sampled = unpremultiply(checkerboard3_output(uv + offset));
             if (x == 0 && y == 0) { centerAlpha = sampled.a; }
             let c = sampled.rgb;
             if (x <= 0 && y <= 0) { mean[0] += c; square[0] += c * c; }
@@ -54,7 +54,7 @@ fn kuwahara1_color(uv: vec2f) -> vec4f {
         let v = dot(square[q] / quadrant - m * m, vec3f(1.0));
         if (v < roughness) { roughness = v; flattest = m; }
     }
-    return vec4f(flattest, centerAlpha);
+    return premultiply(vec4f(flattest, centerAlpha));
 }
 
 fn kuwahara1_value(uv: vec2f) -> f32 {
@@ -67,7 +67,7 @@ fn kuwahara1_value(uv: vec2f) -> f32 {
     for (var y = -3; y <= 3; y++) {
         for (var x = -3; x <= 3; x++) {
             offset = vec2f(f32(x), f32(y)) * kernelStep;
-            let sampled = checkerboard3_output(uv + offset);
+            let sampled = unpremultiply(checkerboard3_output(uv + offset));
             if (x == 0 && y == 0) { centerAlpha = sampled.a; }
             let c = sampled.rgb;
             if (x <= 0 && y <= 0) { mean[0] += c; square[0] += c * c; }
@@ -87,7 +87,7 @@ fn kuwahara1_value(uv: vec2f) -> f32 {
 }
 
 fn rgba4_output(uv: vec2f) -> vec4f {
-    return vec4f(kuwahara1_value(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a);
+    return premultiply(vec4f(kuwahara1_value(uv), u.u_control_rgba4_g, u.u_control_rgba4_b, u.u_control_rgba4_a));
 }
 
 fn mix5_output(uv: vec2f) -> vec4f {

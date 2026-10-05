@@ -50,11 +50,11 @@ fn vignette6_mask(uv: vec2f) -> f32 {
 }
 
 fn wavefold1_output(uv: vec2f) -> vec4f {
-    let color = checkerboard3_output(uv);
+    let color = unpremultiply(checkerboard3_output(uv));
     let driven = (color.rgb - 0.5 + (vignette5_mask(uv))) * (vignette4_mask(uv));
     let folded = abs(floor_mod3(driven + 1.0, vec3f(4.0)) - 2.0) - 1.0;
     let result = mix(color.rgb, folded * 0.5 + 0.5, vignette6_mask(uv));
-    return vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a);
+    return premultiply(vec4f(clamp(result, vec3f(0.0), vec3f(1.0)), color.a));
 }
 
 @fragment

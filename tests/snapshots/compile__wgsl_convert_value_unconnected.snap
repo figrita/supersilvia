@@ -13,7 +13,7 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
 fn value1_output(uv: vec2f) -> f32 {
-    let color = defaultUvMap(uv);
+    let color = unpremultiply(defaultUvMap(uv));
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -21,7 +21,7 @@ fn value1_output(uv: vec2f) -> f32 {
 }
 
 fn rgba3_output(uv: vec2f) -> vec4f {
-    return vec4f(value1_output(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a);
+    return premultiply(vec4f(value1_output(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
 }
 
 @fragment

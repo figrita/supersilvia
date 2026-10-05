@@ -14,6 +14,11 @@
 //! the same expression at the same coordinate and one sample fewer. And Barrel asks for no
 //! angle at all, so that mode's shader neither declares the uniform nor calls whatever drives
 //! it.
+//!
+//! The three reads are each taken for their own channels, through the prelude's
+//! `unpremultiply`, and the color they make is premultiplied at the green read's alpha: a
+//! channel lifted from one premultiplied texel and an alpha from another would be a color
+//! brighter than its own coverage wherever the fringe crosses an edge of alpha.
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::{Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind};
@@ -116,10 +121,10 @@ pub static DEF: NodeDef = NodeDef {
             let blue = ctx.input(node, "input", "uvB");
             format!(
                 "{coordinates}
-    let r = ({red}).r;
-    let g = {green};
-    let b = ({blue}).b;
-    return vec4f(r, g.g, b, g.a);"
+    let r = unpremultiply({red}).r;
+    let g = unpremultiply({green});
+    let b = unpremultiply({blue}).b;
+    return premultiply(vec4f(r, g.g, b, g.a));"
             )
         },
         ..OutputDef::EMPTY
