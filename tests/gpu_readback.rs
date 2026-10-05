@@ -118,6 +118,27 @@ fn a_tap_measures_the_channel_its_picker_names() {
     }
 }
 
+/// A tap's mean color is weighted by coverage: a checkerboard of opaque red and transparent
+/// black is red, not the dark red an average that counted the transparent half as black
+/// would say.
+#[test]
+fn a_taps_mean_color_is_weighted_by_coverage() {
+    let mut g = Graph::new();
+    let cb = nodes::add_to_graph(&mut g, "checkerboard", emath::Pos2::ZERO).unwrap();
+    for (key, color) in [("color1", [1.0, 0.0, 0.0, 1.0]), ("color2", [0.0; 4])] {
+        g.get_mut(cb)
+            .unwrap()
+            .controls
+            .insert(key, ControlValue::Color(color));
+    }
+    let (_, out) = tapped(&mut g, PortRef::new(cb, "output"));
+    let s = stats(tap_words(&g, out, 2, (64, 64)));
+    let [r, gr, b, a] = s.color;
+    assert!((r - 1.0).abs() < 1e-3, "red {r}");
+    assert!(gr.abs() < 1e-3 && b.abs() < 1e-3, "green {gr}, blue {b}");
+    assert_eq!(a, 1.0, "the mean color is opaque");
+}
+
 /// The finest grid is 65,536 points, each adding more than half the low word, so the sums
 /// carry into the high word tens of thousands of times — and the mean is still the level
 /// drawn. A full HD target has a fragment for every cell.

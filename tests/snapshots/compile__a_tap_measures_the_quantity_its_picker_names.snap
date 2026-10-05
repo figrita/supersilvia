@@ -96,7 +96,8 @@ fn checkerboard1_output(uv: vec2f) -> vec4f {
 }
 
 fn tap2_measure(p: vec2f) {
-    let color = unpremultiply(checkerboard1_output(p));
+    let seen = checkerboard1_output(p);
+    let color = unpremultiply(seen);
     let maxc = max(max(color.r, color.g), color.b);
     let minc = min(min(color.r, color.g), color.b);
     let delta = maxc - minc;
@@ -121,9 +122,10 @@ fn tap2_measure(p: vec2f) {
     ta = u32(w * 65536.0);
     to = atomicAdd(&tap[9u], ta);
     if (to + ta < to) { atomicAdd(&tap[10u], 1u); }
-    atomicAdd(&tap[11u], u32(clamp(color.r, 0.0, 3.9999) * 8192.0));
-    atomicAdd(&tap[12u], u32(clamp(color.g, 0.0, 3.9999) * 8192.0));
-    atomicAdd(&tap[13u], u32(clamp(color.b, 0.0, 3.9999) * 8192.0));
+    atomicAdd(&tap[11u], u32(clamp(seen.r, 0.0, 3.9999) * 8192.0));
+    atomicAdd(&tap[12u], u32(clamp(seen.g, 0.0, 3.9999) * 8192.0));
+    atomicAdd(&tap[13u], u32(clamp(seen.b, 0.0, 3.9999) * 8192.0));
+    atomicAdd(&tap[14u], u32(clamp(seen.a, 0.0, 3.9999) * 8192.0));
 }
 
 @fragment

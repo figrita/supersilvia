@@ -122,10 +122,10 @@ pub fn thumbs_enabled() -> bool {
 /// renderer's buffer is `slots * TAP_WORDS` and a slot is found by multiplying.
 ///
 /// A `Stats` slot spends them on a count, four sums of two words each — the measured
-/// quantity, the two coordinate sums and the weight — the two extremes, and three one-word
-/// sums for the mean color; the layout is in `nodes::tap`. A `Sample` slot uses the first
-/// five.
-pub const TAP_WORDS: usize = 15;
+/// quantity, the two coordinate sums and the weight — the two extremes, and four one-word
+/// sums for the mean color, its three premultiplied channels and its alpha; the layout is in
+/// `nodes::tap`. A `Sample` slot uses the first five.
+pub const TAP_WORDS: usize = 16;
 
 /// The buffer's initial contents for one slot. Sums and the maximum's key start at zero; the
 /// minimum's key starts at the largest so the first fragment wins.
@@ -152,7 +152,7 @@ pub enum TapKind {
 }
 
 /// The word of a slot a probe counts evaluations into. A `Stats` slot uses the first
-/// fourteen and a `Sample` slot the first five, so the last is free in both.
+/// fifteen and a `Sample` slot the first five, so the last is free in both.
 pub const EVAL_WORD: usize = TAP_WORDS - 1;
 
 /// A source's hash: of the module the compiler wrote. What the renderer keeps a program under, and what a job names the source of its uniforms and

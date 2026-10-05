@@ -31,18 +31,19 @@
 //! `atomicMin` then order the whole line. The centroid weights by the positive part,
 //! `max(l, 0)`, so `x` and `y` say where the quantity is positive.
 //!
-//! Beside all that, the **mean color**: three one-word sums of the input's own channels,
-//! which is a different question from the picked quantity — *what color is this picture on
-//! average*, rather than *how much of this quantity is in it*. Three words rather than six,
-//! because a channel needs neither the range nor the precision a measured quantity does: it
-//! is clamped to [`COLOR_MAX`] and kept to 1/[`COLOR_SCALE`], and the two constants are
-//! chosen so the largest grid cannot overflow one word. Alpha is not summed — the mean color
-//! is opaque, so a mostly-transparent picture still shows the hue it is being asked about
-//! rather than reporting itself invisible.
+//! Beside all that, the **mean color**: four one-word sums, the input's three premultiplied
+//! channels and its alpha, which is a different question from the picked quantity — *what
+//! color is this picture on average*, rather than *how much of this quantity is in it*. One
+//! word a sum rather than two, because a channel needs neither the range nor the precision a
+//! measured quantity does: it is clamped to [`COLOR_MAX`] and kept to 1/[`COLOR_SCALE`], and
+//! the two constants are chosen so the largest grid cannot overflow one word. The decode
+//! divides the channels by the alpha, so the mean is weighted by coverage and opaque: a
+//! mostly-transparent picture shows the hue of what is there rather than reporting itself
+//! invisible, and a transparent texel lends it nothing rather than black.
 //!
-//! **Both read the color's own channels.** The measurement takes its input through the
-//! prelude's `unpremultiply`, so the picked quantity and the mean color are what a picker
-//! would say of each texel, and a fully transparent texel reads as black. See
+//! **The picked quantity reads the color's own channels.** The measurement takes its input
+//! through the prelude's `unpremultiply`, so it is what a picker would say of each texel, and
+//! a fully transparent texel reads as black. See
 //! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
 //!
 //! The slot, in words: count, the sum of the measured quantity (low, high), the maximum's
@@ -82,7 +83,7 @@ pub const BIAS: f32 = 32768.0;
 /// `BIAS * SCALE`: what a sample of zero stores, and what decoding subtracts per sample.
 pub const BIAS_UNITS: u32 = 1 << 31;
 
-/// Fixed-point units per unit of a color channel, for the mean color's three sums.
+/// Fixed-point units per unit of a color channel, for the mean color's four sums.
 ///
 /// Finer than eight-bit color by a factor of thirty-two, which is all a mean of a picture
 /// needs. Paired with [`COLOR_MAX`] so one word cannot overflow: the largest grid is 256×256,
@@ -104,6 +105,7 @@ const WSUM: usize = 9;
 const RSUM: usize = 11;
 const GSUM: usize = 12;
 const BSUM: usize = 13;
+const ASUM: usize = 14;
 
 /// One sample of `expr` as biased fixed point. `expr` must already sit inside the measured
 /// range, which is what `clamped` writes.
@@ -169,10 +171,11 @@ pub fn color_wgsl(base: usize, color: &str) -> String {
         )
     };
     format!(
-        "{}\n{}\n{}",
+        "{}\n{}\n{}\n{}",
         channel('r', base + RSUM),
         channel('g', base + GSUM),
         channel('b', base + BSUM),
+        channel('a', base + ASUM),
     )
 }
 
@@ -195,9 +198,9 @@ fn measure_wgsl(node: NodeId, ctx: &mut CompileContext) {
         None => (format!("{}\n", decompose::HELPERS_WGSL), picked.wgsl),
     };
     let body = format!(
-        "    let color = unpremultiply({input});\n{helpers}{}\n{}",
+        "    let seen = {input};\n    let color = unpremultiply(seen);\n{helpers}{}\n{}",
         stats_wgsl(base, luma, "p"),
-        color_wgsl(base, "color"),
+        color_wgsl(base, "seen"),
     );
     let grid = grid_of(ctx.option(node, "grid"));
     let jitter = ctx.option_uniform(node, "jitter");
@@ -347,8 +350,9 @@ pub struct Stats {
     pub min: f32,
     pub x: f32,
     pub y: f32,
-    /// The mean of the input's own channels, opaque. Not the picked quantity: a tap says
-    /// both what color its input is and how much of the chosen quantity is in it.
+    /// The mean of the input's color weighted by its coverage, opaque. Not the picked
+    /// quantity: a tap says both what color its input is and how much of the chosen quantity
+    /// is in it.
     pub color: [f32; 4],
 }
 
@@ -404,8 +408,16 @@ pub fn decode(w: &[u32; TAP_WORDS]) -> Stats {
             0.0
         }
     };
-    let channel =
-        |word: usize| (f64::from(w[word]) / f64::from(COLOR_SCALE) / f64::from(count)) as f32;
+    // The premultiplied sums over the alpha's: a mean weighted by coverage, black where
+    // nothing was covered.
+    let alpha = f64::from(w[ASUM]);
+    let channel = |word: usize| {
+        if alpha > 0.0 {
+            (f64::from(w[word]) / alpha).min(f64::from(COLOR_MAX)) as f32
+        } else {
+            0.0
+        }
+    };
     Stats {
         count,
         mean: (signed64(w, SUM, count) as f64 / f64::from(SCALE) / f64::from(count)) as f32,
@@ -517,9 +529,10 @@ mod tests {
         slot_of(&[(count, l, x, y)])
     }
 
-    /// The three color sums `count` samples of `rgb` would leave, added into `w`.
-    fn with_color(mut w: [u32; TAP_WORDS], count: u32, rgb: [f32; 3]) -> [u32; TAP_WORDS] {
-        for (word, c) in [RSUM, GSUM, BSUM].into_iter().zip(rgb) {
+    /// The four color sums `count` samples of the premultiplied `rgba` would leave, added
+    /// into `w`.
+    fn with_color(mut w: [u32; TAP_WORDS], count: u32, rgba: [f32; 4]) -> [u32; TAP_WORDS] {
+        for (word, c) in [RSUM, GSUM, BSUM, ASUM].into_iter().zip(rgba) {
             let per = (c.clamp(0.0, COLOR_MAX - 1.0 / COLOR_SCALE) * COLOR_SCALE) as u32;
             w[word] = w[word].wrapping_add(per * count);
         }
@@ -540,7 +553,7 @@ mod tests {
     /// pure blue.
     #[test]
     fn the_mean_color_is_the_mean_of_the_channels() {
-        let w = with_color(slot(8, 1.0, 0.0, 0.0), 8, [0.0, 0.0, 1.0]);
+        let w = with_color(slot(8, 1.0, 0.0, 0.0), 8, [0.0, 0.0, 1.0, 1.0]);
         let s = decode(&w);
         assert_eq!(s.mean, 1.0, "the picked quantity is untouched");
         let [r, g, b, a] = s.color;
@@ -552,15 +565,27 @@ mod tests {
     /// Two runs of different colors average, rather than either winning.
     #[test]
     fn two_colors_average() {
-        let w = with_color(with_color(slot(8, 0.0, 0.0, 0.0), 4, [1.0; 3]), 4, [0.0; 3]);
+        let white = [1.0; 4];
+        let black = [0.0, 0.0, 0.0, 1.0];
+        let w = with_color(with_color(slot(8, 0.0, 0.0, 0.0), 4, white), 4, black);
         let s = decode(&w);
         for c in &s.color[..3] {
             assert!((c - 0.5).abs() < 1e-3, "{:?}", s.color);
         }
     }
 
+    /// A transparent run lends the mean nothing: half red and half nothing is red.
+    #[test]
+    fn a_transparent_run_lends_the_mean_nothing() {
+        let red = [1.0, 0.0, 0.0, 1.0];
+        let w = with_color(with_color(slot(8, 0.0, 0.0, 0.0), 4, red), 4, [0.0; 4]);
+        let s = decode(&w);
+        assert!((s.color[0] - 1.0).abs() < 1e-3, "{:?}", s.color);
+        assert_eq!(s.color[3], 1.0, "the mean color is opaque");
+    }
+
     /// The largest grid at the top of the range is exactly what one word holds: 65536 samples
-    /// of `COLOR_MAX * COLOR_SCALE` is 2^31, which is why three words are enough where the
+    /// of `COLOR_MAX * COLOR_SCALE` is 2^31, which is why four words are enough where the
     /// measured quantity needs six.
     #[test]
     fn the_biggest_grid_at_the_brightest_channel_does_not_overflow_a_word() {

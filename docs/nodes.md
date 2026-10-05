@@ -1336,11 +1336,12 @@ measures a field is still a tap, and the picture still passes through — so the
 inert and reads `Number` while that cable is there. Whatever is measured is signed, and read
 to 1/65536 over a range of -32768 to 32767. The centroid weights by the positive part of the
 quantity, so `x` and `y` say where it is positive and a field that is negative everywhere
-leaves them at the origin. The quantity, and the mean color below, are read from the
-input's own channels, as a `Convert` node reads them. A tap publishes its input's **mean color** beside all of that, which is a different question
+leaves them at the origin. The quantity is read from the input's own channels, as a `Convert`
+node reads them. A tap publishes its input's **mean color** beside all of that, which is a different question
 from the picked quantity — *what color is this picture on average*, rather than *how much of
-this quantity is in it*. Its alpha is opaque rather than averaged, so a mostly-transparent
-picture still shows the hue it is being asked about instead of reporting itself invisible.
+this quantity is in it*. It is weighted by coverage and opaque, so a mostly-transparent
+picture still shows the hue it is being asked about instead of reporting itself invisible, and
+a transparent texel lends it nothing.
 **Both label their pass-through row *Pass-Through* rather than *Output***, because on these
 two nodes it is the input leaving untouched and the row under it is a color as well;
 `autoexposure` keeps *Output*, since what leaves it is the picture times its gain.
