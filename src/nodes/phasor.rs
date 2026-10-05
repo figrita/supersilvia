@@ -18,10 +18,13 @@
 //! Cycles, the Time node's Seconds — publishes its **count** (`TickContext::publish_count`),
 //! which a Time reads at the same precision at every count forever: a CPU reader gets the
 //! `f64` itself, and a shader gets it [`split`] into its whole part, wrapped at
-//! [`WHOLE_WRAP`], 40320, and the `f32` of its fraction. 40320 is the least common multiple
-//! of 2520 and 128, so every period a shader reduces the whole part by — a noise's Repeat,
-//! Static's to 128, the tunnel's 64, one cycle — divides it, and an `f32` holds every whole
-//! number to 2²⁴ exactly. Anything else that reads a count — a Math node, an input that is
+//! [`WHOLE_WRAP`], 80640, and the `f32` of its fraction. 80640 is twice the least common
+//! multiple of 2520 and 128, so every period a shader reduces the whole part by — a noise's
+//! Repeat, Static's to 128, the tunnel's 64, one cycle — divides it, and an `f32` holds every
+//! whole number to 2²⁴ exactly. It is twice and not once so that a picture that never repeats,
+//! which a shader can only take round the wrap, comes back no sooner than 40 minutes at the
+//! Speed knob's top, 4: Static rolls six times a second, 24 at Speed 4, and 80640 rolls is 56
+//! minutes. Anything else that reads a count — a Math node, an input that is
 //! not a Time, a row — reads one `f32`: a gear's wrapped at [`WRAP`], 2520, the least common
 //! multiple of 1 to 10, centered on zero, −1260 up to 1260 ([`wrap_count`]), so a count a
 //! hair below zero reads as the small negative it is, at the `f32` precision zero has.
@@ -45,10 +48,12 @@ use crate::transport::Time;
 /// centered on zero by [`wrap_count`].
 pub const WRAP: f64 = 2520.0;
 
-/// The modulus a count's whole part wraps under when a shader reads it ([`split`]): 40320,
-/// the least common multiple of [`WRAP`] and 128, so a noise's Repeat, Static's 16 to 128, the
-/// tunnel's 64 and one cycle all divide it.
-pub const WHOLE_WRAP: f64 = 40320.0;
+/// The modulus a count's whole part wraps under when a shader reads it ([`split`]): 80640,
+/// twice the least common multiple of [`WRAP`] and 128, so a noise's Repeat, Static's 4 to
+/// 128, the tunnel's 64 and one cycle all divide it; and the longest a shader can tell a count
+/// apart over, which a picture that never repeats comes back after — Static, the fastest, 56
+/// minutes on at Speed 4. The prelude's `WHOLE_WRAP` is this number.
+pub const WHOLE_WRAP: f64 = 80640.0;
 
 /// A step of a cabled clock larger than this is its wrap at [`WRAP`], not a motion; and the
 /// bounds of a published count, `-HALF_WRAP` up to `HALF_WRAP`.
@@ -154,7 +159,7 @@ pub fn wrap_count(x: f64) -> f64 {
 }
 
 /// A count as a shader reads it: `[whole, fraction]`, the whole part wrapped at
-/// [`WHOLE_WRAP`] centered on zero, −20160 up to 20160, and the `f32` of the fraction, 0 up to
+/// [`WHOLE_WRAP`] centered on zero, −40320 up to 40320, and the `f32` of the fraction, 0 up to
 /// 1, zero within [`REACH`] of a whole number. A shader that needs the count modulo a period
 /// dividing [`WHOLE_WRAP`] reduces the whole part first, which is exact in an `f32`, then adds
 /// the fraction, so the reading is as precise at the millionth cycle as at the first.
@@ -534,17 +539,18 @@ mod tests {
         }
     }
 
-    /// A count split for a shader: the whole part wrapped at 40320 centered on zero, the
+    /// A count split for a shader: the whole part wrapped at 80640 centered on zero, the
     /// fraction its `f32`, and the pair as precise far from zero as near it — the fraction of
     /// a count a million cycles on is the fraction near zero, to the bit, and the whole part
-    /// reduced by any period dividing 40320 is the count's own.
+    /// reduced by any period dividing 80640 is the count's own.
     #[test]
     fn a_count_splits_into_a_whole_part_and_its_fraction() {
         assert_eq!(split(0.0), [0.0, 0.0]);
         assert_eq!(split(-0.25), [-1.0, 0.75]);
         assert_eq!(split(3.5), [3.0, 0.5]);
-        assert_eq!(split(20160.0), [-20160.0, 0.0]);
-        assert_eq!(split(40320.0 + 7.25), [7.0, 0.25]);
+        assert_eq!(split(20160.0), [20160.0, 0.0]);
+        assert_eq!(split(40320.0), [-40320.0, 0.0]);
+        assert_eq!(split(80640.0 + 7.25), [7.0, 0.25]);
         assert_eq!(
             split(5.0 - 1e-12),
             [5.0, 0.0],
@@ -570,10 +576,12 @@ mod tests {
             1260.3,
             20159.5,
             20160.5,
+            40319.5,
+            40320.5,
             4.0e5 + 0.6,
         ] {
             let [whole, fraction] = split(x);
-            for period in [1.0, 2.0, 16.0, 64.0, 128.0, 9.0, 7.0] {
+            for period in [1.0, 2.0, 16.0, 64.0, 128.0, 9.0, 7.0, 3.0, WHOLE_WRAP] {
                 let ours = f64::from(whole).rem_euclid(period) + f64::from(fraction);
                 let truth = x.rem_euclid(period);
                 assert!(
@@ -582,6 +590,14 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// The prelude's `WHOLE_WRAP`, which a noise at Repeat Never takes its time cell round,
+    /// is where [`split`] wraps the whole part.
+    #[test]
+    fn the_prelude_wraps_where_a_count_is_split() {
+        let line = format!("const WHOLE_WRAP: f32 = {WHOLE_WRAP:?};");
+        assert!(crate::compile::wgsl::PRELUDE.contains(&line), "{line}");
     }
 
     /// Held, the phase stays and the speed keeps following.

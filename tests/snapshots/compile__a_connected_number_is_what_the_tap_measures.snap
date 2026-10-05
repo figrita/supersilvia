@@ -38,8 +38,21 @@ fn time_periodic(time: vec2f, offset: f32) -> f32 { return time.y + offset; }
 fn time_repeat(time: vec2f, n: f32, offset: f32) -> f32 {
     return whole_mod(time.x, n) + time.y + offset;
 }
-// A node that never comes back: the whole count.
+// The whole count: an `f32` that resolves 2⁻⁸ of a cycle at the wrap, and jumps there, from
+// 40320 to −40320, unless the picture comes back every WHOLE_WRAP.
 fn time_unbounded(time: vec2f, offset: f32) -> f32 { return time.x + time.y + offset; }
+// Where the count's whole part wraps, centered on zero: `phasor::WHOLE_WRAP`.
+const WHOLE_WRAP: f32 = 80640.0;
+// A node on a lattice that comes back every `n` cells, a whole number the count's whole part
+// wraps at — `WHOLE_WRAP` itself for a picture that never repeats: `vec2f(cell, fraction)`,
+// the whole cell Time + Offset is in, 0 up to `n`, and how far into it, 0 up to 1. The two are
+// never added, so the fraction is as fine ten thousand cells on as in the first, and the body
+// hashes the cell.
+fn time_cells(time: vec2f, n: f32, offset: f32) -> vec2f {
+    let s = time.y + offset;
+    let k = floor(s);
+    return vec2f(whole_mod(time.x + k, n), s - k);
+}
 
 // Two numbers from a point, 0 to 1, for a measurement's jitter. Deterministic in its
 // argument: the same cell and the same moment give the same offset.

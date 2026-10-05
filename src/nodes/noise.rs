@@ -10,7 +10,9 @@
 //!
 //! The classic and simplex gradient functions (`mod289`, `permute`, `taylorInvSqrt`, and the
 //! 3D/4D noise bodies themselves) are Ian McEwan / Ashima Arts and Stefan Gustavson's
-//! `webgl-noise`, MIT; see `licenses/webgl-noise.txt`.
+//! `webgl-noise`, MIT; see `licenses/webgl-noise.txt`. The 3D bodies hash their corners with
+//! Chris Wellons' `lowbias32`, public domain, in place of webgl-noise's permutation
+//! ([`LATTICE_HASH_WGSL`]).
 //!
 //! [decisions.md]: ../../../docs/decisions.md
 //! [nodes.md]: ../../../docs/nodes.md
@@ -37,6 +39,14 @@
 //! closes on it, at any count; Static reads its roll modulo `N`. It is an option
 //! a person chooses, since a circle through four dimensions is not the line through three, and
 //! it rebuilds. See `docs/nodes.md#timing`.
+//!
+//! **Never is forty minutes at Speed 4, at least.** A shader tells a count apart only round
+//! its whole part's wrap, `phasor::WHOLE_WRAP`, 80640, so at Never each walks its line round
+//! that: the cell Time + Offset is in and the fraction into it, kept apart (`time_cells`), the
+//! cell hashed into the lattice and the fraction as fine at the end of a show as at the start.
+//! The line comes back exactly at the wrap, with no seam there, 672 minutes on at Speed 4;
+//! Static's rolls 56 minutes on. Nothing comes back sooner, slid across the frame either, as
+//! webgl-noise's permutation does 17 cells on ([`LATTICE_HASH_WGSL`]).
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
@@ -46,29 +56,58 @@ use crate::nodes::{
 
 // ------------------------------------------------------------------------ shader helpers
 
+/// The hash a lattice point's gradient is chosen by, on the line through time a noise at
+/// Repeat Never walks: three whole numbers chained through Chris Wellons' `lowbias32`, a
+/// bijection on 32 bits, public domain, and taken modulo 289 — the index webgl-noise's
+/// gradients are chosen from, so the gradients and their share are webgl-noise's.
+///
+/// **Not webgl-noise's permutation**, `(34x² + x) mod 289`, which moves by 17 wherever its
+/// argument does: its hash of `(x, y + 17, t − 17)` is its hash of `(x, y, t)`, and of
+/// `(x + 17, y, t − 17)` too, so 17 cells on along time its noise is its noise 17 cells over —
+/// half a Perlin's frame at its default scale, 34 seconds into a show at Speed 1, slid across
+/// whole — and its lattice comes back entire every 289 cells.
+pub const LATTICE_HASH_WGSL: &str = "fn latticeHash(v: vec4u) -> vec4u {
+    var x = v;
+    x ^= x >> vec4u(16u);
+    x *= vec4u(0x7feb352du);
+    x ^= x >> vec4u(15u);
+    x *= vec4u(0x846ca68bu);
+    x ^= x >> vec4u(16u);
+    return x;
+}
+
+fn latticeIndex(x: vec4i, y: vec4i, z: vec4i) -> vec4f {
+    let h = latticeHash(bitcast<vec4u>(x) + latticeHash(bitcast<vec4u>(y) + latticeHash(bitcast<vec4u>(z))));
+    return vec4f(h % vec4u(289u));
+}";
+
+/// [`SIMPLEX3D_WGSL`] steps through time three cells at a time, so the count's wrap must be a
+/// whole number of steps for the lattice to come back there.
+const _: () = assert!(crate::nodes::phasor::WHOLE_WRAP % 3.0 == 0.0);
+
 /// Classic Perlin noise over three dimensions, from silvia's `perlinnoise.js`, itself
-/// Stefan Gustavson's `webgl-noise`.
+/// Stefan Gustavson's `webgl-noise`, with its corners hashed by [`LATTICE_HASH_WGSL`] rather
+/// than webgl-noise's permutation, and its time `t` read as `vec2f(cell, fraction)`
+/// (`time_cells`): the time cell modulo `WHOLE_WRAP` and the fraction, any number the body
+/// adds to it carried into the cell here. The corners are then whole numbers however far the
+/// show has run, and the fraction as fine as at the start.
 ///
 /// Its helpers carry a `perlin` prefix so a shader holding this and [`SIMPLEX3D_WGSL`] — a
-/// graph with both nodes in it — declares no name twice. WGSL has no overloading, so the
-/// `vec3` and `vec4` versions of `perlinMod289` are two functions with two names.
-pub const PERLIN3D_WGSL: &str = "fn perlinMod289_3(x: vec3f) -> vec3f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-fn perlinMod289_4(x: vec4f) -> vec4f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+/// graph with both nodes in it — declares no name twice. [`PERLIN4D_WGSL`] calls them.
+pub const PERLIN3D_WGSL: &str = "fn perlinMod289_4(x: vec4f) -> vec4f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 fn perlinPermute(x: vec4f) -> vec4f { return perlinMod289_4(((x * 34.0) + 1.0) * x); }
 fn perlinTaylorInvSqrt(r: vec4f) -> vec4f { return 1.79284291400159 - 0.85373472090914 * r; }
 
-fn cnoise3(P: vec3f) -> f32 {
-    let Pi0 = perlinMod289_3(floor(P));
-    let Pi1 = perlinMod289_3(floor(P) + vec3f(1.0));
-    let Pf0 = fract(P);
+fn cnoise3(p: vec2f, t: vec2f) -> f32 {
+    let k = floor(t.y);
+    let cell = whole_mod(t.x + k, WHOLE_WRAP);
+    let i0 = vec2i(floor(p));
+    let ix = vec4i(i0.x, i0.x + 1, i0.x, i0.x + 1);
+    let iy = vec4i(i0.y, i0.y, i0.y + 1, i0.y + 1);
+    let ixy0 = latticeIndex(ix, iy, vec4i(i32(cell)));
+    let ixy1 = latticeIndex(ix, iy, vec4i(i32(whole_mod(cell + 1.0, WHOLE_WRAP))));
+    let Pf0 = vec3f(fract(p), t.y - k);
     let Pf1 = Pf0 - vec3f(1.0);
-    let ix = vec4f(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
-    let iy = vec4f(Pi0.yy, Pi1.yy);
-    let iz0 = Pi0.zzzz;
-    let iz1 = Pi1.zzzz;
-    let ixy = perlinPermute(perlinPermute(ix) + iy);
-    let ixy0 = perlinPermute(ixy + iz0);
-    let ixy1 = perlinPermute(ixy + iz1);
     var gx0 = ixy0 * (1.0 / 7.0);
     var gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
     gx0 = fract(gx0);
@@ -110,20 +149,27 @@ fn cnoise3(P: vec3f) -> f32 {
 }";
 
 /// Simplex noise over three dimensions, from silvia's `shaderUtils.SIMPLEX3D`, itself Ian
-/// McEwan and Stefan Gustavson's `webgl-noise`.
+/// McEwan and Stefan Gustavson's `webgl-noise`, with its corners hashed by
+/// [`LATTICE_HASH_WGSL`] and its time `t` read as [`PERLIN3D_WGSL`]'s is.
 ///
-/// WGSL has no overloading, so the `vec3` and `vec4` versions of `mod289_3d` are
-/// `mod289_3d_v3` and `mod289_3d_v4`.
+/// **Three cells along time are one whole lattice step**, `(1, 1, 4)` in the skewed lattice,
+/// so the noise is found near the start of time, at the cell's remainder by three plus the
+/// fraction, and its corners moved by the whole steps after: every number the skew sees is
+/// small. A corner is hashed by what does not change along such a step, `x − y` and `4x − z`,
+/// and by how deep it is, `5z − x − y`, which a step deepens by 18 — taken modulo
+/// `6 × WHOLE_WRAP`, so the lattice comes back where the count's whole part wraps and nowhere
+/// sooner, and a corner hashes the same from whichever cell it is reached.
 pub const SIMPLEX3D_WGSL: &str =
-    "fn mod289_3d_v3(x: vec3f) -> vec3f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-fn mod289_3d_v4(x: vec4f) -> vec4f { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-fn permute3d(x: vec4f) -> vec4f { return mod289_3d_v4(((x * 34.0) + 1.0) * x); }
-fn taylorInvSqrt3d(r: vec4f) -> vec4f { return 1.79284291400159 - 0.85373472095314 * r; }
+    "fn taylorInvSqrt3d(r: vec4f) -> vec4f { return 1.79284291400159 - 0.85373472095314 * r; }
 
-fn snoise3(v: vec3f) -> f32 {
+fn snoise3(q: vec2f, t: vec2f) -> f32 {
     const C = vec2f(1.0 / 6.0, 1.0 / 3.0);
     const D = vec4f(0.0, 0.5, 1.0, 2.0);
-    var i = floor(v + dot(v, C.yyy));
+    let k = floor(t.y);
+    let cell = i32(whole_mod(t.x + k, WHOLE_WRAP));
+    let steps = cell / 3;
+    let v = vec3f(q, f32(cell - 3 * steps) + t.y - k);
+    let i = floor(v + dot(v, C.yyy));
     let x0 = v - i + dot(i, C.xxx);
     let g = step(x0.yzx, x0.xyz);
     let l = 1.0 - g;
@@ -132,11 +178,12 @@ fn snoise3(v: vec3f) -> f32 {
     let x1 = x0 - i1 + C.xxx;
     let x2 = x0 - i2 + C.yyy;
     let x3 = x0 - D.yyy;
-    i = mod289_3d_v3(i);
-    let p = permute3d(permute3d(permute3d(
-        i.z + vec4f(0.0, i1.z, i2.z, 1.0))
-        + i.y + vec4f(0.0, i1.y, i2.y, 1.0))
-        + i.x + vec4f(0.0, i1.x, i2.x, 1.0));
+    let cx = vec4i(i.x + vec4f(0.0, i1.x, i2.x, 1.0));
+    let cy = vec4i(i.y + vec4f(0.0, i1.y, i2.y, 1.0));
+    let cz = vec4i(i.z + vec4f(0.0, i1.z, i2.z, 1.0));
+    let span = 6 * i32(WHOLE_WRAP);
+    let depth = 5 * cz - cx - cy + 18 * steps;
+    let p = latticeIndex(cx - cy, 4 * cx - cz, ((depth % span) + span) % span);
     let n_ = 0.142857142857;
     let ns = n_ * D.wyz - D.xzx;
     let j = p - 49.0 * floor(p * ns.z * ns.z);
@@ -166,7 +213,8 @@ fn snoise3(v: vec3f) -> f32 {
     return 42.0 * dot(m * m, vec4f(dot(p0, x0), dot(p1, x1), dot(p2, x2), dot(p3, x3)));
 }";
 
-/// Fractal Brownian motion over [`SIMPLEX3D_WGSL`], shared by `fractal` and `domainwarp`.
+/// Fractal Brownian motion over [`SIMPLEX3D_WGSL`], shared by `fractal` and `domainwarp`, its
+/// time a `vec2f(cell, fraction)` as the noise's is, each octave a third of a cell further on.
 ///
 /// `shape` is 0 for the plain sum, 1 for turbulence — the octave folded about its middle —
 /// and 2 for ridged, which is turbulence inverted and squared. silvia writes the same three
@@ -176,14 +224,14 @@ fn snoise3(v: vec3f) -> f32 {
 /// The octave count is a `for` bound of 8 with an early `break` rather than the loop variable
 /// itself, so the trip count is a constant however the count arrives. `freq` is a parameter,
 /// and WGSL's are immutable, so the loop steps a copy.
-pub const FBM_WGSL: &str = "fn fbmNoise(p: vec2f, freq0: f32, octaves: i32, lacunarity: f32, gain: f32, t: f32, shape: i32) -> f32 {
+pub const FBM_WGSL: &str = "fn fbmNoise(p: vec2f, freq0: f32, octaves: i32, lacunarity: f32, gain: f32, t: vec2f, shape: i32) -> f32 {
     var freq = freq0;
     var sum = 0.0;
     var amp = 1.0;
     var total = 0.0;
     for (var i = 0; i < 8; i++) {
         if (i >= octaves) { break; }
-        var n = snoise3(vec3f(p * freq, t + f32(i) * 0.3)) * 0.5 + 0.5;
+        var n = snoise3(p * freq, vec2f(t.x, t.y + f32(i) * 0.3)) * 0.5 + 0.5;
         if (shape == 1) {
             n = abs(n * 2.0 - 1.0);
         } else if (shape == 2) {
@@ -408,13 +456,15 @@ pub fn repeat_wgsl(value: &str) -> Option<String> {
     Some(format!("{n:?}"))
 }
 
-/// Where a noise reads its time: `t` on the line, or with a Repeat of `n`, the point `t ÷ n`
-/// of the way round a circle `n` long — Time's whole part taken modulo `n` and its fraction
-/// added before Offset is, so a Time of `n` is a Time of zero to the bit, at any count.
+/// Where a noise reads its time, a `vec2f` either way: on the line, the cell and the fraction
+/// (`time_cells`), the cell taken round the count's wrap, so the line comes back there and
+/// nowhere sooner; or with a Repeat of `n`, the point `t ÷ n` of the way round a circle `n`
+/// long — Time's whole part taken modulo `n` and its fraction added before Offset is, so a
+/// Time of `n` is a Time of zero to the bit, at any count.
 pub fn noise_time(repeat: Option<&str>) -> String {
     match repeat {
         Some(n) => format!("loopCircle(time_repeat({{clock}}, {n}, {{phaseOffset}}) / {n}, {n})"),
-        None => "time_unbounded({clock}, {phaseOffset})".to_string(),
+        None => "time_cells({clock}, WHOLE_WRAP, {phaseOffset})".to_string(),
     }
 }
 
@@ -461,7 +511,7 @@ node! {
             "16" => "Every 16",
         ],
     ],
-    wgsl_utils: [PERLIN3D_WGSL, PERLIN4D_WGSL, LOOP_CIRCLE_WGSL],
+    wgsl_utils: [LATTICE_HASH_WGSL, PERLIN3D_WGSL, PERLIN4D_WGSL, LOOP_CIRCLE_WGSL],
     // The [-1, 1] noise is halved rather than remapped and re-centerd: (n + 1) / 2 - 1 / 2
     // is n / 2, and the contrast is a gain about the middle either way.
     wgsl_common: varying(|node, ctx| {
@@ -470,7 +520,7 @@ node! {
                 "cnoise4(vec4f(uv * noiseScale, {}))",
                 noise_time(Some(&n))
             ),
-            None => format!("cnoise3(vec3f(uv * noiseScale, {}))", noise_time(None)),
+            None => format!("cnoise3(uv * noiseScale, {})", noise_time(None)),
         };
         format!(
             "    let noiseScale = {{scale}};
@@ -517,11 +567,11 @@ node! {
             "16" => "Every 16",
         ],
     ],
-    wgsl_utils: [SIMPLEX3D_WGSL, SIMPLEX4D_WGSL, LOOP_CIRCLE_WGSL],
+    wgsl_utils: [LATTICE_HASH_WGSL, SIMPLEX3D_WGSL, SIMPLEX4D_WGSL, LOOP_CIRCLE_WGSL],
     wgsl_common: varying(|node, ctx| {
         let raw = match repeat_wgsl(ctx.option(node, "repeat")) {
             Some(n) => format!("snoise4(vec4f(p, {}))", noise_time(Some(&n))),
-            None => format!("snoise3(vec3f(p, {}))", noise_time(None)),
+            None => format!("snoise3(p, {})", noise_time(None)),
         };
         format!(
             "    let noiseScale = {{scale}};
@@ -669,7 +719,14 @@ node! {
             "16" => "Every 16",
         ],
     ],
-    wgsl_utils: [SIMPLEX3D_WGSL, FBM_WGSL, SIMPLEX4D_WGSL, FBM_LOOP_WGSL, LOOP_CIRCLE_WGSL],
+    wgsl_utils: [
+        LATTICE_HASH_WGSL,
+        SIMPLEX3D_WGSL,
+        FBM_WGSL,
+        SIMPLEX4D_WGSL,
+        FBM_LOOP_WGSL,
+        LOOP_CIRCLE_WGSL
+    ],
     wgsl_common: varying(|node, ctx| {
         let (fbm, time) = fbm_time(ctx.option(node, "repeat"));
         format!(
@@ -719,21 +776,19 @@ node! {
         ],
     ],
     wgsl_utils: [CELL_HASH_WGSL],
-    // The seed steps rather than sliding: `floor` of the accumulated count is what makes the
-    // field hold still between redraws instead of crawling, and a rate of zero floors to
-    // zero, which is the still picture with no branch to say so.
+    // The seed steps rather than sliding: the roll is the whole cell Time + Offset is in
+    // (`time_cells`), which holds the field still between redraws instead of crawling, and a
+    // rate of zero stays in cell zero, which is the still picture with no branch to say so.
+    // At Repeat Never the roll is taken round the count's wrap, 80640 rolls, 56 minutes at
+    // Speed 4: the furthest a shader can tell rolls apart.
     //
     // silvia switches between a hard cell and a bilinear one at a threshold; here smoothness
     // mixes them. The hard value is the cell's own corner, which is what the bilinear one
     // reads at the corner, so the two ends of the control agree with silvia's two branches
     // and everything between is continuous.
     wgsl_common: varying(|node, ctx| {
-        let roll = match repeat_wgsl(ctx.option(node, "repeat")) {
-            Some(n) => format!(
-                "    let roll = floor_mod(floor(time_repeat({{clock}}, {n}, {{phaseOffset}})), {n});\n"
-            ),
-            None => "    let roll = floor(time_unbounded({clock}, {phaseOffset}));\n".to_string(),
-        };
+        let n = repeat_wgsl(ctx.option(node, "repeat")).unwrap_or_else(|| "WHOLE_WRAP".into());
+        let roll = format!("    let roll = time_cells({{clock}}, {n}, {{phaseOffset}}).x;\n");
         format!(
             "    let noiseScale = {{scale}};
     let smoothness = clamp({{smoothness}}, 0.0, 1.0);

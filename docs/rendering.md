@@ -912,7 +912,7 @@ on every tick the synth writes there `playhead × rate` from the `f64` playhead 
 in Free mode the node's own playhead, its Speed integrated, times its pace — which a render
 starts again from its first frame, so the film is the same twice. Cabled, Time
 reads what arrives the same way, usually a gear's Cycles. A count is a `vec2f`, its whole part
-wrapped at 40320 and the `f32` of its fraction (`nodes::phasor::split`, resolved by the synth
+wrapped at 80640 and the `f32` of its fraction (`nodes::phasor::split`, resolved by the synth
 from `UniformProvider::NodeCount`), and a body, through the prelude's time helpers, reduces the whole part by its period — one
 cycle, `N` under Repeat, 64 for the Tunnel while its depth wraps — before it adds the
 fraction. So a module holds no clock and no loop: there is no Loop bit in the compiler,
