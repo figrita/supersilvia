@@ -169,13 +169,13 @@ rest of the app:
 - `ctx.count(id, key)` — what arrives at an input read as a **count**, in `f64`: a count its
   source published whole, unbounded, or else the one `f32` `ctx.input` reads.
   `ctx.counted(id, key)` says which. `ctx.publish_count(id, port, count, one)` publishes a
-  count: `count` for a Time, and `one`, the `f32` everything else reads. See
-  [gears](#gears).
+  count: `count` for a Time and for the row's number, and `one`, the `f32` everything else
+  reads. See [gears](#gears).
 - `ctx.wraps_at(id, key)` — where the clock cabled into an input wraps as `ctx.count` reads
   it: never for a count published whole, and otherwise the feeding output's
   `OutputDef::wraps_at`, 1 for a Phase, 2520 for anything else, a count's one `f32` through a
-  Math node among them (−1260 up to 1260). Where a Ratio Gear unwraps its Clock In to find the
-  whole cycles its output passed in a frame.
+  Math node among them (`phasor::wrap_count`). Where a Ratio Gear unwraps its Clock In to
+  find the whole cycles its output passed in a frame.
 - `ctx.jump(id, key)` — one of the node's number outputs was put where it is this frame
   rather than moved there; `ctx.jumped(id, key)` asks it of the output cabled into an input,
   which ticked first. A gear says it of its three readings on a Reset, on a change of a Ratio
@@ -421,7 +421,7 @@ see what it crossed: an edge detector, not an accumulator.
   at 0; Speed 1 is a bar every two seconds, and in Loop mode a Master Gear a bar long is the
   tempo, its Hold and Reset the play and the reset. A cabled Time is read through `ctx.count`: a count whole, in `f64`,
   and anything else unwrapped where its source declares its wrap, so a gear's Phase passing
-  one, or a count's one `f32` through a Math node stepping from 1260 to −1260, is a frame's
+  one, or a count's one `f32` through a Math node rolling over from 2520 to zero, is a frame's
   motion; a jump, or a cable plugged in, let go or moved onto another
   output, puts the reading back at what the source publishes. **A step fires on each crossing of
   `floor(16 × cycle)`**, stamped with its moment inside the frame, and each lane
@@ -561,14 +561,22 @@ the bit. A picture that never repeats can be told apart only round the wrap: a n
 Never takes its lattice cell round 80640 and keeps the fraction apart (`time_cells`), so it
 comes back there with no seam, Static 56 minutes on at Speed 4; the tunnel at Depth Wrap None
 adds the two parts, an `f32` that resolves 2⁻⁸ of a cycle at worst, and jumps where the whole
-part wraps, 40320 flights in, fifteen days at Speed 4. **Everything else reads one
-`f32`**: a Math node, any input that is not a Time, the row's number. That is the count
-wrapped at `phasor::WRAP`, 2520 — the least common multiple of one to ten, so a reader at a
-whole ratio, or at one whose denominator is ten or less, passes the wrap with no seam — and
-centered on zero, −1260 up to 1260 (`phasor::wrap_count`), so a count near zero is exact and
-within `phasor::REACH` of a whole number of wraps it is zero. A count put through a Math node
-is that one `f32` from then on, and a noise at Repeat 16 behind one meets a seam once every
-2520 cycles. **Phase** (key `wrapped`) is the fraction alone, 0 up to 1. **Ping-pong** is a
+part wraps, 40320 flights in, fifteen days at Speed 4. **The row prints the count itself**, in `f64` and unwrapped
+(`synth::Uniforms::reading`), at the two places every readout has: it climbs for as long as
+the show runs, as the time readout's timecode does, and gives the label beside it room a
+character at a time. **Everything else reads one `f32`**: a Math node, any input that is not a
+Time. That is the count wrapped at `phasor::WRAP`, 2520 — the least common multiple of one to
+ten, so a reader at a whole ratio, or at one whose denominator is ten or less, passes the wrap
+with no seam — **keeping its sign**, an odometer either way (`phasor::wrap_count`): a count of
+zero or more is zero up to 2520, so a show's clock never reads negative and rolls over to
+zero 42 minutes into a show on a one-second gear, and a count below zero is zero down to
+−2520, so a warm-up before zero and a reversed gear read negative, and a count a hair below
+zero reads as the small negative it is, at zero's precision. Within `phasor::REACH` of a whole
+number of wraps it is zero, never −0. It is always a whole number of wraps from the count, so
+a reader that unwraps it at 2520 (`phasor::unwrap_at`, a step of more than 1260 being the
+wrap) reads a rollover as a frame's motion either way. Near ±2520 an `f32` resolves 2⁻¹² of a
+cycle, a quarter of a thousandth. A count put through a Math node is that one `f32` from then
+on, and a noise at Repeat 16 behind one meets a seam once every 2520 cycles. **Phase** (key `wrapped`) is the fraction alone, 0 up to 1. **Ping-pong** is a
 triangle over two cycles. **Trigger** is an event on each whole cycle, stamped where inside the
 frame it fell (`phasor::Step::crossings`, bounded per frame); a boundary a step ends within
 `phasor::REACH`, 10⁻⁹, short of is passed by that step and not again, so a render that lands a
@@ -648,9 +656,10 @@ Output's ordinary render**, for as long as the caption says; there is no loop ex
 
 **The Time node** (`time`), in Gears too, is ambient time as a number, with no inputs:
 Seconds, the playhead, published as a count, so it **counts on**. A Time reads it whole — a
-CPU node the `f64` playhead, a shader its whole part wrapped at 80640 and its fraction —
-and its one `f32`, what a Math node reads, is the playhead unwrapped, which resolves a
-millisecond for the first two hours of a show and a sixtieth of a second for the first 36.
+CPU node the `f64` playhead, a shader its whole part wrapped at 80640 and its fraction — and
+so does its row; its one `f32`, what a Math node reads, is the playhead unwrapped, which
+resolves a millisecond for the first two hours of a show and a sixtieth of a second for the
+first 36.
 
 ## The event half
 

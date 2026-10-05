@@ -369,6 +369,12 @@ impl<'a> Uniforms<'a> {
         self.numbers.get(&port).copied()
     }
 
+    /// What a port's row prints: what it published as a count, whole and unwrapped, where it
+    /// published one, and its one `f32` otherwise. `None` where it has published nothing.
+    pub fn reading(self, port: PortRef) -> Option<f64> {
+        self.count(port).or_else(|| self.get(port).map(f64::from))
+    }
+
     /// What the Time at `at` reads, with `source` the output cabled into it: that output's
     /// count, or else its one `f32`, as `UniformProvider::NodeCount` and
     /// `TickContext::count` resolve it; and with nothing cabled in, the reading published

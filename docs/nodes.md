@@ -1585,11 +1585,14 @@ reads it whole: a CPU node in `f64`, never wrapped, and a shader as its whole pa
 reads −0.01, a render's warm-up counts before zero as precisely as after it, and the
 millionth cycle is as precise as the first. 80640 is twice the least common multiple of 2520
 and 128, which every Repeat and Static's 128 divide, and the most a picture
-that never repeats can run before it comes back ([Timing](#timing)). Anything else — a Math node, an
-input that is not a Time, the row — reads one `f32`, wrapped at 2520 and centered on zero,
-−1260 up to 1260, the least common multiple of one to ten, which a reader at a whole ratio or
-a ratio in tenths passes with no seam: through a Math node, a gear at a cycle a second rolls
-over, from 1260 to −1260, 21 minutes in and every 42 minutes after. **Phase** (key
+that never repeats can run before it comes back ([Timing](#timing)). The row prints the
+count itself, unwrapped, climbing for as long as the show runs. Anything else — a Math node,
+an input that is not a Time — reads one `f32`, wrapped at 2520, the least common multiple of
+one to ten, which a reader at a whole ratio or a ratio in tenths passes with no seam, and
+keeping its sign, like an odometer: zero up to 2520 going forwards and zero down to −2520
+below zero, so a show's count never reads negative and a reversed gear's stays negative.
+Through a Math node, a gear at a cycle a second rolls over from 2520 to zero 42 minutes in
+and every 42 minutes after. **Phase** (key
 `wrapped`) is the fraction alone, 0 to 1; **Ping-pong** a triangle that reaches 1 at one cycle
 and 0 at two; and **Trigger** an event on each whole cycle, placed where inside the frame it
 fell, down for the Master Gear's Gate or for half a cycle of the Ratio Gear, on each whole
@@ -1622,10 +1625,10 @@ closes](#when-a-loop-closes)).
 
 `time` is **ambient time as a number**: `Seconds`, the playhead published as a count, so it
 jumps with a seek, holds with a pause, is negative before the playhead's zero and **counts
-on**: a Time reads the `f64` playhead whole, and through a Math node it is the playhead as one
-`f32`, unwrapped, which resolves a millisecond for the first two hours of a show and a
-sixtieth of a second for the first 36. It has no inputs, and no cycles or phase of its own:
-a rate against the show is a Ratio Gear, and a count of cycles a Master Gear's.
+on**: a Time and its row read the `f64` playhead whole, and through a Math node it is the
+playhead as one `f32`, unwrapped, which resolves a millisecond for the first two hours of a
+show and a sixtieth of a second for the first 36. It has no inputs, and no cycles or phase
+of its own: a rate against the show is a Ratio Gear, and a count of cycles a Master Gear's.
 
 `oscillator` is silvia's, and it publishes a `UniformNumber`: seven waveforms in silvia's own
 phases at `Time + Offset`, in waves, times Amplitude, lifted by **Level**, silvia's Offset.

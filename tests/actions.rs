@@ -2017,10 +2017,11 @@ fn a_sequencer_on_a_gears_phase_plays_on_its_downbeats() {
     }
 }
 
-/// **A gear's Cycles in Time pass 1260 with no seam.** Their one `f32` steps from 1260 to −1260
-/// there, and the sequencer reads the count whole, so a Euclidean lane of eleven steps, which
-/// 16 × 2520 steps is no whole number of, keeps its pulse every 11 sixteenths of a second — 41
-/// or 42 frames — across it, and a lane of every step opens on the frame the `f32` wraps.
+/// **A gear's Cycles in Time pass 2520 with no seam.** Their one `f32` rolls over from 2520 to
+/// zero there, and the sequencer reads the count whole, so a Euclidean lane of eleven steps,
+/// which 16 × 2520 steps is no whole number of, keeps its pulse every 11 sixteenths of a
+/// second — 41 or 42 frames — across it, and a lane of every step opens on the frame the `f32`
+/// wraps.
 #[test]
 fn a_sequencer_on_a_gears_cycles_plays_through_the_counts_wrap() {
     let (mut app, id) = app_with("euclideanrhythm");
@@ -2039,7 +2040,7 @@ fn a_sequencer_on_a_gears_cycles_plays_through_the_counts_wrap() {
     }
     let clock = seconds_gear_into(&mut app, id, "cycles");
     app.tick(FRAME);
-    app.transport(supersilvia::transport::Command::Seek(1255.0));
+    app.transport(supersilvia::transport::Command::Seek(2515.0));
     app.tick(FRAME);
     let mut pulses = Vec::new();
     let mut wrapped = false;
@@ -2047,7 +2048,7 @@ fn a_sequencer_on_a_gears_cycles_plays_through_the_counts_wrap() {
         let before = app.uniform(PortRef::new(clock, "cycles")).unwrap();
         app.tick(FRAME);
         let after = app.uniform(PortRef::new(clock, "cycles")).unwrap();
-        if before > 1259.0 && after < -1259.0 {
+        if before > 2519.0 && after < 1.0 {
             wrapped = true;
             assert!(
                 opened(&app, PortRef::new(id, "lane1")),

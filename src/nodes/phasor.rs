@@ -24,10 +24,13 @@
 //! whole number to 2²⁴ exactly. It is twice and not once so that a picture that never repeats,
 //! which a shader can only take round the wrap, comes back no sooner than 40 minutes at the
 //! Speed knob's top, 4: Static rolls six times a second, 24 at Speed 4, and 80640 rolls is 56
-//! minutes. Anything else that reads a count — a Math node, an input that is
-//! not a Time, a row — reads one `f32`: a gear's wrapped at [`WRAP`], 2520, the least common
-//! multiple of 1 to 10, centered on zero, −1260 up to 1260 ([`wrap_count`]), so a count a
-//! hair below zero reads as the small negative it is, at the `f32` precision zero has.
+//! minutes. A row prints the count itself, unwrapped. Anything else that reads a count — a
+//! Math node, an input that is not a Time — reads one `f32`: a gear's wrapped at [`WRAP`],
+//! 2520, the least common multiple of 1 to 10, keeping its sign ([`wrap_count`]): zero up to
+//! 2520 forwards, so a show's count never reads negative, and zero down to −2520 below zero,
+//! so a count a hair below zero reads as the small negative it is, at the `f32` precision
+//! zero has, and a reversed gear's stays negative. Wrapped centered on zero instead, a
+//! one-second gear read −1260 at 21 minutes (`docs/decisions.md`).
 //!
 //! **The glide is exact.** A rate follows its target with a first-order lag of time constant
 //! `τ`, integrated in closed form over each step,
@@ -44,8 +47,8 @@
 
 use crate::transport::Time;
 
-/// The modulus a count read as one `f32` wraps under: the least common multiple of 1 to 10,
-/// centered on zero by [`wrap_count`].
+/// The modulus a count read as one `f32` wraps under, keeping its sign ([`wrap_count`]): the
+/// least common multiple of 1 to 10.
 pub const WRAP: f64 = 2520.0;
 
 /// The modulus a count's whole part wraps under when a shader reads it ([`split`]): 80640,
@@ -54,10 +57,6 @@ pub const WRAP: f64 = 2520.0;
 /// apart over, which a picture that never repeats comes back after — Static, the fastest, 56
 /// minutes on at Speed 4. The prelude's `WHOLE_WRAP` is this number.
 pub const WHOLE_WRAP: f64 = 80640.0;
-
-/// A step of a cabled clock larger than this is its wrap at [`WRAP`], not a motion; and the
-/// bounds of a published count, `-HALF_WRAP` up to `HALF_WRAP`.
-pub const HALF_WRAP: f64 = WRAP / 2.0;
 
 /// How near a boundary a phase must come to have reached it, in its own units, and how near a
 /// whole period a phase published modulo that period must come to be published as zero.
@@ -144,18 +143,20 @@ pub fn fraction(x: f64, period: f64) -> f64 {
     }
 }
 
-/// A general clock's count as a wire carries it: `x` wrapped at [`WRAP`] into `-HALF_WRAP` up
-/// to `HALF_WRAP`, unchanged inside those bounds, and zero within [`REACH`] of a whole number
-/// of wraps — so a loop's first frame, reached a hair either side of zero, publishes zero.
-/// Its fraction of any period dividing [`WRAP`] is the unwrapped count's.
+/// A general clock's count as one `f32` carries it: `x` wrapped at [`WRAP`] keeping its sign,
+/// zero up to 2520 for a count of zero or more and zero down to −2520 for one below zero,
+/// unchanged inside those bounds, and zero within [`REACH`] of a whole number of wraps — so a
+/// loop's first frame, reached a hair either side of zero, publishes zero, and never −0. It
+/// differs from `x` by a whole number of wraps, so its fraction of any period dividing
+/// [`WRAP`] is the unwrapped count's.
 pub fn wrap_count(x: f64) -> f64 {
-    let r = if (-HALF_WRAP..HALF_WRAP).contains(&x) {
-        x
+    // `%` on an `f64` is exact and keeps the dividend's sign.
+    let r = x % WRAP;
+    if r.abs() < REACH || r.abs() > WRAP - REACH {
+        0.0
     } else {
-        let r = x.rem_euclid(WRAP);
-        if r >= HALF_WRAP { r - WRAP } else { r }
-    };
-    if r.abs() < REACH { 0.0 } else { r }
+        r
+    }
 }
 
 /// A count as a shader reads it: `[whole, fraction]`, the whole part wrapped at
@@ -478,48 +479,78 @@ mod tests {
         assert!((at60 - expected).abs() < 1e-9, "{at60} {expected}");
     }
 
-    /// A reader at ratio 0.7 of a count published by [`wrap_count`] passes the wrap, from
-    /// 1260 to −1260, with no seam.
+    /// A reader at ratio 0.7 of a count published by [`wrap_count`] passes the wrap with no
+    /// seam: forwards from 2520 to zero, and backwards from −2520 to zero.
     #[test]
     fn a_reader_at_ratio_0_7_is_continuous_across_the_wrap() {
-        let mut count = HALF_WRAP - 0.5;
         let reader = |count: f64| (f64::from(wrap_count(count) as f32) * 0.7).rem_euclid(1.0);
-        let mut last = reader(count);
-        for _ in 0..60 {
-            count += 1.0 / 60.0;
-            let now = reader(count);
-            let d = (now - last).rem_euclid(1.0);
-            assert!(
-                (d - 0.7 / 60.0).abs() < 1e-3,
-                "a seam at {count}: {last} to {now}"
-            );
-            last = now;
+        for dir in [1.0, -1.0] {
+            let mut count = dir * (WRAP - 0.5);
+            let mut last = reader(count);
+            for _ in 0..60 {
+                count += dir / 60.0;
+                let now = reader(count);
+                let d = (now - last).rem_euclid(1.0);
+                let d = if dir > 0.0 { d } else { d - 1.0 };
+                assert!(
+                    (d - dir * 0.7 / 60.0).abs() < 1e-3,
+                    "a seam at {count}: {last} to {now}"
+                );
+                last = now;
+            }
+            assert!(count.abs() > WRAP, "it crossed the wrap");
+            assert!(wrap_count(count).abs() < 1.0, "{count}");
         }
-        assert!(count > HALF_WRAP, "it crossed the wrap");
-        assert!(wrap_count(count) < 1.0 - HALF_WRAP);
     }
 
-    /// A count is published centered on zero: unchanged from −1260 up to 1260, a hair below
-    /// zero the small negative it is, zero within [`REACH`] of a whole number of wraps, and
-    /// its fraction of every period that divides 2520 the unwrapped count's.
+    /// A count is published as an odometer that keeps its sign: from zero up to 2520 going
+    /// forwards and from zero down to −2520 going backwards, unchanged inside those bounds, a
+    /// hair below zero the small negative it is, zero within [`REACH`] of a whole number of
+    /// wraps, and its fraction of every period that divides 2520 the unwrapped count's.
     #[test]
-    fn a_count_wraps_centered_on_zero() {
+    fn a_count_wraps_like_an_odometer_keeping_its_sign() {
         assert_eq!(wrap_count(0.0), 0.0);
         assert_eq!(wrap_count(-0.01), -0.01);
         assert_eq!(wrap_count(1259.5), 1259.5);
-        assert_eq!(wrap_count(-1260.0), -1260.0);
-        assert_eq!(wrap_count(1260.0), -1260.0);
+        assert_eq!(wrap_count(1260.25), 1260.25);
+        assert_eq!(wrap_count(-1260.25), -1260.25);
+        assert_eq!(wrap_count(2519.99), 2519.99);
+        assert_eq!(wrap_count(-2519.99), -2519.99);
+        assert_eq!(wrap_count(2520.0), 0.0);
+        assert_eq!(wrap_count(5040.5), 0.5);
         assert_eq!(wrap_count(2520.0 + 3.0), 3.0);
-        assert!((wrap_count(1260.25) + 1259.75).abs() < 1e-9);
-        assert!((wrap_count(-1260.25) - 1259.75).abs() < 1e-9);
-        assert_eq!(wrap_count(-1e-12), 0.0);
+        assert_eq!(wrap_count(-2520.5), -0.5);
+        assert_eq!(
+            wrap_count(-2520.0).to_bits(),
+            0.0_f64.to_bits(),
+            "zero, not −0"
+        );
+        assert_eq!(wrap_count(-1e-12).to_bits(), 0.0_f64.to_bits());
         assert_eq!(wrap_count(2520.0 - 1e-12), 0.0);
+        assert_eq!(wrap_count(-2520.0 + 1e-12).to_bits(), 0.0_f64.to_bits());
         assert_eq!(wrap_count(5040.0 + 1e-12), 0.0);
         assert_eq!(
             (wrap_count(-0.01) as f32),
             -0.01,
             "an f32 keeps zero's precision"
         );
+        let mut x = -12000.0_f64;
+        while x < 12000.0 {
+            let w = wrap_count(x);
+            assert!(
+                (0.0..WRAP).contains(&w) || (x < 0.0 && w > -WRAP && w <= 0.0),
+                "{x} wraps to {w}"
+            );
+            if x >= 0.0 {
+                assert!(w >= 0.0, "{x} forwards never reads negative: {w}");
+            }
+            let k = (x - w) / WRAP;
+            assert!(
+                (k - k.round()).abs() < 1e-9,
+                "{x} and {w} are a whole number of wraps apart"
+            );
+            x += 7.3;
+        }
         for x in [
             -3000.7,
             -1260.3,
@@ -527,6 +558,7 @@ mod tests {
             0.4,
             1259.9,
             1260.3,
+            2519.6,
             4000.123,
             1.0e6 + 0.6,
         ] {
@@ -730,8 +762,17 @@ mod tests {
     /// A cabled clock's step over the wrap is the wrap.
     #[test]
     fn a_step_over_half_the_wrap_is_the_wrap() {
-        assert!((unwrap(1259.9, -1259.9) - 0.2).abs() < 1e-9);
-        assert!((unwrap(-1259.9, 1259.9) + 0.2).abs() < 1e-9);
+        assert!((unwrap(2519.9, 0.1) - 0.2).abs() < 1e-9);
+        assert!((unwrap(0.1, 2519.9) + 0.2).abs() < 1e-9);
+        assert!(
+            (unwrap(-2519.9, -0.1) + 0.2).abs() < 1e-9,
+            "a reversed count"
+        );
+        assert!((unwrap(-0.1, -2519.9) - 0.2).abs() < 1e-9);
+        assert!(
+            (unwrap(0.1, -0.1) + 0.2).abs() < 1e-9,
+            "through zero is no wrap"
+        );
         assert_eq!(unwrap(10.0, 12.5), 2.5);
         assert_eq!(
             unwrap(0.0, -0.01),

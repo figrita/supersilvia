@@ -1319,22 +1319,22 @@ fn the_tunnels_flight_closes_every_cycle() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
-/// **A noise on a gear passes 1260 with no seam.** A Perlin repeating every 16 and a Static
-/// repeating every 128 rolls, each on a Ratio Gear at ×64 under a quarter-second Master Gear:
-/// 25.6 cycles a frame at 10 fps, so every five frames is 128 cycles, a whole number of either
-/// one's repeats, and frame 47, at 1203.2 cycles, is frame 52, at 1331.2, to the byte. Between
-/// them the count passes 1260, where one read as one `f32` stepped to −1260, which neither 16
-/// nor 128 divides.
+/// **A noise on a gear passes 2520 with no seam.** A Perlin repeating every 16 and a Static
+/// repeating every 128 rolls, each on a Ratio Gear at ×64 under an eighth-of-a-second Master
+/// Gear: 51.2 cycles a frame at 10 fps, so every five frames is 256 cycles, a whole number of
+/// either one's repeats, and frame 47, at 2406.4 cycles, is frame 52, at 2662.4, to the byte.
+/// Between them the count passes 2520, where one read as one `f32` rolls over to zero, which
+/// neither 16 nor 128 divides.
 #[test]
-fn a_noise_on_a_gear_passes_1260_with_no_seam() {
+fn a_noise_on_a_gear_passes_2520_with_no_seam() {
     use supersilvia::Command;
     for (slug, repeat) in [("perlin", "16"), ("static", "128")] {
         let root = std::env::temp_dir().join(format!(
-            "supersilvia-past-1260-{slug}-{}",
+            "supersilvia-past-2520-{slug}-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&root);
-        let (mut app, out, _) = geared(slug, "color", 0.25, (64.0, 1.0));
+        let (mut app, out, _) = geared(slug, "color", 0.125, (64.0, 1.0));
         let node = app
             .graph()
             .iter()
@@ -1355,7 +1355,7 @@ fn a_noise_on_a_gear_passes_1260_with_no_seam() {
         let frame = render_frames(&mut app, out, 10.0, 53, &root.join("png"));
         assert!(
             frame(47) == frame(52),
-            "{slug} at Repeat {repeat}: 128 cycles on, past 1260, is the same picture"
+            "{slug} at Repeat {repeat}: 256 cycles on, past 2520, is the same picture"
         );
         assert!(frame(47) != frame(48), "{slug}: and a frame on is not");
         let _ = std::fs::remove_dir_all(&root);

@@ -8926,6 +8926,44 @@ fn a_uniform_output_shows_the_value_it_published() {
     );
 }
 
+/// **A count's row reads the count**, unwrapped, however far into the show: a Ratio Gear on
+/// ambient seconds at a playhead of 123456.78 prints 123456.78 against its Cycles, where its
+/// one `f32` is that wrapped at 2520, and the row's label is still drawn whole beside it.
+#[test]
+fn a_counts_row_reads_the_count_far_into_the_show() {
+    use supersilvia::transport::Command as Transport;
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_PHASE);
+    let gear = h.state().graph().iter().map(|(id, _)| id).next().unwrap();
+    h.state_mut().transport(Transport::Pause);
+    h.state_mut().transport(Transport::Seek(123_456.78));
+    h.run_steps(4);
+
+    let cycles = PortRef::new(gear, "cycles");
+    assert_eq!(
+        h.state().count(cycles),
+        Some(123_456.78),
+        "the count, whole"
+    );
+    let one = h.state().uniform(cycles).expect("and its one f32");
+    assert!(one < 2520.0, "which is wrapped: {one}");
+    assert!(
+        h.query_by_label("ratiogear1.cycles (uniform number output) 123456.78")
+            .is_some(),
+        "the port names the count"
+    );
+    let painted = painted_text(&h);
+    assert!(
+        painted.iter().any(|t| t == "123456.78"),
+        "the row prints the count: {painted:?}"
+    );
+    assert!(
+        painted.iter().any(|t| t == "Cycles"),
+        "and its label whole beside it: {painted:?}"
+    );
+}
+
 /// A control whose input is connected is a meter of what arrives, not of what is stored.
 #[test]
 fn a_connected_control_shows_the_arriving_value_and_not_its_own() {

@@ -967,7 +967,7 @@ impl<'a> TickContext<'a> {
     /// Where the clock cabled into one of `id`'s inputs wraps as [`Self::count`] reads it:
     /// never for a count published whole, and otherwise [`OutputDef::wraps_at`] of the output
     /// feeding it — one for a Phase, 2520 for one `f32` of a count through a Math node
-    /// (−1260 up to 1260), or anything unplugged.
+    /// (`phasor::wrap_count`), or anything unplugged.
     ///
     /// [`OutputDef::wraps_at`]: crate::nodes::OutputDef::wraps_at
     pub fn wraps_at(&self, id: NodeId, key: &'static str) -> f64 {
@@ -1043,8 +1043,8 @@ impl<'a> TickContext<'a> {
     /// Publish one of `id`'s outputs as a **count**: a clock's reading in its own cycles,
     /// `count`, unbounded, which a Time reads whole — a CPU node in `f64` through
     /// [`Self::count`], a shader as its whole part and the `f32` of its fraction
-    /// ([`crate::nodes::phasor::split`]) — and `one`, the one `f32` everything else reads: a
-    /// Math node, an input that is not a Time, the row's number.
+    /// ([`crate::nodes::phasor::split`]) and a row as the number it prints — and `one`, the
+    /// one `f32` everything else reads: a Math node, an input that is not a Time.
     pub fn publish_count(&mut self, id: NodeId, port: &'static str, count: f64, one: f32) {
         let count = if count.is_finite() { count } else { 0.0 };
         self.counts.insert(PortRef::new(id, port), count);

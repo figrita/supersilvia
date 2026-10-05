@@ -368,13 +368,13 @@ fn a_clip_holds_on_pause_and_a_seek_moves_it_by_its_rate_times_the_jump() {
     );
 }
 
-/// **A held clip stays held past the count's old wrap.** A clip on Hold plays once and holds
-/// its last frame. On a one-second Master Gear's Cycles, or on the Time node's Seconds — plays
-/// of the clip either way — it is long past its one play at 1259.5 and stays on its last frame
-/// through 1260, where a count read as one `f32` once stepped to −1260 and sent it back to its
-/// first.
+/// **A held clip stays held past the count's wrap.** A clip on Hold plays once and holds its
+/// last frame. On a one-second Master Gear's Cycles, or on the Time node's Seconds — plays of
+/// the clip either way — it is long past its one play at 2519.5 and stays on its last frame
+/// through 2520, where a count read as one `f32` rolls over to zero, which would send it back
+/// to its first.
 #[test]
-fn a_held_clip_stays_held_past_1260() {
+fn a_held_clip_stays_held_past_2520() {
     let Some(file) = clip("held") else { return };
     for (slug, port) in [("mastergear", "cycles"), ("time", "seconds")] {
         let (mut app, id) = app_with_video(&file);
@@ -411,7 +411,7 @@ fn a_held_clip_stays_held_past_1260() {
             to: PortRef::new(id, supersilvia::nodes::TIME),
         })
         .unwrap();
-        app.transport(supersilvia::transport::Command::Seek(1259.5));
+        app.transport(supersilvia::transport::Command::Seek(2519.5));
         for _ in 0..60 {
             app.tick(1.0 / 60.0);
             assert_eq!(
@@ -421,7 +421,7 @@ fn a_held_clip_stays_held_past_1260() {
                 app.transport_state().playhead
             );
         }
-        assert!(app.transport_state().playhead > 1260.4, "{slug}: past 1260");
+        assert!(app.transport_state().playhead > 2520.4, "{slug}: past 2520");
     }
 }
 

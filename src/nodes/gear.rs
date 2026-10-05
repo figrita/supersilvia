@@ -28,8 +28,9 @@
 //! frame, going down as going up.
 //!
 //! Both publish the same four: Cycles, a count published whole (`TickContext::publish_count`) —
-//! to a Time in `f64` on the CPU and as a whole part and a fraction in a shader, and to
-//! anything else as one `f32` wrapped at [`phasor::WRAP`] centered on zero;
+//! to a Time in `f64` on the CPU and as a whole part and a fraction in a shader, to its row
+//! as the number printed, and to anything else as one `f32` wrapped at [`phasor::WRAP`]
+//! keeping its sign ([`phasor::wrap_count`]);
 //! Phase, the fraction alone; Ping-pong, a triangle over two cycles; and Trigger, an event on
 //! each whole cycle placed where inside the frame it fell. A Master Gear's **Hold** is a
 //! toggle that freezes it where it stands; its **Reset** puts it at the start of a cycle, and
@@ -377,7 +378,7 @@ fn jumped(id: NodeId, ctx: &mut TickContext<'_>) {
 }
 
 /// Publish a gear's three readings of `cycles`: Cycles a count, whole, which a Time reads to
-/// `f64`'s precision, and as one `f32` wrapped centered on zero for anything else.
+/// `f64`'s precision, and as one `f32` wrapped at 2520 keeping its sign for anything else.
 fn publish(id: NodeId, ctx: &mut TickContext<'_>, cycles: f64) {
     ctx.publish_count(id, "cycles", cycles, phasor::wrap_count(cycles) as f32);
     let phase = phasor::fraction(cycles, 1.0) as f32;

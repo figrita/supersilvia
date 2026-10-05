@@ -1496,17 +1496,29 @@ Time reads at the same precision at every count forever: a CPU node in `f64`, un
 shader as `vec2f(whole, fraction)` — the whole part wrapped at **80640**, twice the least
 common multiple of 2520 and 128, centered on zero, and the `f32` of the fraction (`phasor::split`) —
 reducing the whole part by its period before it adds the fraction, which is exact, since an
-`f32` holds every whole number to 2²⁴. Everything else reads one `f32`: a gear's wrapped at
-2520, the least common multiple of one to ten, centered on zero, −1260 up to 1260
-(`phasor::wrap_count`), and Seconds' the playhead unwrapped. `u_time` is the playhead's
-fraction of a second, which is all a shader reads of it. **Rejected: a count as one `f32`
-wrapped at 2520.** An `f32` rounds one moment differently by how large the count is, so −0.01
+`f32` holds every whole number to 2²⁴. A row prints the count itself, in `f64` and
+unwrapped, so a gear's Cycles climb for as long as the show runs, as the time readout's
+timecode does. Everything else reads one `f32`: Seconds' the playhead unwrapped, and a gear's
+wrapped at 2520, the least common multiple of one to ten, **keeping its sign**
+(`phasor::wrap_count`) — an odometer either way, zero up to 2520 for a count of zero or more
+and zero down to −2520 for one below zero. So forward time never reads negative, a count a
+hair below zero reads as the small negative it is, at zero's precision, and a reversed gear's
+count stays negative; it is always a whole number of wraps from the count, so a reader that
+unwraps it at 2520 takes a rollover either way as a frame's motion. Its cost is an `f32` that
+reaches 2520: 2⁻¹² of a cycle at worst. `u_time` is the playhead's fraction of a second, which
+is all a shader reads of it. **Rejected: the one `f32` wrapped centered on zero**, −1260 up to
+1260. It kept a count near zero exact as the sign-keeping wrap does, at 2⁻¹³ of a cycle at
+worst, but put time negative partway through a show: a one-second Master Gear's Cycles
+climbed to 1260 and jumped to −1260 21 minutes in, on its row and into every Math node it
+fed, and a show's clock going negative is confusing and looks broken. Negative is right only
+going backwards — a reversed gear, a warm-up before zero — which is where the sign-keeping
+wrap puts it. **Rejected: a count as one `f32` wrapped at 2520** for a Time to read. An `f32` rounds one moment differently by how large the count is, so −0.01
 and 0.99 are a hair apart once stored: through feedback, "Reverse the show" closed with 32
 pixels a level off after a warm-up at negative time, worse the longer the warm-up, and a
 noise at Repeat 16, Static at 16 to 128 and a clip on Hold met a seam once
-every 2520 cycles, since none of their periods divides 2520. **Rejected: the wrap into 0 up to
-2520**, before it, for the same reason at its worst: a count a hair below zero read 2519.99,
-where an `f32` resolves only 2⁻¹² of a cycle. **Rejected: an `f64` uniform**, which WGSL has
+every 2520 cycles, since none of their periods divides 2520. **Rejected: the one `f32`
+wrapped into 0 up to 2520 for every count**, whatever its sign: a count a hair below zero read
+2519.99, where an `f32` resolves only 2⁻¹² of a cycle, and a reversed gear's read positive. **Rejected: an `f64` uniform**, which WGSL has
 none of on the GPUs supersilvia runs on. **Rejected: the wrap at 40320**, the least common
 multiple itself: a picture that never repeats can be told apart only round the wrap, and
 Static, six rolls a second, rolled through 40320 in 28 minutes at Speed 4, under the forty
@@ -1565,7 +1577,7 @@ Output. A gear is where a rate is shared, changed on the beat or divided: one ca
 number of looping nodes at one rate, and a chain of gears says whether they close. A node's
 own Speed, in Free mode, turns one node; a gear is what several nodes keep time by. Time on a wire is a float in cycles
 of some clock — **Cycles** the count, published whole for a Time and as one `f32` wrapped at
-2520 centered on zero for anything else, **Phase** the fraction — and no new port type
+2520 keeping its sign for anything else, **Phase** the fraction — and no new port type
 carries it.
 
 - **The Master Gear** (`mastergear`) is the show's clock at a length in seconds. It

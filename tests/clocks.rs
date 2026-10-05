@@ -848,14 +848,14 @@ fn a_reset_inside_the_first_cycle_is_a_beat_to_the_followers() {
 }
 
 /// A count's one `f32` wraps, and a Time reads past the wrap: a gear's Cycles read as one
-/// `f32` step from 1260 to −1260, and a Ratio Gear counting them keeps going the same way, at
-/// Teeth whose ratio's denominator divides 2520 or not — 1 : 2, 1 : 7, 1 : 11, 3 : 7 and
+/// `f32` roll over from 2520 to zero, and a Ratio Gear counting them keeps going the same way,
+/// at Teeth whose ratio's denominator divides 2520 or not — 1 : 2, 1 : 7, 1 : 11, 3 : 7 and
 /// 1 : 7 in Reverse — each frame its share of the clock's motion to a billionth, since it
 /// reads the count whole.
 #[test]
 fn a_cabled_clock_passes_its_wrap_with_no_seam() {
     let mut app = App::headless();
-    // Ambient seconds at 20 : 1, 1260 cycles in 63 seconds.
+    // Ambient seconds at 20 : 1, 2520 cycles in 126 seconds.
     let fast = geared(&mut app, None, 20.0, 1.0);
     let teeth = [(1.0, 2.0), (1.0, 7.0), (1.0, 11.0), (3.0, 7.0), (-1.0, 7.0)];
     let followers: Vec<NodeId> = teeth
@@ -867,7 +867,7 @@ fn a_cabled_clock_passes_its_wrap_with_no_seam() {
         })
         .collect();
     app.tick(FRAME);
-    app.transport(Transport::Seek(62.9));
+    app.transport(Transport::Seek(125.9));
     app.tick(FRAME);
     let mut last: Vec<f64> = followers.iter().map(|&id| count(&app, id)).collect();
     let mut wrapped = false;
@@ -878,8 +878,8 @@ fn a_cabled_clock_passes_its_wrap_with_no_seam() {
         if after < before {
             wrapped = true;
             assert!(
-                before > 1259.0 && after < -1259.0,
-                "the count wraps from 1260 to −1260: {before} to {after}"
+                before > 2519.0 && (0.0..1.0).contains(&after),
+                "the count rolls over from 2520 to zero: {before} to {after}"
             );
         }
         for ((id, (p, q)), last) in followers.iter().zip(teeth).zip(&mut last) {
@@ -893,6 +893,145 @@ fn a_cabled_clock_passes_its_wrap_with_no_seam() {
         }
     }
     assert!(wrapped, "the clock did wrap");
+}
+
+/// What a node's row prints for one of its outputs: the reading the canvas is handed.
+fn shown(app: &App, node: NodeId, key: &'static str) -> f64 {
+    supersilvia::synth::Uniforms::of(app.snapshot())
+        .reading(PortRef::new(node, key))
+        .unwrap_or_else(|| panic!("{key} is published"))
+}
+
+/// **A gear's row reads its count, and its one `f32` never reads negative going forwards.** A
+/// one-second Master Gear played past 1260, 2520 and 5040 cycles — 21, 42 and 84 minutes into
+/// a show: its row prints the count itself, unwrapped, climbing as long as the show runs, and
+/// the one `f32` a Math node reads is the count wrapped at 2520, zero or more, rolling over to
+/// zero at each 2520 like an odometer.
+#[test]
+fn a_gears_row_reads_its_count_and_its_one_f32_never_goes_negative() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    app.tick(FRAME);
+    let mut rolled = 0;
+    for at in [1259.5, 2519.5, 5039.5] {
+        app.transport(Transport::Seek(at));
+        app.tick(FRAME);
+        let mut before = read(&app, clock, "cycles");
+        for _ in 0..60 {
+            app.tick(FRAME);
+            let whole = count(&app, clock);
+            assert_eq!(
+                shown(&app, clock, "cycles"),
+                whole,
+                "the row reads the count"
+            );
+            let one = read(&app, clock, "cycles");
+            assert!(
+                one >= 0.0,
+                "{one} at {whole} cycles: forwards never reads negative"
+            );
+            let k = (whole - f64::from(one)) / 2520.0;
+            assert!(
+                (k - k.round()).abs() < 1e-6,
+                "{one} is {whole} wrapped at 2520"
+            );
+            if one < before {
+                rolled += 1;
+                assert!(before > 2519.0 && one < 1.0, "{before} to {one}");
+            }
+            before = one;
+        }
+        assert!(
+            shown(&app, clock, "cycles") > at + 0.9,
+            "it climbs past {at}"
+        );
+    }
+    assert_eq!(
+        rolled, 2,
+        "rolled over at 2520 and at 5040, and nowhere else"
+    );
+}
+
+/// **A reversed gear's one `f32` stays negative, and rolls over to zero.** A Ratio Gear in
+/// Reverse at 20 : 1 on ambient seconds counts down twenty a second: across −2520 its row
+/// reads the count, and its one `f32` stays at or below zero, stepping from −2520 to zero,
+/// which a reader unwraps as the frame's motion like any other frame's.
+#[test]
+fn a_reversed_gears_one_f32_stays_negative_across_its_wrap() {
+    let mut app = App::headless();
+    let gear = geared(&mut app, None, 20.0, 1.0);
+    reverse(&mut app, gear, true);
+    app.tick(FRAME);
+    app.transport(Transport::Seek(125.9));
+    app.tick(FRAME);
+    let mut was = (count(&app, gear), read(&app, gear, "cycles"));
+    let mut rolled = false;
+    for _ in 0..30 {
+        app.tick(FRAME);
+        let whole = count(&app, gear);
+        let one = read(&app, gear, "cycles");
+        assert_eq!(
+            shown(&app, gear, "cycles"),
+            whole,
+            "the row reads the count"
+        );
+        assert!(
+            one <= 0.0,
+            "{one} at {whole}: a reversed count stays negative"
+        );
+        if one > was.1 {
+            rolled = true;
+            assert!(was.1 < -2519.0 && one > -1.0, "{} to {one}", was.1);
+        }
+        let step = supersilvia::nodes::phasor::unwrap(f64::from(was.1), f64::from(one));
+        assert!(
+            (step - (whole - was.0)).abs() < 1e-3,
+            "its step is the count's, across the wrap too: {step}"
+        );
+        was = (whole, one);
+    }
+    assert!(rolled, "it rolled over");
+    assert!(shown(&app, gear, "cycles") < -2520.0);
+}
+
+/// **A Math node fed Cycles across the wrap.** A one-second Master Gear's Cycles through Add
+/// with zero: what comes out is the one `f32`, zero or more, rolling over from 2520 to zero;
+/// and a Ratio Gear at 1 : 1 on it, which reads that `f32` unwrapped at 2520, beats once a
+/// cycle across the rollover, as its parent does, with none extra and none missed.
+#[test]
+fn a_math_node_fed_cycles_rolls_over_to_zero() {
+    let mut app = App::headless();
+    let clock = master(&mut app, 1.0);
+    let sum = add(&mut app, "add");
+    connect(&mut app, (clock, "cycles"), (sum, "a"));
+    set(&mut app, sum, "b", 0.0);
+    let follower = geared(&mut app, None, 1.0, 1.0);
+    connect(&mut app, (sum, "output"), (follower, "clock"));
+    app.tick(FRAME);
+    app.transport(Transport::Seek(2519.5));
+    app.tick(FRAME);
+    let mut before = read(&app, sum, "output");
+    let (mut rolled, mut theirs, mut ours) = (false, 0, 0);
+    for _ in 0..120 {
+        app.tick(FRAME);
+        let out = read(&app, sum, "output");
+        assert_eq!(
+            out,
+            read(&app, clock, "cycles"),
+            "Add with zero is Cycles' f32"
+        );
+        assert!(out >= 0.0, "{out}: never negative");
+        if out < before {
+            rolled = true;
+            assert!(before > 2519.0 && out < 1.0, "{before} to {out}");
+        }
+        before = out;
+        theirs += downs(&app, clock);
+        ours += downs(&app, follower);
+    }
+    assert!(rolled, "it rolled over");
+    assert_eq!(theirs, 2, "the master beat at 2520 and 2521");
+    assert_eq!(ours, theirs, "and the gear on the Math node with it");
 }
 
 /// **A count just below zero reads as a small negative.** A Ratio Gear whose Clock In steps

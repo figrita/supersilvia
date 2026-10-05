@@ -279,7 +279,9 @@ fn label_room(block_width: f32, is_output: bool, has_control: bool, taken: f32, 
     (block_width - LABEL_INSET * zoom - far).max(0.0)
 }
 
-/// A published uniform number as text, into a buffer the caller reuses.
+/// A published uniform number as text, into a buffer the caller reuses: a count whole and
+/// unwrapped ([`crate::synth::Uniforms::reading`]), so a gear's Cycles climb for as long as
+/// the show runs and the label beside them gives up its room a character at a time.
 ///
 /// **Two fixed places, not three significant figures.** Everything on the canvas is
 /// monospace, so a fixed decimal count changes width only when the integer part gains a
@@ -294,7 +296,7 @@ fn label_room(block_width: f32, is_output: bool, has_control: bool, taken: f32, 
 /// `integral` is the one exception, an output that declared itself a count rather than a
 /// measurement: it is written with no decimal places at all, because two zeroes after a
 /// channel number say the number is between two others when it never is.
-fn readout(buf: &mut String, value: f32, integral: bool) {
+fn readout(buf: &mut String, value: f64, integral: bool) {
     use std::fmt::Write as _;
     buf.clear();
     if !value.is_finite() {
@@ -837,7 +839,7 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
             at.x -= w + READOUT_GAP * zoom;
         }
         let published = (is_output && port.ty == PortType::UniformNumber)
-            .then(|| cx.frame.uniforms.get(PortRef::new(cx.id, port.key)))
+            .then(|| cx.frame.uniforms.reading(PortRef::new(cx.id, port.key)))
             .flatten();
         let declared = (is_output && port.ty.is_varying() && thumb.is_none())
             .then(|| out_def.and_then(|o| o.range))
@@ -3628,8 +3630,9 @@ pub struct PortLook {
     /// dot, so a port says which wire leaves it without the wire having to be followed.
     /// `None` when the preference is off or the port carries nothing.
     pub outline: Option<Color32>,
-    /// What an output published this frame, as a number or as a color.
-    pub published: Option<f32>,
+    /// What an output published this frame, as a number — a count whole and unwrapped
+    /// ([`crate::synth::Uniforms::reading`]) — or as a color.
+    pub published: Option<f64>,
     pub published_color: Option<[f32; 4]>,
     /// How brightly this port is throbbing because it just fired: 1 on the frame it fired and
     /// decaying to 0. Zero on every port that is not an action, and on every frame nothing
