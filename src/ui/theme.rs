@@ -603,11 +603,19 @@ pub fn apply(ctx: &eframe::egui::Context, theme: &Theme) {
     });
 }
 
+/// Hack Regular, vendored whole: the monospace face, for what is read column by column — a
+/// path, a MIDI message, the Status box.
+///
+/// `eframe`'s `default_fonts` feature is off, so egui carries no faces of its own; this is
+/// the one file it would have supplied, taken unmodified from its own crate source
+/// (`epaint_default_fonts`), MIT and Bitstream Vera.
+const HACK: &[u8] = include_bytes!("../../assets/fonts/Hack-Regular.ttf");
+
 /// Noto Emoji, whole, vendored.
 ///
-/// egui bundles a **subset** of this same font — 887 codepoints against this file's 1,496 —
-/// so an emoji outside the subset draws as a tofu box. Four of the icons in the current
-/// library already do.
+/// `default_fonts` off means egui carries no emoji font to fall back on at all, subset or
+/// otherwise, so this is the only one in the stack: every emoji the library draws, not the
+/// 887 of some other font's cut-down set.
 ///
 /// It is vendored rather than read from the system so the build does not depend on which
 /// fonts a machine happens to have: an icon that renders here renders everywhere.
@@ -616,7 +624,7 @@ const NOTO_EMOJI: &[u8] = include_bytes!("../../assets/fonts/NotoEmoji-Regular.t
 /// Noto Sans Math, cut to the blocks a UI draws icons from by `scripts/subset-fonts.py`.
 ///
 /// The symbol icons — `∿` for Sine, `∼` for Cosine — are Mathematical Operators, which no
-/// emoji font carries and none of egui's four faces have. 81 KB against the full face's 967.
+/// emoji font carries. 81 KB against the full face's 967.
 const NOTO_SANS_MATH: &[u8] = include_bytes!("../../assets/fonts/NotoSansMath-Subset.ttf");
 
 /// Space Grotesk Regular and SemiBold, cut to text by `scripts/text-fonts.py`, with tabular
@@ -624,37 +632,26 @@ const NOTO_SANS_MATH: &[u8] = include_bytes!("../../assets/fonts/NotoSansMath-Su
 const TEXT: &[u8] = include_bytes!("../../assets/fonts/SpaceGrotesk-Regular.ttf");
 const TEXT_SEMIBOLD: &[u8] = include_bytes!("../../assets/fonts/SpaceGrotesk-SemiBold.ttf");
 
-/// The font stack: the text face **first** in the proportional family and in [`STRONG`], and the
-/// vendored symbol faces appended as the **last** fallbacks.
+/// The font stack, built from nothing: `default_fonts` is off, so
+/// [`eframe::egui::FontDefinitions::default`] returns empty and every family here is one this
+/// function writes in full, rather than one it reorders.
 ///
-/// The text face goes first because it is the text face. It carries letters, digits and punctuation
-/// only, so every icon still falls through to the face that drew it before.
+/// Monospace is Hack alone, plus the two symbol fallbacks every family carries. Proportional
+/// and [`STRONG`] put their own text face first — Space Grotesk Regular and SemiBold — for the
+/// same reason: it carries letters, digits and punctuation only, so an icon drawn as text
+/// still falls through to a face that has it.
 ///
-/// The symbol faces go last, deliberately. epaint walks a family's list in order and moves on
-/// when a face has no glyph, so they are reached only where the alternative is a box.
-/// Inserting them earlier would silently restyle glyphs that already work.
+/// The symbol faces go last on every family, deliberately. epaint walks a family's list in
+/// order and moves on when a face has no glyph, so they are reached only where the
+/// alternative is a box.
 pub fn fonts() -> eframe::egui::FontDefinitions {
     use eframe::egui::{FontData, FontDefinitions, FontFamily};
 
     let mut defs = FontDefinitions::default();
-    for (name, bytes) in [("text", TEXT), ("text-semibold", TEXT_SEMIBOLD)] {
-        defs.font_data.insert(
-            name.to_owned(),
-            std::sync::Arc::new(FontData::from_static(bytes)),
-        );
-    }
-    let fallbacks = defs.families[&FontFamily::Proportional].clone();
-    defs.families
-        .get_mut(&FontFamily::Proportional)
-        .expect("egui defines the proportional family")
-        .insert(0, "text".to_owned());
-    defs.families.insert(
-        FontFamily::Name(STRONG.into()),
-        std::iter::once("text-semibold".to_owned())
-            .chain(fallbacks)
-            .collect(),
-    );
     for (name, bytes) in [
+        ("text", TEXT),
+        ("text-semibold", TEXT_SEMIBOLD),
+        ("hack", HACK),
         ("noto-emoji-full", NOTO_EMOJI),
         ("noto-sans-math", NOTO_SANS_MATH),
     ] {
@@ -662,10 +659,27 @@ pub fn fonts() -> eframe::egui::FontDefinitions {
             name.to_owned(),
             std::sync::Arc::new(FontData::from_static(bytes)),
         );
-        for family in defs.families.values_mut() {
-            family.push(name.to_owned());
-        }
     }
+
+    let fallbacks = ["noto-emoji-full", "noto-sans-math"].map(str::to_owned);
+    defs.families.insert(
+        FontFamily::Proportional,
+        std::iter::once("text".to_owned())
+            .chain(fallbacks.clone())
+            .collect(),
+    );
+    defs.families.insert(
+        FontFamily::Monospace,
+        std::iter::once("hack".to_owned())
+            .chain(fallbacks.clone())
+            .collect(),
+    );
+    defs.families.insert(
+        FontFamily::Name(STRONG.into()),
+        std::iter::once("text-semibold".to_owned())
+            .chain(fallbacks)
+            .collect(),
+    );
     defs
 }
 

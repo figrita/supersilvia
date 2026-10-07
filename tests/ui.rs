@@ -1089,7 +1089,7 @@ fn help_licences_shows_every_section() {
         .expect("a heading");
     for (tab, line) in [
         ("Rust crates", crates),
-        ("Assets", "licenses/hash-without-sine.txt"),
+        ("Assets", "licenses/hack.txt"),
         ("GStreamer", "GNU Lesser General Public License"),
         ("NDI®", "NDI® is a registered trademark of Vizrt NDI AB."),
     ] {

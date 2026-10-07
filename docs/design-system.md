@@ -135,7 +135,7 @@ These are things the handoff specified that a reasonable person would guess wron
   option is set once and then read, and a `video` node has four of them.
 - **Text is Space Grotesk at a 12 px base**, headings Space Grotesk SemiBold. Monospace is kept for what is
   read column by column: a path, a MIDI message, the Status box. See
-  [Fonts](#fonts-and-why-four-are-vendored).
+  [Fonts](#fonts-and-why-five-are-vendored).
 - **The canvas is compact.** Every size is the least that holds its text and its target at
   zoom 1: a 180-wide node, a 22-point header, 20-point port and option rows, 26-point control
   rows, and an s-number of 84x20. A screen holds more of the patch, and there is less chrome
@@ -154,13 +154,12 @@ These are things the handoff specified that a reasonable person would guess wron
   is what says where the plane is and how far you have panned, and one you have to hunt for
   does none of that job.
 
-## Fonts, and why four are vendored
+## Fonts, and why five are vendored
 
 `theme::fonts` builds the stack. **The text face is Space Grotesk**, Regular for text and
 SemiBold as the family `theme::STRONG` for headings: `theme::ui_font` and `theme::strong_font`
-name them.
-Monospace (egui's Hack) is kept for what is read column by column — a path, a MIDI message,
-the Status box — and nothing else.
+name them. Monospace is Hack, vendored rather than taken from egui, for what is read column
+by column — a path, a MIDI message, the Status box — and nothing else.
 
 Space Grotesk is cut by `scripts/text-fonts.py` from the variable face: an instance per weight,
 its **digits pointed at the tabular figures its `tnum` feature names** so a live number never
@@ -168,17 +167,21 @@ shuffles sideways (egui has no shaper to turn on `tnum`), and the cut **text onl
 space. It goes first in the proportional family, and because it carries no arrows, shapes or
 symbols, every icon still falls through to the face that drew it before.
 
-egui supplies four faces — Ubuntu, Hack, a **subset** of Noto Emoji, and emoji-icon-font — and
-that subset is the problem: 887 codepoints against the full face's 1,496. An icon outside it
-draws as `◻`, silently, visible only to whoever opens that menu.
+`eframe`'s `default_fonts` feature is off, egui's own default feature along with it, so egui
+supplies **nothing**: Ubuntu, Hack, its own subset of Noto Emoji and emoji-icon-font, four
+faces and about 1 MB, are not in the binary at all. `theme::fonts` carries the whole stack
+instead, built from `FontDefinitions::empty`, because the alternative was egui's own Noto
+Emoji subset — 887 codepoints against the whole face's 1,496 — and an icon outside it drew
+as `◻`, silently, visible only to whoever opens that menu.
 
-Four faces are vendored into `assets/fonts/`, all OFL:
+Five faces are vendored into `assets/fonts/`:
 
 | | | |
 | --- | --- | --- |
-| `SpaceGrotesk-Regular.ttf`, `SpaceGrotesk-SemiBold.ttf` | 29 KB each | the text face, cut and given tabular digits by `scripts/text-fonts.py` |
-| `NotoEmoji-Regular.ttf` | 869 KB | the whole face. Icons in the library fall outside egui's subset |
-| `NotoSansMath-Subset.ttf` | 87 KB | Noto Sans Math cut to the symbol blocks by `scripts/subset-fonts.py`. `∿` for Sine, and `⬓` — the half-height, worldspace's length unit, on every transform control |
+| `SpaceGrotesk-Regular.ttf`, `SpaceGrotesk-SemiBold.ttf` | 29 KB each | the text face, cut and given tabular digits by `scripts/text-fonts.py`. OFL |
+| `Hack-Regular.ttf` | 302 KB | the monospace face, taken whole from egui's own crate source (`epaint_default_fonts`), the one file of its four this build still needs. MIT + Bitstream Vera |
+| `NotoEmoji-Regular.ttf` | 869 KB | the whole face, where egui carried a subset. Icons in the library fall outside that subset. OFL |
+| `NotoSansMath-Subset.ttf` | 87 KB | Noto Sans Math cut to the symbol blocks by `scripts/subset-fonts.py`. `∿` for Sine, and `⬓` — the half-height, worldspace's length unit, on every transform control. OFL |
 
 Vendored rather than read from the system, so an icon that renders here renders everywhere.
 

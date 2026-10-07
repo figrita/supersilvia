@@ -16,16 +16,20 @@ inspection = ["eframe/inspection"]
 # (`render::Gpu`, `proposals/wgpu.md` section 3). `wgpu_no_default_features` rather than
 # `wgpu`, whose `egui-wgpu/default` would put wgpu's GLES and DX12 backends in the binary.
 # `persistence` is off: `preferences.json` is the one settings store, and no `app.ron` is
-# written or read (docs/decisions.md, *One preferences store*).
+# written or read (docs/decisions.md, *One preferences store*). `default_fonts` is off too:
+# Ubuntu-Light, Hack, egui's own Noto Emoji subset and emoji-icon-font are ~1 MB this build
+# does not need, since `theme::fonts` carries the text face, the monospace face and the
+# symbol fallbacks of its own (docs/design-system.md, *Fonts, and why four are vendored*).
 eframe = { version = "0.36.2", default-features = false, features = [
     "wgpu_no_default_features",
-    "default_fonts",
     "accesskit",
     "wayland",
     "x11",
     "links",
 ] }
-egui = "0.36.2"
+# egui's own default is `default_fonts` alone, so turning it off here needs no other feature
+# back; see the `eframe` entry above for why.
+egui = { version = "0.36.2", default-features = false }
 emath = { version = "0.36", features = ["serde"] }
 # The renderer, on the adapter `render::adapter` picks (`proposals/wgpu.md`); the version is
 # the one egui-wgpu puts in the lock. Each machine's backend is its own feature, in its table

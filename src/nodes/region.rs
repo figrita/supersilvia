@@ -142,7 +142,10 @@ node! {
     /// The same crop, set by a center and a size.
     REGIONSIZED,
     slug: "regionsized",
-    icon: "⛶",
+    // A rectangle beside Region's square, for the shape set by a center, a width and a
+    // height rather than one side; in the Geometric Shapes block the vendored Noto Sans
+    // Math subset already carries, where U+26F6 is not.
+    icon: "▭",
     label: "Region (Sized)",
     category: Transform,
     tooltip: "Crops the input to a rectangle set by its center and its size. Outside it: the \

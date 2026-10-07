@@ -29,6 +29,7 @@ pub const LICENSE: &str = include_str!("../../LICENSE");
 /// The repository's `licenses/` folder, file by file: the notices for the work this build
 /// took from others. `tests/notices.rs` holds this list to the folder.
 pub const ASSETS: &[(&str, &str)] = &[
+    ("hack.txt", include_str!("../../licenses/hack.txt")),
     (
         "hash-without-sine.txt",
         include_str!("../../licenses/hash-without-sine.txt"),
