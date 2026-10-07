@@ -647,6 +647,16 @@ impl App {
             .read_simulation(port)
     }
 
+    /// **Inline only, and a test's.** A port's thumbnail as though its pass had drawn it,
+    /// which is how a test with no renderer shows the editor a port's picture. See
+    /// [`crate::synth::Synth::put_thumb`].
+    #[doc(hidden)]
+    pub fn put_thumb(&mut self, port: PortRef, thumb: crate::synth::PortThumb) {
+        if let Some(synth) = self.link.host_mut().inline_synth_mut() {
+            synth.put_thumb(port, thumb);
+        }
+    }
+
     /// **Inline only, and a test's.** Leave this Output's link in flight unfinished until
     /// let go.
     #[doc(hidden)]

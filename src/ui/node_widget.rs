@@ -856,7 +856,13 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
             let h = (band.height() - 2.0 * READOUT_SWATCH_INSET * zoom).max(0.0);
             let w = h * crate::compile::THUMB_W as f32 / crate::compile::THUMB_H as f32;
             let rect = Rect::from_min_size(pos2(at.x - w, at.y - h / 2.0), vec2(w, h));
-            port_thumb(ui, cx, port.key, thumb, out_def.and_then(|o| o.range), rect);
+            port_thumb(
+                ui,
+                PortRef::new(cx.id, port.key),
+                thumb,
+                out_def.and_then(|o| o.range),
+                rect,
+            );
             taken += w + READOUT_GAP * zoom;
             at.x -= w + READOUT_GAP * zoom;
         }
@@ -908,23 +914,62 @@ fn thumb_color(word: u32) -> Color32 {
 }
 
 /// A varying output's thumbnail in its readout slot, and a larger one with its range on
-/// hover. A number is shaded between its declared `[lo, hi]` where the output declares one,
-/// and otherwise between the lowest and highest it reached on the grid.
+/// hover.
 fn port_thumb(
     ui: &mut Ui,
-    cx: &NodeCtx<'_>,
-    key: &'static str,
+    port: PortRef,
     thumb: &std::sync::Arc<crate::synth::PortThumb>,
     declared: Option<&str>,
     rect: Rect,
 ) {
     use crate::compile::{THUMB_H, THUMB_W};
+    use eframe::egui::Color32;
+    let (texture, range) = thumb_texture(ui.ctx(), port, thumb, declared);
+    let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
+    ui.painter().image(texture.id(), rect, uv, Color32::WHITE);
+    let number = thumb.number;
+    // By the pointer rather than by a widget's hover, since the row's own widgets sit on top.
+    let Some(at) = ui.ctx().pointer_hover_pos().filter(|p| rect.contains(*p)) else {
+        return;
+    };
+    eframe::egui::Area::new(thumb_id(port).with("big"))
+        .order(eframe::egui::Order::Tooltip)
+        .fixed_pos(at + vec2(16.0, 16.0))
+        .interactable(false)
+        .show(ui.ctx(), |ui| {
+            eframe::egui::Frame::popup(ui.style()).show(ui, |ui| {
+                let size = vec2(THUMB_W as f32, THUMB_H as f32) * 5.0;
+                ui.image((texture.id(), size));
+                if number {
+                    ui.label(format!("{:.3} … {:.3}", range.0, range.1));
+                }
+            });
+        });
+}
+
+/// Where one output port's thumbnail texture is kept: by the port alone, so the output row
+/// and every input its cable reaches share the one upload.
+fn thumb_id(port: PortRef) -> eframe::egui::Id {
+    eframe::egui::Id::new(("port_thumb", port))
+}
+
+/// The texture of one output port's thumbnail, and the range a number's is shaded over,
+/// uploaded once per thumbnail the synth publishes. A number is shaded between its declared
+/// `[lo, hi]` where the output declares one, and otherwise between the lowest and highest it
+/// reached on the grid.
+fn thumb_texture(
+    ctx: &eframe::egui::Context,
+    port: PortRef,
+    thumb: &std::sync::Arc<crate::synth::PortThumb>,
+    declared: Option<&str>,
+) -> (eframe::egui::TextureHandle, (f32, f32)) {
+    use crate::compile::{THUMB_H, THUMB_W};
     use eframe::egui::{Color32, ColorImage, TextureOptions};
-    let id = ui.id().with(("port_thumb", cx.id, key));
+    let id = thumb_id(port);
     let stamp = std::sync::Arc::as_ptr(thumb) as usize;
     let cached: Option<(usize, eframe::egui::TextureHandle, (f32, f32))> =
-        ui.ctx().data(|d| d.get_temp(id));
-    let (texture, range) = match cached {
+        ctx.data(|d| d.get_temp(id));
+    match cached {
         Some((was, texture, range)) if was == stamp => (texture, range),
         cached => {
             let mut range = (0.0, 1.0);
@@ -968,36 +1013,16 @@ fn port_thumb(
                     texture.set(image, TextureOptions::LINEAR);
                     texture
                 }
-                None => {
-                    ui.ctx()
-                        .load_texture(format!("thumb {}", cx.id), image, TextureOptions::LINEAR)
-                }
+                None => ctx.load_texture(
+                    format!("thumb {} {}", port.node, port.key),
+                    image,
+                    TextureOptions::LINEAR,
+                ),
             };
-            ui.ctx()
-                .data_mut(|d| d.insert_temp(id, (stamp, texture.clone(), range)));
+            ctx.data_mut(|d| d.insert_temp(id, (stamp, texture.clone(), range)));
             (texture, range)
         }
-    };
-    let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-    ui.painter().image(texture.id(), rect, uv, Color32::WHITE);
-    let number = thumb.number;
-    // By the pointer rather than by a widget's hover, since the row's own widgets sit on top.
-    let Some(at) = ui.ctx().pointer_hover_pos().filter(|p| rect.contains(*p)) else {
-        return;
-    };
-    eframe::egui::Area::new(id.with("big"))
-        .order(eframe::egui::Order::Tooltip)
-        .fixed_pos(at + vec2(16.0, 16.0))
-        .interactable(false)
-        .show(ui.ctx(), |ui| {
-            eframe::egui::Frame::popup(ui.style()).show(ui, |ui| {
-                let size = vec2(THUMB_W as f32, THUMB_H as f32) * 5.0;
-                ui.image((texture.id(), size));
-                if number {
-                    ui.label(format!("{:.3} … {:.3}", range.0, range.1));
-                }
-            });
-        });
+    }
 }
 
 /// `[lo, hi]` at the start of an output's declared range.
@@ -1857,6 +1882,7 @@ fn number_spec(node: &Node, key: &str, value: f32, varying: bool) -> crate::ui::
         unit,
         log,
         varying,
+        picture: None,
         learning: false,
         ghost: None,
     }
@@ -2032,6 +2058,19 @@ fn input_controls(
                 .and_then(|n| n.output(src.key))
                 .is_some_and(|p| p.ty.is_varying())
         });
+        // What it looks like, where the port it comes from has a thumbnail this frame: the
+        // same texture that port's own row shows. Without one — thumbnails off, a source on
+        // another workspace, a pass not drawn yet — the control says the word.
+        let picture = source.filter(|_| varying).and_then(|src| {
+            let thumb = cx.frame.thumbs.get(&src)?;
+            let declared = cx
+                .frame
+                .graph
+                .get(src.node)
+                .and_then(|n| n.def.output(src.key))
+                .and_then(|o| o.range);
+            Some(thumb_texture(ui.ctx(), src, thumb, declared).0.id())
+        });
         let name = cx.control(port.key);
 
         match current {
@@ -2054,6 +2093,7 @@ fn input_controls(
                 let spec = crate::ui::number::NumberSpec {
                     learning: cx.learning(port.key),
                     ghost: cx.ghost(port.key),
+                    picture,
                     ..number_spec(node, port.key, shown, varying)
                 };
                 let lock = cx.frame.prefs.lock_cursor;
@@ -2069,7 +2109,9 @@ fn input_controls(
                 // color shows that color. Where the producer has published nothing there is
                 // nothing to meter, and the stored color is what the swatch has to say.
                 let shown = cx.frame.uniforms.arriving_color(source).unwrap_or(*value);
-                let response = color::swatch(ui, slot, name, shown, theme, enabled, varying, zoom);
+                let response = color::swatch_picturing(
+                    ui, slot, name, shown, theme, enabled, varying, picture, zoom,
+                );
                 if enabled {
                     crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
                 } else {

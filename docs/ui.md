@@ -2429,6 +2429,20 @@ bar is before the number is read — **cyan is a knob, violet is a meter** — a
 survives at a glance across a node full of rows. Dimming the text is what a *stale* number
 deserved, and the number stopped being stale when it started arriving down a cable.
 
+**A control fed by a varying value shows the picture of what arrives, or says `varying`.** A
+varying value is one per pixel, so there is no number or color to meter. Where the output at
+the cable's far end has a thumbnail this frame — the texture that output's own row draws,
+uploaded once for both, so the two ends show the same picture — it fills the control: the
+whole face of a color swatch, with its rounding and under its dashed border, and the trough
+between an s-number's caps, under its bevel. It is cropped to the control from the middle of
+the 16:9 picture rather than stretched, and nothing is drawn over it: no number, no fill, no
+word. Where there is none — thumbnails off (`SUPERSILVIA_THUMBS=0`), a source on another
+workspace, whose pass is not the one drawing thumbnails, or a pass that has not linked yet —
+the control says `varying` where its value would be: across a swatch's own ground, and in
+place of an s-number's digits with no fill under it. Either way the control keeps its 84 by 20
+and its accessible name ends in `varying`. An input with no control, such as Wavefold's
+Input, has nothing to show either in.
+
 **The cost rule for text that changes every frame.** A readout misses egui's galley cache by
 construction, because its text is different on most frames. What bounds it is that there are
 few of them and each is short: they are formatted into one buffer per node rather than a
@@ -2478,7 +2492,9 @@ read as the node body. Its border is the s-number's own `bevel_border` — silvi
 border-normal` is the same rule on both controls — so a color and a number read as the same
 family of recessed field; a disabled swatch (its input is connected) wears a dashed
 `border_subtle` outline instead, silvia's `s-color[disabled] { border: 2px dashed
-border-normal }`, which is disabled's own signal rather than "recessed but usable." Clicking
+border-normal }`, which is disabled's own signal rather than "recessed but usable." Fed a
+varying color, it shows the thumbnail of the output it comes from, or says `varying` where
+there is none ([the value on the row](#the-value-on-the-row)). Clicking
 it opens a popup — `ui::popup`, as the range editor and the select are, above every node
 however late that node was painted — holding a picker of its own: a saturation/value square,
 an upright hue bar and alpha bar beside it as tall as it is, and a column of the four channel
