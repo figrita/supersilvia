@@ -191,9 +191,11 @@ pub struct App {
     title: String,
     /// The performance surface: the toast, and what `H` and `F` hold.
     show: Show,
-    /// The Preferences window while it is open, holding which swatch has its picker up.
+    /// The Preferences window while it is open, holding its tab and which swatch has its picker up.
     /// `None` is closed — the window's own openness, not a separate flag beside it.
     prefs_window: Option<crate::ui::prefs::PrefsState>,
+    /// The Preferences tab showing when the window last closed, which it opens on again.
+    prefs_tab: crate::ui::prefs::PrefsTab,
     /// Help ▸ About supersilvia and Help ▸ Licences…, whichever are open.
     help: crate::ui::about::HelpWindows,
     /// The last run's notice, and Help ▸ Report a problem…'s report while it is gathered.
@@ -436,6 +438,7 @@ impl App {
             title: String::new(),
             show: Show::default(),
             prefs_window: None,
+            prefs_tab: crate::ui::prefs::PrefsTab::default(),
             help: crate::ui::about::HelpWindows::default(),
             crashlog: crashlog::Desk::default(),
             undo_history: None,
@@ -1619,8 +1622,9 @@ impl App {
             MenuAction::ShowProjectFolder => self.show_project_folder(),
             MenuAction::Quit => self.guarded(ui, Pending::Quit),
             MenuAction::OpenPreferences => {
+                let tab = self.prefs_tab;
                 self.prefs_window
-                    .get_or_insert_with(crate::ui::prefs::PrefsState::default);
+                    .get_or_insert_with(|| crate::ui::prefs::PrefsState::on(tab));
             }
             MenuAction::OpenMidi => self.midi.open_window(),
             MenuAction::OpenAbout => self.help.about = true,
@@ -1778,7 +1782,7 @@ impl App {
     /// **Test accessor.** Open or close the Status box, which is what times each tick by
     /// phase on both processors — the readings a measurement with no window reads.
     #[doc(hidden)]
-    /// Soft takeover on or off, as its row in Preferences ▸ Performance does.
+    /// Soft takeover on or off, as its row in Preferences ▸ Editing does.
     pub fn set_soft_takeover(&mut self, on: bool) {
         self.prefs
             .set_flag(crate::preferences::Flag::SoftTakeover, on);

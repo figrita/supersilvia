@@ -242,6 +242,7 @@ impl App {
                 crate::ui::prefs::PrefAction::Close => open = false,
             }
         }
+        self.prefs_tab = state.tab();
         if open {
             self.prefs_window = Some(state);
         }

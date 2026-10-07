@@ -319,6 +319,12 @@ fn open_preferences(h: &mut Harness<'_, App>) {
     h.run_steps(2);
 }
 
+/// Show one of the Preferences window's tabs, by its name on the strip.
+fn preferences_tab(h: &mut Harness<'_, App>, tab: &str) {
+    h.get_by_label(tab).click();
+    h.run_steps(2);
+}
+
 #[test]
 fn preferences_opens_from_the_edit_menu_with_the_four_anchors() {
     let mut h = harness();
@@ -340,6 +346,69 @@ fn preferences_opens_from_the_edit_menu_with_the_four_anchors() {
         "the presets are there"
     );
     h.snapshot("preferences_window");
+}
+
+/// **The Preferences window is four tabs at one height**, and opens again on the tab it was
+/// closed on. Every tab is drawn at the tallest one's height, so a click on the strip leaves
+/// the window exactly where and as large as it was.
+#[test]
+fn the_preferences_tabs_keep_one_height_and_the_last_tab_comes_back() {
+    let mut h = harness_with_gpus(egui::vec2(820.0, 1000.0));
+    h.step();
+    open_preferences(&mut h);
+    let window = h.get_by_label("Preferences").rect();
+    for (tab, holds) in [
+        ("Editing", "Lock the cursor while scrubbing"),
+        ("Performance", "Tick rate"),
+        ("Files", "Projects folder"),
+        ("Appearance", "Interface size"),
+    ] {
+        preferences_tab(&mut h, tab);
+        assert!(h.query_by_label(holds).is_some(), "{tab} holds {holds}");
+        assert_eq!(
+            h.get_by_label("Preferences").rect(),
+            window,
+            "{tab} moved the window"
+        );
+        // Appearance is `preferences_window`, and Files and Performance are drawn with a file
+        // and a folder of their own in the test after this; the Editing tab holds nothing of
+        // the machine's.
+        if tab == "Editing" {
+            h.snapshot("preferences_editing");
+        }
+    }
+
+    preferences_tab(&mut h, "Performance");
+    h.get_by_label("Close window").click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("Tick rate").is_none(),
+        "the window is closed"
+    );
+    open_preferences(&mut h);
+    assert!(
+        h.query_by_label("Tick rate").is_some() && h.query_by_label("Interface size").is_none(),
+        "the window opens again on Performance"
+    );
+}
+
+/// An app on the default preferences, its window `size`, with [`fake_gpus`] as its machine.
+fn harness_with_gpus<'a>(size: egui::Vec2) -> Harness<'a, App> {
+    Harness::builder()
+        .renderer(renderer())
+        .with_size(size)
+        .build_eframe(move |cc| {
+            supersilvia::video::ndi::pretend_missing(true);
+            supersilvia::platform::syphon::pretend_unavailable(true);
+            let mut app = App::new(
+                cc,
+                supersilvia::preferences::Store::of(
+                    supersilvia::preferences::Preferences::default(),
+                ),
+            );
+            app.use_gpu_choice(Some(fake_gpus()));
+            app
+        })
 }
 
 /// An app started on these preferences, held in memory, with the machine pinned as [`app`]
@@ -496,13 +565,14 @@ fn fake_gpus() -> adapter::Choice {
     }
 }
 
-/// **Where things are kept, and what it draws on**, at the foot of the Preferences window.
+/// **Where things are kept, and what it draws on**, the Preferences window's Files and
+/// Performance tabs.
 ///
 /// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the preferences file with Open
 /// and Show, each path one line in monospace and cut in the middle where it is long, and the
 /// line saying when an edit to the file takes effect. GPU: the adapter in use, how it was
-/// picked, and every adapter offered with the one in use marked. The window is drawn whole,
-/// in a window tall enough to hold it.
+/// picked, and every adapter offered with the one in use marked. Each tab is drawn whole, in a
+/// window tall enough to hold it.
 ///
 /// The preferences are a file under `/tmp` of this test's own, so the row shows a path and the
 /// snapshot is the same on every run; the projects folder is a preference naming a folder
@@ -533,6 +603,7 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         });
     h.step();
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
 
     let show_in = format!("Show in {}", supersilvia::platform::files::MANAGER);
     for label in [
@@ -565,6 +636,10 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         h.query_by_label_contains("Edits take effect the next time supersilvia starts")
             .is_some()
     );
+    #[cfg(target_os = "linux")]
+    h.snapshot("preferences_files");
+
+    preferences_tab(&mut h, "Performance");
     for label in [
         "Intel(R) Graphics (RPL-S)",
         "SUPERSILVIA_ADAPTER=intel",
@@ -578,9 +653,9 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         );
     }
     // The one answer of the machine's this window shows is the file manager's name, Files or
-    // Finder, so the picture is Linux's and a Mac checks the labels alone.
+    // Finder, so the pictures are Linux's and a Mac checks the labels alone.
     #[cfg(target_os = "linux")]
-    h.snapshot("preferences_files_and_gpu");
+    h.snapshot("preferences_performance");
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -608,6 +683,7 @@ fn a_projects_folder_that_cannot_be_read_says_so_in_both_windows() {
     });
     h.step();
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
     let said = format!("could not read the projects folder {}", locked.display());
     assert!(h.query_by_label_contains(&said).is_some(), "under the path");
 
@@ -1336,19 +1412,32 @@ fn every_preferences_checkbox_writes_its_own_preference() {
     h.step();
     open_preferences(&mut h);
     let boxes = [
-        (Flag::CursorLock, "Lock the cursor while scrubbing"),
-        (Flag::PortHover, "Light cables and ports on hover"),
-        (Flag::CableDroop, "Droopy cables"),
-        (Flag::PhiCables, "Phi-spaced cable colors"),
-        (Flag::NodeShadow, "Nodes cast a shadow"),
-        (Flag::ScrollXInverted, "Invert scrolling along a strip"),
-        (Flag::Fps, "Frame rate in the menu bar"),
-        (Flag::StatusBox, "Show the Status box"),
-        (Flag::SoftTakeover, "MIDI soft takeover"),
+        (Flag::NodeShadow, "Appearance", "Nodes cast a shadow"),
+        (Flag::CableDroop, "Appearance", "Droopy cables"),
+        (Flag::PhiCables, "Appearance", "Phi-spaced cable colors"),
+        (
+            Flag::CursorLock,
+            "Editing",
+            "Lock the cursor while scrubbing",
+        ),
+        (
+            Flag::PortHover,
+            "Editing",
+            "Light cables and ports on hover",
+        ),
+        (
+            Flag::ScrollXInverted,
+            "Editing",
+            "Invert scrolling along a strip",
+        ),
+        (Flag::SoftTakeover, "Editing", "MIDI soft takeover"),
+        (Flag::Fps, "Performance", "Frame rate in the menu bar"),
+        (Flag::StatusBox, "Performance", "Show the Status box"),
     ];
-    for (flag, label) in boxes {
+    for (flag, tab, label) in boxes {
+        preferences_tab(&mut h, tab);
         let before = h.state().preferences().clone();
-        // The window's sections scroll inside it, and the lower ones are below its foot here.
+        // A tab scrolls inside the window, and its lower rows can be below its foot here.
         h.get_by_label(label).scroll_to_me();
         h.run_steps(10);
         h.get_by_label(label).click();
@@ -1359,7 +1448,7 @@ fn every_preferences_checkbox_writes_its_own_preference() {
             !before.flag(flag),
             "{label} did not toggle"
         );
-        for (other, _) in boxes.iter().filter(|(f, _)| *f != flag) {
+        for (other, _, _) in boxes.iter().filter(|(f, _, _)| *f != flag) {
             assert_eq!(
                 after.flag(*other),
                 before.flag(*other),
@@ -1720,6 +1809,7 @@ fn a_new_workspace_opens_in_the_preferred_layout() {
     h.step();
 
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
     h.get_by_label_contains("Linear").click();
     h.run_steps(2);
     h.get_by_label_contains("Close").click();
@@ -6561,6 +6651,7 @@ fn locking_the_cursor_scrubs_from_raw_motion_with_no_pointer_moved() {
         "off by default"
     );
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
     h.get_by_label("Lock the cursor while scrubbing").click();
     h.step();
     assert!(h.state().preferences().lock_cursor_while_scrubbing);
@@ -7427,6 +7518,7 @@ fn the_frame_pacing_toggle_is_a_preference_and_not_a_command() {
     assert!(!h.state().preferences().show_status_box);
 
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Performance");
     h.get_by_label("Show the Status box").scroll_to_me();
     h.run_steps(10);
     h.get_by_label("Show the Status box").click();
@@ -13600,12 +13692,13 @@ fn quit_during_a_render_cancels_it_and_then_quits() {
     let _ = std::fs::remove_dir_all(destination);
 }
 
-/// **Soft takeover is a preference, off by default**, in Preferences ▸ Performance.
+/// **Soft takeover is a preference, off by default**, in Preferences ▸ Editing.
 #[test]
 fn soft_takeover_is_a_preference_off_by_default() {
     let mut h = harness();
     h.step();
     open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
     assert!(!h.state().preferences().midi_soft_takeover);
     h.get_by_label("MIDI soft takeover").scroll_to_me();
     h.run_steps(10);
