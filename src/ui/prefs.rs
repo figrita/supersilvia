@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! The Preferences window: the four theme anchors and silvia's sixteen looks, how the editor
-//! behaves, the synth's rate, and where things are kept.
+//! behaves, the synth's rate, and where things are kept, on four tabs.
+//!
+//! **One height for every tab.** The window is as tall as its tallest tab, so a click on the
+//! tab strip never moves the window's foot or anything under it. The heights are measured
+//! when the window opens, and again when the interface size changes: every tab laid out in an
+//! invisible child that takes no room, and the content area fixed at the greatest. On that one
+//! frame the accessibility tree holds every tab's rows, the hidden ones disabled. The tab
+//! strip is the Licences window's, a row of egui's selectable labels. The tab open last comes
+//! back with the window for the rest of the run (`App`).
 //!
 //! An `egui::Window` rather than a modal overlay. The canvas is hand-painted because it is an
 //! instrument; this is a settings surface, so it is ordinary egui widgets and is in the
@@ -18,11 +26,12 @@
 //! has learned to pick a color once has learned it everywhere.
 
 use super::color;
+use super::icon::{self, Icon};
 use super::theme::{Hsl, PRESETS, Theme};
 use crate::preferences::{Flag, Preferences};
 use eframe::egui::{
     Align, Button, Context, FontId, Label, Layout, Rect, RichText, ScrollArea, Sense, TextStyle,
-    Ui, Window, vec2,
+    Ui, UiBuilder, Window, vec2,
 };
 use std::path::Path;
 
@@ -112,10 +121,62 @@ pub struct PrefsView<'a> {
     pub gpu: Option<&'a crate::render::adapter::Choice>,
 }
 
-/// The window's state across frames: which swatch has its picker open.
+/// The window's tabs, in the order the strip shows them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum PrefsTab {
+    /// The interface size, the theme and its presets, and how nodes and cables are drawn.
+    #[default]
+    Appearance,
+    /// How the editor answers a hand and a controller.
+    Editing,
+    /// The synth's rate, the frame-pacing readouts and the GPU.
+    Performance,
+    /// The projects folder and the preferences file.
+    Files,
+}
+
+impl PrefsTab {
+    pub const ALL: [Self; 4] = [
+        Self::Appearance,
+        Self::Editing,
+        Self::Performance,
+        Self::Files,
+    ];
+
+    /// The tab's name on the strip.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Appearance => "Appearance",
+            Self::Editing => "Editing",
+            Self::Performance => "Performance",
+            Self::Files => "Files",
+        }
+    }
+}
+
+/// The window's state across frames: the tab showing, which swatch has its picker open, and
+/// the height every tab is drawn at.
 #[derive(Debug, Default)]
 pub struct PrefsState {
     picking: Option<Anchor>,
+    tab: PrefsTab,
+    /// The tallest tab's height in points, and the pixels per point it was measured at.
+    tallest: Option<(f32, f32)>,
+}
+
+impl PrefsState {
+    /// A window opening on `tab`.
+    pub fn on(tab: PrefsTab) -> Self {
+        Self {
+            tab,
+            ..Self::default()
+        }
+    }
+
+    /// The tab showing.
+    pub fn tab(&self) -> PrefsTab {
+        self.tab
+    }
 }
 
 /// One swatch's height, and the picker's reach below it.
@@ -124,8 +185,8 @@ const SWATCH: f32 = 28.0;
 /// Draw the window. `theme` is what the editor is drawing with *now*, which is what the
 /// swatches show: there is no separate draft copy to fall out of step with the screen.
 ///
-/// Its sections scroll inside it, under the title bar, where the screen is shorter than they
-/// are.
+/// The tab strip, and under it the tab showing at the tallest tab's height, scrolling inside
+/// the window where the screen is shorter than that.
 pub fn show(
     ctx: &Context,
     state: &mut PrefsState,
@@ -141,13 +202,34 @@ pub fn show(
         .resizable(false)
         .collapsible(false)
         .default_width(WIDTH);
-    let tallest = (ctx.content_rect().height() - 120.0).max(200.0);
+    let room = (ctx.content_rect().height() - 160.0).max(200.0);
     super::placed::place(ctx, window, super::placed::PREFERENCES, &prefs.windows).show(ctx, |ui| {
+        ui.horizontal(|ui| {
+            for tab in PrefsTab::ALL {
+                if ui.selectable_label(state.tab == tab, tab.label()).clicked() {
+                    state.tab = tab;
+                    state.picking = None;
+                }
+            }
+        });
+        ui.separator();
+        let ppp = ui.ctx().pixels_per_point();
+        let tallest = match state.tallest {
+            Some((height, at)) if at == ppp => height,
+            _ => {
+                let height = measure(ui, theme, view);
+                state.tallest = Some((height, ppp));
+                height
+            }
+        };
+        let height = tallest.min(room);
+        let tab = state.tab;
         ScrollArea::vertical()
-            .max_height(tallest)
-            .min_scrolled_height(tallest)
-            .auto_shrink([false, true])
-            .show(ui, |ui| sections(ui, state, theme, view, &mut actions));
+            .id_salt(("prefs", tab))
+            .max_height(height)
+            .min_scrolled_height(height)
+            .auto_shrink([false, false])
+            .show(ui, |ui| body(ui, state, theme, view, tab, &mut actions));
     });
 
     if !open {
@@ -161,45 +243,74 @@ pub fn show(
 /// The window's width, which every row is laid out across.
 const WIDTH: f32 = 480.0;
 
-/// Every section, top to bottom.
-fn sections(
+/// The tallest tab's height: each laid out in a child that is invisible, takes no room in the
+/// window and answers no pointer, with a picker-less state of its own and its actions dropped.
+fn measure(ui: &mut Ui, theme: &Theme, view: &PrefsView<'_>) -> f32 {
+    let width = ui.available_width();
+    let at = ui.cursor().min;
+    PrefsTab::ALL
+        .into_iter()
+        .map(|tab| {
+            let mut child = ui.new_child(
+                UiBuilder::new()
+                    .id_salt(("prefs-measure", tab))
+                    .max_rect(Rect::from_min_size(at, vec2(width, f32::INFINITY)))
+                    .layout(Layout::top_down(Align::Min))
+                    .invisible(),
+            );
+            body(
+                &mut child,
+                &mut PrefsState::default(),
+                theme,
+                view,
+                tab,
+                &mut Vec::new(),
+            );
+            child.min_rect().height()
+        })
+        .fold(0.0, f32::max)
+}
+
+/// One tab's sections, top to bottom.
+fn body(
     ui: &mut Ui,
     state: &mut PrefsState,
     theme: &Theme,
     view: &PrefsView<'_>,
+    tab: PrefsTab,
     actions: &mut Vec<PrefAction>,
 ) {
     let prefs = view.prefs;
-    {
-        ui.heading("Theme");
-        ui.label("Every color in the editor derives from these four.");
-        ui.add_space(8.0);
-        anchors(ui, state, theme, actions);
+    let rule = |ui: &mut Ui| {
         ui.add_space(12.0);
         ui.separator();
         ui.add_space(8.0);
-        ui.heading("Presets");
-        presets(ui, theme, actions);
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(8.0);
-        ui.heading("Editing");
-        editing(ui, prefs, actions);
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(8.0);
-        ui.heading("Performance");
-        performance(ui, prefs, actions);
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(8.0);
-        ui.heading("Files");
-        files(ui, view, theme, actions);
-        ui.add_space(12.0);
-        ui.separator();
-        ui.add_space(8.0);
-        ui.heading("GPU");
-        gpu(ui, view.gpu, theme);
+    };
+    match tab {
+        PrefsTab::Appearance => {
+            interface_size(ui, prefs, actions);
+            rule(ui);
+            ui.heading("Theme");
+            ui.label("Every color in the editor derives from these four.");
+            ui.add_space(8.0);
+            anchors(ui, state, theme, actions);
+            rule(ui);
+            ui.heading("Presets");
+            presets(ui, theme, actions);
+            rule(ui);
+            ui.heading("Nodes and cables");
+            for row in CANVAS {
+                flag(ui, prefs, row, actions);
+            }
+        }
+        PrefsTab::Editing => editing(ui, prefs, actions),
+        PrefsTab::Performance => {
+            performance(ui, prefs, actions);
+            rule(ui);
+            ui.heading("GPU");
+            gpu(ui, view.gpu, theme);
+        }
+        PrefsTab::Files => files(ui, view, theme, actions),
     }
 }
 
@@ -264,9 +375,31 @@ fn anchors(ui: &mut Ui, state: &mut PrefsState, theme: &Theme, actions: &mut Vec
     state.picking = picking;
 }
 
-/// The checkboxes under Editing, in the order the window lists them: what each ticks, its
-/// label, and what hovering it says.
-const EDITING: [(Flag, &str, &str); 6] = [
+/// The checkboxes under Appearance ▸ Nodes and cables, in the order the tab lists them: what each
+/// ticks, its label, and what hovering it says.
+const CANVAS: [(Flag, &str, &str); 3] = [
+    (
+        Flag::NodeShadow,
+        "Nodes cast a shadow",
+        "Put the same shadow under every node that the Status box and this window cast, \
+         so the graph floats over the mix rather than sitting in it.",
+    ),
+    (
+        Flag::CableDroop,
+        "Droopy cables",
+        "Let a cable sag between its ports, as a real one would.",
+    ),
+    (
+        Flag::PhiCables,
+        "Phi-spaced cable colors",
+        "Give every cable its own color, walked around the hue circle by the golden \
+         angle so neighbours are as unlike as they can be, and outline each connected \
+         port to match. Off, a cable wears the color of what it carries.",
+    ),
+];
+
+/// The checkboxes on the Editing tab, in the order it lists them.
+const EDITING: [(Flag, &str, &str); 4] = [
     (
         Flag::CursorLock,
         "Lock the cursor while scrubbing",
@@ -281,32 +414,21 @@ const EDITING: [(Flag, &str, &str); 6] = [
          you can trace where something goes without dragging it.",
     ),
     (
-        Flag::CableDroop,
-        "Droopy cables",
-        "Let a cable sag between its ports, as a real one would.",
-    ),
-    (
-        Flag::PhiCables,
-        "Phi-spaced cable colors",
-        "Give every cable its own color, walked around the hue circle by the golden \
-         angle so neighbours are as unlike as they can be, and outline each connected \
-         port to match. Off, a cable wears the color of what it carries.",
-    ),
-    (
-        Flag::NodeShadow,
-        "Nodes cast a shadow",
-        "Put the same shadow under every node that the Status box and this window cast, \
-         so the graph floats over the mix rather than sitting in it.",
-    ),
-    (
         Flag::ScrollXInverted,
         "Invert scrolling along a strip",
         "A Linear workspace maps the wheel along its strip. This is which way it goes.",
     ),
+    (
+        Flag::SoftTakeover,
+        "MIDI soft takeover",
+        "A bound fader or knob whose position disagrees with its control moves nothing \
+         until it passes the control's value, then takes over, so the picture never \
+         jumps. Meanwhile a mark on the control shows where the fader is.",
+    ),
 ];
 
-/// The checkboxes under Performance, after the tick rate.
-const PERFORMANCE: [(Flag, &str, &str); 3] = [
+/// The checkboxes on the Performance tab, after the tick rate.
+const PERFORMANCE: [(Flag, &str, &str); 2] = [
     (
         Flag::Fps,
         "Frame rate in the menu bar",
@@ -318,13 +440,6 @@ const PERFORMANCE: [(Flag, &str, &str); 3] = [
         "Show the Status box",
         "The frame-pacing readout, in a window of its own: how fast the synth is running \
          and what is holding it back. Its own ✕ closes it as well.",
-    ),
-    (
-        Flag::SoftTakeover,
-        "MIDI soft takeover",
-        "A bound fader or knob whose position disagrees with its control moves nothing \
-         until it passes the control's value, then takes over, so the picture never \
-         jumps. Meanwhile a mark on the control shows where the fader is.",
     ),
 ];
 
@@ -343,9 +458,8 @@ fn flag(
     }
 }
 
-/// The rest of it: a handful of answers about how the editor behaves, each independent of
-/// the others.
-fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
+/// How large the whole editor is drawn: one row of five sizes.
+fn interface_size(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
     ui.horizontal(|ui| {
         ui.label("Interface size");
         for (size, name) in crate::preferences::InterfaceSize::ALL {
@@ -362,6 +476,11 @@ fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
         "How large the whole editor is drawn: text, node rows, controls and panels grow \
          together, so nothing sized for its text is cut off. Ctrl with + and − zoom the canvas.",
     );
+}
+
+/// The Editing tab: a handful of answers about how the editor behaves, each independent of
+/// the others.
+fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
     for row in EDITING {
         flag(ui, prefs, row, actions);
     }
@@ -537,23 +656,43 @@ fn gpu(ui: &mut Ui, choice: Option<&crate::render::adapter::Choice>, theme: &The
 }
 
 /// One adapter in up to three lines: its name; its kind and backend; and its driver and the
-/// driver's own version, muted. `in_use` marks it in a list: `●` and *in use* for the one
-/// rendered on, `○` for the rest.
+/// driver's own version, muted. `in_use` marks it in a list with a painted dot before the
+/// lines, as every status dot is: filled, named *in use*, and *(in use)* after the name for the
+/// one rendered on; hollow, named *not in use*, for the rest.
 fn adapter_lines(
     ui: &mut Ui,
     info: &eframe::wgpu::AdapterInfo,
     in_use: Option<bool>,
     theme: &Theme,
 ) {
-    let name = match in_use {
-        Some(true) => format!("● {}  (in use)", info.name),
-        Some(false) => format!("○ {}", info.name),
-        None => info.name.clone(),
-    };
+    match in_use {
+        Some(on) => {
+            ui.horizontal_top(|ui| {
+                let (mark, ink, state) = if on {
+                    (Icon::Dot, theme.text_primary(), "in use")
+                } else {
+                    (Icon::Ring, theme.text_muted(), "not in use")
+                };
+                icon::label(ui, mark, ink, state);
+                ui.vertical(|ui| {
+                    let name = if on {
+                        format!("{}  (in use)", info.name)
+                    } else {
+                        info.name.clone()
+                    };
+                    adapter_text(ui, info, name, theme);
+                });
+            });
+        }
+        None => adapter_text(ui, info, info.name.clone(), theme),
+    }
+}
+
+/// An adapter's three lines under `name`: its kind and backend, then its driver, muted.
+fn adapter_text(ui: &mut Ui, info: &eframe::wgpu::AdapterInfo, name: String, theme: &Theme) {
     one_line(ui, RichText::new(name));
-    let indent = if in_use.is_some() { "  " } else { "" };
     let kind = format!(
-        "{indent}{} · {:?}",
+        "{} · {:?}",
         crate::render::adapter::kind(info.device_type),
         info.backend
     );
@@ -564,10 +703,7 @@ fn adapter_lines(
         .collect::<Vec<_>>()
         .join(" · ");
     if !driver.is_empty() {
-        one_line(
-            ui,
-            RichText::new(format!("{indent}{driver}")).color(theme.text_muted()),
-        );
+        one_line(ui, RichText::new(driver).color(theme.text_muted()));
     }
 }
 

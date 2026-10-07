@@ -12,6 +12,7 @@ pub mod check;
 pub mod color;
 pub mod context;
 pub mod history;
+pub mod icon;
 pub mod keycap;
 pub mod layout;
 pub mod loop_meter;
@@ -32,6 +33,7 @@ pub mod project;
 pub mod project_name;
 pub mod rail;
 pub mod report;
+pub mod resolution;
 pub mod scope;
 pub mod shortcuts;
 pub mod start;
@@ -266,6 +268,12 @@ pub enum OpenControl {
     },
     /// The three numbers that belong to this instance of a control rather than to its kind.
     Range {
+        node: NodeId,
+        key: &'static str,
+        at: Pos2,
+    },
+    /// A resolution option's popover, `ui::resolution`.
+    Resolution {
         node: NodeId,
         key: &'static str,
         at: Pos2,
@@ -1021,7 +1029,7 @@ fn selection_menu(
 /// drawn disabled rather than offered and then refused.
 fn workspaces_menu(ui: &mut Ui, graph: &Graph, nodes: &[NodeId], out: &mut Vec<Command>) {
     let on = |id: NodeId, w: WorkspaceId| graph.get(id).is_some_and(|n| n.workspaces.contains(&w));
-    ui.menu_button("Workspaces", |ui| {
+    icon::submenu_button(ui, "Workspaces", |ui| {
         for workspace in graph.workspaces() {
             let w = workspace.id;
             let all = nodes.iter().all(|id| on(*id, w));
@@ -1053,7 +1061,7 @@ fn workspaces_menu(ui: &mut Ui, graph: &Graph, nodes: &[NodeId], out: &mut Vec<C
             }
         }
     });
-    ui.menu_button("Move to", |ui| {
+    icon::submenu_button(ui, "Move to", |ui| {
         for workspace in graph.workspaces() {
             if ui.button(&workspace.name).clicked() {
                 out.push(Command::MoveTo {
@@ -2343,6 +2351,28 @@ fn popups(
                     }
                     fx.look_for_devices |= picked.look_again;
                     (false, picked.dismissed)
+                }
+                None => (true, false),
+            }
+        }
+        Some(OpenControl::Resolution { node, key, at }) => {
+            let at = t.to_screen(origin, at);
+            match graph.get(node).filter(|n| n.options.contains_key(key)) {
+                Some(n) => {
+                    let size = n
+                        .options
+                        .get(key)
+                        .map(|v| crate::nodes::output::read_resolution(v));
+                    let name = format!("{}{node}.{key}", n.def.slug);
+                    let popped = resolution::popover(ui, at, &name, size, &[], theme);
+                    if let Some(resolution::Pick::Size(w, h)) = popped.picked {
+                        fx.commands.push(Command::SetOption {
+                            node,
+                            key,
+                            value: format!("{w}x{h}"),
+                        });
+                    }
+                    (false, popped.dismissed)
                 }
                 None => (true, false),
             }

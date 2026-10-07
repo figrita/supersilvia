@@ -187,17 +187,11 @@ pub static DEF: NodeDef = NodeDef {
             key: "texsize",
             label: "Texture Size",
             default: "1280x720",
-            // silvia's seven shapes, 16:9 through 9:16.
-            choices: &[
-                ("1280x720", "16:9 (1280x720)"),
-                ("1920x1080", "16:9 (1920x1080)"),
-                ("3440x1440", "21:9 (3440x1440)"),
-                ("1024x768", "4:3 (1024x768)"),
-                ("1080x1080", "1:1 (1080x1080)"),
-                ("720x1280", "9:16 (720x1280)"),
-                ("1080x1920", "9:16 (1080x1920)"),
-            ],
+            // Any `WIDTHxHEIGHT` the resolution picker writes, as an Output's; the one choice
+            // is the default's home.
+            choices: &[("1280x720", "1280x720")],
             kind: OptionKind::Runtime,
+            resolution: true,
             ..OptionDef::EMPTY
         },
         crate::nodes::SHOW_PREVIEW,
@@ -300,8 +294,7 @@ impl TextNode {
 
     /// What the node is asking for this frame.
     fn spec(id: NodeId, ctx: &TickContext<'_>) -> Spec {
-        let (width, height) = crate::nodes::output::parse_resolution(ctx.option(id, "texsize"))
-            .unwrap_or((1280, 720));
+        let (width, height) = crate::nodes::output::read_resolution(ctx.option(id, "texsize"));
         Spec {
             text: ctx.text(id, "words").to_string(),
             family: ctx.option(id, "font").to_string(),

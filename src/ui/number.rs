@@ -26,6 +26,7 @@
 
 use crate::graph::ControlRange;
 use crate::nodes::NumberField;
+use crate::ui::icon::{self, Icon};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
     Align2, Color32, CornerRadius, CursorIcon, FontId, Key, Pos2, Rect, Response, Sense, Stroke,
@@ -37,6 +38,8 @@ use eframe::egui::{
 pub const WIDTH: f32 = 84.0;
 pub const HEIGHT: f32 = 20.0;
 const BUTTON_WIDTH: f32 = 14.0;
+/// The square each cap's `−` or `+` is painted in.
+const MARK: f32 = 12.0;
 
 /// How far the pointer travels for one step.
 const PIXELS_PER_STEP: f32 = 4.0;
@@ -343,7 +346,7 @@ pub(crate) fn bevel_border(painter: &eframe::egui::Painter, rect: Rect, zoom: f3
     painter.line(light_pts, Stroke::new(width, light));
 }
 
-/// The font the value is set in, wherever it is drawn: the readout, the caps' glyphs, and the
+/// The font the value is set in, wherever it is drawn: the readout and the
 /// field a typed edit opens. One function, because the readout and the field must sit on the
 /// same baseline — a field whose text is a hair larger makes the number jump the moment it is
 /// clicked, which is the one frame the eye is already on it.
@@ -413,11 +416,10 @@ fn chrome(
     }
 
     if steppers {
-        let font = value_font(zoom);
         // The steppers carry the disabled state. They are the parts a hand reaches for, so
         // an inert control says so where the pressing would happen rather than by making
         // its number hard to read.
-        let (button, glyph_color) = if enabled {
+        let (button, mark_color) = if enabled {
             (theme.bg_tertiary(), theme.text_secondary())
         } else {
             (
@@ -428,7 +430,7 @@ fn chrome(
         // Rounded on the outer corner only, square where each meets the trough: the caps are
         // part of one pill-shaped control, not two small buttons floating beside it.
         let cap = theme::RADIUS_SM;
-        for (r, cap_radius, glyph) in [
+        for (r, cap_radius, mark) in [
             (
                 dec_rect,
                 CornerRadius {
@@ -437,7 +439,7 @@ fn chrome(
                     sw: cap,
                     se: 0,
                 },
-                "-",
+                Icon::Minus,
             ),
             (
                 inc_rect,
@@ -447,16 +449,15 @@ fn chrome(
                     sw: 0,
                     se: cap,
                 },
-                "+",
+                Icon::Plus,
             ),
         ] {
             painter.rect_filled(r, cap_radius, button);
-            painter.text(
-                r.center(),
-                Align2::CENTER_CENTER,
-                glyph,
-                font.clone(),
-                glyph_color,
+            icon::paint(
+                painter,
+                Rect::from_center_size(r.center(), vec2(MARK, MARK) * zoom),
+                mark,
+                mark_color,
             );
         }
     }

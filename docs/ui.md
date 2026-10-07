@@ -21,7 +21,8 @@ is a number typed as text, with none of the s-number's hands — no scrub, no st
 fill: it admits only what a number is written with, wears the invalid border while the draft
 is not a number it would commit, commits once, on Enter or when it is left, clamped into its
 bounds, and puts back what was there on `Escape`. The range editor's fields are four of them,
-and an option that declares `OptionDef::number` is one — the Text node's size. The s-number and s-color are painted rectangles with
+and an option that declares `OptionDef::number` is one — the Text node's size — as are the
+resolution picker's width and height, in the s-number's bevel. The s-number and s-color are painted rectangles with
 `ui.interact` over them, not egui widgets.
 
 That trio — **painter, interact, widget_info** — is why the editor can look nothing like
@@ -93,8 +94,8 @@ canvas it shows.
 | click | show that tab |
 | double-click | rename inline |
 | right-click | Rename · Duplicate · Close |
-| `+` | one entry per `WorkspaceKind` with a UI — Video, today |
-| `▾` | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
+| `+` (*add workspace*) | one entry per `WorkspaceKind` with a UI — Video, today |
+| the chevron (*all workspaces*) | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
 | `Ctrl`+T | a video workspace, opened and shown |
 | `Ctrl`+1..9 | the tab in that position, the project tab first |
 | `Ctrl`+Tab, `Ctrl`+Shift+Tab | the next tab and the one before, wrapping at the ends |
@@ -103,9 +104,10 @@ canvas it shows.
 **The bar never runs off the window.** The tabs that fit are drawn in project order and the
 rest leave the bar, the one showing always among those drawn: where it is further along than
 the room reaches, it takes the last place, because the lit tab is what says which canvas this
-is. Nothing is out of reach, since `▾` lists every workspace — the tabs that left the bar and
-the ones that have no tab — and a closed one chosen there is opened. `▾` and `+` stand after
-the last tab drawn, and the bar keeps room for them (`tabs::fitting`).
+is. Nothing is out of reach, since the chevron lists every workspace — the tabs that left the
+bar and the ones that have no tab — and a closed one chosen there is opened. The `+` and the
+chevron stand after the last tab drawn, and the bar keeps room for them (`tabs::fitting`).
+Both are painted ([design-system.md](design-system.md#component-rules-worth-stating)).
 
 **`Ctrl`+Tab walks the tabs `Ctrl`+1..9 counts**, the project tab first, and `Ctrl`+Shift+Tab
 walks back; both wrap. `Ctrl` on a Mac as well as on Linux, as every browser binds it, rather
@@ -113,8 +115,8 @@ than the command key. A text field does not take the chord, so it is read whatev
 keyboard, but not while a picture window does. Both are `menu::keys::NEXT_TAB` and
 `PREVIOUS_TAB`, rows of the shortcuts window's Global group.
 
-**A closed workspace comes back from the Project tab or from the ▾ list at the end of the
-bar**, which names every workspace in the project, the closed ones dimmed. There is no
+**A closed workspace comes back from the Project tab or from the chevron's list at the end of
+the bar**, which names every workspace in the project, the closed ones dimmed. There is no
 history of closed tabs to walk back through: two ways to every workspace are enough.
 
 **Duplicate copies the workspace whole**, beside it in project order, as `<name> copy` —
@@ -717,6 +719,22 @@ The canvas is painted by hand because it is an instrument. This is a settings sc
 ordinary egui widgets. That means it lands in the accessibility tree on its own, with no
 hand-written `widget_info` anywhere in it.
 
+**Four tabs: Appearance, Editing, Performance and Files.** The strip along the top is the
+Licences window's, a row of egui's selectable labels, the tab showing lit. Appearance holds the
+interface size, the four colors, the presets and how nodes and cables are drawn; Editing, how
+the editor answers a hand and a controller; Performance, the tick rate, the two frame-pacing
+readouts and the GPU; Files, where things are kept.
+
+**Every tab is as tall as the tallest**, so a click on the strip never moves the window's foot.
+The heights are measured when the window opens, and again when the interface size changes:
+each tab is laid out once in an invisible child that takes no room in the window and answers
+no pointer, and the area under the strip is fixed at the greatest. A shorter tab leaves room at
+its foot. Where the screen is shorter than that height, the tab scrolls inside the window under
+the strip.
+
+**The window opens on the tab it was closed on**, for the rest of the run; a new run opens on
+Appearance. The tab is not a preference.
+
 **The four colors are four `s-color` swatches.**
 
 They are the real control, the same one a color port carries: same popup, same hex field,
@@ -749,7 +767,8 @@ And the preference is written to disk.
 There is nothing to confirm and nothing to roll back. The way back to where you started is the
 `vapor` preset, which is exactly what the editor ships with.
 
-**Seven more answers, under Editing.**
+**Appearance also holds the interface size and, under *Nodes and cables*, three answers about
+how the canvas is drawn.**
 
 *Interface size* is **90%**, **100%**, **110%**, **125%** or **150%**: egui's zoom factor, the
 one control over how large the whole editor is drawn, for a display whose own scale is not the
@@ -764,13 +783,19 @@ picture window is not egui and is untouched. **There is no key for it**: `Ctrl` 
 `-` zoom the canvas, and a size that is set once for a screen and a pair of eyes does not need
 one. It is applied at start-up and is not project data and not undoable.
 
-*Lock the cursor while scrubbing* is here and nowhere else. It is taste rather than something
-toggled for an evening, and taste is what somebody opens this window for.
+*Nodes cast a shadow* puts the editor's own `window_shadow` under every node body — the
+shadow the Status box and the Preferences window already cast, so the canvas and the windows
+over it agree about where the light is. It is one rounded rect with a wide feather per drawn
+node, scaled by the zoom so it stays fixed to the body, painted immediately before that
+body's fill: under its own node, over the cables, and over any node drawn before it, so an
+overlap reads as a stack. On by default. Off is the flat canvas, where the graph sits in the
+mix rather than floating over it.
 
-*Light cables and ports on hover* works from either end: a hovered port brightens every cable
-it carries and the port at the far end of each, and a hovered cable brightens the ports at
-both of its own ends. On by default. It does not touch the highlight on the cable nearest the
-pointer, which is the click-to-delete affordance and stays either way.
+*Droopy cables* lets a cable sag between its ports. silvia's `droopyCables`, and its sag:
+fifteen points plus a seventh of the span, stopping at eighty. Only a forward cable sags. One
+that runs backwards already bows downward to clear the node bodies, and a second reason for
+the same curve would fight the first. An action cable stays straight, because a dashed line
+means *event* and a sagging one would read as the cable a data port uses.
 
 *Phi-spaced cable colors* gives every cable a hue of its own, walked around the circle by the
 golden angle so that neighbours are as unlike as they can be, and outlines each connected
@@ -780,19 +805,15 @@ along the wire. What phi spacing buys instead is telling two cables in a bundle 
 is worth more the denser a patch gets and nothing at all on a small one — so it is offered
 rather than assumed. See [cables](#cables) for what it does to a port.
 
-*Droopy cables* lets a cable sag between its ports. silvia's `droopyCables`, and its sag:
-fifteen points plus a seventh of the span, stopping at eighty. Only a forward cable sags. One
-that runs backwards already bows downward to clear the node bodies, and a second reason for
-the same curve would fight the first. An action cable stays straight, because a dashed line
-means *event* and a sagging one would read as the cable a data port uses.
+**Five answers on the Editing tab.**
 
-*Nodes cast a shadow* puts the editor's own `window_shadow` under every node body — the
-shadow the Status box and the Preferences window already cast, so the canvas and the windows
-over it agree about where the light is. It is one rounded rect with a wide feather per drawn
-node, scaled by the zoom so it stays fixed to the body, painted immediately before that
-body's fill: under its own node, over the cables, and over any node drawn before it, so an
-overlap reads as a stack. On by default. Off is the flat canvas, where the graph sits in the
-mix rather than floating over it.
+*Lock the cursor while scrubbing* is on the Editing tab and nowhere else. It is taste rather
+than something toggled for an evening, and taste is what somebody opens this window for.
+
+*Light cables and ports on hover* works from either end: a hovered port brightens every cable
+it carries and the port at the far end of each, and a hovered cable brightens the ports at
+both of its own ends. On by default. It does not touch the highlight on the cable nearest the
+pointer, which is the click-to-delete affordance and stays either way.
 
 *Invert scrolling along a strip* flips which way the wheel moves a Linear workspace. It is a
 preference because Linear mode is the one place the wheel means *x*, and which way that should
@@ -802,6 +823,12 @@ go is a property of the hand rather than of the workspace.
 nothing about the ones that exist: a workspace's mode is its own document data, saved in its
 own file, and opens the way whoever made it left it.
 
+*MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
+with its control moves nothing until it passes the control's value, then takes over, so the
+picture never jumps when a knob is first touched after an undo, a reload or a hand on the
+control. Meanwhile the control wears [a ghost mark](#alt--click-to-bind) where the fader is.
+Off, the first message writes. See [media.md](media.md#the-map).
+
 Changing the theme is not a `Command` and never enters the undo history, like every other
 preference.
 
@@ -810,7 +837,7 @@ system's headline claim, as two pictures: the same graph under two presets. Any 
 differs, differs because of those four colors — so a hardcoded color anywhere in the editor
 shows up as a pixel that refused to move.
 
-**Four answers under Performance.**
+**Three answers on the Performance tab, over the GPU.**
 
 *Tick rate* is how often the graph advances, in ticks a second: **Display**, 60 or 30.
 Display — the default — follows the monitor the editor is on. The synth keeps its own time on
@@ -830,14 +857,8 @@ preference. It is here rather than under View because it is about the machine, a
 rate is, and the View menu keeps what changes what the canvas shows — the time readout and
 the cost strip.
 
-*MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
-with its control moves nothing until it passes the control's value, then takes over, so the
-picture never jumps when a knob is first touched after an undo, a reload or a hand on the
-control. Meanwhile the control wears [a ghost mark](#alt--click-to-bind) where the fader is.
-Off, the first message writes. See [media.md](media.md#the-map).
-
-**Where things are kept, under Files.** Two rows, each a caption with its buttons on the right
-and its path on the line under it:
+**Where things are kept, on the Files tab.** Two rows, each a caption with its buttons on the
+right and its path on the line under it:
 
 - **Projects folder**, with **Show in Files** — **Show in Finder** on the Mac — which makes
   the folder if nobody has yet and opens it, and **Change…**, a folder dialog starting there.
@@ -856,25 +877,27 @@ and its path on the line under it:
 
 **A path is one line whatever it is**: monospace, cut in the middle with `…` where it is
 longer than the window is wide — the start says which disk and the end which folder — and
-whole on its hover, so no path moves a row. The window's sections scroll inside it under the
-title bar where the screen is shorter than they are.
+whole on its hover, so no path moves a row.
 
-**What it draws on, under GPU**, read-only: a grid of a caption and its value. *In use* is the
-adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
+**What it draws on, under GPU** at the foot of the Performance tab, read-only: a grid of a
+caption and its value. *In use* is the adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
 *software* or *other*) and backend, then its driver and the driver's own version string, as
 wgpu reports them. *Picked by* is one line: `SUPERSILVIA_ADAPTER=…` when the variable named it,
 or *the strongest: a discrete GPU before an integrated one*. *Offered* is every adapter the
-machine reported, in its order, the same three lines each, the one in use marked `●` and
-*(in use)* and the rest `○`. Every value is one line, cut at its end and whole on its hover.
+machine reported, in its order, the same three lines each behind a painted dot from
+`ui::icon`, as every status dot is: the one in use filled, named *in use* for the tree, with
+*(in use)* after its name, and the rest hollow, named *not in use*. Every value is one line, cut at its end and whole on its hover.
 What can later be chosen here — the colour precision, the GPU itself — is a row under the
 last. The list is `render::adapter::Choice`, the enumeration `main` already made to pick the
 adapter, handed to `App` beside the device: listing the adapters opens no device on any of
 them. A host that hands the app a device of its own choosing, as egui_kittest does, has
 none, and the section says *Not reported by this host*.
 
-`tests/ui.rs` draws both sections whole with a preferences file and a projects folder of the
-test's own and a made-up machine of three adapters, so the snapshot does not depend on the
-GPUs of the machine it runs on (`preferences_files_and_gpu`).
+`tests/ui.rs` draws both tabs whole with a preferences file and a projects folder of the
+test's own and a made-up machine of three adapters, so the snapshots do not depend on the
+GPUs of the machine they run on (`preferences_files`, `preferences_performance`); Appearance is
+`preferences_window` and Editing `preferences_editing`, taken by the test that holds every tab
+to the one window rect and the reopened window to the tab it closed on.
 
 ## Layout
 
@@ -2671,6 +2694,36 @@ Which options are ticks and which are headings is **the definition's** —
 `Node::def` the way `regions` is — so `canvas::rows` can tell that several options share a
 row, and which are left to draw as selects. `Row::Option(i)` counts only the selects.
 
+**A fixed width and height is the resolution picker, not a select** (`ui/resolution.rs`): an
+Output's **Resolution**, the Text node's **Texture Size** and the Main Mixer's resolution.
+`OptionDef::resolution` says so, and the value is any `WIDTHxHEIGHT` with both sides from 16
+to 16384 — stored as its text, `option_is_valid` holding a file to that range rather than to
+the choices, which are only the default's home. Closed, it is a select's box and chevron
+holding a painted rectangle of the picture's shape, the ratio's name and the short side,
+`16:9 · 1080` — `9:16 · 1080` stood on end, the size itself where it is no ratio on the strip.
+Open, it is a popover, drawn after every node as a select's list is:
+
+- **Shape**: *Wide* and *Tall* at the title's end, and a strip of thirteen cells, each a
+  painted rectangle of its ratio over its name — 1:1, 5:4, 4:3, 3:2, 16:10, 16:9, 1.85, 2:1,
+  21:9, 2.39, 32:9, 4:1 — and **Free**, a dashed square. *Tall* mirrors every glyph.
+- **Size**, one row of short sides — 480, 720, 1080, 1200, 1440, 2160 — so 1080 is 1920x1080
+  wide and 1080x1920 tall. Each one's size and memory is its hover text, and under the row is
+  the readout: the size, its megapixels and the memory an Output of it commits, the figure the
+  Output's own row prints.
+- A width and a height to type, in the s-number's bevel, committed on Enter or a click away.
+
+**Two axes, each kept while the other moves.** A shape keeps the short side, a short side keeps
+the shape, and *Tall* keeps both. The long side is the short one times the ratio, rounded to
+the nearest even number — an encoder wants even sizes, and a typed size is rounded the same
+way — except 21:9, a marketing name rather than one ratio, which takes the sizes ultrawide
+panels are sold at where there is one: 2560x1080, 3440x1440, 5120x2160. A size is a cell on the
+strip only where that cell's arithmetic gives it exactly, so a typed size off the strip lights
+**Free**, and a short side picked while Free keeps the size's own proportion. Clicking Free puts
+the keyboard in the width. The popover stays up through any number of picks and closes on a
+click away or Escape. Every glyph is paint, as the chevron is; every control is named under
+the row's own name — `output1.resolution 16:9`, `output1.resolution 1080`,
+`output1.resolution Tall`, `output1.resolution width`.
+
 That same select **doubles as a progress bar**. While the node's CPU half is working, its
 `NodeNote` supplies the label and a fraction, and the fraction is painted as a fill behind
 the text. A video import transcodes for tens of seconds, and the place a person is already
@@ -2864,10 +2917,11 @@ status line is what the node *is*, and silvia shows its own always.
 
 **A memory figure sits beside the resolution.** silvia prints one under its own resolution
 and moves it as the resolution moves, so a second Output at 4K can be thought about before it
-is made. Here it is on the resolution row itself, between the label and the select, in
-`text_muted`: whole megabytes, which is the grain the choice is made at — no resolution in the
-menu moves it by less than one. It is the two half-float targets an Output commits
-(`nodes::output::memory_bytes`, eight bytes a pixel, twice) and nothing else; a capture ring
+is made. Here it is on the resolution row itself, between the label and the picker, in
+`text_muted`: whole megabytes, which is the grain the choice is made at, and the picker prints
+the same figure for the size it holds and for each short side it offers. It is the two
+half-float targets an Output commits (`nodes::output::memory_bytes`, eight bytes a pixel,
+twice) and nothing else; a capture ring
 exists only while a render runs, and the figure is there to be read while one is not. It is
 not behind View ▸ Costs for the same reason the status line is not: it is what the node *is*.
 
@@ -3477,11 +3531,11 @@ the Output on it — a slot the panel reserves and `App` fills with a paint call
 as a node's on-body render is filled — with the name of the workspace it lives on at the far
 end of the channel's heading, which is a link to that workspace centerd on that Output; or,
 in the box, *No Output assigned*, named `Channel A: no Output assigned` for the tree. Then
-**Mix**: the balance as an `s-number` from −1 to +1, `A` and `B` at its two ends and no
-caption of its own — the tree names it `A / B balance`, and a binding's dot stands after the
-*Mix* heading — because the fade is a control and gets
-what every control gets — `Alt` + click binds it to a MIDI knob, see [the MIDI
-window](#the-midi-window) — then **Blackout** and **Freeze**, and the **Crossfade** method.
+**Mix**: the **Crossfade** method first, above the fade it governs, then the balance as an
+`s-number` from −1 to +1, `A` and `B` at its two ends and no caption of its own — the tree
+names it `A / B balance`, and a binding's dot stands after the *Mix* heading — because the
+fade is a control and gets what every control gets — `Alt` + click binds it to a MIDI knob,
+see [the MIDI window](#the-midi-window) — then **Blackout** and **Freeze**.
 
 **Blackout and Freeze are two presses side by side under the fade**, each half the panel and
 an `s-number`'s height. **Blackout** takes the mix to black until it is pressed again;
@@ -3495,7 +3549,9 @@ width so lighting moves nothing. Each is a named `Response`, *Blackout* and *Fre
 while it holds. They are rig controls, as the fade is: not saved, not undo steps, off at every
 launch and on every Open and New, and `Alt` + click binds one to a MIDI note — it learns, wears
 the learning ring and then the dot on its top-left corner, and does not press on the way. Then **Projection**: the mix's
-resolution, *Match viewport* or one of the Output's own presets, *Project to background*,
+resolution, the [resolution picker](#options-and-the-file-button) with two entries above its
+strip — *Match display*, the default, which names the smallest display's size beside it
+([rendering.md](rendering.md#the-mixer)), and *Match viewport* — *Project to background*,
 **Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
 the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
 asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still

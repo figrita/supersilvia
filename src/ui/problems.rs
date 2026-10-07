@@ -14,6 +14,7 @@
 //! for comes back as a [`ProblemAction`].
 
 use crate::graph::NodeId;
+use crate::ui::icon::{self, Icon};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
     self, Align2, Area, Context, FontId, Id, Order, Rect, RichText, Sense, Ui, WidgetType, pos2,
@@ -139,11 +140,10 @@ pub fn badge(ui: &mut Ui, count: Count, theme: &Theme) -> bool {
         theme.text_secondary()
     };
     let glyph = Rect::from_min_size(pos2(rect.min.x + PAD, rect.min.y), vec2(height, height));
-    painter.text(
-        glyph.center(),
-        Align2::CENTER_CENTER,
-        "⚠",
-        FontId::proportional(theme::FONT_BASE),
+    icon::paint(
+        painter,
+        Rect::from_center_size(glyph.center(), glyph.size() * 0.8),
+        Icon::Warning,
         ink,
     );
     painter.text(
@@ -281,10 +281,9 @@ fn row(ui: &mut Ui, i: usize, problem: &Problem, theme: &Theme) -> Option<Proble
     line.on_hover_text(&problem.text);
     let node = problem.go?;
     let go_rect = Rect::from_min_max(pos2(rect.max.x - go_width, rect.min.y), rect.max);
-    let go = ui.put(
-        go_rect,
-        egui::Button::new(RichText::new("▸ go").color(theme.primary())).frame(false),
-    );
+    let go = ui.put(go_rect, |ui: &mut Ui| {
+        icon::labeled(ui, Icon::TriangleRight, "go", Some(theme.primary()), false)
+    });
     crate::ui::accessible(
         &go,
         WidgetType::Button,

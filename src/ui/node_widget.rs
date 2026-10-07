@@ -7,6 +7,7 @@ use crate::graph::{Node, NodeId, PortRef, PortType};
 use crate::nodes;
 use crate::ui::canvas::{self, Transform};
 use crate::ui::context::{Effects, NodeCtx};
+use crate::ui::icon::{self, Icon};
 use eframe::egui::{
     Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, Vec2, WidgetType,
@@ -701,14 +702,10 @@ fn sampling_warning(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, taps: f64) {
         ui.painter()
             .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
     }
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        "⚠",
-        FontId::proportional(crate::ui::theme::font_size(
-            crate::ui::theme::FONT_BASE,
-            cx.zoom(),
-        )),
+    icon::paint(
+        ui.painter(),
+        Rect::from_center_size(rect.center(), rect.size() * 0.8),
+        Icon::Warning,
         theme.accent(),
     );
     // Built only while the pointer is on it, as `port`'s own hover text is: the sentence
@@ -733,8 +730,9 @@ fn sampling_sentence(taps: f64) -> String {
 
 /// The flag on the header of a node at fault — an Output whose shader failed, a camera that
 /// would not open or stopped answering, a microphone, a text that could not be drawn: a
-/// disc in the accent with a `!` cut out of it, the palette having no red, and the reason on
-/// its hover. Drawn whatever the Status box is doing, since the node is where the eye is.
+/// disc in the accent with a `!` in the header's own color on it, the palette having no red,
+/// and the reason on its hover. Drawn whatever the Status box is doing, since the node is
+/// where the eye is.
 fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option<f64>) {
     let theme = cx.theme();
     let name = cx.name();
@@ -743,14 +741,10 @@ fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option
     let painter = ui.painter();
     let radius = rect.width() * 0.3;
     painter.circle_filled(rect.center(), radius, theme.accent());
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        "!",
-        FontId::proportional(crate::ui::theme::font_size(
-            crate::ui::theme::FONT_TINY,
-            cx.zoom(),
-        )),
+    icon::paint(
+        painter,
+        Rect::from_center_size(rect.center(), Vec2::splat(radius * 2.0)),
+        Icon::Exclaim,
         theme.bg_header(),
     );
     if w.hovered() {
@@ -1434,10 +1428,11 @@ fn readout_lines(ui: &Ui, cx: &NodeCtx<'_>, readout: &crate::ui::OutputReadout) 
             line.min.x + third * n as f32 + READOUT_INSET * zoom,
             line.center().y,
         );
+        status_dot(ui, at.x, at.y, font.size, lit, ink);
         ui.painter().text(
-            at,
+            at + vec2(2.0 * advance(ui.ctx(), &font), 0.0),
             Align2::LEFT_CENTER,
-            format!("{} {word}", if lit { '\u{25cf}' } else { '\u{25cb}' }),
+            word,
             font.clone(),
             ink,
         );
@@ -1534,6 +1529,18 @@ const HELP_HOOK_24: [(f32, f32); 15] = [
     (12.1422, 12.9167),
     (11.92, 13.0),
 ];
+
+/// A status line's dot, filled for on and hollow for off, for text of `size`, its box's left
+/// edge at `x` and its words two figures along: the state said by shape, so it survives the
+/// hue turned off.
+fn status_dot(ui: &Ui, x: f32, y: f32, size: f32, on: bool, ink: Color32) {
+    icon::paint(
+        ui.painter(),
+        Rect::from_min_size(Pos2::new(x, y - size * 0.55), Vec2::splat(size * 1.1)),
+        if on { Icon::Dot } else { Icon::Ring },
+        ink,
+    );
+}
 
 /// The hit box is 20x20 (`.node-tooltip`/`.node-close` width/height), but the icon drawn
 /// inside it is smaller: `snode.js` calls `iconHtml('circle-help', 14)` and `node.css` sets
@@ -2434,17 +2441,7 @@ fn record_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
     } else {
         theme.text_muted()
     };
-    ui.painter().text(
-        Pos2::new(column, band.center().y),
-        Align2::LEFT_CENTER,
-        if status.on_air {
-            "\u{25cf}"
-        } else {
-            "\u{25cb}"
-        },
-        font.clone(),
-        ink,
-    );
+    status_dot(ui, column, band.center().y, font.size, status.on_air, ink);
     let text_at = column + 2.0 * advance;
     let room = (button.min.x - SEND_GAP * zoom - text_at).max(0.0);
     ui.painter().text(
@@ -2520,14 +2517,10 @@ fn render_button(
             ui.painter()
                 .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
         }
-        ui.painter().text(
-            rect.center(),
-            Align2::CENTER_CENTER,
-            "!",
-            FontId::proportional(crate::ui::theme::font_size(
-                crate::ui::theme::FONT_BASE,
-                zoom,
-            )),
+        icon::paint(
+            ui.painter(),
+            Rect::from_center_size(rect.center(), rect.size() * 0.75),
+            Icon::Exclaim,
             theme.accent(),
         );
         if w.hovered() {
@@ -2717,17 +2710,7 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
     } else {
         theme.text_muted()
     };
-    ui.painter().text(
-        Pos2::new(column, band.center().y),
-        Align2::LEFT_CENTER,
-        if status.on_air {
-            "\u{25cf}"
-        } else {
-            "\u{25cb}"
-        },
-        font.clone(),
-        ink,
-    );
+    status_dot(ui, column, band.center().y, font.size, status.on_air, ink);
     let text_at = column + 2.0 * advance;
     let room = (button.min.x - SEND_GAP * zoom - text_at).max(0.0);
     ui.painter().text(
@@ -2840,7 +2823,7 @@ fn choice_row(
     }
 }
 
-/// Select options, such as an Output's resolution.
+/// Option rows: selects, typed fields, file buttons and resolution pickers.
 ///
 /// Drawn in the definition's declaration order rather than `Node::options`' own —
 /// `BTreeMap` stays the storage, for a deterministic file and command bus, but the order an
@@ -2876,7 +2859,8 @@ fn option_rows(
     }
 }
 
-/// One option's row: its label, and the select, the file button or the typed field it is.
+/// One option's row: its label, and the select, the file button, the typed field or the
+/// resolution picker it is.
 fn option_row(
     ui: &mut Ui,
     cx: &NodeCtx<'_>,
@@ -2986,6 +2970,10 @@ fn option_row(
         }
         return;
     }
+    if option_def.is_some_and(|o| o.resolution) {
+        resolution_button(ui, cx, open, band, room, key, value);
+        return;
+    }
     if option_def.is_some_and(nodes::OptionDef::is_asset) {
         file_button(ui, cx, open, band, room, key, value);
         return;
@@ -3028,6 +3016,44 @@ fn option_row(
             key,
             at: cx.world(response.rect.left_bottom()),
             width: response.rect.width() / zoom,
+        });
+    }
+}
+
+/// A resolution option's closed picker, placed as a select is — right-aligned at the
+/// select's height and hugging what it shows — and the popover it opens.
+fn resolution_button(
+    ui: &mut Ui,
+    cx: &NodeCtx<'_>,
+    open: &mut Option<crate::ui::OpenControl>,
+    band: Rect,
+    room: f32,
+    key: &'static str,
+    value: &str,
+) {
+    use crate::ui::{OpenControl, resolution};
+    let (id, zoom) = (cx.id, cx.zoom());
+    let size = crate::nodes::output::read_resolution(value);
+    let shown = resolution::Shown::Size(size.0, size.1);
+    let width = resolution::closed_width(ui.ctx(), shown, zoom).min(room.max(0.0));
+    let height = canvas::SELECT_HEIGHT * zoom;
+    let rect = Rect::from_min_size(
+        Pos2::new(
+            band.max.x - 8.0 * zoom - width,
+            band.center().y - height * 0.5,
+        ),
+        vec2(width, height),
+    );
+    let is_open = matches!(
+        *open,
+        Some(OpenControl::Resolution { node, key: k, .. }) if node == id && k == key
+    );
+    let response = resolution::closed(ui, rect, cx.control(key), shown, is_open, cx.theme(), zoom);
+    if response.clicked() {
+        *open = (!is_open).then(|| OpenControl::Resolution {
+            node: id,
+            key,
+            at: cx.world(response.rect.left_bottom()),
         });
     }
 }

@@ -129,7 +129,7 @@ answers as the machine does, waiting for the NDI probe first, and take no snapsh
 they cover the Syphon row, the mark and the source list, and on a box with the runtime, NDI's
 **Send** and **Stop**. The Preferences window names the file manager, Files or Finder, which
 nothing pins, so `the_preferences_window_says_where_things_are_kept_and_what_it_draws_on`
-takes its snapshot on Linux alone and a Mac checks its labels.
+takes its two snapshots on Linux alone and a Mac checks its labels.
 
 **One wgpu device serves the whole file.** kittest builds a renderer per `Harness`, and
 `WgpuTestRenderer::new` creates a wgpu instance, adapter and device of its own every time it

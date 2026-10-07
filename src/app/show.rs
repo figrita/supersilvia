@@ -247,7 +247,7 @@ impl App {
         }
     }
 
-    /// One toast's line, and what was pressed on it: its **Show** or its **▸ go**.
+    /// One toast's line, and what was pressed on it: its **Show** or its **go**.
     fn toast_line(&self, ui: &mut egui::Ui, toast: &Toast) -> Option<Pressed> {
         let failed = toast.kind == Kind::Failed;
         let edge = if failed {
@@ -262,7 +262,12 @@ impl App {
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if failed {
-                        ui.label(egui::RichText::new("⚠").color(self.theme.accent()));
+                        crate::ui::icon::label(
+                            ui,
+                            crate::ui::icon::Icon::Warning,
+                            self.theme.accent(),
+                            "warning",
+                        );
                     }
                     ui.add(
                         egui::Label::new(toast.text.as_str()).wrap_mode(egui::TextWrapMode::Extend),
@@ -279,10 +284,15 @@ impl App {
                         pressed = Some(Pressed::Show(file.clone()));
                     }
                     if let Some(to) = toast.go
-                        && ui
-                            .button("▸ go")
-                            .on_hover_text("Show where it changed")
-                            .clicked()
+                        && crate::ui::icon::labeled(
+                            ui,
+                            crate::ui::icon::Icon::TriangleRight,
+                            "go",
+                            None,
+                            true,
+                        )
+                        .on_hover_text("Show where it changed")
+                        .clicked()
                     {
                         pressed = Some(Pressed::Go(to));
                     }
@@ -347,6 +357,9 @@ impl App {
     }
 
     fn picture_told(&mut self, told: Told) {
+        if let Told::Displays(displays) = &told {
+            self.mix_display = crate::mixer::smallest_display(displays);
+        }
         if let Some(why) = self.wall.told(told) {
             self.say(why);
         }
@@ -359,7 +372,11 @@ impl App {
     /// at [`DEFAULT_SIZE`] — the thread caps either against the output the window lands on.
     fn picture_size(&self, picture: crate::ui::PopOut) -> (u32, u32) {
         match picture {
-            crate::ui::PopOut::Mix => self.project.mixer().resolution.pixels(self.mix_viewport),
+            crate::ui::PopOut::Mix => self
+                .project
+                .mixer()
+                .resolution
+                .pixels(self.mix_viewport, self.mix_display),
             crate::ui::PopOut::Node { node, port } => self
                 .link
                 .published()

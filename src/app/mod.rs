@@ -191,9 +191,11 @@ pub struct App {
     title: String,
     /// The performance surface: the toast, and what `H` and `F` hold.
     show: Show,
-    /// The Preferences window while it is open, holding which swatch has its picker up.
+    /// The Preferences window while it is open, holding its tab and which swatch has its picker up.
     /// `None` is closed — the window's own openness, not a separate flag beside it.
     prefs_window: Option<crate::ui::prefs::PrefsState>,
+    /// The Preferences tab showing when the window last closed, which it opens on again.
+    prefs_tab: crate::ui::prefs::PrefsTab,
     /// Help ▸ About supersilvia and Help ▸ Licences…, whichever are open.
     help: crate::ui::about::HelpWindows,
     /// The last run's notice, and Help ▸ Report a problem…'s report while it is gathered.
@@ -210,6 +212,10 @@ pub struct App {
     /// The canvas size seen last and the time it was first seen, which `mix_viewport` takes
     /// once it has held for `frame::MIX_SETTLE_S`. `None` until a frame has had a canvas.
     mix_canvas: Option<((u32, u32), f64)>,
+    /// The connected display with the fewest pixels, its physical size, which is what a
+    /// display-matched mix — the default — is sized to. As the pictures thread last reported
+    /// the displays; `None` until it has, and in a run with no window system.
+    mix_display: Option<(u32, u32)>,
     /// Which pictures should have windows of their own, and what those windows are doing.
     ///
     /// Session state: which picture is on which screen is decided on the night, so it is not
@@ -436,12 +442,14 @@ impl App {
             title: String::new(),
             show: Show::default(),
             prefs_window: None,
+            prefs_tab: crate::ui::prefs::PrefsTab::default(),
             help: crate::ui::about::HelpWindows::default(),
             crashlog: crashlog::Desk::default(),
             undo_history: None,
             gpu_choice: None,
             mix_viewport: crate::nodes::output::DEFAULT_RESOLUTION,
             mix_canvas: None,
+            mix_display: None,
             wall: crate::render::picture::Wall::default(),
             pictures: crate::render::picture::Host::detached(),
             filedrop: crate::platform::filedrop::FileDrop::none(),
@@ -1139,6 +1147,7 @@ impl App {
             &self.project,
             &self.prefs,
             self.mix_viewport,
+            self.mix_display,
             seen,
         );
         f(&mut self.link, &session)
@@ -1195,6 +1204,7 @@ impl App {
             ghost: self.midi_ghost(crate::midi::Target::Balance),
             method: m.method,
             resolution: m.resolution,
+            display: self.mix_display,
             popped: self
                 .wall
                 .open()
@@ -1629,8 +1639,9 @@ impl App {
             MenuAction::ShowProjectFolder => self.show_project_folder(),
             MenuAction::Quit => self.guarded(ui, Pending::Quit),
             MenuAction::OpenPreferences => {
+                let tab = self.prefs_tab;
                 self.prefs_window
-                    .get_or_insert_with(crate::ui::prefs::PrefsState::default);
+                    .get_or_insert_with(|| crate::ui::prefs::PrefsState::on(tab));
             }
             MenuAction::OpenMidi => self.midi.open_window(),
             MenuAction::OpenAbout => self.help.about = true,
@@ -1788,7 +1799,7 @@ impl App {
     /// **Test accessor.** Open or close the Status box, which is what times each tick by
     /// phase on both processors — the readings a measurement with no window reads.
     #[doc(hidden)]
-    /// Soft takeover on or off, as its row in Preferences ▸ Performance does.
+    /// Soft takeover on or off, as its row in Preferences ▸ Editing does.
     pub fn set_soft_takeover(&mut self, on: bool) {
         self.prefs
             .set_flag(crate::preferences::Flag::SoftTakeover, on);
@@ -2348,6 +2359,7 @@ fn session<'a>(
     project: &'a Project,
     prefs: &'a preferences::Store,
     mix_viewport: (u32, u32),
+    mix_display: Option<(u32, u32)>,
     seen: Seen,
 ) -> link::Session<'a> {
     link::Session {
@@ -2357,6 +2369,7 @@ fn session<'a>(
         active: project.session().active_workspace(),
         mixer: project.mixer(),
         mix_viewport,
+        mix_display,
         report: seen.report,
         status: prefs.get().show_status_box,
         preview: !prefs.get().main_input_collapsed,

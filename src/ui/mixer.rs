@@ -90,6 +90,9 @@ pub struct MixerView<'a> {
     pub freeze: SwitchView,
     pub method: Method,
     pub resolution: Resolution,
+    /// The smallest connected display's physical size, which *Match display* names, where
+    /// one has been reported.
+    pub display: Option<(u32, u32)>,
     /// Whether the mix has a window of its own, and whether that window is fullscreen.
     pub popped: Option<bool>,
     /// Why there are no picture windows in this session — no Wayland, no GPU, a
@@ -126,6 +129,68 @@ const BALANCE: crate::graph::ControlRange = crate::graph::ControlRange {
     step: 0.01,
 };
 
+/// The mix's resolution picker: the closed row across the panel row, and its popover with
+/// *Match display* and *Match viewport* above the strip while it is open. Returns a
+/// resolution picked.
+fn resolution_picker(
+    ui: &mut Ui,
+    current: Resolution,
+    display: Option<(u32, u32)>,
+    theme: &Theme,
+) -> Option<Resolution> {
+    use crate::ui::resolution;
+    const NAME: &str = "mix resolution";
+    const FOLLOWING: [Resolution; 2] = [Resolution::Display, Resolution::Viewport];
+    let open_id = ui.id().with("mix-resolution-open");
+    let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
+    let label = current.label(display);
+    let (size, shown) = match (current, &label) {
+        (Resolution::Fixed(w, h), _) => (Some((w, h)), resolution::Shown::Size(w, h)),
+        (_, label) => (
+            None,
+            resolution::Shown::Named(label.as_deref().unwrap_or("")),
+        ),
+    };
+    let (rect, _) = ui.allocate_exact_size(
+        vec2(ui.available_width(), ui.spacing().interact_size.y),
+        Sense::hover(),
+    );
+    let response = resolution::closed(ui, rect, NAME, shown, open, theme, 1.0);
+    if response.clicked() {
+        open = !open;
+    }
+    let mut picked = None;
+    if open {
+        let labels = FOLLOWING.map(|r| r.label(display).unwrap_or_default());
+        let entries = [
+            resolution::Entry {
+                key: "display",
+                label: &labels[0],
+                on: current == Resolution::Display,
+                size: display,
+                note: "The canvas's shape, until a display is reported",
+            },
+            resolution::Entry {
+                key: "viewport",
+                label: &labels[1],
+                on: current == Resolution::Viewport,
+                size: None,
+                note: "The canvas's shape, up to 1080 rows",
+            },
+        ];
+        let popped = resolution::popover(ui, rect.left_bottom(), NAME, size, &entries, theme);
+        picked = popped.picked.map(|pick| match pick {
+            resolution::Pick::Entry(i) => FOLLOWING[i],
+            resolution::Pick::Size(w, h) => Resolution::Fixed(w, h),
+        });
+        if popped.dismissed && !response.clicked() {
+            open = false;
+        }
+    }
+    ui.data_mut(|d| d.insert_temp(open_id, open));
+    picked
+}
+
 /// Draw the panel. The mix's own preview is drawn under it by the caller, in the space
 /// this leaves.
 pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool) -> MixerOutput {
@@ -147,10 +212,6 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
 
     let mix = heading(ui, "Mix", theme);
     midi_mark(ui, mix, view.bound.as_deref(), theme);
-    balance(ui, view, theme, lock_cursor, &mut out.actions);
-    ui.add_space(ROW_GAP);
-    holds(ui, view, theme, &mut out.actions);
-    ui.add_space(ROW_GAP);
     panel::row(ui, "Crossfade", theme, |ui| {
         let mut method = view.method;
         ComboBox::from_id_salt("crossfade-method")
@@ -167,28 +228,15 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
             out.actions.push(MixerAction::SetMethod(method));
         }
     });
+    ui.add_space(ROW_GAP);
+    balance(ui, view, theme, lock_cursor, &mut out.actions);
+    ui.add_space(ROW_GAP);
+    holds(ui, view, theme, &mut out.actions);
     ui.add_space(SECTION_GAP);
 
     heading(ui, "Projection", theme);
     panel::row(ui, "Resolution", theme, |ui| {
-        let mut resolution = view.resolution;
-        ComboBox::from_id_salt("mix-resolution")
-            .selected_text(resolution.label())
-            .width(ui.available_width())
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut resolution,
-                    Resolution::Viewport,
-                    Resolution::Viewport.label(),
-                );
-                for (w, h) in Resolution::PRESETS {
-                    let r = Resolution::Fixed(w, h);
-                    ui.selectable_value(&mut resolution, r, r.label());
-                }
-            })
-            .response
-            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
-        if resolution != view.resolution {
+        if let Some(resolution) = resolution_picker(ui, view.resolution, view.display, theme) {
             out.actions.push(MixerAction::SetResolution(resolution));
         }
     });
@@ -550,7 +598,7 @@ enum Hold {
 }
 
 /// One press: the press button's field, lit in the accent with a `●` before its name while it
-/// holds — a glyph and the accent, since the palette carries no red for an alarm. A real
+/// holds — a painted dot and the accent, since the palette carries no red for an alarm. A real
 /// `Response` named `Blackout` or `Freeze`, selected while it holds.
 fn hold(
     ui: &mut Ui,
@@ -582,16 +630,29 @@ fn hold(
     if switch.learning {
         crate::ui::learning_ring(ui, rect, 1.0, theme);
     }
-    let caption = if switch.on {
-        format!("\u{25cf} {name}")
-    } else {
-        name.to_string()
-    };
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        caption,
+    let galley = ui.painter().layout_no_wrap(
+        name.to_string(),
         FontId::proportional(theme::FONT_BASE),
+        ink,
+    );
+    let size = theme::FONT_BASE;
+    let lead = if switch.on { size + 2.0 } else { 0.0 };
+    let content = lead + galley.size().x;
+    let left = rect.center().x - content * 0.5;
+    if switch.on {
+        crate::ui::icon::paint(
+            ui.painter(),
+            Rect::from_center_size(
+                eframe::egui::pos2(left + size * 0.5, rect.center().y),
+                vec2(size, size),
+            ),
+            crate::ui::icon::Icon::Dot,
+            ink,
+        );
+    }
+    ui.painter().galley(
+        eframe::egui::pos2(left + lead, rect.center().y - galley.size().y * 0.5),
+        galley,
         ink,
     );
     let label = if switch.learning {
