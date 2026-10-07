@@ -73,8 +73,11 @@ raw-window-handle = "0.6"
 # (`video/png.rs`); this is here for the one thing GStreamer cannot do on a machine with no
 # gif loader, which is every machine this has been run on: `decodebin` refuses `image/gif`.
 # It is also the dev-dependency `examples/node_shots` and the fixtures in `tests/` use, so
-# the version is kittest's own and the lock does not move.
-image = "0.25"
+# the version is kittest's own and the lock does not move. Its formats are the four
+# `nodes::Accepts::IMAGE` takes, the GIF's encoder among them, and the PNG the icon and the
+# About box decode; the rest of its defaults — AVIF, EXR, TIFF and the others, and rayon —
+# are off, since nothing here opens them.
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 
 # Linux's and macOS's: the synth thread's own CPU clock, `CLOCK_THREAD_CPUTIME_ID`, for the
 # Status box's line between work and waiting on the GPU, named by `platform/linux/clock.rs`

@@ -2739,7 +2739,9 @@ JPEG and a WebP — `pngdec`, `jpegdec`, `webpdec` — and for the animated GIF 
 `image/gif`, and `avdec_gif` needs the libav plugin, which is not installed on any machine this
 has run on. `decodebin` answers `not-linked` and the pipeline never prerolls. So the crate is
 in the shipping binary for the one format that cannot be got any other way, and it is the
-version `egui_kittest` already pinned for `examples/node_shots`, so the lock does not move.
+version `egui_kittest` already pinned for `examples/node_shots`. It is built with four of its
+formats, PNG, JPEG, WebP and GIF, which are what `imagegif` takes; its other defaults — AVIF,
+EXR, TIFF, BMP and the rest, and rayon — opened nothing here and were 1.5 MB of the binary.
 
 **Rejected: a GIF decoder of our own.** LZW, the frame disposal rules and a canvas to
 composite onto, for a format the crate in the lock already reads — and `nodes/` would then

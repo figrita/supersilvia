@@ -848,9 +848,8 @@ impl Accepts {
         extensions: &[],
     };
 
-    /// What an `imagegif` node will show. Everything `image` decodes with its default
-    /// features that a performer would call a picture: the four still formats and the one
-    /// that moves.
+    /// What an `imagegif` node will show: the four formats the `image` crate is built with
+    /// (`Cargo.toml`), the three stills and the one that moves.
     pub const IMAGE: Self = Self {
         label: "Image",
         extensions: &["png", "jpg", "jpeg", "gif", "webp"],

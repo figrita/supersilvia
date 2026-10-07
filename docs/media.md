@@ -808,8 +808,8 @@ the 74 seconds *on every launch*, to save none of that.
 ## Images and GIFs
 
 `imagegif` is the smallest source there is: an [`Asset` option](nodes.md#option-kinds) naming
-a file, one texture output, a Time and an Offset. It takes png, jpg, jpeg, gif and webp — what
-the `image` crate decodes with its default features — and everything about it is the shape
+a file, one texture output, a Time and an Offset. It takes png, jpg, jpeg, gif and webp — the
+four formats the `image` crate is built with — and everything about it is the shape
 `video` already had, one size down.
 
 **It draws the picture it is holding**, under the same **Preview** heading the clip node's
