@@ -17,6 +17,34 @@ use emath::Pos2;
 pub(in crate::app) struct Env<'a> {
     /// The project an imported workspace copies its media into.
     pub project: &'a Project,
+    /// The width and height a new Output is made at, the preference's; `None` is the Output's
+    /// own default.
+    pub output_resolution: Option<(u32, u32)>,
+}
+
+/// Insert a node of the named kind as [`crate::nodes::add_to_graph_on`] does, and give a new
+/// Output the size `env` asks for: every option of an Output drawn by the resolution picker,
+/// where the size is one a file would open with.
+fn add_node(
+    graph: &mut Graph,
+    slug: &str,
+    at: Pos2,
+    workspace: WorkspaceId,
+    env: &Env<'_>,
+) -> Option<NodeId> {
+    let id = crate::nodes::add_to_graph_on(graph, slug, at, workspace)?;
+    if let Some((w, h)) = env.output_resolution
+        && let Some(node) = graph.get_mut(id)
+        && node.def.is_output
+    {
+        let size = format!("{w}x{h}");
+        if crate::nodes::output::holds_resolution(&size) {
+            for option in node.def.options.iter().filter(|o| o.resolution) {
+                node.options.insert(option.key, size.clone());
+            }
+        }
+    }
+    Some(id)
 }
 
 /// What a command did that some other part answers for.
@@ -90,7 +118,7 @@ impl Document {
                 if !self.graph.has_workspace(workspace) {
                     return Err(CommandError::NoSuchWorkspace(workspace));
                 }
-                let id = crate::nodes::add_to_graph_on(self.graph_mut(), slug, at, workspace)
+                let id = add_node(self.graph_mut(), slug, at, workspace, env)
                     .ok_or(CommandError::NoSuchNodeKind(slug))?;
                 self.mark(&mut out, id);
             }
@@ -124,7 +152,7 @@ impl Document {
                 // the node and whatever cables did land, so a command that failed leaves
                 // nothing behind, not even the id the node would have spent.
                 let mut graph = Graph::clone(&self.graph);
-                let id = crate::nodes::add_to_graph_on(&mut graph, slug, at, workspace)
+                let id = add_node(&mut graph, slug, at, workspace, env)
                     .ok_or(CommandError::NoSuchNodeKind(slug))?;
                 inputs
                     .iter()
@@ -146,7 +174,7 @@ impl Document {
                 }
                 // On a copy, for the reason a bridge is: a refused cable leaves no node behind.
                 let mut graph = Graph::clone(&self.graph);
-                let id = crate::nodes::add_to_graph_on(&mut graph, slug, at, workspace)
+                let id = add_node(&mut graph, slug, at, workspace, env)
                     .ok_or(CommandError::NoSuchNodeKind(slug))?;
                 let made = PortRef::new(id, key);
                 let downstream = if graph
@@ -523,7 +551,7 @@ impl Document {
                 // A workspace is a view: no node moved, so no shader changed — unless it was
                 // born holding something, and then the Output it was born holding has one.
                 if let crate::command::Seed::SourceToOutput { width } = seed {
-                    self.seed_workspace(&mut out, id, width);
+                    self.seed_workspace(&mut out, id, width, env);
                 }
             }
             Command::RemoveWorkspace(id) => {
@@ -927,7 +955,13 @@ impl Document {
     /// The Output is placed against `width`, the canvas as it was when the tab was asked for.
     /// A window narrower than the two nodes side by side falls back to a fixed gap rather
     /// than stacking them on top of each other.
-    fn seed_workspace(&mut self, out: &mut Applied, workspace: WorkspaceId, width: f32) {
+    fn seed_workspace(
+        &mut self,
+        out: &mut Applied,
+        workspace: WorkspaceId,
+        width: f32,
+        env: &Env<'_>,
+    ) {
         use crate::ui::canvas;
         use crate::ui::layout::{HORIZONTAL_MARGIN, VERTICAL_MARGIN};
         let at = |x: f32| Pos2::new(x, VERTICAL_MARGIN);
@@ -942,9 +976,7 @@ impl Document {
         let right = width - canvas::OUTPUT_NODE_WIDTH - HORIZONTAL_MARGIN;
         // Never to the left of the source, and never on top of it.
         let right = right.max(HORIZONTAL_MARGIN + canvas::NODE_WIDTH + HORIZONTAL_MARGIN);
-        let Some(output) =
-            crate::nodes::add_to_graph_on(self.graph_mut(), "output", at(right), workspace)
-        else {
+        let Some(output) = add_node(self.graph_mut(), "output", at(right), workspace, env) else {
             return;
         };
         // A refusal here would mean the two definitions had drifted apart, which the registry

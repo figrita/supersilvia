@@ -30,6 +30,7 @@ impl App {
         }
         let env = Env {
             project: &self.project,
+            output_resolution: self.prefs.get().output_resolution,
         };
         let applied = self.doc.apply(cmd, &env, origin)?;
         if applied.nothing {

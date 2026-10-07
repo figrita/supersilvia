@@ -659,6 +659,7 @@ the same thing.
 | `node_shadow` | cast the window shadow under every node body. On |
 | `scroll_x_inverted` | which way the wheel moves a Linear workspace along its strip |
 | `default_layout` | the mode a new workspace opens in. A workspace's own mode is saved with it |
+| `output_resolution` | the width and height a new Output is made at, `[1920, 1080]`. Absent is the Output's own, 1280x720. An Output's own size is saved with it |
 | `main_input_collapsed`, `mixer_collapsed` | the Main Input panel folded to the left edge and the Main Mixer to the right, each to its spine. The Main Input starts folded and the Mixer open |
 | `main_input_width`, `mixer_width` | the width each panel's edge was last dragged to. Absent is the panel's own, 300 and 380 — see [the two side panels](#the-two-side-panels) |
 | `tick_rate` | how often the synth ticks: the editor's display, 60 or 30 — see [below](#the-preferences-window) |
@@ -806,7 +807,7 @@ along the wire. What phi spacing buys instead is telling two cables in a bundle 
 is worth more the denser a patch gets and nothing at all on a small one — so it is offered
 rather than assumed. See [cables](#cables) for what it does to a port.
 
-**Five answers on the Editing tab.**
+**Six answers on the Editing tab.**
 
 *Lock the cursor while scrubbing* is on the Editing tab and nowhere else. It is taste rather
 than something toggled for an evening, and taste is what somebody opens this window for.
@@ -823,6 +824,12 @@ go is a property of the hand rather than of the workspace.
 *New workspaces open as* picks Canvas or Linear for the next workspace made. It changes
 nothing about the ones that exist: a workspace's mode is its own document data, saved in its
 own file, and opens the way whoever made it left it.
+
+*New Outputs render at* is the [resolution picker](#options-and-the-file-button) an Output's
+own row draws, its popover under the row while it is up, and names the size a new Output is
+made at — from the Nodes menu, the browser, a dropped cable or a new video workspace. It
+changes nothing about the Outputs that exist or a project opened, which keep the size each
+holds ([nodes.md](nodes.md#option-kinds)). Picking 1280x720, the Output's own, stores no choice.
 
 *MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
 with its control moves nothing until it passes the control's value, then takes over, so the
@@ -2690,7 +2697,8 @@ Which options are ticks and which are headings is **the definition's** —
 row, and which are left to draw as selects. `Row::Option(i)` counts only the selects.
 
 **A fixed width and height is the resolution picker, not a select** (`ui/resolution.rs`): an
-Output's **Resolution**, the Text node's **Texture Size** and the Main Mixer's resolution.
+Output's **Resolution**, the Text node's **Texture Size**, the Main Mixer's resolution and
+Preferences ▸ Editing's size for new Outputs.
 `OptionDef::resolution` says so, and the value is any `WIDTHxHEIGHT` with both sides from 16
 to 16384 — stored as its text, `option_is_valid` holding a file to that range rather than to
 the choices, which are only the default's home. Closed, it is a select's box and chevron

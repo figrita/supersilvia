@@ -137,6 +137,11 @@ pub struct Preferences {
     /// The mode a new workspace opens in. A workspace's own mode is document data and saved
     /// with it; this is only the one it is born with.
     pub default_layout: crate::graph::LayoutMode,
+    /// The width and height a new Output is made at. Absent is the Output's own,
+    /// [`crate::nodes::output::DEFAULT_RESOLUTION`]. An Output's size is document data and
+    /// saved with it; this is only the one it is born with.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_resolution: Option<(u32, u32)>,
     /// The Main Input panel folded to the left edge, and the Main Mixer to the right.
     ///
     /// A preference and not project data: whether you can see a panel is about the editor in
@@ -201,6 +206,7 @@ impl Default for Preferences {
             node_shadow: true,
             scroll_x_inverted: false,
             default_layout: crate::graph::LayoutMode::default(),
+            output_resolution: None,
             main_input_collapsed: true,
             tick_rate: TickRate::default(),
             status_folds: StatusFolds::default(),
@@ -602,6 +608,12 @@ impl Store {
 
     pub fn set_default_layout(&mut self, mode: crate::graph::LayoutMode) {
         set(&mut self.prefs.default_layout, mode, &mut self.dirty);
+    }
+
+    /// The size a new Output is made at. The Output's own default is stored as no choice.
+    pub fn set_output_resolution(&mut self, size: (u32, u32)) {
+        let chosen = (size != crate::nodes::output::DEFAULT_RESOLUTION).then_some(size);
+        set(&mut self.prefs.output_resolution, chosen, &mut self.dirty);
     }
 
     pub fn set_window(&mut self, window: WindowGeometry) {

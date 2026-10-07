@@ -11273,6 +11273,61 @@ fn an_outputs_resolution_is_picked_by_shape_and_short_side() {
     );
 }
 
+/// **A new Output is made at Preferences ▸ Editing's resolution, and an old one keeps its own.**
+/// The row is the resolution picker an Output's own row is; a size picked there is the
+/// preference, and only the Outputs made after it take it.
+#[test]
+fn a_new_output_takes_the_preferences_resolution_and_an_old_one_keeps_its_own() {
+    use supersilvia::nodes::output::{DEFAULT_RESOLUTION, resolution_of};
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let old = h.state().graph().iter().next().expect("one node").0;
+
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
+    h.get_by_label("New Outputs 16:9 · 720").click();
+    // The popover is an `Area`: its first frame is a sizing pass.
+    h.run_steps(2);
+    h.get_by_label("New Outputs 1080").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().preferences().output_resolution,
+        Some((1920, 1080))
+    );
+    assert!(h.query_by_label("New Outputs 16:9 · 1080").is_some());
+    h.get_by_label("Close window").click();
+    h.run_steps(2);
+
+    add_node(&mut h, ADD_OUTPUT);
+    let new = h.state().graph().iter().map(|(id, _)| id).last().unwrap();
+    assert_ne!(new, old);
+    let size = |h: &Harness<'_, App>, id| resolution_of(h.state().graph().get(id).unwrap());
+    assert_eq!(size(&h, new), (1920, 1080), "the new Output takes it");
+    assert_eq!(
+        size(&h, old),
+        DEFAULT_RESOLUTION,
+        "the old one keeps its own"
+    );
+
+    // And the Output a new video workspace is born holding.
+    h.state_mut()
+        .apply(Command::AddWorkspace {
+            name: "Second".to_owned(),
+            kind: supersilvia::graph::WorkspaceKind::Video,
+            layout: supersilvia::graph::LayoutMode::Canvas,
+            seed: supersilvia::command::Seed::SourceToOutput { width: 800.0 },
+        })
+        .unwrap();
+    let born = h.state().graph().iter().map(|(id, _)| id).last().unwrap();
+    assert!(h.state().graph().get(born).unwrap().def.is_output);
+    assert_eq!(
+        size(&h, born),
+        (1920, 1080),
+        "a new workspace's Output takes it"
+    );
+}
+
 /// **An Output's Record section**, under a heading of its own between Render and Send, closed
 /// on a new Output: its own FPS, then the Record row with a status and one button. Pressed on
 /// an Output with nothing cabled into it, the row says why rather than recording, and nothing

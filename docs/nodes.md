@@ -409,7 +409,12 @@ and a clip's loop are read by `tick`, and an Output's resolution is read into ev
 job, from which the renderer resizes while keeping the program. That resolution, and the Text
 node's Texture Size, set `OptionDef::resolution`: any `WIDTHxHEIGHT` from 16 to 16384 a side,
 drawn as the [resolution picker](ui.md#options-and-the-file-button) rather than a select,
-`nodes::output::read_resolution` the one reading of it. A node whose outputs are all
+`nodes::output::read_resolution` the one reading of it. An Output's default is 1280x720
+(`output::DEFAULT_RESOLUTION`), and a new one — from the Nodes menu, the browser, a dropped
+cable or a new video workspace — is made at the size Preferences ▸ Editing names instead, where
+one is named: the app writes it over the default as the node is added, through what an edit
+reads from outside the document (`app::document::Env`), so `nodes/` reads no preference. An
+Output already made and every file opened keep the size they hold. A node whose outputs are all
 `UniformNumber` or `Action` — `mastergear`, `counter` — emits no WGSL at all, which puts every
 option it has here.
 

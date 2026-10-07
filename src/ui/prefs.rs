@@ -90,6 +90,8 @@ pub enum PrefAction {
     SetFlag(Flag, bool),
     /// The mode a new workspace opens in.
     SetDefaultLayout(crate::graph::LayoutMode),
+    /// The width and height a new Output is made at.
+    SetOutputResolution(u32, u32),
     /// How often the synth ticks: the display's rate, or a fixed one.
     SetTickRate(crate::preferences::TickRate),
     /// How large the whole editor is drawn.
@@ -167,6 +169,8 @@ impl PrefsTab {
 #[derive(Debug, Default)]
 pub struct PrefsState {
     picking: Option<Anchor>,
+    /// The new Outputs' resolution picker has its popover up.
+    sizing: bool,
     tab: PrefsTab,
     /// The tallest tab's height in points, and the pixels per point it was measured at.
     tallest: Option<(f32, f32)>,
@@ -217,6 +221,7 @@ pub fn show(
                 if ui.selectable_label(state.tab == tab, tab.label()).clicked() {
                     state.tab = tab;
                     state.picking = None;
+                    state.sizing = false;
                 }
             }
         });
@@ -243,6 +248,7 @@ pub fn show(
     if !open {
         // Re-opening the window does not bring back a picker nobody asked for.
         state.picking = None;
+        state.sizing = false;
         actions.push(PrefAction::Close);
     }
     actions
@@ -311,7 +317,7 @@ fn body(
                 flag(ui, prefs, row, actions);
             }
         }
-        PrefsTab::Editing => editing(ui, prefs, actions),
+        PrefsTab::Editing => editing(ui, state, theme, prefs, actions),
         PrefsTab::Performance => {
             performance(ui, prefs, actions);
             rule(ui);
@@ -488,7 +494,13 @@ fn interface_size(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction
 
 /// The Editing tab: a handful of answers about how the editor behaves, each independent of
 /// the others.
-fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
+fn editing(
+    ui: &mut Ui,
+    state: &mut PrefsState,
+    theme: &Theme,
+    prefs: &Preferences,
+    actions: &mut Vec<PrefAction>,
+) {
     for row in EDITING {
         flag(ui, prefs, row, actions);
     }
@@ -506,6 +518,49 @@ fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
             }
         }
     });
+    output_resolution(ui, state, theme, prefs, actions);
+}
+
+/// The size a new Output is made at: a caption and the resolution picker an Output's own row
+/// draws, its popover under the closed row while it is up.
+fn output_resolution(
+    ui: &mut Ui,
+    state: &mut PrefsState,
+    theme: &Theme,
+    prefs: &Preferences,
+    actions: &mut Vec<PrefAction>,
+) {
+    use super::resolution;
+    const NAME: &str = "New Outputs";
+    let (w, h) = prefs
+        .output_resolution
+        .unwrap_or(crate::nodes::output::DEFAULT_RESOLUTION);
+    let shown = resolution::Shown::Size(w, h);
+    let row = ui.horizontal(|ui| {
+        ui.label("New Outputs render at");
+        let width = resolution::closed_width(ui.ctx(), shown, 1.0) + 12.0;
+        let (rect, _) =
+            ui.allocate_exact_size(vec2(width, ui.spacing().interact_size.y), Sense::hover());
+        let response = resolution::closed(ui, rect, NAME, shown, state.sizing, theme, 1.0);
+        if response.clicked() {
+            state.sizing = !state.sizing;
+        }
+        (rect, response.clicked())
+    });
+    let (rect, clicked) = row.inner;
+    row.response.on_hover_text(
+        "The resolution an Output is made at, from the Nodes menu, the browser or a new \
+         workspace. Outputs already made, and every project opened, keep their own.",
+    );
+    if state.sizing {
+        let popped = resolution::popover(ui, rect.left_bottom(), NAME, Some((w, h)), &[], theme);
+        if let Some(resolution::Pick::Size(w, h)) = popped.picked {
+            actions.push(PrefAction::SetOutputResolution(w, h));
+        }
+        if popped.dismissed && !clicked {
+            state.sizing = false;
+        }
+    }
 }
 
 /// The synth's rate. One row: the display it is on, or a number.

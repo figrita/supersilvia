@@ -221,6 +221,9 @@ impl App {
                 crate::ui::prefs::PrefAction::SetDefaultLayout(mode) => {
                     self.prefs.set_default_layout(mode);
                 }
+                crate::ui::prefs::PrefAction::SetOutputResolution(w, h) => {
+                    self.prefs.set_output_resolution((w, h));
+                }
                 crate::ui::prefs::PrefAction::SetTickRate(rate) => self.prefs.set_tick_rate(rate),
                 crate::ui::prefs::PrefAction::SetInterfaceSize(size) => {
                     self.prefs.set_interface_size(size);
