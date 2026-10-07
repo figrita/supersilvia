@@ -3055,6 +3055,15 @@ fn resolution_button(
             key,
             at: cx.world(response.rect.left_bottom()),
         });
+    } else if is_open {
+        // Anchored every frame, not just the one it opened on: a drag, a pan or a zoom moves
+        // the row, and a pick of a different caption width moves its own left edge, so the
+        // popover is placed from where the row is now rather than where it was.
+        *open = Some(OpenControl::Resolution {
+            node: id,
+            key,
+            at: cx.world(response.rect.left_bottom()),
+        });
     }
 }
 

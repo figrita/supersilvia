@@ -2027,6 +2027,13 @@ once and read the same wherever on the node the pointer landed.
   soon as the canvas panned or zoomed under it. There is a third `OpenControl` variant,
   `File`, which is not a popup at all: it is consumed at that same point in the pass and
   becomes a `file_requests` entry, leaving nothing open.
+- **The resolution picker's anchor is rewritten every frame it stays open**, not only
+  captured on the click that opened it: `resolution_button` sets `OpenControl::Resolution`'s
+  `at` from the row's current rect on every frame the popover is up, so dragging the node —
+  whose row moves in world units, which panning and zooming alone do not touch — keeps the
+  popover attached to it, and a pick that changes the closed row's caption (and so the width
+  that its right-aligned left edge is placed from) does not leave the popover sitting where
+  the old caption's edge was.
 - **Zoom is applied at the end of the frame**, after every control has had its chance at the
   wheel. `src/ui/number.rs` takes the scroll with `input_mut` and clears it, so a number
   control under the pointer consumes the notch. Read at the top of the frame, one notch over a

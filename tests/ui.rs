@@ -11549,6 +11549,129 @@ fn an_outputs_resolution_is_picked_by_shape_and_short_side() {
     );
 }
 
+/// The popover is anchored to its row every frame, not the row's position on the click that
+/// opened it: dragging the node moves its row in world units, which panning and zooming alone
+/// never do, and a stale anchor would leave the popover behind on the canvas while the row —
+/// and the node under it — went on to wherever the drag took them.
+#[test]
+fn the_resolution_popover_follows_its_node_when_dragged() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let out = h.state().graph().iter().next().expect("one node").0;
+    let start = egui::pos2(60.0, 40.0);
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![(out, start)],
+        })
+        .unwrap();
+    h.run_steps(2);
+    let name = format!("output{out}.resolution");
+    h.get_by_label(&format!("{name} 16:9 · 720")).click();
+    // The popover is an `Area`: its first frame is a sizing pass.
+    h.run_steps(2);
+
+    let row_before = h.get_by_label(&format!("{name} 16:9 · 720")).rect();
+    let cell_before = h.get_by_label(&format!("{name} 1080")).rect();
+
+    // Not a drag gesture — a direct `MoveNodes`, the same command a drag emits one of per
+    // frame — so the one thing that changes between these two frames is the node's position.
+    let delta = egui::vec2(180.0, -90.0);
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![(out, start + delta)],
+        })
+        .unwrap();
+    h.step();
+
+    let row_after = h.get_by_label(&format!("{name} 16:9 · 720")).rect();
+    let cell_after = h.get_by_label(&format!("{name} 1080")).rect();
+
+    assert!(
+        (row_after.min - (row_before.min + delta)).length() < 0.5,
+        "the row itself moved by the drag: {row_before:?} to {row_after:?}"
+    );
+    assert!(
+        (cell_after.min - (cell_before.min + delta)).length() < 0.5,
+        "the popover followed the node by the same delta instead of staying where it opened: \
+         {cell_before:?} to {cell_after:?}, expected a move of {delta:?}"
+    );
+    let offset_before = cell_before.min - row_before.left_bottom();
+    let offset_after = cell_after.min - row_after.left_bottom();
+    assert!(
+        (offset_before - offset_after).length() < 0.5,
+        "the popover stays anchored to the row's own corner: {offset_before:?} vs {offset_after:?}"
+    );
+}
+
+/// **The closed row's width follows its caption**, so a pick that changes the caption's width
+/// moves the row's own left edge — it is right-aligned, hugging what it shows. The popover has
+/// to follow that too: anchored from the row's rect on every frame, not only the frame it
+/// opened on, so it tracks the row's edge after the caption changes as much as it tracks a
+/// drag.
+#[test]
+fn the_resolution_popover_stays_aligned_after_a_caption_width_change() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let out = h.state().graph().iter().next().expect("one node").0;
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![(out, egui::pos2(60.0, 40.0))],
+        })
+        .unwrap();
+    h.run_steps(2);
+    let name = format!("output{out}.resolution");
+    h.get_by_label(&format!("{name} 16:9 · 720")).click();
+    h.run_steps(2);
+
+    let row_before = h.get_by_label(&format!("{name} 16:9 · 720")).rect();
+    let free_before = h.get_by_label(&format!("{name} Free")).rect();
+    let offset_before = free_before.min - row_before.left_bottom();
+
+    // A size off the strip, with a caption much shorter than the ratio-and-short-side one the
+    // row opened with: `20×16` against `16:9 · 720`. Small enough that no ratio's rounding at
+    // this short side comes anywhere near it, so it reads back as Free rather than a cell.
+    h.get_by_label_contains(&format!("{name} width")).click();
+    h.step();
+    key(&mut h, egui::Key::End);
+    for _ in 0..4 {
+        key(&mut h, egui::Key::Backspace);
+    }
+    type_text(&mut h, "20");
+    key(&mut h, egui::Key::Enter);
+    h.run_steps(2);
+    h.get_by_label_contains(&format!("{name} height")).click();
+    h.step();
+    key(&mut h, egui::Key::End);
+    for _ in 0..3 {
+        key(&mut h, egui::Key::Backspace);
+    }
+    type_text(&mut h, "16");
+    key(&mut h, egui::Key::Enter);
+    h.run_steps(2);
+
+    assert!(
+        h.query_by_label(&format!("{name} 20×16")).is_some(),
+        "the caption changed to the typed size"
+    );
+    let row_after = h.get_by_label(&format!("{name} 20×16")).rect();
+    assert!(
+        (row_before.width() - row_after.width()).abs() > 5.0,
+        "the row's own width moved with its new, much shorter caption: {} to {}",
+        row_before.width(),
+        row_after.width()
+    );
+
+    let free_after = h.get_by_label(&format!("{name} Free")).rect();
+    let offset_after = free_after.min - row_after.left_bottom();
+    assert!(
+        (offset_before - offset_after).length() < 0.5,
+        "the popover stayed anchored to the row's own corner rather than drifting with the \
+         caption: {offset_before:?} vs {offset_after:?}"
+    );
+}
+
 /// **A new Output is made at Preferences ▸ Editing's resolution, and an old one keeps its own.**
 /// The row is the resolution picker an Output's own row is; a size picked there is the
 /// preference, and only the Outputs made after it take it.
