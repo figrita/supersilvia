@@ -6,7 +6,9 @@
 //! given that path explicitly, so nothing here can touch a real `preferences.json`.
 
 use std::path::PathBuf;
-use supersilvia::preferences::{Placement, Preferences, StatusFolds, Store, WindowGeometry};
+use supersilvia::preferences::{
+    Placement, Preferences, StatusFolds, Store, TextSize, WindowGeometry,
+};
 
 /// A directory of this test's own, named so two tests running at once cannot collide.
 fn dir(name: &str) -> PathBuf {
@@ -58,6 +60,7 @@ fn a_file_round_trips() {
             maximized: true,
         },
         ui_zoom: 1.5,
+        text_size: TextSize::Larger,
         projects_dir: Some(PathBuf::from("/media/shows")),
         windows: [
             (
@@ -99,6 +102,48 @@ fn a_zoom_out_of_range_starts_inside_it() {
     assert_eq!(at(0.0), 0.2);
     assert_eq!(at(40.0), 5.0);
     assert_eq!(at(f32::NAN), 1.0);
+}
+
+/// The text size is written as it is picked and read back by the next run, and egui's zoom
+/// factor is it times the View zoom: a View zoom step moves a tenth of the View zoom and
+/// leaves the text size under it.
+#[test]
+fn the_text_size_is_kept_and_sits_under_the_view_zoom() {
+    let path = dir("text-size").join("preferences.json");
+    let mut store = Store::load(Some(path.clone()));
+    assert_eq!(store.get().text_size, TextSize::Default);
+    assert_eq!(
+        store.get().scale(),
+        1.0,
+        "the default is the display's own scale"
+    );
+
+    store.set_text_size(TextSize::Large);
+    store.flush();
+    let back = Store::load(Some(path)).get().clone();
+    assert_eq!(
+        back.text_size,
+        TextSize::Large,
+        "the next run reads it back"
+    );
+    assert_eq!(back.scale(), 1.25);
+
+    let zoomed = Preferences {
+        ui_zoom: supersilvia::preferences::zoom_step(back.ui_zoom, 0.1),
+        ..back
+    };
+    assert_eq!(zoomed.ui_zoom, 1.1, "a step is a tenth of the View zoom");
+    assert!(
+        (zoomed.scale() - 1.25 * 1.1).abs() < 1e-6,
+        "{}",
+        zoomed.scale()
+    );
+    assert!(
+        TextSize::ALL
+            .windows(2)
+            .all(|pair| pair[0].0.factor() < pair[1].0.factor()),
+        "each size is larger than the one before"
+    );
 }
 
 /// The projects folder is the default until one is chosen, and choosing the default's own

@@ -377,13 +377,14 @@ fn the_windows_and_the_zoom_open_where_the_last_run_left_them() {
         (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
         "the zoom is the file's"
     );
-    h.ctx.set_zoom_factor(1.0);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num0);
     h.run_steps(2);
     assert_eq!(
         h.state().preferences().ui_zoom,
         1.0,
         "and a new zoom is kept"
     );
+    assert!((h.ctx.zoom_factor() - 1.0).abs() < 1e-4);
 
     open_preferences(&mut h);
     let window = h.get_by_label("Preferences").rect();
@@ -406,6 +407,50 @@ fn the_windows_and_the_zoom_open_where_the_last_run_left_them() {
         kept.size, None,
         "and a window that sizes itself keeps no size"
     );
+}
+
+/// **Text size zooms the whole editor**: Preferences ▸ Text size sets egui's zoom factor, so
+/// the window and everything in it grows in points, and it is kept. The View zoom steps on
+/// top of it, and its Actual size is the text size's rather than the display's.
+#[test]
+fn the_text_size_zooms_the_whole_editor_under_the_view_zoom() {
+    use supersilvia::preferences::TextSize;
+    let mut h = harness();
+    h.step();
+    open_preferences(&mut h);
+    let before = h.ctx.content_rect();
+    h.get_by_label("Large").click();
+    h.run_steps(3);
+    assert_eq!(h.state().preferences().text_size, TextSize::Large);
+    assert!(
+        (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
+        "{}",
+        h.ctx.zoom_factor()
+    );
+    // The same window holds fewer points, each drawn larger.
+    let after = h.ctx.content_rect();
+    assert!(
+        (after.width() * 1.25 - before.width()).abs() < 1.0,
+        "{before:?} {after:?}"
+    );
+
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Plus);
+    h.run_steps(2);
+    assert_eq!(h.state().preferences().ui_zoom, 1.1, "the View zoom steps");
+    assert!((h.ctx.zoom_factor() - 1.25 * 1.1).abs() < 1e-4);
+    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num0);
+    h.run_steps(2);
+    assert!(
+        (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
+        "Actual size keeps the text size: {}",
+        h.ctx.zoom_factor()
+    );
+
+    // The next run opens at the size this one was left at.
+    let kept = h.state().preferences().clone();
+    let mut next = harness_with(kept);
+    next.step();
+    assert!((next.ctx.zoom_factor() - 1.25).abs() < 1e-4);
 }
 
 /// A machine with an integrated GPU, a discrete one and a software one, rendering on the first

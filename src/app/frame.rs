@@ -220,6 +220,7 @@ impl App {
                     self.prefs.set_default_layout(mode);
                 }
                 crate::ui::prefs::PrefAction::SetTickRate(rate) => self.prefs.set_tick_rate(rate),
+                crate::ui::prefs::PrefAction::SetTextSize(size) => self.prefs.set_text_size(size),
                 crate::ui::prefs::PrefAction::ShowProjects => self.show_projects_folder(),
                 crate::ui::prefs::PrefAction::ChangeProjects => {
                     self.ask_for_file(FileAsk::ProjectsFolder);
@@ -484,7 +485,7 @@ impl eframe::App for App {
             rendering: self.rendering(),
             editor_hidden: self.show.hidden,
             fullscreen: ui.input(|i| i.viewport().fullscreen.unwrap_or(false)),
-            zoom: ui.ctx().zoom_factor(),
+            zoom: self.prefs.get().zoom(),
             // The readout's reading, off the last tick, while the preference shows it.
             time: self.prefs.get().show_time.then(|| menu::Time {
                 report: self.transport_state(),
@@ -921,6 +922,9 @@ impl eframe::App for App {
         }
 
         self.record_window_geometry(ui.ctx());
+        // The text size times the View zoom, as this frame's menus and Preferences left them:
+        // egui takes it at the start of the next frame, as it would its own zoom keys.
+        ui.ctx().set_zoom_factor(self.prefs.get().scale());
         // One write per frame at most, and only when something moved.
         self.prefs.flush();
         // After every edit this frame made.

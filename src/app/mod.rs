@@ -327,7 +327,10 @@ impl App {
         // The person's four numbers, not the built-in default: the editor opens wearing
         // whatever it was last left wearing — and at the scale it was left at.
         let theme = prefs.get().theme;
-        cc.egui_ctx.set_zoom_factor(prefs.get().zoom());
+        cc.egui_ctx.set_zoom_factor(prefs.get().scale());
+        // The zoom keys are the menu's, read with the other shortcuts, so a step moves the
+        // View zoom and leaves the text size under it.
+        cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let ground = if gpu.is_some() {
             Ground::Cleared
         } else {
@@ -1656,11 +1659,14 @@ impl App {
                 let is = ui.input(|i| i.viewport().fullscreen.unwrap_or(false));
                 ui.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!is));
             }
-            MenuAction::Zoom(step) => match step {
-                crate::ui::menu::Zoom::In => egui::gui_zoom::zoom_in(ui.ctx()),
-                crate::ui::menu::Zoom::Out => egui::gui_zoom::zoom_out(ui.ctx()),
-                crate::ui::menu::Zoom::Actual => ui.ctx().set_zoom_factor(1.0),
-            },
+            MenuAction::Zoom(step) => {
+                let zoom = self.prefs.get().zoom();
+                self.prefs.set_ui_zoom(match step {
+                    crate::ui::menu::Zoom::In => crate::preferences::zoom_step(zoom, 0.1),
+                    crate::ui::menu::Zoom::Out => crate::preferences::zoom_step(zoom, -0.1),
+                    crate::ui::menu::Zoom::Actual => 1.0,
+                });
+            }
             MenuAction::Nodes(ref command) => {
                 let _ = self.apply(command.clone());
             }

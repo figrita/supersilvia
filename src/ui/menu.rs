@@ -96,17 +96,17 @@ pub enum MenuAction {
     HideEditor,
     /// View ▸ Fullscreen, and `F`: the editor's window.
     Fullscreen,
-    /// View ▸ Zoom in, Zoom out and Actual size: egui's zoom over the whole editor, which
-    /// `ui_zoom` keeps.
+    /// View ▸ Zoom in, Zoom out and Actual size: `ui_zoom`, egui's zoom over the whole
+    /// editor under the text size.
     Zoom(Zoom),
 }
 
-/// A step of the editor's zoom, egui's `gui_zoom`.
+/// A step of the editor's zoom, [`crate::preferences::zoom_step`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Zoom {
     In,
     Out,
-    /// Back to 1, the display's own scale.
+    /// Back to 1, the text size's own scale.
     Actual,
 }
 
@@ -130,7 +130,7 @@ pub struct MenuState<'a> {
     pub editor_hidden: bool,
     /// The editor's window is fullscreen.
     pub fullscreen: bool,
-    /// egui's zoom factor, which Zoom in and out stop at the ends of.
+    /// The View zoom, `ui_zoom`, which Zoom in and out stop at the ends of.
     pub zoom: f32,
     /// The time readout's reading, or `None` while View ▸ Time is off.
     pub time: Option<Time>,
@@ -203,8 +203,8 @@ pub mod keys {
     /// `Ctrl+/`, the same window: `?` is the node browser's.
     pub const SHORTCUTS_ALT: KeyboardShortcut =
         KeyboardShortcut::new(Modifiers::COMMAND, Key::Slash);
-    /// egui's own zoom keys, consumed by egui at the end of every frame. Here for the menu
-    /// to print and the window to list.
+    /// egui's own zoom keys, consumed by [`super::shortcuts`] in place of egui, whose
+    /// `zoom_with_keyboard` is off.
     pub const ZOOM_IN: KeyboardShortcut = kb_shortcuts::ZOOM_IN;
     pub const ZOOM_IN_ALT: KeyboardShortcut = kb_shortcuts::ZOOM_IN_SECONDARY;
     pub const ZOOM_OUT: KeyboardShortcut = kb_shortcuts::ZOOM_OUT;
@@ -304,6 +304,15 @@ pub fn shortcuts(input: &mut egui::InputState) -> Vec<MenuAction> {
     }
     if input.consume_shortcut(&keys::SHORTCUTS) || input.consume_shortcut(&keys::SHORTCUTS_ALT) {
         actions.push(MenuAction::OpenShortcuts);
+    }
+    if input.consume_shortcut(&keys::ZOOM_ACTUAL) {
+        actions.push(MenuAction::Zoom(Zoom::Actual));
+    }
+    if input.consume_shortcut(&keys::ZOOM_IN) || input.consume_shortcut(&keys::ZOOM_IN_ALT) {
+        actions.push(MenuAction::Zoom(Zoom::In));
+    }
+    if input.consume_shortcut(&keys::ZOOM_OUT) {
+        actions.push(MenuAction::Zoom(Zoom::Out));
     }
     actions
 }
@@ -736,7 +745,8 @@ pub fn model(state: &MenuState<'_>) -> Vec<Menu> {
             .shortcut(keys::FULLSCREEN)
             .into(),
             Item::Separator,
-            // egui's zoom over the whole editor, kept in `ui_zoom`; not the canvas's own.
+            // egui's zoom over the whole editor, kept in `ui_zoom` under the text size; not the
+            // canvas's own.
             Entry::new("Zoom in", MenuAction::Zoom(Zoom::In))
                 .unless(state.zoom < most, why::LARGEST)
                 .shortcut(keys::ZOOM_IN)
