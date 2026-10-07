@@ -198,8 +198,12 @@ fn gestures(r: &mut RegionUi<'_>, square: Rect, puck: &Puck) -> Vec<RegionEvent>
     });
     let slingshot = option(r.node, xypad::CLICK) != "cursor";
     let mut out = Vec::new();
-    // silvia's `cursor: crosshair` over the square, and while a hand has the puck anywhere.
-    if hand.is_some() || (grab.hovered() && at.is_some_and(|p| square.contains(p))) {
+    // silvia's `cursor: crosshair` over the square, and while a hand draws a well anywhere;
+    // a closed hand while it has the puck.
+    if matches!(hand, Some(Hand::Puck { .. })) {
+        r.ui.ctx()
+            .set_cursor_icon(eframe::egui::CursorIcon::Grabbing);
+    } else if hand.is_some() || (grab.hovered() && at.is_some_and(|p| square.contains(p))) {
         r.ui.ctx()
             .set_cursor_icon(eframe::egui::CursorIcon::Crosshair);
     }
@@ -504,6 +508,7 @@ fn presets(r: &mut RegionUi<'_>, inner: Rect, top: f32) -> Vec<RegionEvent> {
             r.ui.id().with(("xypad-preset", &name)),
             Sense::click(),
         );
+        crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
         r.ui.painter().rect(
             rect,
             CornerRadius::same((CORNER * z).round() as u8),

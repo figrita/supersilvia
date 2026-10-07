@@ -116,6 +116,7 @@ pub fn badge(ui: &mut Ui, count: Count, theme: &Theme) -> bool {
         return false;
     }
     let (rect, response) = ui.allocate_exact_size(vec2(width, height), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     ui.ctx().data_mut(|d| d.insert_temp(badge_id(), rect));
     crate::ui::accessible(
         &response,

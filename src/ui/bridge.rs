@@ -186,6 +186,7 @@ const HEADER_HEIGHT: f32 = 18.0;
 fn row(ui: &mut Ui, bridge: &Bridge, selected: bool, follow: bool, theme: &Theme) -> bool {
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     if selected && follow {
         ui.scroll_to_rect(rect, Some(Align::Center));
     }

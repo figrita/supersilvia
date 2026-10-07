@@ -221,6 +221,7 @@ fn anchors(ui: &mut Ui, state: &mut PrefsState, theme: &Theme, actions: &mut Vec
                 // does, so the accessible name here reads "Main UI #3adceeff".
                 let response =
                     color::swatch(ui, rect, anchor.label(), value, theme, true, false, 1.0);
+                crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
                 if response.clicked() {
                     picking = if picking == Some(anchor) {
                         None
@@ -335,7 +336,9 @@ fn flag(
     actions: &mut Vec<PrefAction>,
 ) {
     let mut on = prefs.flag(flag);
-    if ui.checkbox(&mut on, label).on_hover_text(hint).changed() {
+    let entry = ui.checkbox(&mut on, label).on_hover_text(hint);
+    crate::ui::pointing(&entry);
+    if entry.changed() {
         actions.push(PrefAction::SetFlag(flag, on));
     }
 }
@@ -414,10 +417,9 @@ fn files(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<Pre
         if ui.add(Button::new("Change…")).clicked() && !view.file_busy {
             actions.push(PrefAction::ChangeProjects);
         }
-        if ui
-            .add_enabled(view.projects.is_some(), Button::new(show.as_str()))
-            .clicked()
-        {
+        let entry = ui.add_enabled(view.projects.is_some(), Button::new(show.as_str()));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
             actions.push(PrefAction::ShowProjects);
         }
     })
@@ -437,10 +439,14 @@ fn files(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<Pre
     ui.add_space(6.0);
     file_row(ui, "Preferences file", |ui| {
         let there = view.file.is_some();
-        if ui.add_enabled(there, Button::new("Open")).clicked() {
+        let entry = ui.add_enabled(there, Button::new("Open"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
             actions.push(PrefAction::OpenPreferencesFile);
         }
-        if ui.add_enabled(there, Button::new("Show")).clicked() {
+        let entry = ui.add_enabled(there, Button::new("Show"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
             actions.push(PrefAction::ShowPreferencesFile);
         }
     });

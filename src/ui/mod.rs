@@ -73,6 +73,41 @@ pub fn accessible(
     response.widget_info(|| eframe::egui::WidgetInfo::labeled(kind, true, &name));
 }
 
+/// Show `icon` while `response` is under the pointer or held.
+///
+/// The one rule every hand-drawn widget's cursor follows, since egui sets a cursor for its own
+/// widgets alone. egui counts a widget being dragged as hovered wherever the pointer goes and
+/// counts nothing else as hovered meanwhile, so a drag keeps its cursor to the end and a
+/// widget the drag passes over does not take it.
+pub fn cursor(response: &eframe::egui::Response, icon: eframe::egui::CursorIcon) {
+    if response.hovered() || response.dragged() {
+        response.ctx.set_cursor_icon(icon);
+    }
+}
+
+/// The pointing hand over a widget of egui's own that does not wear one — a checkbox, a radio
+/// button, a select's box — and [`refused`] over one egui has disabled, a button included.
+pub fn pointing(response: &eframe::egui::Response) {
+    if response.enabled() {
+        cursor(response, eframe::egui::CursorIcon::PointingHand);
+    } else {
+        refused(response);
+    }
+}
+
+/// [`CursorIcon::NotAllowed`](eframe::egui::CursorIcon::NotAllowed) over a control drawn
+/// disabled: one a cable answers for, which senses hover alone, or one egui disables, which
+/// egui never reports hovered. Not while a button is down, so a drag passing over it keeps its
+/// own cursor.
+pub fn refused(response: &eframe::egui::Response) {
+    let idle = !response.ctx.input(|i| i.pointer.any_down());
+    if response.hovered() || (idle && !response.enabled() && response.contains_pointer()) {
+        response
+            .ctx
+            .set_cursor_icon(eframe::egui::CursorIcon::NotAllowed);
+    }
+}
+
 /// A framed field's chrome: a ground at `RADIUS_SM` and a one-point hairline inside its edge,
 /// silvia's `background` and `1px solid` border. The press button, the text field, the
 /// tick's box and the select all wear it. `level` fills the field from the left, a fraction of
@@ -194,6 +229,7 @@ pub fn midi_mark(
     let hit = Rect::from_center_size(center, vec2(radius * 4.0, radius * 4.0));
     let name = format!("{control} bound to {trigger}");
     let response = ui.interact(hit, ui.id().with(("midi-mark", &name)), Sense::hover());
+    cursor(&response, eframe::egui::CursorIcon::Help);
     accessible(
         &node_widget::hover_with(response, || format!("{trigger} — {unbind}")),
         eframe::egui::WidgetType::Label,
@@ -940,25 +976,23 @@ fn selection_menu(
     // is offered whenever the clipboard holds something and lands at the click that opened
     // the menu.
     let any = !nodes.is_empty();
-    if ui
-        .add_enabled(any, eframe::egui::Button::new("Copy"))
-        .clicked()
-    {
+    let entry = ui.add_enabled(any, eframe::egui::Button::new("Copy"));
+    pointing(&entry);
+    if entry.clicked() {
         *clip = Some(ClipAction::Copy(nodes.to_vec()));
         ui.close();
     }
-    if ui
-        .add_enabled(any, eframe::egui::Button::new("Cut"))
-        .clicked()
-    {
+    let entry = ui.add_enabled(any, eframe::egui::Button::new("Cut"));
+    pointing(&entry);
+    if entry.clicked() {
         *clip = Some(ClipAction::Cut(nodes.to_vec()));
         ui.close();
     }
-    if ui
+    let entry = ui
         .add_enabled(can_paste, eframe::egui::Button::new("Paste"))
-        .on_disabled_hover_text(menu::why::EMPTY_CLIPBOARD)
-        .clicked()
-    {
+        .on_disabled_hover_text(menu::why::EMPTY_CLIPBOARD);
+    pointing(&entry);
+    if entry.clicked() {
         *clip = Some(ClipAction::Paste { at: Some(paste_at) });
         ui.close();
     }
@@ -999,11 +1033,11 @@ fn workspaces_menu(ui: &mut Ui, graph: &Graph, nodes: &[NodeId], out: &mut Vec<C
             });
             let mut ticked = all;
             let box_ = eframe::egui::Checkbox::new(&mut ticked, &workspace.name);
-            if ui
+            let entry = ui
                 .add_enabled(!(all && only), box_)
-                .on_disabled_hover_text(menu::why::LAST_WORKSPACE)
-                .changed()
-            {
+                .on_disabled_hover_text(menu::why::LAST_WORKSPACE);
+            pointing(&entry);
+            if entry.changed() {
                 out.push(if ticked {
                     Command::ShowOn {
                         nodes: nodes.to_vec(),
@@ -1120,6 +1154,7 @@ pub fn show(ui: &mut Ui, state: &mut CanvasState, frame: &CanvasFrame<'_>) -> Ef
         rail(ui, state, &pass, &mut fx);
     }
     selection_count(ui, state, &pass);
+    gesture_cursor(ui, state, &pass);
     drop(pass);
     // Read by the next pass's keys: see `keyboard_elsewhere`.
     state.keyboard_elsewhere =
@@ -1924,6 +1959,8 @@ fn ports(
             fire: pass.fires.get(&slot.port).copied().unwrap_or(0.0),
         };
         let response = node_widget::port(ui, slot, cx.node, &cx.t, &look, cx.theme());
+        // Grabbing and not allowed, while a cable is in flight, are `gesture_cursor`'s.
+        cursor(&response, eframe::egui::CursorIcon::Grab);
 
         if response.drag_started() {
             state.dragging = Some(slot.port);
@@ -2139,6 +2176,7 @@ fn cable_handles(
             ui.id().with(("cable", connection.from, connection.to)),
             Sense::click(),
         );
+        cursor(&handle, eframe::egui::CursorIcon::PointingHand);
         crate::ui::accessible(
             &handle,
             eframe::egui::WidgetType::Other,
@@ -2997,6 +3035,38 @@ fn drop_cable(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut Effect
     // has nothing to hand it to, and a bridge makes *two* cables, neither of which is the one
     // this step was reserved for — both take their own.
     state.drag_hue = None;
+}
+
+/// The cursor for what the hand is doing on the canvas: grabbing while a cable is in flight,
+/// and not allowed over a port it cannot land on or be carried to; grabbing while nodes are
+/// in hand or the view is being panned; and the pointing hand over the cable a double-click
+/// takes away.
+///
+/// Set after everything on the canvas, from the canvas's own state rather than a widget's, so
+/// it holds while the node or the port a gesture began on is culled.
+fn gesture_cursor(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>) {
+    use eframe::egui::CursorIcon;
+    let graph = pass.frame.graph;
+    let icon = if let Some(src) = state.dragging {
+        let refused = pass.hover.port.is_some_and(|port| {
+            let reach = drag_reach(&mut state.reach, graph, src);
+            port != src && !legal(graph, reach, src, port) && !bridgeable(graph, reach, src, port)
+        });
+        if refused {
+            CursorIcon::NotAllowed
+        } else {
+            CursorIcon::Grabbing
+        }
+    } else if !state.drag_offsets.is_empty()
+        || (pass.view.background.dragged() && state.marquee.is_none())
+    {
+        CursorIcon::Grabbing
+    } else if pass.hover.cable.is_some() && pass.view.background.hovered() {
+        CursorIcon::PointingHand
+    } else {
+        return;
+    };
+    ui.ctx().set_cursor_icon(icon);
 }
 
 /// The wheel, after every control has had its chance at it.

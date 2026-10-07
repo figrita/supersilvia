@@ -318,6 +318,7 @@ impl RegionUi<'_> {
             false,
             self.zoom,
         );
+        crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
         response.clicked().then(|| RegionEvent::Color {
             key,
             at: rect.left_bottom(),
@@ -351,6 +352,7 @@ pub fn button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str) -> bo
         r.ui.id().with(("region-button", &name)),
         Sense::click(),
     );
+    crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
     let radius = eframe::egui::CornerRadius::same(crate::ui::theme::RADIUS_SM);
     let painter = r.ui.painter();
     painter.rect(
@@ -509,6 +511,7 @@ pub fn heading_row(
 ) -> bool {
     let name = format!("{}{id}.{}", node.def.slug, heading.key);
     let w = ui.interact(strip, ui.id().with(("heading", &name)), Sense::click());
+    crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
     // Both animations are the context's, keyed by this heading's own name: the turn survives
     // the frame the option changes on, which is what makes it a turn rather than a swap.
     let turn =
@@ -676,6 +679,7 @@ pub fn segments(
         );
         let segment = format!("{name}.{value}");
         let w = ui.interact(rect, ui.id().with(("segment", &segment)), Sense::click());
+        crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
         let lit = *value == chosen;
         let corners = CornerRadius {
             nw: if i == 0 { radius.nw } else { 0 },

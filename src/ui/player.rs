@@ -235,6 +235,7 @@ fn readout(ui: &mut Ui, rect: Rect, value: f32, name: &str, theme: &Theme, scale
         scale,
     );
     let w = ui.interact(rect, ui.id().with(("readout", name)), Sense::hover());
+    crate::ui::refused(&w);
     w.clone()
         .on_hover_text("A cable is driving this clip's position");
     w.widget_info(|| WidgetInfo::slider(false, f64::from(value), name));

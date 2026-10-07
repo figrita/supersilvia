@@ -501,6 +501,7 @@ fn tool_button(r: &mut RegionUi<'_>, rect: Rect, tool: Tool, chosen: bool) -> bo
     let name = r.name(&format!("tool.{}", tool.key()));
     let w =
         r.ui.interact(rect, r.ui.id().with(("paint-tool", &name)), Sense::click());
+    crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
     let ground = if chosen {
         r.theme.bg_active()
     } else if w.hovered() {

@@ -109,6 +109,14 @@ pub fn show(
     // Not a relative pan: on a map this small a point is a long way, and "show me that" is
     // the only thing anyone means by clicking one.
     let bar = ui.interact(rail, ui.id().with("rail-bar"), Sense::click_and_drag());
+    crate::ui::cursor(
+        &bar,
+        if bar.dragged() {
+            eframe::egui::CursorIcon::Grabbing
+        } else {
+            eframe::egui::CursorIcon::PointingHand
+        },
+    );
     let mut sent = false;
     if (bar.clicked() || bar.dragged())
         && let Some(p) = bar.interact_pointer_pos()

@@ -424,6 +424,7 @@ fn category_row(
     theme: &Theme,
 ) -> (Rect, bool) {
     let (rect, response) = ui.allocate_exact_size(vec2(WIDTH, ROW), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let selected = menu.cursor == Some(index) && !menu.inside;
     let label = leaf.map_or(category.label(), |def| def.label);
     browse::paint_row(
@@ -490,6 +491,7 @@ fn button(ui: &mut Ui, menu: &StartMenu, within: Rect, theme: &Theme) -> (Respon
         .fixed_pos(at)
         .show(ui.ctx(), |ui| {
             let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+            crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
             let lit = response.hovered() || menu.open;
             let radius = if menu.open {
                 CornerRadius {

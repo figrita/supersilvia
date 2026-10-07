@@ -331,6 +331,7 @@ fn square(ui: &mut Ui, hsva: &mut HsvaGamma, theme: &Theme) -> Response {
     let side = side(ui);
     let (id, rect) = ui.allocate_space(vec2(side, side));
     let response = ui.interact(reach(rect), id, Sense::click_and_drag());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::Crosshair);
     if let Some(p) = response.interact_pointer_pos() {
         hsva.s = remap_clamp(p.x, rect.left()..=rect.right(), 0.0..=1.0);
         hsva.v = remap_clamp(p.y, rect.bottom()..=rect.top(), 0.0..=1.0);
@@ -377,6 +378,7 @@ fn bar(
 ) -> Response {
     let (id, rect) = ui.allocate_space(vec2(BAR, side(ui)));
     let response = ui.interact(reach(rect), id, Sense::click_and_drag());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::ResizeVertical);
     if let Some(p) = response.interact_pointer_pos() {
         *value = remap_clamp(p.y, rect.bottom()..=rect.top(), 0.0..=1.0);
     }

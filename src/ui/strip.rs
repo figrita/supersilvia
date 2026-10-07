@@ -65,6 +65,7 @@ pub fn controls(ui: &mut Ui, within: Rect, theme: &Theme) -> bool {
     let width = ICON_BOX + open * room;
     let rect = Rect::from_min_size(Pos2::new(right - width, y), vec2(width, HEIGHT));
     let response = ui.interact(rect, id, Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     response.widget_info(|| {
         eframe::egui::WidgetInfo::labeled(eframe::egui::WidgetType::Button, true, LABEL)
     });

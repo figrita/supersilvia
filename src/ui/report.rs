@@ -130,6 +130,7 @@ pub fn show(
                             );
                         });
                 });
+            crate::ui::pointing(&full.header_response);
             if full.header_response.clicked() {
                 state.show_full = !state.show_full;
             }
@@ -144,6 +145,7 @@ pub fn show(
                 )
                 .on_hover_text("Your words above, this computer, --check and the log's end")
                 .on_disabled_hover_text("Still gathering what to say about this computer");
+            crate::ui::pointing(&copy);
             if copy.clicked() {
                 actions.push(ReportAction::Copy);
             }

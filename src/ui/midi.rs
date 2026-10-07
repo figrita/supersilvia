@@ -130,7 +130,9 @@ pub fn show(
 
         ui.horizontal(|ui| {
             let mut watching = view.monitor;
-            if ui.checkbox(&mut watching, "Monitor").changed() {
+            let monitor = ui.checkbox(&mut watching, "Monitor");
+            crate::ui::pointing(&monitor);
+            if monitor.changed() {
                 actions.push(MidiAction::SetMonitor(watching));
             }
             if !view.log.is_empty() && ui.button("Clear").clicked() {
@@ -289,6 +291,7 @@ fn monitor(ui: &mut Ui, view: &MidiView<'_>, theme: &Theme) {
 fn unbind_button(ui: &mut Ui, theme: &Theme) -> eframe::egui::Response {
     let size = eframe::egui::vec2(18.0, 18.0);
     let (rect, response) = ui.allocate_exact_size(size, eframe::egui::Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let ink = if response.hovered() {
         theme.accent()
     } else {

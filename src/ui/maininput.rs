@@ -244,8 +244,9 @@ fn video_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                 ui.selectable_value(&mut chosen, key, label);
             }
         })
-        .response
-        .rect;
+        .response;
+    crate::ui::pointing(&select);
+    let select = select.rect;
     // Where the picker hangs: under the file's own button where there is one, else under
     // the select that asked for a file.
     let mut anchor = select;
@@ -317,7 +318,9 @@ fn video_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                     if ui.button("Look for devices again").clicked() {
                         out.actions.push(MainInputAction::RefreshDevices);
                     }
-                });
+                })
+                .response
+                .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
             if pick != *device {
                 out.actions
                     .push(MainInputAction::SetVideo(VideoSource::Camera {
@@ -393,12 +396,16 @@ fn syphon_source(
             if view.syphon.is_empty() {
                 ui.label("No Syphon server is running");
             }
-        });
+        })
+        .response
+        .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
     let (mut flipped, mut see_through) = (flip, transparent);
     ui.horizontal(|ui| {
         ui.checkbox(&mut flipped, "Flip")
+            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
             .on_hover_text("Top row first, for a server that publishes the other way up.");
         ui.checkbox(&mut see_through, "Transparent")
+            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
             .on_hover_text("The server's own alpha, rather than opaque.");
     });
     if (pick.as_str(), flipped, see_through) != (server, flip, transparent) {
@@ -439,12 +446,15 @@ fn ndi_source(
                         .unwrap_or("No NDI® source is on the network"),
                 );
             }
-        });
+        })
+        .response
+        .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
     if let Some(why) = view.ndi_missing {
         ui.label(why);
     }
     let mut see_through = transparent;
     ui.checkbox(&mut see_through, "Transparent")
+        .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
         .on_hover_text("The source's own alpha, rather than opaque.");
     if (pick.as_str(), see_through) != (source, transparent) {
         out.actions
@@ -544,8 +554,9 @@ fn audio_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                 out.actions.push(MainInputAction::RefreshDevices);
             }
         })
-        .response
-        .rect;
+        .response;
+    crate::ui::pointing(&select);
+    let select = select.rect;
     if chosen != current {
         out.actions.push(MainInputAction::SetAudio(chosen));
     }

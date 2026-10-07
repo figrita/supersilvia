@@ -845,6 +845,7 @@ fn draw_entry(ui: &mut Ui, entry: &Entry) -> bool {
         Some(said) => response.on_disabled_hover_text(said),
         None => response,
     };
+    crate::ui::pointing(&response);
     let chosen = response.clicked();
     if chosen && close {
         ui.close();

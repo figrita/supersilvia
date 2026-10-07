@@ -11584,6 +11584,186 @@ fn a_folded_panels_edge_is_not_a_resize_handle() {
     );
 }
 
+/// The cursor the last frame asked for.
+fn cursor(h: &Harness<'_, App>) -> egui::CursorIcon {
+    h.output().platform_output.cursor_icon
+}
+
+/// **A button wears the pointing hand**, hand-drawn or egui's own: the Nodes button, a node's
+/// `⊗` and an entry on the menu bar.
+#[test]
+fn a_button_wears_the_pointing_hand() {
+    let mut h = harness();
+    h.step();
+    let nodes = h.get_by_label("Nodes").rect().center();
+    hover_at(&mut h, nodes);
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::PointingHand,
+        "the Nodes button"
+    );
+
+    let id = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let close = h.get_by_label(&format!("close checkerboard{id}")).rect();
+    hover_at(&mut h, close.center());
+    assert_eq!(cursor(&h), egui::CursorIcon::PointingHand, "the header's ⊗");
+
+    let view = h.get_by_label("View").rect().center();
+    hover_at(&mut h, view);
+    assert_eq!(cursor(&h), egui::CursorIcon::PointingHand, "a menu entry");
+}
+
+/// **The header's `?` says help**, where the header beside it says the node can be carried.
+#[test]
+fn the_help_mark_says_help() {
+    let mut h = harness();
+    let id = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let help = h.get_by_label(&format!("help checkerboard{id}")).rect();
+    hover_at(&mut h, help.center());
+    assert_eq!(cursor(&h), egui::CursorIcon::Help);
+}
+
+/// **A scrub keeps its cursor for the whole drag**, off the control and over the canvas; a
+/// cap is a button; and with the pointer locked there is none, so a hidden pointer stays
+/// hidden.
+#[test]
+fn a_scrub_keeps_its_cursor_wherever_the_pointer_goes() {
+    let mut h = harness();
+    let id = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let rect = h
+        .get_by_label_contains(&format!("checkerboard{id}.frequency 8"))
+        .rect();
+    hover_at(&mut h, rect.center());
+    assert_eq!(cursor(&h), egui::CursorIcon::ResizeHorizontal, "the track");
+    hover_at(&mut h, Pos2::new(rect.min.x + 3.0, rect.center().y));
+    assert_eq!(cursor(&h), egui::CursorIcon::PointingHand, "the − cap");
+
+    press_at(&mut h, rect.center());
+    move_to(&mut h, rect.center() + egui::vec2(20.0, 0.0));
+    move_to(&mut h, rect.center() + egui::vec2(60.0, 200.0));
+    assert_ne!(float(&h, id, "frequency"), 8.0, "the drag scrubbed nothing");
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::ResizeHorizontal,
+        "held off the control"
+    );
+    release_at(&mut h, rect.center() + egui::vec2(60.0, 200.0));
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::Default,
+        "let go over the canvas"
+    );
+
+    let mut h = harness_with(supersilvia::preferences::Preferences {
+        lock_cursor_while_scrubbing: true,
+        ..supersilvia::preferences::Preferences::default()
+    });
+    let id = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let rect = h
+        .get_by_label_contains(&format!("checkerboard{id}.frequency 8"))
+        .rect();
+    press_at(&mut h, rect.center());
+    move_to(&mut h, rect.center() + egui::vec2(20.0, 0.0));
+    assert_eq!(cursor(&h), egui::CursorIcon::None, "locked and hidden");
+    release_at(&mut h, rect.center() + egui::vec2(20.0, 0.0));
+}
+
+/// **A node is an open hand, and carried a closed one** for the whole drag, over the empty
+/// canvas as over the node.
+#[test]
+fn carrying_a_node_closes_the_hand() {
+    let mut h = harness();
+    let id = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let header = h.get_by_label(&format!("checkerboard{id}")).rect();
+    let at = header.left_center() + egui::vec2(20.0, 0.0);
+    hover_at(&mut h, at);
+    assert_eq!(cursor(&h), egui::CursorIcon::Grab, "the header");
+
+    press_at(&mut h, at);
+    for step in 1..=4 {
+        move_to(&mut h, at + egui::vec2(60.0, 40.0) * (step as f32 / 4.0));
+    }
+    assert_eq!(cursor(&h), egui::CursorIcon::Grabbing, "carried");
+    release_at(&mut h, at + egui::vec2(60.0, 40.0));
+    assert_ne!(
+        h.state().graph().get(id).unwrap().pos,
+        Pos2::new(40.0, 200.0),
+        "the node moved"
+    );
+}
+
+/// **A cable in flight is a closed hand, and not allowed over a port it cannot land on** —
+/// its own node's input, which would make a loop — while a port it can land on and the empty
+/// canvas keep the hand. A port at rest is an open hand.
+#[test]
+fn a_cable_over_a_port_it_cannot_land_on_is_not_allowed() {
+    let mut h = harness();
+    let (cb, out) = a_source_and_an_output(&mut h);
+    let from = source_output(&h, cb);
+    let own = h
+        .get_by_label(&format!("checkerboard{cb}.color1 (varying color input)"))
+        .rect()
+        .center();
+    let legal = output_input(&h, out);
+    hover_at(&mut h, from);
+    assert_eq!(cursor(&h), egui::CursorIcon::Grab, "a port at rest");
+
+    press_at(&mut h, from);
+    let open = from + egui::vec2(60.0, -60.0);
+    for step in 1..=4 {
+        move_to(&mut h, from + (open - from) * (step as f32 / 4.0));
+    }
+    assert_eq!(cursor(&h), egui::CursorIcon::Grabbing, "over the canvas");
+    move_to(&mut h, own);
+    move_to(&mut h, own);
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::NotAllowed,
+        "over its own input"
+    );
+    move_to(&mut h, legal);
+    move_to(&mut h, legal);
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::Grabbing,
+        "over a port it lands on"
+    );
+    release_at(&mut h, legal);
+    assert_eq!(h.state().graph().connections().len(), 1);
+}
+
+/// **A control a cable answers for is not allowed**: the swatch a `color` node feeds.
+#[test]
+fn a_cabled_control_is_not_allowed() {
+    let mut h = harness();
+    let cb = add_at(&mut h, "checkerboard", Pos2::new(40.0, 200.0));
+    let swatch = h
+        .get_by_label_contains(&format!("checkerboard{cb}.color1 #"))
+        .rect()
+        .center();
+    hover_at(&mut h, swatch);
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::PointingHand,
+        "a swatch to open"
+    );
+
+    let color = add_at(&mut h, "color", Pos2::new(40.0, 600.0));
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(color, "output"),
+            to: PortRef::new(cb, "color1"),
+        })
+        .expect("a uniform color into a varying color");
+    h.run_steps(2);
+    hover_at(&mut h, swatch);
+    assert_eq!(
+        cursor(&h),
+        egui::CursorIcon::NotAllowed,
+        "a swatch a cable answers"
+    );
+}
+
 /// How wide a side panel is drawn, by its id: `preview` is the Main Mixer's.
 fn panel_width(h: &Harness<'_, App>, id: &str) -> f32 {
     egui::containers::panel::PanelState::load(&h.ctx, egui::Id::new(id))
