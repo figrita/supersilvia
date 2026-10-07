@@ -539,6 +539,9 @@ pub fn apply(ctx: &eframe::egui::Context, theme: &Theme) {
     visuals.selection.bg_fill = theme.primary().gamma_multiply(0.35);
     visuals.selection.stroke = Stroke::new(1.0, theme.primary());
     visuals.window_stroke = Stroke::new(1.0, theme.border_subtle());
+    // egui's own buttons, menu entries and selectable rows: the pointing hand, as every
+    // hand-drawn button wears through `ui::cursor`.
+    visuals.interact_cursor = Some(eframe::egui::CursorIcon::PointingHand);
 
     let radius = CornerRadius::same(RADIUS_SM);
     for (widget, fill, stroke) in [

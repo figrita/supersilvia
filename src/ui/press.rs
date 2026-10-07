@@ -14,7 +14,7 @@
 //! whether a finger is on it this frame; down and up are the app's to derive.
 
 use crate::ui::theme::{self, Theme};
-use eframe::egui::{Align2, FontId, Rect, Sense, Ui, WidgetType};
+use eframe::egui::{Align2, CursorIcon, FontId, Rect, Sense, Ui, WidgetType};
 
 /// The glyph's box, at the scale of a stepper — what `SIZE` used to be the whole button.
 pub const SIZE: f32 = 18.0;
@@ -59,6 +59,7 @@ pub fn button(
         ui.id().with(("press", &name)),
         Sense::click_and_drag(),
     );
+    crate::ui::cursor(&response, CursorIcon::PointingHand);
     // `Alt` + click learns a MIDI binding instead of pressing.
     let learn =
         ui.ctx().input(|i| i.modifiers.alt) && (response.clicked() || response.drag_started());
@@ -140,6 +141,7 @@ pub fn click(
     progress: Option<f32>,
 ) -> bool {
     let response = ui.interact(rect, ui.id().with(("click", &name)), Sense::click());
+    crate::ui::cursor(&response, CursorIcon::PointingHand);
     let action = theme.port(crate::graph::PortType::Action);
     let painter = ui.painter();
     let fill = if response.hovered() {
@@ -224,6 +226,7 @@ pub fn choice(
         x = segment.max.x;
         let on = i == chosen;
         let response = ui.interact(segment, ui.id().with(("choice", &name, i)), Sense::click());
+        crate::ui::cursor(&response, CursorIcon::PointingHand);
         let painter = ui.painter();
         if on {
             painter.rect(

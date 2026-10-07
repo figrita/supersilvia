@@ -85,6 +85,7 @@ impl Side {
 pub fn header(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
     let (rect, response) =
         ui.allocate_exact_size(vec2(ui.available_width(), HEADER), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let name = format!("Hide {title}");
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, &name);
     let response = response.on_hover_text(format!("Hide {title}"));
@@ -146,6 +147,7 @@ pub fn spine(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
         Sense::click(),
     );
     let name = format!("Show {title}");
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, &name);
     let response = response.on_hover_text(format!("Show {title}"));
     let ink = if response.hovered() {

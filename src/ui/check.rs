@@ -78,6 +78,7 @@ pub fn tick(
         vec2(width, slot.height()),
     );
     let response = ui.interact(hit, ui.id().with(("check", &name)), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let square = Rect::from_center_size(
         Pos2::new(left + size * 0.5, slot.center().y),
         vec2(size, size),

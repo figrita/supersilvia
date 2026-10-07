@@ -8,8 +8,8 @@ use crate::nodes;
 use crate::ui::canvas::{self, Transform};
 use crate::ui::context::{Effects, NodeCtx};
 use eframe::egui::{
-    Align2, Color32, CornerRadius, FontId, Pos2, Rect, Response, Sense, Shape, Stroke, StrokeKind,
-    Ui, Vec2, WidgetType,
+    Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Response, Sense, Shape, Stroke,
+    StrokeKind, Ui, Vec2, WidgetType,
     epaint::{CircleShape, PathShape, RectShape},
     pos2, vec2,
 };
@@ -378,6 +378,22 @@ pub fn hover_with(response: Response, text: impl FnOnce() -> String) -> Response
     })
 }
 
+/// The cursor over what carries the node, the header and the ground: an open hand, closed
+/// while it is carried.
+///
+/// Set as each is registered, before the marks, the regions and the controls over them, which
+/// set their own after it.
+fn carries(response: &Response) {
+    crate::ui::cursor(
+        response,
+        if response.dragged() {
+            CursorIcon::Grabbing
+        } else {
+            CursorIcon::Grab
+        },
+    );
+}
+
 /// The marks a header carries at its right-hand end, and where the title has to stop.
 struct Marks {
     close: Option<Rect>,
@@ -409,15 +425,18 @@ impl Marks {
         }
     }
 
-    /// Where the drag handle stops: short of the close button and the `?`. Taking them out of
-    /// the handle's rect rather than letting it run under them is what stops a click on either
-    /// also being a zero-distance drag, which would be an undo step for a node that no longer
-    /// exists.
+    /// Where the drag handle stops: short of the close button, the `?` and the warning.
+    /// Taking them out of the handle's rect rather than letting it run under them is what
+    /// stops a click on either button also being a zero-distance drag, which would be an undo
+    /// step for a node that no longer exists, and what leaves the warning's hover its own.
     fn handle(&self, header: Rect) -> Rect {
         Rect::from_min_max(
             header.min,
             Pos2::new(
-                self.help.or(self.close).map_or(header.max.x, |r| r.min.x),
+                self.warn
+                    .or(self.help)
+                    .or(self.close)
+                    .map_or(header.max.x, |r| r.min.x),
                 header.max.y,
             ),
         )
@@ -472,13 +491,6 @@ pub fn body(
     if cx.zoom() > canvas::TITLE_ZOOM {
         title(ui, cx, header, &marks);
     }
-    // A fault outranks the warning: what does not work is said before what costs too much,
-    // and the flag's hover says both.
-    match (marks.warn, fault, sampling) {
-        (Some(at), Some(why), _) => fault_flag(ui, cx, at, why, sampling),
-        (Some(at), None, Some(taps)) => sampling_warning(ui, cx, at, taps),
-        _ => {}
-    }
     // Port row labels and uniform number readouts, at the zoom the controls beside them
     // arrive.
     if cx.zoom() >= canvas::DETAIL_ZOOM {
@@ -497,6 +509,15 @@ pub fn body(
         Sense::click_and_drag(),
     );
     crate::ui::accessible(&ground, WidgetType::Other, format_args!("{name} body"));
+    carries(&ground);
+    // A fault outranks the warning: what does not work is said before what costs too much,
+    // and the flag's hover says both. Registered after the ground and outside the header's
+    // handle, so its hover is its own.
+    match (marks.warn, fault, sampling) {
+        (Some(at), Some(why), _) => fault_flag(ui, cx, at, why, sampling),
+        (Some(at), None, Some(taps)) => sampling_warning(ui, cx, at, taps),
+        _ => {}
+    }
 
     let pictures = fx.thumbnails.len();
     regions(ui, cx, fx, open);
@@ -675,6 +696,7 @@ fn sampling_warning(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, taps: f64) {
     let theme = cx.theme();
     let name = cx.name();
     let w = ui.interact(rect, ui.id().with(("node-sampling", name)), Sense::hover());
+    crate::ui::cursor(&w, CursorIcon::Help);
     if w.hovered() {
         ui.painter()
             .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
@@ -717,6 +739,7 @@ fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option
     let theme = cx.theme();
     let name = cx.name();
     let w = ui.interact(rect, ui.id().with(("node-fault", name)), Sense::hover());
+    crate::ui::cursor(&w, CursorIcon::Help);
     let painter = ui.painter();
     let radius = rect.width() * 0.3;
     painter.circle_filled(rect.center(), radius, theme.accent());
@@ -1114,6 +1137,7 @@ fn header_marks(
         ui.id().with(("node", name)),
         Sense::click_and_drag(),
     );
+    carries(&response);
     hover_with(response.clone(), || {
         format!("{name} — {}", cx.node.def.label)
     });
@@ -1128,6 +1152,7 @@ fn header_marks(
             ui.id().with(("node-help", name)),
             Sense::click_and_drag(),
         );
+        crate::ui::cursor(&q, CursorIcon::Help);
         // silvia's `circle-help` (Feather's `help-circle`), drawn as the icon's own vector
         // geometry — not a hover-only ground under a font glyph, and not a glyph at all.
         // silvia never gives this mark a hover style, so neither does this: it stays
@@ -1142,6 +1167,7 @@ fn header_marks(
 
     if let Some(close) = marks.close {
         let x = ui.interact(close, ui.id().with(("node-close", name)), Sense::click());
+        crate::ui::cursor(&x, CursorIcon::PointingHand);
         // silvia's `close.svg`, drawn as the icon's own vector geometry: always `text_primary`
         // — brighter than the `?` beside it at rest, which is silvia's own asymmetry
         // (`.node-tooltip` is muted, `.node-close` is not) — and `accent` on hover, standing
@@ -2037,6 +2063,11 @@ fn input_controls(
                 // nothing to meter, and the stored color is what the swatch has to say.
                 let shown = cx.frame.uniforms.arriving_color(source).unwrap_or(*value);
                 let response = color::swatch(ui, slot, name, shown, theme, enabled, varying, zoom);
+                if enabled {
+                    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
+                } else {
+                    crate::ui::refused(&response);
+                }
                 if response.clicked() {
                     toggle(
                         open,
@@ -2442,6 +2473,7 @@ fn render_button(
             vec2(height, height),
         );
         let w = ui.interact(rect, ui.id().with(("node-live", name)), Sense::click());
+        crate::ui::cursor(&w, CursorIcon::PointingHand);
         if w.hovered() {
             ui.painter()
                 .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
@@ -3309,6 +3341,11 @@ fn select_button(
         Sense::hover()
     };
     let response = ui.interact(rect, ui.id().with(("opt", &name)), sense);
+    if chevron {
+        crate::ui::cursor(&response, CursorIcon::PointingHand);
+    } else {
+        crate::ui::refused(&response);
+    }
 
     // The handoff's three states, and they are all the border: `border_normal` at rest,
     // `primary_muted` under the pointer, `primary` with a ring around it while the list is
@@ -3716,6 +3753,7 @@ fn card(
             name.clone(),
         )
     });
+    crate::ui::cursor(&response, CursorIcon::PointingHand);
     response.clone().on_hover_text(asset.info.name.as_str());
     response
 }
@@ -3811,6 +3849,7 @@ pub fn tag(
     // The widget carries the name; the geometry carries the click — the same split cables
     // are drawn under.
     let response = ui.interact(rect, ui.id().with(("tag", tag.name)), Sense::click());
+    crate::ui::cursor(&response, CursorIcon::PointingHand);
     crate::ui::accessible(&response, WidgetType::Button, tag.name);
     response.clone().on_hover_text(if tag.closed {
         format!("{} — closed; click to open it", tag.name)

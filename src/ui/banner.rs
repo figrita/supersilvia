@@ -51,6 +51,7 @@ pub fn show(ui: &mut Ui, view: &RenderView, destination: &str, theme: &Theme) ->
         vec2(130.0, 24.0),
     );
     let response = ui.interact(button, ui.id().with("cancel-render"), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let painter = ui.painter();
     painter.rect_filled(
         button,

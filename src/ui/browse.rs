@@ -361,6 +361,7 @@ pub struct Row {
 pub fn row(ui: &mut Ui, def: &NodeDef, selected: bool, follow: bool, theme: &Theme) -> Row {
     let width = ui.available_width();
     let (rect, response) = ui.allocate_exact_size(vec2(width, ROW_HEIGHT), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     if selected && follow {
         ui.scroll_to_rect(rect, Some(Align::Center));
     }

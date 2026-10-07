@@ -239,6 +239,15 @@ fn gestures(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
     let Some(grab) = r.grab.clone() else {
         return Vec::new();
     };
+    // Aimed like the XY Pad's square; a closed hand while a drag drifts or tilts the picture.
+    crate::ui::cursor(
+        &grab,
+        if grab.dragged() {
+            eframe::egui::CursorIcon::Grabbing
+        } else {
+            eframe::egui::CursorIcon::Crosshair
+        },
+    );
     let shift = r.ui.input(|i| i.modifiers.shift);
     let node = r.node;
 

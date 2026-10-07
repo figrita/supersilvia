@@ -121,6 +121,7 @@ fn square(
     icon: impl FnOnce(&egui::Painter, Rect, Color32),
 ) -> Response {
     let (rect, response) = ui.allocate_exact_size(vec2(height, height), Sense::click());
+    crate::ui::pointing(&response);
     crate::ui::accessible(&response, WidgetType::Button, name);
     ground(ui, rect, &response, theme);
     icon(ui.painter(), rect.shrink(height * 0.3), ink(ui, theme));

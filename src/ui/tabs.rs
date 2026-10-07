@@ -167,6 +167,7 @@ fn tab(
     let galley = tab_galley(ui, label, theme);
     let width = (galley.size().x + TAB_PAD * 2.0).min(TAB_MAX);
     let (rect, response) = ui.allocate_exact_size(vec2(width, TAB_HEIGHT), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let owned = name.to_string();
     response.widget_info(|| {
         eframe::egui::WidgetInfo::selected(eframe::egui::WidgetType::Button, true, active, &owned)
@@ -301,6 +302,7 @@ fn reopen_entry(ui: &mut Ui, state: &TabState, bar: &TabBar<'_>, actions: &mut V
         reopen.is_some(),
         eframe::egui::Button::new("Reopen closed workspace"),
     );
+    crate::ui::refused(&entry);
     let entry = match reopen.and_then(|id| bar.workspaces.iter().find(|w| w.id == id)) {
         Some(w) => entry.on_hover_text(w.name.as_str()),
         None => entry,

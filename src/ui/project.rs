@@ -328,6 +328,15 @@ fn card(
         )
         .response;
 
+    // A click opens it and a drag moves it in the list.
+    crate::ui::cursor(
+        &response,
+        if response.dragged() {
+            eframe::egui::CursorIcon::Grabbing
+        } else {
+            eframe::egui::CursorIcon::PointingHand
+        },
+    );
     let name = format!("workspace card {}", workspace.name);
     let selected = is_open;
     response.widget_info(|| WidgetInfo::selected(WidgetType::Button, true, selected, name.clone()));

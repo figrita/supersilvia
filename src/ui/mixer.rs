@@ -160,7 +160,9 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
                 for m in Method::ALL {
                     ui.selectable_value(&mut method, m, m.label());
                 }
-            });
+            })
+            .response
+            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
         if method != view.method {
             out.actions.push(MixerAction::SetMethod(method));
         }
@@ -183,7 +185,9 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
                     let r = Resolution::Fixed(w, h);
                     ui.selectable_value(&mut resolution, r, r.label());
                 }
-            });
+            })
+            .response
+            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
         if resolution != view.resolution {
             out.actions.push(MixerAction::SetResolution(resolution));
         }
@@ -192,6 +196,7 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
     let mut background = view.background;
     if panel::row(ui, "", theme, |ui| {
         ui.checkbox(&mut background, "Project to background")
+            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
             .on_hover_text("Paint the mix behind the canvas, the nodes and cables floating on the show. H hides them.")
             .changed()
     }) {
@@ -348,7 +353,9 @@ fn workspace_link(
                 )
                 .sense(Sense::click()),
             );
-            let response = response.on_hover_text(format!("Show {ws_name}"));
+            let response = response
+                .on_hover_text(format!("Show {ws_name}"))
+                .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
             if response.clicked() {
                 out.actions.push(MixerAction::GoTo {
                     workspace: *workspace,
@@ -554,6 +561,7 @@ fn hold(
     hint: &str,
 ) -> Option<Hold> {
     let response = ui.interact(rect, ui.id().with(("mixer-hold", name)), Sense::click());
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let learn = ui.ctx().input(|i| i.modifiers.alt) && response.clicked();
     let (fill, border, ink) = if switch.on {
         (theme.accent(), theme.accent(), theme.bg_primary())

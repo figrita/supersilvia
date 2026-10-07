@@ -258,6 +258,8 @@ fn handle(
         ui.id().with(("band", owner.salt, band)),
         Sense::click_and_drag(),
     );
+    // Frequency across and Q down: a handle that moves both ways.
+    crate::ui::cursor(&response, eframe::egui::CursorIcon::Move);
 
     let radius = if response.dragged() || response.hovered() {
         6.0
@@ -405,6 +407,9 @@ fn meter(
             Hands::Off => Sense::hover(),
         },
     );
+    if hands == Hands::On {
+        crate::ui::cursor(&response, eframe::egui::CursorIcon::ResizeHorizontal);
+    }
 
     // The action port's own color and shape, because that is what it is. Bright while the
     // gate it opens is open, which is the feedback silvia gets by flashing it.

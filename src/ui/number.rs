@@ -28,8 +28,8 @@ use crate::graph::ControlRange;
 use crate::nodes::NumberField;
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
-    Align2, Color32, CornerRadius, FontId, Key, Pos2, Rect, Response, Sense, Stroke, TextEdit, Ui,
-    vec2,
+    Align2, Color32, CornerRadius, CursorIcon, FontId, Key, Pos2, Rect, Response, Sense, Stroke,
+    TextEdit, Ui, vec2,
 };
 
 /// The s-number's size, and the width of each of its two caps: the least that holds a
@@ -572,11 +572,30 @@ pub fn scrub(
         ui.add(eframe::egui::Label::new(hover_text(&label, spec)));
     });
     if !enabled {
+        crate::ui::refused(&response);
         return None;
     }
     if response.hovered() {
         mark_hovered(ui.ctx());
     }
+    // A cap is a button and the rest of the bar is the track. A scrub keeps the track's
+    // cursor for the whole drag wherever the pointer goes, and none while the preference
+    // hides the pointer.
+    let icon = if response.dragged() {
+        if lock_cursor {
+            CursorIcon::None
+        } else {
+            CursorIcon::ResizeHorizontal
+        }
+    } else if response
+        .hover_pos()
+        .is_some_and(|p| dec_rect.contains(p) || inc_rect.contains(p))
+    {
+        CursorIcon::PointingHand
+    } else {
+        CursorIcon::ResizeHorizontal
+    };
+    crate::ui::cursor(&response, icon);
 
     let modifiers = ui.ctx().input(|i| i.modifiers);
     let multiplier = multiplier(modifiers);
@@ -1113,7 +1132,8 @@ pub fn range_popup(
                                 eframe::egui::Label::new(plain(&shown, theme.text_muted()))
                                     .sense(Sense::click()),
                             )
-                            .on_hover_text("click to reset this field");
+                            .on_hover_text("click to reset this field")
+                            .on_hover_cursor(CursorIcon::PointingHand);
                         if default.clicked() {
                             *row.field = row.default;
                         }

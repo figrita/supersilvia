@@ -144,6 +144,9 @@ These are things the handoff specified that a reasonable person would guess wron
   That is why an Output node is 216 wide where others are 180. A handful of other nodes are
   216 too — `NodeDef::width`, for a node whose longest row does not fit 180; see
   [decisions.md](decisions.md#a-node-may-declare-a-wider-body).
+- **The pointer says what a press does**: a hand over what clicks, a grab over what carries,
+  a resize over what scrubs, a crosshair over what aims. The table is in
+  [ui.md](ui.md#interaction-rules).
 - Wires are 4 px data, 2 px dashed action, in a lighter and less saturated version of the
   port color.
 - The editor background carries a **24 unit** dot grid. `GRID_PITCH` is 24 *world* units, so

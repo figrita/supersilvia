@@ -1321,6 +1321,32 @@ than as an absent measurement.
   each independently meant one click deleted every cable it happened to be near, each as its
   own undo step.
 
+- **The cursor says what a press will do**, from one rule: `ui::cursor` shows an icon while a
+  widget is under the pointer or held, `ui::refused` shows not-allowed over a control drawn
+  disabled, and `ui::pointing` is the pointing hand for an egui checkbox, radio button or
+  select, which egui leaves bare. egui's own buttons and menu entries take the hand from
+  `Visuals::interact_cursor`, and its text fields set the I-beam. egui counts a widget being
+  dragged as hovered wherever the pointer goes and nothing else as hovered meanwhile, so a
+  drag keeps its cursor to the end and nothing it passes over takes it; the canvas's own
+  gestures are set after everything on it, from its state rather than a widget's, so they
+  hold while the node or port they began on is culled.
+
+  | Over | Cursor |
+  | --- | --- |
+  | a button, a tab, a select, a tick, a link, a menu entry, a heading that folds, an s-number's `−` and `+`, a press button, a picture mark, the header's `⊗`, a cable, the Nodes button, a minimap, a workspace card | pointing hand |
+  | an s-number's track, and the whole of a scrub wherever the pointer goes | east-west resize; none while *Lock the cursor while scrubbing* hides it |
+  | a text field, an s-number being typed into | I-beam |
+  | a node's header, the body around its rows, a port | open hand |
+  | a node carried, the view panned, a cable in flight, a minimap or a workspace card dragged | closed hand |
+  | a port a cable in flight can neither land on nor be carried to | not allowed |
+  | the drawing canvas, the XY Pad's square, the viewfinder, the color picker's square | crosshair; a closed hand while the puck is held or the viewfinder is dragged |
+  | the audio scope's band handle, which moves both ways | move |
+  | a threshold on a meter | east-west resize |
+  | the color picker's two bars | north-south resize |
+  | the header's `?`, the amber `⚠`, a fault flag, a MIDI mark | help |
+  | a control a cable answers for, a disabled button or entry | not allowed |
+  | a size grip, a side panel's edge | the resize shape egui gives it |
+
 ## Selection
 
 Session state, not document data: it is not in the saved file and not undoable, which is why
@@ -2191,8 +2217,9 @@ between. `←` and `→` are untouched and still move the cursor through the dig
 
 **`lock_cursor_while_scrubbing`, a preference, locks and hides the pointer for the length of a
 drag** — *Lock the cursor while scrubbing* under Preferences ▸ Editing, off by default. On `drag_started` it sends
-`ViewportCommand::CursorGrab(CursorGrab::Locked)` and `CursorVisible(false)`; on `drag_stopped`
-or an `Escape` cancel it sends them back to `None` and `true`. Locked, the pointer's *absolute*
+`ViewportCommand::CursorGrab(CursorGrab::Locked)` and `CursorVisible(false)`, and the drag's
+cursor is `CursorIcon::None`, since egui-winit shows a hidden pointer again whenever the icon
+changes; on `drag_stopped` or an `Escape` cancel it sends them back to `None` and `true`. Locked, the pointer's *absolute*
 position stops changing — the OS pins it at the point the grab engaged — so `Response::drag_delta`
 would read zero for the rest of the gesture; the control reads `ui.ctx().input(|i|
 i.pointer.motion())` instead while the preference is on, which is the raw relative motion
@@ -3739,7 +3766,7 @@ to the puck, in the main hue; the trail of the last 500 steps fading in, in the 
 number's hue at silvia's 60%; a line for the velocity; while a slingshot is drawn back, the
 band, a dashed line where it will go and a dot where it will snap back to, in the color port's
 hue standing in for silvia's red; and the puck, with a halo while a hand has it. Over the
-square the pointer is silvia's crosshair.
+square the pointer is silvia's crosshair, and a closed hand while it holds the puck.
 
 **The square claims the pointer**, so a press there never carries the node. The primary
 button puts the puck under the hand and holds it there; in **Slingshot**, silvia's default, a

@@ -149,9 +149,9 @@ pub fn show(
         );
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            if ui
-                .add_enabled(view.verdict.is_ok(), Button::new(purpose.button()))
-                .clicked()
+            let entry = ui.add_enabled(view.verdict.is_ok(), Button::new(purpose.button()));
+            crate::ui::pointing(&entry);
+            if entry.clicked()
                 && let Ok(root) = view.verdict
             {
                 asked = Some(ProjectNameAction::Chosen(root.clone()));
