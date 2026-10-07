@@ -254,26 +254,17 @@ fn ctrl_a_selects_every_node_on_this_workspace() {
 
     command_key(&mut h, egui::Key::A);
     assert_eq!(selection(&h), vec![a, b]);
-    assert!(
-        h.query_by_label("selection: 2 nodes").is_some(),
-        "the count says how many"
-    );
 }
 
-/// `Escape` with nothing in hand clears the selection, and the count goes with it.
+/// `Escape` with nothing in hand clears the selection.
 #[test]
 fn escape_clears_the_selection() {
     let mut h = harness();
     let a = add_at(&mut h, "checkerboard", Pos2::new(40.0, 60.0));
     h.state_mut().select_only(&[a]);
     h.run_steps(2);
-    assert!(h.query_by_label("selection: 1 node").is_some());
     key(&mut h, egui::Key::Escape);
     assert!(selection(&h).is_empty());
-    assert!(
-        h.query_by_label("selection: 1 node").is_none(),
-        "no count without a selection"
-    );
 }
 
 /// **`Escape` mid-drag puts the node back** where the drag found it, and leaves no step: the

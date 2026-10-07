@@ -859,9 +859,7 @@ impl App {
     /// still in the project, and Save writes it whether or not it has a tab.
     pub fn close_workspace(&mut self, id: crate::graph::WorkspaceId) {
         self.stash_view();
-        if self.project.session_mut().open.remove(&id) {
-            self.tabs.closed(id);
-        }
+        self.project.session_mut().open.remove(&id);
         if self.active() == Active::Workspace(id) {
             // The neighbor, so closing the middle of a row does not throw you to the front.
             let next = self

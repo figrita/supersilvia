@@ -455,11 +455,6 @@ fn category_row(
 /// The start button's area.
 const BUTTON: &str = "nodes-button";
 
-/// Where the start button was last drawn, for canvas furniture that sits beside it.
-pub fn button_rect(ctx: &eframe::egui::Context) -> Option<Rect> {
-    ctx.memory(|m| m.area_rect(Id::new(BUTTON)))
-}
-
 /// The start button: bottom-left, floating over the canvas, and square on top while the menu
 /// stands on it — silvia's `#nodes-menu-btn.menu-open`, which is what makes the two read as
 /// one object.

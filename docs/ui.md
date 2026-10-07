@@ -92,8 +92,7 @@ canvas it shows.
 | --- | --- |
 | click | show that tab |
 | double-click | rename inline |
-| right-click | Rename · Duplicate · Close · Reopen closed workspace |
-| right-click on the project tab | Reopen closed workspace |
+| right-click | Rename · Duplicate · Close |
 | `+` | one entry per `WorkspaceKind` with a UI — Video, today |
 | `▾` | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
 | `Ctrl`+T | a video workspace, opened and shown |
@@ -114,11 +113,9 @@ than the command key. A text field does not take the chord, so it is read whatev
 keyboard, but not while a picture window does. Both are `menu::keys::NEXT_TAB` and
 `PREVIOUS_TAB`, rows of the shortcuts window's Global group.
 
-**Reopen closed workspace gives back the tab closed last**, then the one before it: the bar
-remembers the last sixteen closed, for the project it was kept for, and passes over one deleted
-since or opened again some other way. It is greyed while there is none, and its hover names
-the workspace it would open. The project tab carries it too, because with every tab closed the
-project tab is the only one there is.
+**A closed workspace comes back from the Project tab or from the ▾ list at the end of the
+bar**, which names every workspace in the project, the closed ones dimmed. There is no
+history of closed tabs to walk back through: two ways to every workspace are enough.
 
 **Duplicate copies the workspace whole**, beside it in project order, as `<name> copy` —
 `<name> copy 2` and up where that is taken — and opens the copy and shows it, looking where
@@ -1365,12 +1362,8 @@ Session state, not document data: it is not in the saved file and not undoable, 
 | `Escape`, with nothing in hand | clear |
 | switch tabs | clear, because a node not on the workspace on screen is never selected |
 
-**The count says how big it is.** While anything on this workspace is selected, a label
-beside the ▲ Nodes button reads *3 selected* — a paste on top of its originals, a
-`Ctrl`+A and a band that caught one node too many are each otherwise a change nobody can
-see. It is as wide as *0000 selected* whatever it says, so the count changing moves nothing,
-and it is gone with the selection. Its accessible name is *selection: 3 nodes*, apart from
-the *3 selected* the selection's own menu is headed with, because a name is unique on screen.
+**A selection is shown by the nodes it lights, and nothing else.** No count stands on the
+canvas; the selection's own right-click menu is headed with how many it holds.
 
 **The band selects while it is dragged, not on release.** Each frame recomputes the answer
 from the selection the band started with, unioned with what it now touches, so shrinking it

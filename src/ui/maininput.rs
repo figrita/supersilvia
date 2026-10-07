@@ -315,7 +315,10 @@ fn video_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                             "GStreamer's color bars. Always there, so a black picture means \
                              the patch rather than the hardware.",
                         );
-                    if ui.button("Look for devices again").clicked() {
+                    if ui
+                        .selectable_label(false, "Look for devices again")
+                        .clicked()
+                    {
                         out.actions.push(MainInputAction::RefreshDevices);
                     }
                 })
@@ -522,12 +525,14 @@ fn audio_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                 "Microphone or line in",
             );
             ui.selectable_value(&mut chosen, AudioSource::Video, "Video source");
-            ui.separator();
-            for listed in view.devices {
-                // The default monitor is already above, under a better name.
-                if listed.device.is_system() {
-                    continue;
-                }
+            // A rule only between two groups that both have something in them: with no device
+            // found, the kinds of source run straight on into the two actions.
+            let named = view.devices.iter().filter(|d| !d.device.is_system());
+            if named.clone().next().is_some() {
+                ui.separator();
+            }
+            // The default monitor is already above, under a better name.
+            for listed in named {
                 let label = if listed.monitor {
                     format!("↺ {}", listed.label)
                 } else {
@@ -547,10 +552,15 @@ fn audio_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
                 });
             }
             ui.separator();
-            if ui.button("Sound file…").clicked() {
+            // Actions, in the same rows as the choices above them: a filled button in a list
+            // of rows reads as something else.
+            if ui.selectable_label(false, "Sound file…").clicked() {
                 out.actions.push(open_file(view, true));
             }
-            if ui.button("Look for devices again").clicked() {
+            if ui
+                .selectable_label(false, "Look for devices again")
+                .clicked()
+            {
                 out.actions.push(MainInputAction::RefreshDevices);
             }
         })

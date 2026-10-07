@@ -7833,37 +7833,6 @@ fn ctrl_tab_and_ctrl_shift_tab_walk_the_tabs_and_wrap() {
     );
 }
 
-/// **Reopen closed workspace** gives back the tab closed last, then the one before; with
-/// every tab closed, the project tab's own menu offers it.
-#[test]
-fn reopen_closed_workspace_gives_back_the_last_tab_closed() {
-    let mut h = harness();
-    h.step();
-    let first = h.state().graph().workspaces()[0].id;
-    add_empty_workspace(&mut h);
-    add_empty_workspace(&mut h);
-    let (second, third) = {
-        let w = h.state().graph().workspaces();
-        (w[1].id, w[2].id)
-    };
-    tab_menu(&mut h, "tab Workspace 3", "Close");
-    tab_menu(&mut h, "tab Workspace 2", "Close");
-    assert_eq!(h.state().open_workspaces().len(), 1);
-
-    tab_menu(&mut h, "tab Workspace 1", "Reopen closed workspace");
-    assert_eq!(h.state().active(), Active::Workspace(second));
-    tab_menu(&mut h, "tab Workspace 1", "Reopen closed workspace");
-    assert_eq!(h.state().active(), Active::Workspace(third));
-
-    for id in [third, second, first] {
-        h.state_mut().close_workspace(id);
-    }
-    h.run_steps(2);
-    assert_eq!(h.state().active(), Active::Project);
-    tab_menu(&mut h, "tab project", "Reopen closed workspace");
-    assert_eq!(h.state().active(), Active::Workspace(first));
-}
-
 /// **The list at the end of the bar names every workspace**, open or not, and a closed one
 /// chosen there opens a tab.
 #[test]

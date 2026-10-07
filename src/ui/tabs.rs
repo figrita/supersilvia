@@ -36,8 +36,6 @@ const RENAME_WIDTH: f32 = 140.0;
 pub const OVERFLOW: &str = "▾";
 /// What the bar keeps free past the last tab, for the `+` and the [`OVERFLOW`] list.
 const TRAILING: f32 = 64.0;
-/// How many closed workspaces Reopen remembers, most recent last.
-const CLOSED_KEPT: usize = 16;
 
 /// What the tab bar asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -48,8 +46,7 @@ pub enum TabAction {
     Add(WorkspaceKind),
     /// Close a workspace: it keeps its nodes and loses its tab.
     Close(WorkspaceId),
-    /// Give a workspace a tab, if it had none, and show it: a row of the overflow list, and
-    /// Reopen closed workspace.
+    /// Give a workspace a tab, if it had none, and show it: a row of the overflow list.
     Open(WorkspaceId),
     /// Copy a workspace whole, beside it, as one undo step.
     Duplicate(WorkspaceId),
@@ -69,9 +66,6 @@ pub enum TabAction {
 pub struct TabState {
     /// The workspace whose name is being edited inline, if one is.
     renaming: Option<Renaming>,
-    /// Workspaces whose tabs were closed, the most recent last: what Reopen closed workspace
-    /// gives back. Session state, so it goes with the project it was kept for.
-    closed: Vec<WorkspaceId>,
 }
 
 /// A rename in progress: which workspace, the text so far, and whether the editor has been
@@ -98,26 +92,6 @@ impl TabState {
     /// Which workspace is being renamed, if any.
     pub fn renaming(&self) -> Option<WorkspaceId> {
         self.renaming.as_ref().map(|r| r.id)
-    }
-
-    /// A workspace's tab was closed, so Reopen closed workspace can give it back.
-    pub fn closed(&mut self, id: WorkspaceId) {
-        self.closed.retain(|w| *w != id);
-        self.closed.push(id);
-        if self.closed.len() > CLOSED_KEPT {
-            self.closed.remove(0);
-        }
-    }
-
-    /// The workspace Reopen closed workspace gives back: the most recently closed that is
-    /// still in the project and still has no tab. One deleted since, or opened again some
-    /// other way, is passed over.
-    pub fn to_reopen(&self, bar: &TabBar<'_>) -> Option<WorkspaceId> {
-        self.closed
-            .iter()
-            .rev()
-            .copied()
-            .find(|id| !bar.open.contains(id) && bar.workspaces.iter().any(|w| w.id == *id))
     }
 }
 
@@ -295,26 +269,6 @@ pub fn fitting(
     shown
 }
 
-/// Reopen closed workspace, on every tab's menu. Greyed while there is none to give back.
-fn reopen_entry(ui: &mut Ui, state: &TabState, bar: &TabBar<'_>, actions: &mut Vec<TabAction>) {
-    let reopen = state.to_reopen(bar);
-    let entry = ui.add_enabled(
-        reopen.is_some(),
-        eframe::egui::Button::new("Reopen closed workspace"),
-    );
-    crate::ui::refused(&entry);
-    let entry = match reopen.and_then(|id| bar.workspaces.iter().find(|w| w.id == id)) {
-        Some(w) => entry.on_hover_text(w.name.as_str()),
-        None => entry,
-    };
-    if entry.clicked()
-        && let Some(id) = reopen
-    {
-        actions.push(TabAction::Open(id));
-        ui.close();
-    }
-}
-
 /// The inline rename editor, wherever it is drawn.
 ///
 /// Enter and clicking away both commit — egui's single-line editor drops focus on Enter, so
@@ -393,8 +347,6 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
         if project.clicked() {
             actions.push(TabAction::Activate(Active::Project));
         }
-        // With every tab closed it is the only tab there is, so the way back is here too.
-        project.context_menu(|ui| reopen_entry(ui, state, bar, &mut actions));
 
         for id in shown {
             let Some(workspace) = bar.workspaces.iter().find(|w| w.id == id) else {
@@ -437,8 +389,6 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
                     actions.push(TabAction::Close(id));
                     ui.close();
                 }
-                ui.separator();
-                reopen_entry(ui, state, bar, &mut actions);
             });
         }
 

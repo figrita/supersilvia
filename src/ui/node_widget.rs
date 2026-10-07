@@ -3545,7 +3545,9 @@ pub fn select_popup(
                     // Under the list, as in the Main Input's own device menus.
                     if devices {
                         ui.separator();
-                        look_again = ui.button("Look for devices again").clicked();
+                        look_again = ui
+                            .selectable_label(false, "Look for devices again")
+                            .clicked();
                     }
                 });
             });

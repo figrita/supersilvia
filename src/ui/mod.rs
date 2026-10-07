@@ -1153,7 +1153,6 @@ pub fn show(ui: &mut Ui, state: &mut CanvasState, frame: &CanvasFrame<'_>) -> Ef
     if pass.view.linear {
         rail(ui, state, &pass, &mut fx);
     }
-    selection_count(ui, state, &pass);
     gesture_cursor(ui, state, &pass);
     drop(pass);
     // Read by the next pass's keys: see `keyboard_elsewhere`.
@@ -2922,68 +2921,6 @@ fn loose_cable(state: &mut CanvasState, pass: &Pass<'_>, end: PortRef, p: Pos2) 
         },
     ));
 }
-
-/// How many nodes are selected on this workspace, beside the Nodes button while there are
-/// any: a paste on top of its originals, a select-all, a band — each of which is otherwise a
-/// change nobody can see.
-///
-/// **Fixed-width**, as wide as four digits, so the count changing moves nothing and the label
-/// never grows into what is beside it.
-fn selection_count(ui: &Ui, state: &CanvasState, pass: &Pass<'_>) {
-    let count = state
-        .selected
-        .iter()
-        .filter(|id| pass.layouts.find(**id).is_some())
-        .count();
-    if count == 0 {
-        return;
-    }
-    let theme = pass.frame.theme;
-    let rect = pass.view.rect;
-    let font = eframe::egui::FontId::proportional(theme::FONT_TINY);
-    let widest = ui
-        .painter()
-        .layout_no_wrap("0000 selected".to_owned(), font.clone(), theme.text_muted())
-        .size();
-    let button = start::button_rect(ui.ctx());
-    let left = button.map_or(rect.min.x, |b| b.max.x) + SELECTION_COUNT_GAP;
-    let middle = button.map_or(
-        rect.max.y - SELECTION_COUNT_GAP - SELECTION_COUNT_HEIGHT,
-        |b| b.center().y,
-    );
-    let at = Rect::from_min_size(
-        Pos2::new(left, middle - SELECTION_COUNT_HEIGHT * 0.5),
-        vec2(widest.x + SELECTION_COUNT_PAD * 2.0, SELECTION_COUNT_HEIGHT),
-    );
-    let text = format!("{count} selected");
-    let painter = &pass.view.painter;
-    painter.rect_filled(
-        at,
-        eframe::egui::CornerRadius::same(theme::RADIUS_SM),
-        theme.bg_secondary(),
-    );
-    painter.text(
-        at.left_center() + vec2(SELECTION_COUNT_PAD, 0.0),
-        eframe::egui::Align2::LEFT_CENTER,
-        &text,
-        font,
-        theme.text_muted(),
-    );
-    // Named apart from the text it shows: the selection's own menu is headed `3 selected`, a
-    // name is unique on screen, and a test asks whether that menu has a count by the word.
-    let w = ui.interact(at, ui.id().with("selection-count"), Sense::hover());
-    let noun = if count == 1 { "node" } else { "nodes" };
-    accessible(
-        &w,
-        eframe::egui::WidgetType::Label,
-        format_args!("selection: {count} {noun}"),
-    );
-}
-
-/// The selection count's height, its gap from the Nodes button and its padding inside.
-const SELECTION_COUNT_HEIGHT: f32 = 18.0;
-const SELECTION_COUNT_GAP: f32 = 8.0;
-const SELECTION_COUNT_PAD: f32 = 6.0;
 
 /// A cable let go: connected to the port it was let go on, or offered through a node.
 fn drop_cable(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut Effects) {
