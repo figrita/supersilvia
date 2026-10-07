@@ -7,9 +7,12 @@
 //! the node never changes size. The **Rosette**, the default: for a ratio `p/q` a still
 //! spirograph that turns once round an input cycle, so it winds `q` loops, the input cycles it
 //! takes to close, and waves in and out `p` times across them, the output's cycles, its
-//! petals; a tick at the top where every loop begins; and a dot riding the curve at the
-//! output's phase, which in Reverse rides it the other way. A ×3 is three petals in one loop,
-//! a ÷4 one petal wound over four.
+//! petals; a tick at every petal's tip, one for each whole output cycle the curve carries,
+//! `p` of them evenly round the ring since the Teeth are drawn in lowest terms, the one at
+//! the top a touch longer where the first (`k = 0`) begins; and a dot riding the curve at the
+//! output's phase, which in Reverse rides it the other way. Past a few dozen the ticks thin
+//! to an even stride so a large `p` reads as marks, not a solid ring. A ×3 is three petals in
+//! one loop, each with its tick, a ÷4 one petal wound over four, its one tick at the top.
 //! A Master Gear's rosette is a ring with a clock face's twelve ticks and the dot. The
 //! **Gears**: the input's gear of `k·p` teeth driving the output's of `k·q`, `k` keeping both
 //! between 6 and 48 and the hub printing the ratio past that; a Master Gear is one gear of
@@ -54,6 +57,10 @@ const MIN_TEETH: i64 = 6;
 const MAX_TEETH: i64 = 48;
 /// The ticks round a Master Gear's ring and the teeth on its gear: a clock face's twelve.
 const MASTER_TICKS: i64 = 12;
+/// The most event ticks a Ratio Gear's rosette draws before it thins them: past this a
+/// petal's own tip is close enough to its neighbors' that every one drawn would read as a
+/// solid ring.
+const MAX_ROSETTE_TICKS: i64 = 24;
 
 pub const GEAR: RegionDef = RegionDef {
     size,
@@ -267,8 +274,9 @@ pub fn teeth(p: i64, q: i64) -> Option<(i64, i64)> {
 }
 
 /// The rosette: the angle makes a full turn each input cycle, `q` loops, and the radius `p`
-/// waves across them, with a tick at the top where each loop begins, and a dot at the
-/// output's place on the curve.
+/// waves across them, with a tick at each of the `p` petal tips — where a whole output cycle
+/// lands on the curve, `k`'s at input fraction `k·q/p` of the ring for `k` from `0` to `p − 1`
+/// — the top one, `k = 0`, drawn longer, and a dot at the output's place on the curve.
 fn draw_rosette(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colors, z: f32) {
     let center = rect.center();
     let big = rect.width().min(rect.height()) * 0.5 / 1.12;
@@ -296,16 +304,39 @@ fn draw_rosette(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colo
     painter.circle_stroke(center, big * 0.94, line(1.0, c.faint));
     rosette_curve(painter, center, big, d.p, d.q, line(1.4, c.curve));
     let q = d.q.max(1);
-    painter.line_segment(
-        [at(top, big * 0.96), at(top, big * 1.1)],
-        line(1.6, c.ticks),
-    );
+    // A tick at every petal tip — where a whole output cycle lands on the curve — the one at
+    // the top, where the first (`k = 0`) begins, drawn a touch longer so loop start stays
+    // readable.
+    for (a, top_tick) in rosette_tick_angles(d.p, q) {
+        let (from, to) = if top_tick { (0.94, 1.16) } else { (0.96, 1.06) };
+        painter.line_segment(
+            [at(a, big * from), at(a, big * to)],
+            line(if top_tick { 1.8 } else { 1.3 }, c.ticks),
+        );
+    }
     // The dot: where the output is, as a point of the curve it runs along, a turn an input
     // cycle.
     let t = crate::nodes::phasor::fraction(d.output * q as f64 / d.p as f64, q as f64);
     let a = top + TAU * crate::nodes::phasor::fraction(t, 1.0) as f32;
     let wave = (TAU * crate::nodes::phasor::fraction(d.output, 1.0) as f32).cos();
     painter.circle_filled(at(a, big * (0.6 + 0.3 * wave)), 3.0 * z, c.dot);
+}
+
+/// The angles a Ratio Gear's rosette ticks sit at, from `top = -PI / 2`, clockwise same as
+/// [`rosette_curve`]'s own parametrization: one for each whole output cycle the curve
+/// carries, output cycle `k` at input fraction `k·q/p` of the ring, so `p` of them, evenly
+/// spaced since the Teeth arrive in lowest terms, and `k = 0`, the top one where every loop
+/// begins, is among them. Past [`MAX_ROSETTE_TICKS`] a large `p` is thinned to an even stride
+/// so they read as marks, not a solid ring; the top tick is always kept. The `bool` says which
+/// is the top one, drawn longer.
+fn rosette_tick_angles(p: i64, q: i64) -> Vec<(f32, bool)> {
+    let p = p.max(1);
+    let q = q.max(1);
+    let stride = ((p + MAX_ROSETTE_TICKS - 1) / MAX_ROSETTE_TICKS).max(1);
+    (0..p)
+        .step_by(stride as usize)
+        .map(|k| (-PI / 2.0 + TAU * (k as f32 * q as f32 / p as f32), k == 0))
+        .collect()
 }
 
 /// One rosette's curve.
@@ -567,7 +598,8 @@ fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
 
 #[cfg(test)]
 mod tests {
-    use super::teeth;
+    use super::{MAX_ROSETTE_TICKS, Reading, drawn_of, rosette_tick_angles, teeth};
+    use std::f32::consts::{PI, TAU};
 
     /// The input's `k·p` teeth over the output's `k·q`, both between six and forty-eight.
     #[test]
@@ -580,5 +612,100 @@ mod tests {
         assert_eq!(teeth(1, 16), None, "past forty-eight, the hub prints it");
         assert_eq!(teeth(-2, 1), Some((12, 6)));
         assert_eq!(teeth(0, 1), None);
+    }
+
+    /// Every tick sits at a petal tip, the curve's own maximum: `rad ∝ cos(TAU·p·t/q)` at
+    /// `t = k·q/p` is `cos(TAU·k) = 1`, its largest value, for every `k` the angles carry.
+    fn angle_is_a_petal_tip(p: i64, q: i64, angle: f32) {
+        let t = q as f32 * (angle - (-PI / 2.0)) / TAU;
+        let rad = (TAU * p as f32 * t / q as f32).cos();
+        assert!(
+            rad > 0.999,
+            "p={p} q={q} angle={angle} is not a petal tip (cos={rad})"
+        );
+    }
+
+    /// ×5: five teeth over one, so five ticks, evenly a fifth of a turn apart, the top one
+    /// (`k = 0`) among them and marked long.
+    #[test]
+    fn five_ticks_for_a_times_five() {
+        let ticks = rosette_tick_angles(5, 1);
+        assert_eq!(ticks.len(), 5);
+        assert_eq!(ticks.iter().filter(|(_, top)| *top).count(), 1);
+        assert!(ticks[0].1, "k = 0 is first and is the top tick");
+        for (k, (a, _)) in ticks.iter().enumerate() {
+            let want = -PI / 2.0 + TAU * k as f32 / 5.0;
+            assert!((a - want).abs() < 1e-5, "tick {k}: {a} != {want}");
+            angle_is_a_petal_tip(5, 1, *a);
+        }
+    }
+
+    /// ÷4: one tooth over four, so one petal and one tick, at the top, where the loop (and
+    /// the only output cycle in it) begins.
+    #[test]
+    fn one_tick_at_the_top_for_a_divide_four() {
+        let ticks = rosette_tick_angles(1, 4);
+        assert_eq!(ticks.len(), 1);
+        let (a, top) = ticks[0];
+        assert!(top);
+        assert!((a - (-PI / 2.0)).abs() < 1e-5);
+        angle_is_a_petal_tip(1, 4, a);
+    }
+
+    /// 3 : 2: three output cycles land across the two input cycles the rosette winds, each at
+    /// its own petal tip, a third of a turn from the last.
+    #[test]
+    fn three_ticks_for_three_over_two() {
+        let ticks = rosette_tick_angles(3, 2);
+        assert_eq!(ticks.len(), 3);
+        assert_eq!(ticks.iter().filter(|(_, top)| *top).count(), 1);
+        assert!(ticks[0].1);
+        for (k, (a, _)) in ticks.iter().enumerate() {
+            let want = -PI / 2.0 + TAU * (k as f32 * 2.0 / 3.0);
+            assert!((a - want).abs() < 1e-5, "tick {k}: {a} != {want}");
+            angle_is_a_petal_tip(3, 2, *a);
+        }
+    }
+
+    /// Reverse carries no sign into the Teeth a `Reading::Ratio` draws with — only its
+    /// `output` runs backwards — so `drawn_of` hands the rosette the same `p, q` whichever way
+    /// the gear turns, and the ticks it draws from them do not move.
+    #[test]
+    fn ticks_do_not_move_in_reverse() {
+        let forward = drawn_of(&Reading::Ratio {
+            input: 1.25,
+            output: 3.75,
+            p: 3,
+            q: 2,
+        });
+        let reverse = drawn_of(&Reading::Ratio {
+            input: 1.25,
+            output: -3.75,
+            p: 3,
+            q: 2,
+        });
+        assert_eq!((forward.p, forward.q), (reverse.p, reverse.q));
+        assert_eq!(
+            rosette_tick_angles(forward.p, forward.q),
+            rosette_tick_angles(reverse.p, reverse.q)
+        );
+    }
+
+    /// Past [`MAX_ROSETTE_TICKS`] a large `p` thins to an even stride rather than drawing
+    /// every petal's tick, so they stay marks and not a solid ring; the top tick is always
+    /// among them.
+    #[test]
+    fn large_p_thins_instead_of_filling_a_ring() {
+        let ticks = rosette_tick_angles(64, 1);
+        assert!(
+            (ticks.len() as i64) <= MAX_ROSETTE_TICKS,
+            "{} ticks drawn for p = 64",
+            ticks.len()
+        );
+        assert!(!ticks.is_empty());
+        assert!(ticks[0].1, "the top tick survives thinning");
+        for (a, _) in &ticks {
+            angle_is_a_petal_tip(64, 1, *a);
+        }
     }
 }

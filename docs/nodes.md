@@ -1629,7 +1629,10 @@ its **Display** option, a `Runtime` one that changes nothing it publishes. **Ros
 default, is a still spirograph: for Teeth `p : q` in lowest terms, a turn round the picture
 each input cycle,
 so `q` loops, with `p` petals waving in and out across them — a ÷4 is one petal wound over
-four loops — a tick at the top where each loop begins, and a dot riding the curve at the
+four loops — a tick at every petal's tip, `p` of them evenly round the ring, where a whole
+output cycle lands on the curve, the top one — where the first, and every loop, begins —
+drawn longer, thinned to an even stride past a few dozen so a large `p` does not read as a
+solid ring, and a dot riding the curve at the
 output's phase, the other way round it in Reverse, a Master Gear's a ring of a clock face's twelve
 ticks. **Gears** is the input's gear of `k·p` teeth meshing with the output's of `k·q`, a
 Master Gear's one gear of twelve teeth. Both turn by the gear's own phases, never an animation
