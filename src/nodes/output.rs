@@ -635,9 +635,9 @@ pub fn record_hover(error: Option<&str>) -> String {
     error.map_or_else(
         || {
             "Records this Output's picture to a video as the show plays — in recordings/, \
-             or the folder Preferences ▸ Files names — at the FPS above and the Output's resolution, until Stop. Picture only. A \
-             frame the show did not draw in time repeats the one before and counts as \
-             dropped. No render runs beside it."
+             or the Recordings folder chosen for every project — at the FPS above and the \
+             Output's resolution, until Stop. Picture only. A frame the show did not draw \
+             in time repeats the one before and counts as dropped. No render runs beside it."
                 .to_string()
         },
         str::to_string,
