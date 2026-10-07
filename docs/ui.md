@@ -3835,7 +3835,7 @@ nothing. It declares no heading and claims no pointer: a hand carries the node b
 
 | Display | a Ratio Gear at Teeth `p : q`, in lowest terms | a Master Gear |
 | --- | --- | --- |
-| **Rosette** | a still spirograph that turns once round an input cycle, so it winds `q` loops, the input cycles it takes to close, and waves in and out `p` times across them, the output's cycles, its petals — ×3 three petals in one loop, ÷4 one petal wound over four loops; a tick at the top where every loop begins; and a dot riding the curve at the output's phase | a ring of a clock face's twelve ticks, the first one long, and the dot |
+| **Rosette** | a still spirograph that turns once round an input cycle, so it winds `q` loops, the input cycles it takes to close, and waves in and out `p` times across them, the output's cycles, its petals — ×3 three petals in one loop, ÷4 one petal wound over four loops; a tick at every petal's tip, `p` of them evenly round the ring, where a whole output cycle lands on the curve, the one at the top — where the first, and every loop, begins — drawn longer; past a few dozen they thin to an even stride so a large `p` still reads; and a dot riding the curve at the output's phase | a ring of a clock face's twelve ticks, the first one long, and the dot |
 | **Gears** | the input's gear of `k·p` teeth driving the output's of `k·q`, `k` the smallest that puts both at six or more; where that puts one past forty-eight, two gears of twelve with the ratio printed on the output's hub | one gear of twelve teeth, turning once a cycle |
 
 **Both pictures turn by the gear's own phases**, never an animation clock, so a paused show
