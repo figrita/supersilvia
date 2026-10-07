@@ -12,9 +12,10 @@
 # GStreamer's Windows release is an Inno Setup installer and nothing else, so it is downloaded
 # once into a cache outside the repository and installed there, into a Wine prefix of its own:
 # Wine is needed for that one step, and for wine.sh. The binary is built against that copy,
-# and the folder carries its plugins, the libraries they and the binary reach and the plugin
-# scanner, in bin/, lib/gstreamer-1.0/ and libexec/gstreamer-1.0/: the layout GStreamer's own
-# relocation expects from the folder libgstreamer is in, so the app sets nothing at start-up.
+# and the folder carries the plugins packaging/gstreamer-plugins.txt names for Windows, the
+# libraries they and the binary reach and the plugin scanner, in bin/, lib/gstreamer-1.0/ and
+# libexec/gstreamer-1.0/: the layout GStreamer's own relocation expects from the folder
+# libgstreamer is in, so the app sets nothing at start-up.
 #
 # Needs: cargo-xwin (`cargo install cargo-xwin`), the x86_64-pc-windows-msvc target, clang-cl,
 # lld, llvm-rc and llvm-objdump (Fedora: clang lld llvm), curl, zip, and Wine to install
@@ -30,9 +31,6 @@
 #   SUPERSILVIA_FEATURES        Cargo features for the binary, e.g. `inspection`, so an
 #                               inspection client can drive it when it is started with
 #                               EGUI_INSPECTION=1. Never for a build that is handed out.
-#
-# Every plugin of the release is carried for now, rather than the ones the app's elements
-# are in: the curated list the macOS bundle has is the next step here.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -110,7 +108,17 @@ say "assembling $out"
 rm -rf "$out" "$zip"
 mkdir -p "$out/bin" "$out/lib/gstreamer-1.0" "$out/libexec/gstreamer-1.0" "$out/licenses"
 cp "$exe" "$out/bin/"
-cp "$gst"/lib/gstreamer-1.0/*.dll "$out/lib/gstreamer-1.0/"
+# Each plugin a row for Windows names, once; a plugin the release lacks stops the build.
+plugins=()
+while read -r feature plugin machines _; do
+  [[ -z $feature || $feature == \#* ]] && continue
+  [[ -z $machines || ,$machines, == *,windows,* ]] || continue
+  [[ " ${plugins[*]} " == *" $plugin "* ]] && continue
+  plugins+=("$plugin")
+  [[ -f $gst/lib/gstreamer-1.0/gst$plugin.dll ]] ||
+    die "GStreamer $GST_VERSION's release has no plugin $plugin, which $feature is in"
+  cp "$gst/lib/gstreamer-1.0/gst$plugin.dll" "$out/lib/gstreamer-1.0/"
+done <"$root/packaging/gstreamer-plugins.txt"
 cp "$gst/libexec/gstreamer-1.0/gst-plugin-scanner.exe" "$out/libexec/gstreamer-1.0/"
 # fontconfig's configuration, which pango reads through it for the Text node's letters.
 cp -r "$gst/etc" "$out/"

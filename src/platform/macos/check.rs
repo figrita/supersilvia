@@ -14,8 +14,8 @@ const BAD: &str = "gst-plugins-bad";
 const UGLY: &str = "gst-plugins-ugly";
 const LIBAV: &str = "gst-libav";
 
-/// `ELEMENTS` in `packaging/macos/build-app.sh`, grouped by what each serves; the hardware
-/// codecs are `platform::video::CODECS`, which `--check` asks after separately.
+/// The rows of `packaging/gstreamer-plugins.txt` for macOS, grouped by what each serves; the
+/// hardware codecs are `platform::video::CODECS`, which `--check` asks after separately.
 pub const GROUPS: &[Group] = &[
     Group {
         what: "pipelines",

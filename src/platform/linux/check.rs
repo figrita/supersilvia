@@ -23,7 +23,7 @@ const PIPEWIRE: &str = "pipewire's GStreamer plugin";
 
 /// Every element the app makes on Linux, by name in `src/` or inside a pipeline string there,
 /// and those `decodebin` reaches for the files `nodes::Accepts` lets in — the Linux side of
-/// `ELEMENTS` in `packaging/macos/build-app.sh`.
+/// `packaging/gstreamer-plugins.txt`, which no Linux package reads, since none carries GStreamer.
 pub const GROUPS: &[Group] = &[
     Group {
         what: "pipelines",

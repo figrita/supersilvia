@@ -27,9 +27,12 @@ machine's own GStreamer never reaches the build.
 **The folder** is GStreamer's own relocatable layout: `bin/` holds `supersilvia.exe` and the
 DLLs it and the plugins import, `lib/gstreamer-1.0/` the plugins and
 `libexec/gstreamer-1.0/` the plugin scanner, so GStreamer finds everything from where
-`gstreamer-1.0-0.dll` is and the app sets nothing at start-up. Every plugin of the release is
-carried for now; the macOS bundle's list of the plugins the app's elements are in is the next
-step. `licenses/` holds supersilvia's licence, GStreamer's, the shader compiler's, every Rust
+`gstreamer-1.0-0.dll` is and the app sets nothing at start-up. Only the plugins
+[`../gstreamer-plugins.txt`](../gstreamer-plugins.txt) names for Windows are carried, and only
+the DLLs they and the binary import, read from each file's import table with `llvm-objdump -p`
+and followed until nothing new appears
+([packaging/README.md](../README.md#the-gstreamer-the-windows-folder-and-the-app-carry)).
+`licenses/` holds supersilvia's licence, GStreamer's, the shader compiler's, every Rust
 crate's and the list of GStreamer files carried.
 
 **The Visual C++ runtime** (`VCRUNTIME140.dll` and its siblings) is not in the folder. Both
