@@ -32,6 +32,7 @@ pub mod project;
 pub mod project_name;
 pub mod rail;
 pub mod report;
+pub mod resolution;
 pub mod scope;
 pub mod shortcuts;
 pub mod start;
@@ -266,6 +267,12 @@ pub enum OpenControl {
     },
     /// The three numbers that belong to this instance of a control rather than to its kind.
     Range {
+        node: NodeId,
+        key: &'static str,
+        at: Pos2,
+    },
+    /// A resolution option's popover, `ui::resolution`.
+    Resolution {
         node: NodeId,
         key: &'static str,
         at: Pos2,
@@ -2343,6 +2350,28 @@ fn popups(
                     }
                     fx.look_for_devices |= picked.look_again;
                     (false, picked.dismissed)
+                }
+                None => (true, false),
+            }
+        }
+        Some(OpenControl::Resolution { node, key, at }) => {
+            let at = t.to_screen(origin, at);
+            match graph.get(node).filter(|n| n.options.contains_key(key)) {
+                Some(n) => {
+                    let size = n
+                        .options
+                        .get(key)
+                        .map(|v| crate::nodes::output::read_resolution(v));
+                    let name = format!("{}{node}.{key}", n.def.slug);
+                    let popped = resolution::popover(ui, at, &name, size, &[], theme);
+                    if let Some(resolution::Pick::Size(w, h)) = popped.picked {
+                        fx.commands.push(Command::SetOption {
+                            node,
+                            key,
+                            value: format!("{w}x{h}"),
+                        });
+                    }
+                    (false, popped.dismissed)
                 }
                 None => (true, false),
             }

@@ -76,42 +76,45 @@ impl Method {
 
 /// How large the mix is drawn.
 ///
+/// `Display`, the default, is the physical size of the connected display with the fewest
+/// pixels — on a rig of a laptop and a projector, the projector, whose picture a smaller mix
+/// would be scaled up to fill — and is `Viewport`'s size where no display has been reported.
 /// `Viewport` follows the editor's canvas, capped at 1080 rows, which is silvia's *Match
-/// Viewport*; `Fixed` is a preset, for a projector whose shape is known.
+/// Viewport*; `Fixed` is any size the resolution picker makes, for a projector whose shape is
+/// known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Resolution {
     #[default]
+    Display,
     Viewport,
     Fixed(u32, u32),
 }
 
 impl Resolution {
-    /// The presets offered beside *Match viewport*, the Output's own list.
-    pub const PRESETS: [(u32, u32); 7] = [
-        (1280, 720),
-        (1920, 1080),
-        (3440, 1440),
-        (1024, 768),
-        (1080, 1080),
-        (720, 1280),
-        (1080, 1920),
-    ];
-
     /// The tallest a viewport-matched mix is drawn. A 4K editor window does not make the
     /// mix 4K; the projector is the size it is.
     pub const VIEWPORT_MAX_HEIGHT: u32 = 1080;
 
-    pub fn label(self) -> String {
-        match self {
-            Resolution::Viewport => "Match viewport".to_string(),
-            Resolution::Fixed(w, h) => format!("{}:{} ({w}x{h})", ratio(w, h).0, ratio(w, h).1),
+    /// What the picker calls the two that follow something, given the smallest display's size
+    /// where one is known; `None` for a fixed size, which the picker names itself.
+    pub fn label(self, display: Option<(u32, u32)>) -> Option<String> {
+        match (self, display) {
+            (Resolution::Display, Some((w, h))) => Some(format!("Match display ({w}x{h})")),
+            (Resolution::Display, None) => Some("Match display".to_string()),
+            (Resolution::Viewport, _) => Some("Match viewport".to_string()),
+            (Resolution::Fixed(..), _) => None,
         }
     }
 
-    /// The size to draw at, given the editor's canvas in pixels.
-    pub fn pixels(self, viewport: (u32, u32)) -> (u32, u32) {
+    /// The size to draw at, given the editor's canvas in pixels and the smallest display's
+    /// physical size where one is known ([`smallest_display`]).
+    pub fn pixels(self, viewport: (u32, u32), display: Option<(u32, u32)>) -> (u32, u32) {
         match self {
+            Resolution::Display => match display {
+                Some((w, h)) => (w.max(1), h.max(1)),
+                None => Resolution::Viewport.pixels(viewport, None),
+            },
             Resolution::Fixed(w, h) => (w.max(1), h.max(1)),
             Resolution::Viewport => {
                 let (vw, vh) = (viewport.0.max(1), viewport.1.max(1));
@@ -125,24 +128,21 @@ impl Resolution {
     }
 }
 
-/// A resolution's aspect as small integers, for its label: `16:9`, `21:9`, `4:3`.
-fn ratio(w: u32, h: u32) -> (u32, u32) {
-    // 3440x1440 is 43:18 exactly, which nobody calls it; the labels are the names the
-    // presets are sold under.
-    if (w, h) == (3440, 1440) {
-        return (21, 9);
-    }
-    let g = gcd(w, h).max(1);
-    (w / g, h / g)
-}
-
-fn gcd(a: u32, b: u32) -> u32 {
-    if b == 0 { a } else { gcd(b, a % b) }
+/// The display with the fewest pixels among `displays`, each its physical size, or `None`
+/// where there is none to read — a headless run, or a window system that has not reported
+/// one. An empty size is no display, and the first of two the same size is the one.
+pub fn smallest_display(displays: &[(u32, u32)]) -> Option<(u32, u32)> {
+    displays
+        .iter()
+        .copied()
+        .filter(|&(w, h)| w > 0 && h > 0)
+        .min_by_key(|&(w, h)| u64::from(w) * u64::from(h))
 }
 
 impl From<Resolution> for String {
     fn from(r: Resolution) -> Self {
         match r {
+            Resolution::Display => "display".to_string(),
             Resolution::Viewport => "viewport".to_string(),
             Resolution::Fixed(w, h) => format!("{w}x{h}"),
         }
@@ -152,13 +152,15 @@ impl From<Resolution> for String {
 impl TryFrom<String> for Resolution {
     type Error = String;
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        if s == "viewport" {
-            return Ok(Resolution::Viewport);
+        match s.as_str() {
+            "display" => return Ok(Resolution::Display),
+            "viewport" => return Ok(Resolution::Viewport),
+            _ => {}
         }
         crate::nodes::output::parse_resolution(&s)
             .filter(|(w, h)| *w > 0 && *h > 0)
             .map(|(w, h)| Resolution::Fixed(w, h))
-            .ok_or_else(|| format!("{s:?} is neither \"viewport\" nor WIDTHxHEIGHT"))
+            .ok_or_else(|| format!("{s:?} is not \"display\", \"viewport\" or WIDTHxHEIGHT"))
     }
 }
 
@@ -219,7 +221,7 @@ impl Default for Mixer {
             b: None,
             balance: -1.0,
             method: Method::Blend,
-            resolution: Resolution::Viewport,
+            resolution: Resolution::Display,
             background: false,
             blackout: false,
             freeze: false,
@@ -332,6 +334,7 @@ mod tests {
     #[test]
     fn a_resolution_round_trips_as_a_string() {
         for r in [
+            Resolution::Display,
             Resolution::Viewport,
             Resolution::Fixed(1280, 720),
             Resolution::Fixed(720, 1280),
@@ -345,28 +348,90 @@ mod tests {
 
     #[test]
     fn a_viewport_resolution_keeps_the_canvas_aspect_under_the_cap() {
-        assert_eq!(Resolution::Viewport.pixels((1600, 900)), (1600, 900));
-        assert_eq!(Resolution::Viewport.pixels((3840, 2160)), (1920, 1080));
-        assert_eq!(Resolution::Viewport.pixels((0, 0)), (1, 1), "never zero");
+        let display = Some((1280, 800));
         assert_eq!(
-            Resolution::Fixed(1080, 1920).pixels((1600, 900)),
+            Resolution::Viewport.pixels((1600, 900), display),
+            (1600, 900)
+        );
+        assert_eq!(
+            Resolution::Viewport.pixels((3840, 2160), None),
+            (1920, 1080)
+        );
+        assert_eq!(
+            Resolution::Viewport.pixels((0, 0), None),
+            (1, 1),
+            "never zero"
+        );
+        assert_eq!(
+            Resolution::Fixed(1080, 1920).pixels((1600, 900), display),
             (1080, 1920)
         );
     }
 
+    /// The default mix is the smallest display's size, uncapped, because that display is the
+    /// projector; with no display reported it is the viewport-matched mix.
     #[test]
-    fn presets_are_labeled_by_their_shape() {
-        assert_eq!(Resolution::Fixed(1920, 1080).label(), "16:9 (1920x1080)");
-        assert_eq!(Resolution::Fixed(3440, 1440).label(), "21:9 (3440x1440)");
-        assert_eq!(Resolution::Fixed(1080, 1080).label(), "1:1 (1080x1080)");
+    fn a_display_resolution_is_the_smallest_display_or_else_the_viewport() {
+        assert_eq!(
+            Resolution::Display.pixels((1600, 900), Some((3840, 2160))),
+            (3840, 2160)
+        );
+        assert_eq!(
+            Resolution::Display.pixels((3840, 2160), None),
+            Resolution::Viewport.pixels((3840, 2160), None)
+        );
     }
 
     #[test]
-    fn the_default_is_hard_a_matching_the_viewport_and_off_the_background() {
+    fn the_smallest_display_is_the_one_with_the_fewest_pixels() {
+        // An ultrawide, a projector and a laptop: the projector has the fewest pixels.
+        assert_eq!(
+            smallest_display(&[(3440, 1440), (1920, 1080), (2560, 1600)]),
+            Some((1920, 1080))
+        );
+        // Fewest pixels, not the shortest side: 1080x1920 is 2.07 MP and 1600x1200 is 1.92.
+        assert_eq!(
+            smallest_display(&[(1080, 1920), (1600, 1200)]),
+            Some((1600, 1200))
+        );
+        assert_eq!(
+            smallest_display(&[(1920, 1080), (1080, 1920)]),
+            Some((1920, 1080)),
+            "the first of two the same size"
+        );
+        assert_eq!(smallest_display(&[(2560, 1440)]), Some((2560, 1440)));
+        assert_eq!(smallest_display(&[]), None, "headless: nothing to read");
+        assert_eq!(
+            smallest_display(&[(0, 0), (1920, 1080)]),
+            Some((1920, 1080)),
+            "an empty size is no display"
+        );
+        assert_eq!(smallest_display(&[(0, 1080)]), None);
+    }
+
+    #[test]
+    fn the_matching_entries_are_labeled_and_a_fixed_size_is_not() {
+        assert_eq!(
+            Resolution::Display.label(Some((1920, 1080))).as_deref(),
+            Some("Match display (1920x1080)")
+        );
+        assert_eq!(
+            Resolution::Display.label(None).as_deref(),
+            Some("Match display")
+        );
+        assert_eq!(
+            Resolution::Viewport.label(None).as_deref(),
+            Some("Match viewport")
+        );
+        assert_eq!(Resolution::Fixed(1920, 1080).label(None), None);
+    }
+
+    #[test]
+    fn the_default_is_hard_a_matching_the_display_and_off_the_background() {
         let m = Mixer::default();
         assert_eq!(m.balance, -1.0);
         assert_eq!(m.method, Method::Blend);
-        assert_eq!(m.resolution, Resolution::Viewport);
+        assert_eq!(m.resolution, Resolution::Display);
         assert!(!m.background, "the canvas is not covered until a hand asks");
         assert!(!m.blackout && !m.freeze, "the show is not held at launch");
         assert_eq!(m.claimed().count(), 0);

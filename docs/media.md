@@ -1300,7 +1300,7 @@ the `Alt`-click that binds are [ui.md](ui.md#the-midi-window).
 reaches a node's controls and its action inputs and, of the **rig's** controls, the fade,
 Blackout and Freeze alone. The Main Input's gain and thresholds, the crossfade method, the
 mix's resolution and the deck claims have no address: which deck is on air is already a note
-on an Output's `Show on A` or `Show on B`, the method and the resolution are selects nobody
+on an Output's `Show on A` or `Show on B`, the method and the resolution are pickers nobody
 turns mid-set, and the Main Input is tuned once for the room. The fade is the one a hand
 rides during a set and Blackout and Freeze are the ones it reaches for when the set goes
 wrong, and the enum grows an arm the day another proves it. A binding to any of them is

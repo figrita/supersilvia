@@ -4953,7 +4953,7 @@ paths. One enum with an arm per mixer control costs a `match` at each place a ta
 and buys one table, one gesture and one file row shape.
 
 **Why only these three.** Which deck is on air is already a button on the Output, so a note
-reaches it through `show_a` and `show_b`. The method and the resolution are selects nobody
+reaches it through `show_a` and `show_b`. The method and the resolution are pickers nobody
 turns mid-set. The Main Input's tuning is set once for the room. The fade is the one thing on
 either panel a hand rides during a set, and Blackout and Freeze are what it reaches for when
 the set goes wrong — under a pad, since a mouse is the slowest way to the panel. The enum can

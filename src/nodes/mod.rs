@@ -690,6 +690,12 @@ pub struct OptionDef {
     /// written with, committed on Enter or when the field is left, and clamped into its
     /// bounds. The Text node's `size`. Stored as its text, as every option is.
     pub number: Option<NumberField>,
+    /// The row draws the resolution picker, `ui::resolution`: a shape and a short side, or
+    /// an exact width and height. The value is any `WIDTHxHEIGHT` inside
+    /// [`output::MIN_SIDE`] and [`output::MAX_SIDE`], stored as its text, as every option
+    /// is, with `choices` only the default's home. An Output's Resolution and the Text
+    /// node's Texture Size.
+    pub resolution: bool,
     /// Drawn as a tick, sharing one row with every other checkbox the node declares —
     /// silvia's own `Numbers` / `Events` / `Scope` row at the foot of an audio node.
     ///
@@ -746,6 +752,7 @@ impl OptionDef {
         placeholder: None,
         validate: None,
         number: None,
+        resolution: false,
         checkbox: false,
         heading: false,
         in_region: false,
@@ -1549,6 +1556,9 @@ pub fn coerce_control(
 /// `choices` already says any path is fine.
 pub fn option_is_valid(def: &NodeDef, key: &str, value: &str) -> bool {
     def.option(key).is_some_and(|o| {
+        if o.resolution {
+            return output::holds_resolution(value);
+        }
         o.choices.is_empty()
             || o.placeholder.is_some()
             || o.number.is_some()
@@ -1998,6 +2008,34 @@ mod tests {
                     "{}: value {:?} is also an option",
                     def.slug,
                     v.key,
+                );
+            }
+        }
+    }
+
+    /// A resolution option opens on a size its own picker accepts, and is no other shape of
+    /// row at once.
+    #[test]
+    fn a_resolution_option_defaults_to_a_size_it_holds() {
+        for def in REGISTRY {
+            for o in def.options.iter().filter(|o| o.resolution) {
+                assert!(
+                    option_is_valid(def, o.key, o.default),
+                    "{}.{}: default {:?} is not a size",
+                    def.slug,
+                    o.key,
+                    o.default,
+                );
+                assert!(
+                    o.placeholder.is_none()
+                        && o.number.is_none()
+                        && !o.checkbox
+                        && !o.heading
+                        && !o.in_region
+                        && !o.is_asset(),
+                    "{}.{}: a resolution and another shape of row at once",
+                    def.slug,
+                    o.key,
                 );
             }
         }

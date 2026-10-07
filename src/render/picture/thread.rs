@@ -1184,9 +1184,57 @@ impl OutputHandler for Pictures {
     fn output_state(&mut self) -> &mut OutputState {
         &mut self.outputs
     }
-    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
-    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
-    fn output_destroyed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
+    fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {
+        self.report_displays(None);
+    }
+    fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {
+        self.report_displays(None);
+    }
+    fn output_destroyed(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        output: wl_output::WlOutput,
+    ) {
+        // Called before sctk forgets the output, so it is left out by hand.
+        self.report_displays(Some(&output));
+    }
+}
+
+impl Pictures {
+    /// Tell the editor every output's physical size, leaving out `gone`.
+    ///
+    /// The current mode is the panel's pixels as it is wired; a quarter turn swaps them,
+    /// since a projector hung on its side shows a portrait picture. An output with no current
+    /// mode is its logical size times its integer scale.
+    fn report_displays(&self, gone: Option<&wl_output::WlOutput>) {
+        let displays = self
+            .outputs
+            .outputs()
+            .filter(|o| Some(o) != gone)
+            .filter_map(|o| self.outputs.info(&o))
+            .filter_map(|info| {
+                let (w, h) = info
+                    .modes
+                    .iter()
+                    .find(|m| m.current)
+                    .map(|m| m.dimensions)
+                    .map(|(w, h)| match info.transform {
+                        wl_output::Transform::_90
+                        | wl_output::Transform::_270
+                        | wl_output::Transform::Flipped90
+                        | wl_output::Transform::Flipped270 => (h, w),
+                        _ => (w, h),
+                    })
+                    .or_else(|| {
+                        info.logical_size
+                            .map(|(w, h)| (w * info.scale_factor, h * info.scale_factor))
+                    })?;
+                Some((u32::try_from(w).ok()?, u32::try_from(h).ok()?))
+            })
+            .collect();
+        let _ = self.told.send(Told::Displays(displays));
+    }
 }
 
 /// The keyboard, raw: which window has the focus, and the two keys it reads.

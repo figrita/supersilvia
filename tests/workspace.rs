@@ -38,7 +38,7 @@ fn graph_with_everything() -> (Graph, NodeId, NodeId) {
     g.get_mut(out)
         .unwrap()
         .options
-        .insert("resolution", "1920x1080".to_string());
+        .insert("resolution", "2000x1000".to_string());
     (g, cb, out)
 }
 
@@ -114,8 +114,8 @@ fn a_workspace_round_trips_exactly() {
     );
     assert_eq!(
         back.get(out).unwrap().options.get("resolution").unwrap(),
-        "1920x1080",
-        "a non-default option survives"
+        "2000x1000",
+        "a non-default option survives, a free size among them"
     );
 }
 
@@ -321,15 +321,15 @@ fn a_control_value_outside_its_range_is_clamped_on_load() {
     assert!(*v >= 0.01, "clamped into the declared range, got {v}");
 }
 
-/// An option value this build does not offer would reach `parse_resolution` and silently
-/// fall back, leaving a node whose menu shows a choice that is not in it.
+/// A resolution that is no size would reach `parse_resolution` and silently fall back,
+/// leaving a node whose picker shows a size it is not drawn at.
 #[test]
 fn an_option_value_that_is_not_a_choice_keeps_the_default() {
     let (g, _, out) = graph_with_everything();
     let mut saved = file_of(&g);
     let node = saved.nodes.iter_mut().find(|n| n.id == out).unwrap();
     node.options
-        .insert("resolution".to_string(), "9999x9999".to_string());
+        .insert("resolution".to_string(), "1280x".to_string());
 
     let json = serde_json::to_string(&saved).unwrap();
     let (loaded, warnings) = workspace::from_str(&json).unwrap();

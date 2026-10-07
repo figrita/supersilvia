@@ -66,6 +66,10 @@ const MIN_SIZE: (f64, f64) = (160.0, 90.0);
 /// drawable that an occluded window may never be given, and waiting longer would not help.
 const CLOSE_WAIT: Duration = Duration::from_millis(100);
 
+/// How often the displays are read again, for one plugged in or taken out. winit 0.30 has no
+/// event for either, so the loop asks, at most this often, on a turn it is awake for anyway.
+const DISPLAYS_EVERY: Duration = Duration::from_secs(1);
+
 /// How far the pointer must travel with the button down, in points, before a press becomes a
 /// move or a resize — so a click, and the first press of a double-click, moves nothing.
 const DRAG_SLOP: f64 = 4.0;
@@ -128,6 +132,9 @@ pub(super) struct Loop<'a> {
     /// The modifiers held, for the aspect lock. winit reports them per window and clears them
     /// when the focus leaves.
     mods: ModifiersState,
+    /// Every display's physical size as last told to the editor, and when they were read.
+    /// `None` until the first read, which is on the loop's first turn.
+    displays: Option<(Vec<(u32, u32)>, Instant)>,
 }
 
 impl<'a> Loop<'a> {
@@ -147,7 +154,29 @@ impl<'a> Loop<'a> {
             press: None,
             last_press: None,
             mods: ModifiersState::empty(),
+            displays: None,
         }
+    }
+
+    /// Read every display's physical size, at most once a [`DISPLAYS_EVERY`], and tell the
+    /// editor when the list is not the one it was last told.
+    fn read_displays(&mut self, event_loop: &ActiveEventLoop) {
+        let now = Instant::now();
+        if self
+            .displays
+            .as_ref()
+            .is_some_and(|(_, at)| now.duration_since(*at) < DISPLAYS_EVERY)
+        {
+            return;
+        }
+        let read: Vec<(u32, u32)> = event_loop
+            .available_monitors()
+            .map(|m| (m.size().width, m.size().height))
+            .collect();
+        if self.displays.as_ref().is_none_or(|(told, _)| *told != read) {
+            let _ = self.told.send(Told::Displays(read.clone()));
+        }
+        self.displays = Some((read, now));
     }
 
     /// One of the editor's asks.
@@ -652,6 +681,7 @@ impl ApplicationHandler<UserEvent> for Loop<'_> {
             }
         }
         self.reap();
+        self.read_displays(event_loop);
     }
 
     fn suspended(&mut self, event_loop: &ActiveEventLoop) {

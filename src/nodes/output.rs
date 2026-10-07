@@ -133,19 +133,14 @@ pub static DEF: NodeDef = NodeDef {
             key: "resolution",
             label: "Resolution",
             default: "1280x720",
-            choices: &[
-                ("1280x720", "16:9 (1280x720)"),
-                ("1920x1080", "16:9 (1920x1080)"),
-                ("3440x1440", "21:9 (3440x1440)"),
-                ("1024x768", "4:3 (1024x768)"),
-                ("1080x1080", "1:1 (1080x1080)"),
-                ("720x1280", "9:16 (720x1280)"),
-                ("1080x1920", "9:16 (1080x1920)"),
-            ],
+            // Any `WIDTHxHEIGHT` the resolution picker writes; the one choice is the
+            // default's home.
+            choices: &[("1280x720", "1280x720")],
             // `App` reads it into every frame's job and the renderer resizes from that,
             // keeping the program: the shader is written against `u_resolution` and does
             // not change.
             kind: OptionKind::Runtime,
+            resolution: true,
             ..OptionDef::EMPTY
         },
         // How much larger than the Output the render is drawn, before it comes back down
@@ -665,10 +660,31 @@ pub fn clock(seconds: f64) -> String {
 /// beside the `default` above, and held to it by a test.
 pub const DEFAULT_RESOLUTION: (u32, u32) = (1280, 720);
 
+/// The narrowest and the widest side a resolution option holds, in pixels. The wide end is
+/// the 2D texture limit of every GPU the app runs on.
+pub const MIN_SIDE: u32 = 16;
+pub const MAX_SIDE: u32 = 16384;
+
 /// Parse a `resolution` option value. Returns `None` for anything not `WIDTHxHEIGHT`.
 pub fn parse_resolution(value: &str) -> Option<(u32, u32)> {
     let (w, h) = value.split_once('x')?;
     Some((w.parse().ok()?, h.parse().ok()?))
+}
+
+/// Whether `value` is a `WIDTHxHEIGHT` with both sides inside [`MIN_SIDE`] and [`MAX_SIDE`]:
+/// what an option drawn by the resolution picker accepts from a file.
+pub fn holds_resolution(value: &str) -> bool {
+    parse_resolution(value).is_some_and(|(w, h)| {
+        (MIN_SIDE..=MAX_SIDE).contains(&w) && (MIN_SIDE..=MAX_SIDE).contains(&h)
+    })
+}
+
+/// A resolution option's value as a size to draw at: clamped into [`MIN_SIDE`] and
+/// [`MAX_SIDE`], and [`DEFAULT_RESOLUTION`] for anything not `WIDTHxHEIGHT`.
+pub fn read_resolution(value: &str) -> (u32, u32) {
+    parse_resolution(value).map_or(DEFAULT_RESOLUTION, |(w, h)| {
+        (w.clamp(MIN_SIDE, MAX_SIDE), h.clamp(MIN_SIDE, MAX_SIDE))
+    })
 }
 
 /// One Output node's render size.
@@ -678,8 +694,7 @@ pub fn parse_resolution(value: &str) -> Option<(u32, u32)> {
 pub fn resolution_of(node: &crate::graph::Node) -> (u32, u32) {
     node.options
         .get("resolution")
-        .and_then(|v| parse_resolution(v))
-        .unwrap_or(DEFAULT_RESOLUTION)
+        .map_or(DEFAULT_RESOLUTION, |v| read_resolution(v))
 }
 
 /// How much larger than its own resolution an Output renders a film, and comes back down
@@ -711,26 +726,42 @@ const BYTES_PER_PIXEL: u64 = 8;
 /// while one is not.
 pub fn memory_bytes(node: &crate::graph::Node) -> u64 {
     let (w, h) = resolution_of(node);
-    u64::from(w) * u64::from(h) * BYTES_PER_PIXEL * TARGETS
+    memory_at(w, h)
 }
 
-/// That figure as a node prints it: whole megabytes, which is the grain the choice is made
-/// at — no resolution in the menu moves it by less than one.
+/// What an Output of `width` x `height` commits, in bytes: [`memory_bytes`] for a size rather
+/// than a node, which the resolution picker prints for the size it holds and each it offers.
+pub fn memory_at(width: u32, height: u32) -> u64 {
+    u64::from(width) * u64::from(height) * BYTES_PER_PIXEL * TARGETS
+}
+
+/// [`memory_at`] in whole megabytes, rounded up: the grain the choice is made at.
+pub fn megabytes_at(width: u32, height: u32) -> u64 {
+    memory_at(width, height).div_ceil(1024 * 1024)
+}
+
+/// That figure as a node prints it: whole megabytes.
 pub fn memory_label(node: &crate::graph::Node) -> String {
-    format!("{} MB", memory_bytes(node).div_ceil(1024 * 1024))
+    let (w, h) = resolution_of(node);
+    format!("{} MB", megabytes_at(w, h))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// What a file can carry into the option, and what the renderer is handed for it: a size
+    /// inside the bounds as it is, one outside them clamped, anything else the default.
     #[test]
-    fn every_resolution_choice_parses() {
-        for (value, _) in DEF.option("resolution").unwrap().choices {
-            let (w, h) =
-                parse_resolution(value).unwrap_or_else(|| panic!("{value:?} is not WIDTHxHEIGHT"));
-            assert!(w > 0 && h > 0);
-        }
+    fn a_resolution_is_read_inside_its_bounds() {
+        assert!(holds_resolution("1920x1080"));
+        assert!(holds_resolution("16x16384"));
+        assert!(!holds_resolution("8x1080"));
+        assert!(!holds_resolution("1920x99999"));
+        assert!(!holds_resolution("1920"));
+        assert_eq!(read_resolution("2001x999"), (2001, 999));
+        assert_eq!(read_resolution("0x99999"), (MIN_SIDE, MAX_SIDE));
+        assert_eq!(read_resolution("banana"), DEFAULT_RESOLUTION);
     }
 
     #[test]

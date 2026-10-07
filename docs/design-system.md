@@ -133,6 +133,11 @@ These are things the handoff specified that a reasonable person would guess wron
   rather than typed, because a glyph is the one thing a font fallback is allowed to turn into
   `◻`. The row it sits in is `OPTION_ROW_PITCH`, which is **tighter than the handoff's**: an
   option is set once and then read, and a `video` node has four of them.
+- **A resolution is a shape and a short side**, not a list of sizes: the [resolution
+  picker](ui.md#options-and-the-file-button) is a select's box holding a painted rectangle of
+  the picture's shape, and its popover a strip of ratios each painted as a rectangle of its own
+  shape — `bg_tertiary` at rest, `bg_hover` under the pointer, a `primary` outline around a
+  tint of it when chosen — over one row of short sides.
 - **Text is Space Grotesk at a 12 px base**, headings Space Grotesk SemiBold. Monospace is kept for what is
   read column by column: a path, a MIDI message, the Status box. See
   [Fonts](#fonts-and-why-five-are-vendored).
