@@ -533,19 +533,21 @@ fn audio_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
             }
             // The default monitor is already above, under a better name.
             for listed in named {
-                let label = if listed.monitor {
-                    format!("↺ {}", listed.label)
-                } else {
-                    listed.label.clone()
+                let value = AudioSource::Live {
+                    device: listed.device.clone(),
                 };
-                ui.selectable_value(
-                    &mut chosen,
-                    AudioSource::Live {
-                        device: listed.device.clone(),
-                    },
-                    label,
-                )
-                .on_hover_text(if listed.monitor {
+                let row = if listed.monitor {
+                    crate::ui::icon::selectable_value(
+                        ui,
+                        &mut chosen,
+                        value,
+                        crate::ui::icon::Icon::Loopback,
+                        &listed.label,
+                    )
+                } else {
+                    ui.selectable_value(&mut chosen, value, listed.label.as_str())
+                };
+                row.on_hover_text(if listed.monitor {
                     "What this output is playing"
                 } else {
                     "A capture device"

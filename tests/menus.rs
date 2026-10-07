@@ -91,7 +91,7 @@ fn undo_says_what_it_takes_back() {
         None,
         "the workspace is the one showing"
     );
-    assert!(h.query_by_label("▸ go").is_none());
+    assert!(h.query_by_label("go").is_none());
 
     chord(
         &mut h,
@@ -138,7 +138,7 @@ fn an_undo_on_another_workspace_goes_there() {
         Some("Undid Change Checkerboard Frequency")
     );
     h.run_steps(2);
-    h.get_by_label("▸ go").click();
+    h.get_by_label("go").click();
     h.run_steps(2);
     assert_eq!(h.state().active(), Active::Workspace(home));
     assert_eq!(

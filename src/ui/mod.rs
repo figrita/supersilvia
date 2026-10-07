@@ -12,6 +12,7 @@ pub mod check;
 pub mod color;
 pub mod context;
 pub mod history;
+pub mod icon;
 pub mod keycap;
 pub mod layout;
 pub mod loop_meter;
@@ -1028,7 +1029,7 @@ fn selection_menu(
 /// drawn disabled rather than offered and then refused.
 fn workspaces_menu(ui: &mut Ui, graph: &Graph, nodes: &[NodeId], out: &mut Vec<Command>) {
     let on = |id: NodeId, w: WorkspaceId| graph.get(id).is_some_and(|n| n.workspaces.contains(&w));
-    ui.menu_button("Workspaces", |ui| {
+    icon::submenu_button(ui, "Workspaces", |ui| {
         for workspace in graph.workspaces() {
             let w = workspace.id;
             let all = nodes.iter().all(|id| on(*id, w));
@@ -1060,7 +1061,7 @@ fn workspaces_menu(ui: &mut Ui, graph: &Graph, nodes: &[NodeId], out: &mut Vec<C
             }
         }
     });
-    ui.menu_button("Move to", |ui| {
+    icon::submenu_button(ui, "Move to", |ui| {
         for workspace in graph.workspaces() {
             if ui.button(&workspace.name).clicked() {
                 out.push(Command::MoveTo {

@@ -7,6 +7,7 @@ use crate::graph::{Node, NodeId, PortRef, PortType};
 use crate::nodes;
 use crate::ui::canvas::{self, Transform};
 use crate::ui::context::{Effects, NodeCtx};
+use crate::ui::icon::{self, Icon};
 use eframe::egui::{
     Align2, Color32, CornerRadius, CursorIcon, FontId, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, Vec2, WidgetType,
@@ -701,14 +702,10 @@ fn sampling_warning(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, taps: f64) {
         ui.painter()
             .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
     }
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        "⚠",
-        FontId::proportional(crate::ui::theme::font_size(
-            crate::ui::theme::FONT_BASE,
-            cx.zoom(),
-        )),
+    icon::paint(
+        ui.painter(),
+        Rect::from_center_size(rect.center(), rect.size() * 0.8),
+        Icon::Warning,
         theme.accent(),
     );
     // Built only while the pointer is on it, as `port`'s own hover text is: the sentence
@@ -733,8 +730,9 @@ fn sampling_sentence(taps: f64) -> String {
 
 /// The flag on the header of a node at fault — an Output whose shader failed, a camera that
 /// would not open or stopped answering, a microphone, a text that could not be drawn: a
-/// disc in the accent with a `!` cut out of it, the palette having no red, and the reason on
-/// its hover. Drawn whatever the Status box is doing, since the node is where the eye is.
+/// disc in the accent with a `!` in the header's own color on it, the palette having no red,
+/// and the reason on its hover. Drawn whatever the Status box is doing, since the node is
+/// where the eye is.
 fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option<f64>) {
     let theme = cx.theme();
     let name = cx.name();
@@ -743,14 +741,10 @@ fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option
     let painter = ui.painter();
     let radius = rect.width() * 0.3;
     painter.circle_filled(rect.center(), radius, theme.accent());
-    painter.text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        "!",
-        FontId::proportional(crate::ui::theme::font_size(
-            crate::ui::theme::FONT_TINY,
-            cx.zoom(),
-        )),
+    icon::paint(
+        painter,
+        Rect::from_center_size(rect.center(), Vec2::splat(radius * 2.0)),
+        Icon::Exclaim,
         theme.bg_header(),
     );
     if w.hovered() {
@@ -1409,10 +1403,11 @@ fn readout_lines(ui: &Ui, cx: &NodeCtx<'_>, readout: &crate::ui::OutputReadout) 
             line.min.x + third * n as f32 + READOUT_INSET * zoom,
             line.center().y,
         );
+        status_dot(ui, at.x, at.y, font.size, lit, ink);
         ui.painter().text(
-            at,
+            at + vec2(2.0 * advance(ui.ctx(), &font), 0.0),
             Align2::LEFT_CENTER,
-            format!("{} {word}", if lit { '\u{25cf}' } else { '\u{25cb}' }),
+            word,
             font.clone(),
             ink,
         );
@@ -1509,6 +1504,18 @@ const HELP_HOOK_24: [(f32, f32); 15] = [
     (12.1422, 12.9167),
     (11.92, 13.0),
 ];
+
+/// A status line's dot, filled for on and hollow for off, for text of `size`, its box's left
+/// edge at `x` and its words two figures along: the state said by shape, so it survives the
+/// hue turned off.
+fn status_dot(ui: &Ui, x: f32, y: f32, size: f32, on: bool, ink: Color32) {
+    icon::paint(
+        ui.painter(),
+        Rect::from_min_size(Pos2::new(x, y - size * 0.55), Vec2::splat(size * 1.1)),
+        if on { Icon::Dot } else { Icon::Ring },
+        ink,
+    );
+}
 
 /// The hit box is 20x20 (`.node-tooltip`/`.node-close` width/height), but the icon drawn
 /// inside it is smaller: `snode.js` calls `iconHtml('circle-help', 14)` and `node.css` sets
@@ -2392,17 +2399,7 @@ fn record_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
     } else {
         theme.text_muted()
     };
-    ui.painter().text(
-        Pos2::new(column, band.center().y),
-        Align2::LEFT_CENTER,
-        if status.on_air {
-            "\u{25cf}"
-        } else {
-            "\u{25cb}"
-        },
-        font.clone(),
-        ink,
-    );
+    status_dot(ui, column, band.center().y, font.size, status.on_air, ink);
     let text_at = column + 2.0 * advance;
     let room = (button.min.x - SEND_GAP * zoom - text_at).max(0.0);
     ui.painter().text(
@@ -2478,14 +2475,10 @@ fn render_button(
             ui.painter()
                 .circle_filled(rect.center(), rect.width() * 0.5, theme.bg_hover());
         }
-        ui.painter().text(
-            rect.center(),
-            Align2::CENTER_CENTER,
-            "!",
-            FontId::proportional(crate::ui::theme::font_size(
-                crate::ui::theme::FONT_BASE,
-                zoom,
-            )),
+        icon::paint(
+            ui.painter(),
+            Rect::from_center_size(rect.center(), rect.size() * 0.75),
+            Icon::Exclaim,
             theme.accent(),
         );
         if w.hovered() {
@@ -2675,17 +2668,7 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
     } else {
         theme.text_muted()
     };
-    ui.painter().text(
-        Pos2::new(column, band.center().y),
-        Align2::LEFT_CENTER,
-        if status.on_air {
-            "\u{25cf}"
-        } else {
-            "\u{25cb}"
-        },
-        font.clone(),
-        ink,
-    );
+    status_dot(ui, column, band.center().y, font.size, status.on_air, ink);
     let text_at = column + 2.0 * advance;
     let room = (button.min.x - SEND_GAP * zoom - text_at).max(0.0);
     ui.painter().text(

@@ -123,6 +123,19 @@ These are things the handoff specified that a reasonable person would guess wron
   caps joined by a muted `+`, which a Mac leaves out as it writes `⌃⌥⇧⌘` chords; alternatives
   are joined by a `/` and a run by a `–`. The caps are paint, so a row keeps its keys' text as
   its accessible name.
+- **An icon in the chrome is painted, never typed.** The `+` and the chevron at the end of the
+  tab bar, an s-number's `−` and `+`, a panel's fold arrow, a submenu's and a category's
+  triangle, the Nodes button's, a warning, a fault's `!`, a status line's dot and ring, the
+  project tab's frame, a loopback's arrow: each is geometry out of `ui/icon.rs`, centered on
+  the rect it is given and sized from it, in the ink egui gives the widget's text, so hover,
+  press and a disabled `Ui` read as they do on words. A stroke is a whole number of physical
+  pixels at the interface size, centered on a pixel or between two to suit, so a line is crisp
+  rather than smeared across two rows. A glyph would sit on its own face's baseline at its own
+  advance — Space Grotesk's `+` low, a symbol face's `▾` high — and never in the middle of its
+  button. The widget keeps a name saying what it does (`add workspace`, `all workspaces`),
+  which is what the tree, a test and the agent-driven layer find it by. Words, numbers, a
+  key cap's legend, the Status box's character grid and the library's emoji are text, and stay
+  text.
 - **A select hugs its value.** The handoff's `.node-option select` is a native `<select>`:
   `bg_interactive`, 1 px `border_normal` at `RADIUS_SM`, `padding: 4px 6px`, `primary_muted`
   on hover and `primary` plus a ring on focus. Two things follow from *native* that a
