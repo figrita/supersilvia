@@ -12,8 +12,11 @@
 //! and to the agent-driven layer.
 //!
 //! **The bar never runs off the window.** The tabs that fit are drawn in project order, the
-//! one showing always among them, and the list at the end names every workspace
-//! in the project — the closed ones dimmed — so a tab that did not fit is one click away.
+//! one showing always among them, and a chevron past the add button appears only once some
+//! open tab does not fit, listing exactly those — never the ones already on the bar — so a
+//! tab that did not fit is one click away. The chevron's own width joins the room the tabs
+//! are measured against only once it is needed, decided fresh from the available width every
+//! frame, so it never flickers in and out at the boundary.
 
 use crate::graph::{Workspace, WorkspaceId, WorkspaceKind};
 use crate::project::Active;
@@ -33,9 +36,6 @@ const TAB_GAP: f32 = 2.0;
 const TAB_MAX: f32 = 180.0;
 /// How wide the inline rename editor is.
 const RENAME_WIDTH: f32 = 140.0;
-/// What the bar keeps free past the last tab, for the add button and the list of every
-/// workspace.
-const TRAILING: f32 = 64.0;
 
 /// What the tab bar asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,8 +46,6 @@ pub enum TabAction {
     Add(WorkspaceKind),
     /// Close a workspace: it keeps its nodes and loses its tab.
     Close(WorkspaceId),
-    /// Give a workspace a tab, if it had none, and show it: a row of the overflow list.
-    Open(WorkspaceId),
     /// Copy a workspace whole, beside it, as one undo step.
     Duplicate(WorkspaceId),
     /// The one entry here that *is* an edit, so `App` sends it to the bus.
@@ -325,11 +323,16 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
         ui.spacing_mut().item_spacing.x = TAB_GAP;
 
         // Which tabs fit, worked out before any is drawn, so the one showing is never the one
-        // pushed off the end.
+        // pushed off the end. The room is measured past the project tab and the add button,
+        // which are always drawn; the chevron's own square joins the reserve only once the
+        // tabs do not fit without it, decided once here rather than carried from last frame,
+        // so there is nothing for the two states to disagree about at the boundary.
         let project_label = "Project";
+        // Both buttons are the same square, so one measurement answers for either.
+        let button_room = ui.spacing().interact_size.y + TAB_GAP;
         let room = ui.available_width()
             - bar.reserve
-            - TRAILING
+            - button_room
             - tab_width(ui, Some(Icon::Project), project_label, theme)
             - TAB_GAP;
         let widths: Vec<(WorkspaceId, f32)> = bar
@@ -349,7 +352,17 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
             Active::Workspace(id) => Some(id),
             Active::Project => None,
         };
-        let shown = fitting(&widths, room, active);
+        let all_fit = widths.iter().map(|(_, w)| w + TAB_GAP).sum::<f32>() <= room;
+        let shown = if all_fit {
+            widths.iter().map(|(id, _)| *id).collect()
+        } else {
+            fitting(&widths, room - button_room, active)
+        };
+        let hidden: Vec<WorkspaceId> = widths
+            .iter()
+            .map(|(id, _)| *id)
+            .filter(|id| !shown.contains(id))
+            .collect();
 
         // Pinned, leftmost, and the one tab that is not a workspace and cannot be closed.
         // A node cannot be shown on the project tab, so it never lights up and never offers
@@ -423,33 +436,28 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
             }
         });
 
-        // Every workspace in project order, open or not, the closed ones dimmed: the tabs
-        // that did not fit, and the ones that have no tab, in one list.
-        icon::menu_button(ui, Icon::ChevronDown, "all workspaces", |ui| {
-            for workspace in bar.workspaces {
-                let open = bar.open.contains(&workspace.id);
-                let text = eframe::egui::RichText::new(workspace.name.as_str()).color(if open {
-                    theme.text_primary()
-                } else {
-                    theme.text_muted()
-                });
-                let row = ui.selectable_label(bar.active == Active::Workspace(workspace.id), text);
-                crate::ui::accessible(
-                    &row,
-                    eframe::egui::WidgetType::Button,
-                    format_args!("show {}", workspace.name),
-                );
-                let row = if open {
-                    row
-                } else {
-                    row.on_hover_text("closed: opens a tab")
-                };
-                if row.clicked() {
-                    actions.push(TabAction::Open(workspace.id));
-                    ui.close();
+        // A real overflow, not a second way to the whole project: only the tabs that did not
+        // fit, never one already on the bar, and absent outright once everything fits.
+        if !hidden.is_empty() {
+            icon::menu_button(ui, Icon::ChevronDown, "all workspaces", |ui| {
+                for id in &hidden {
+                    let Some(workspace) = bar.workspaces.iter().find(|w| w.id == *id) else {
+                        continue;
+                    };
+                    let row =
+                        ui.selectable_label(bar.active == Active::Workspace(*id), &workspace.name);
+                    crate::ui::accessible(
+                        &row,
+                        eframe::egui::WidgetType::Button,
+                        format_args!("show {}", workspace.name),
+                    );
+                    if row.clicked() {
+                        actions.push(TabAction::Activate(Active::Workspace(*id)));
+                        ui.close();
+                    }
                 }
-            }
-        });
+            });
+        }
     });
     actions
 }

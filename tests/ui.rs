@@ -7933,31 +7933,26 @@ fn ctrl_tab_and_ctrl_shift_tab_walk_the_tabs_and_wrap() {
     );
 }
 
-/// **The list at the end of the bar names every workspace**, open or not, and a closed one
-/// chosen there opens a tab.
+/// **The chevron is absent while every open tab fits.** It is a real overflow, not a second
+/// way to the whole project — a closed workspace comes back from the Project tab, covered by
+/// `closing_from_the_project_tab_takes_the_tab_and_the_card_says_closed`.
 #[test]
-fn the_list_at_the_end_of_the_bar_opens_a_closed_workspace() {
+fn the_chevron_is_absent_while_every_tab_fits() {
     let mut h = harness();
     h.step();
     add_empty_workspace(&mut h);
-    let second = h.state().graph().workspaces()[1].id;
-    h.state_mut().close_workspace(second);
-    h.run_steps(2);
-    assert!(h.query_by_label("tab Workspace 2").is_none());
-
-    h.get_by_label("all workspaces").click();
-    h.run_steps(2);
-    assert!(h.query_by_label("show Workspace 1").is_some());
-    h.get_by_label("show Workspace 2").click();
-    h.run_steps(2);
-    assert_eq!(h.state().active(), Active::Workspace(second));
-    assert!(h.state().open_workspaces().contains(&second));
+    assert!(h.query_by_label("tab Workspace 2").is_some());
+    assert!(
+        h.query_by_label("all workspaces").is_none(),
+        "two tabs fit; nothing is hidden for it to list"
+    );
 }
 
-/// **Tabs that do not fit leave the bar, and the one showing stays on it**, with the list
-/// at its end still inside the window.
+/// **Tabs that do not fit leave the bar, and the one showing stays on it.** The chevron that
+/// appears lists exactly those hidden tabs — never one already drawn — and choosing one shows
+/// it.
 #[test]
-fn tabs_that_do_not_fit_leave_the_bar_and_the_one_showing_stays() {
+fn the_chevron_lists_only_the_tabs_that_do_not_fit() {
     let mut h = harness();
     h.step();
     for _ in 0..14 {
@@ -7965,31 +7960,48 @@ fn tabs_that_do_not_fit_leave_the_bar_and_the_one_showing_stays() {
     }
     let last = h.state().graph().workspaces().last().unwrap().id;
     assert_eq!(h.state().active(), Active::Workspace(last));
-    let on_bar = |h: &Harness<'_, App>| {
-        workspace_names(h)
-            .iter()
-            .filter(|n| h.query_by_label(&format!("tab {n}")).is_some())
-            .count()
-    };
-    assert!(on_bar(&h) < 15, "fifteen tabs do not fit in this window");
-    assert!(
-        h.query_by_label("tab Workspace 15").is_some(),
-        "the one showing"
-    );
+    let names = workspace_names(&h);
+    let shown = |h: &Harness<'_, App>, n: &str| h.query_by_label(&format!("tab {n}")).is_some();
+    let on_bar = names.iter().filter(|n| shown(&h, n)).count();
+    assert!(on_bar < 15, "fifteen tabs do not fit in this window");
+    assert!(shown(&h, "Workspace 15"), "the one showing");
     let window = h.ctx.content_rect();
     assert!(
         h.get_by_label("all workspaces").rect().max.x <= window.max.x,
-        "the list is inside the window"
+        "the chevron is inside the window"
     );
+    let hidden_name = names
+        .iter()
+        .find(|n| !shown(&h, n))
+        .expect("on_bar < 15: something left the bar")
+        .clone();
 
-    click_tab(&mut h, "tab Workspace 1");
-    assert!(h.query_by_label("tab Workspace 1").is_some());
     h.get_by_label("all workspaces").click();
     h.run_steps(2);
-    h.get_by_label("show Workspace 15").click();
+    assert!(
+        h.query_by_label("show Workspace 15").is_none(),
+        "already on the bar, so not in the overflow"
+    );
+    assert!(
+        h.query_by_label(&format!("show {hidden_name}")).is_some(),
+        "left the bar, so in the overflow"
+    );
+    let reopened = h
+        .state()
+        .graph()
+        .workspaces()
+        .iter()
+        .find(|w| w.name == hidden_name)
+        .unwrap()
+        .id;
+    h.get_by_label(&format!("show {hidden_name}")).click();
     h.run_steps(2);
-    assert_eq!(h.state().active(), Active::Workspace(last));
-    assert!(h.query_by_label("tab Workspace 15").is_some());
+    assert_eq!(
+        h.state().active(),
+        Active::Workspace(reopened),
+        "chosen from the overflow and now showing"
+    );
+    assert!(h.query_by_label(&format!("tab {hidden_name}")).is_some());
 }
 
 #[test]
