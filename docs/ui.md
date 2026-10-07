@@ -884,8 +884,9 @@ caption and its value. *In use* is the adapter the editor and the synth draw on 
 *software* or *other*) and backend, then its driver and the driver's own version string, as
 wgpu reports them. *Picked by* is one line: `SUPERSILVIA_ADAPTER=…` when the variable named it,
 or *the strongest: a discrete GPU before an integrated one*. *Offered* is every adapter the
-machine reported, in its order, the same three lines each, the one in use marked `●` and
-*(in use)* and the rest `○`. Every value is one line, cut at its end and whole on its hover.
+machine reported, in its order, the same three lines each behind a painted dot from
+`ui::icon`, as every status dot is: the one in use filled, named *in use* for the tree, with
+*(in use)* after its name, and the rest hollow, named *not in use*. Every value is one line, cut at its end and whole on its hover.
 What can later be chosen here — the colour precision, the GPU itself — is a row under the
 last. The list is `render::adapter::Choice`, the enumeration `main` already made to pick the
 adapter, handed to `App` beside the device: listing the adapters opens no device on any of

@@ -26,6 +26,7 @@
 //! has learned to pick a color once has learned it everywhere.
 
 use super::color;
+use super::icon::{self, Icon};
 use super::theme::{Hsl, PRESETS, Theme};
 use crate::preferences::{Flag, Preferences};
 use eframe::egui::{
@@ -655,23 +656,43 @@ fn gpu(ui: &mut Ui, choice: Option<&crate::render::adapter::Choice>, theme: &The
 }
 
 /// One adapter in up to three lines: its name; its kind and backend; and its driver and the
-/// driver's own version, muted. `in_use` marks it in a list: `●` and *in use* for the one
-/// rendered on, `○` for the rest.
+/// driver's own version, muted. `in_use` marks it in a list with a painted dot before the
+/// lines, as every status dot is: filled, named *in use*, and *(in use)* after the name for the
+/// one rendered on; hollow, named *not in use*, for the rest.
 fn adapter_lines(
     ui: &mut Ui,
     info: &eframe::wgpu::AdapterInfo,
     in_use: Option<bool>,
     theme: &Theme,
 ) {
-    let name = match in_use {
-        Some(true) => format!("● {}  (in use)", info.name),
-        Some(false) => format!("○ {}", info.name),
-        None => info.name.clone(),
-    };
+    match in_use {
+        Some(on) => {
+            ui.horizontal_top(|ui| {
+                let (mark, ink, state) = if on {
+                    (Icon::Dot, theme.text_primary(), "in use")
+                } else {
+                    (Icon::Ring, theme.text_muted(), "not in use")
+                };
+                icon::label(ui, mark, ink, state);
+                ui.vertical(|ui| {
+                    let name = if on {
+                        format!("{}  (in use)", info.name)
+                    } else {
+                        info.name.clone()
+                    };
+                    adapter_text(ui, info, name, theme);
+                });
+            });
+        }
+        None => adapter_text(ui, info, info.name.clone(), theme),
+    }
+}
+
+/// An adapter's three lines under `name`: its kind and backend, then its driver, muted.
+fn adapter_text(ui: &mut Ui, info: &eframe::wgpu::AdapterInfo, name: String, theme: &Theme) {
     one_line(ui, RichText::new(name));
-    let indent = if in_use.is_some() { "  " } else { "" };
     let kind = format!(
-        "{indent}{} · {:?}",
+        "{} · {:?}",
         crate::render::adapter::kind(info.device_type),
         info.backend
     );
@@ -682,10 +703,7 @@ fn adapter_lines(
         .collect::<Vec<_>>()
         .join(" · ");
     if !driver.is_empty() {
-        one_line(
-            ui,
-            RichText::new(format!("{indent}{driver}")).color(theme.text_muted()),
-        );
+        one_line(ui, RichText::new(driver).color(theme.text_muted()));
     }
 }
 

@@ -643,15 +643,23 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     for label in [
         "Intel(R) Graphics (RPL-S)",
         "SUPERSILVIA_ADAPTER=intel",
-        "● Intel(R) Graphics (RPL-S)  (in use)",
-        "○ NVIDIA GeForce RTX 3090",
-        "○ llvmpipe (LLVM 22.1.8, 256 bits)",
+        "Intel(R) Graphics (RPL-S)  (in use)",
+        "NVIDIA GeForce RTX 3090",
+        "llvmpipe (LLVM 22.1.8, 256 bits)",
     ] {
         assert!(
             h.query_by_label(label).is_some(),
             "{label} is in the GPU section"
         );
     }
+    assert_eq!(
+        (
+            h.query_all_by_label("in use").count(),
+            h.query_all_by_label("not in use").count()
+        ),
+        (1, 2),
+        "the offered list's dots: one filled for the adapter in use, a hollow one for each other"
+    );
     // The one answer of the machine's this window shows is the file manager's name, Files or
     // Finder, so the pictures are Linux's and a Mac checks the labels alone.
     #[cfg(target_os = "linux")]
