@@ -348,7 +348,8 @@ least one workspace.* The reasons are `menu::why`, and the Mac's bar shows the s
 the entry's tooltip.
 
 **View ▸ Zoom in, Zoom out and Actual size zoom the canvas**, about its middle, a quarter
-in and out at a time between `canvas::MIN_ZOOM` and `MAX_ZOOM`, and Actual size is a world unit
+in and out at a time between the least and greatest zoom Preferences ▸ Editing names, 25% and
+300% unless it names others, and Actual size is a world unit
 to a point; View ▸ Reset view puts the pan back too. The keys are `Ctrl` with `+`, `-` and `0`,
 as in every node editor. They are egui's own, but egui's `zoom_with_keyboard` is off and
 `menu::shortcuts` consumes them as the entries: egui's would scale the whole editor, and how
@@ -660,6 +661,7 @@ the same thing.
 | `scroll_x_inverted` | which way the wheel moves a Linear workspace along its strip |
 | `default_layout` | the mode a new workspace opens in. A workspace's own mode is saved with it |
 | `output_resolution` | the width and height a new Output is made at, `[1920, 1080]`. Absent is the Output's own, 1280x720. An Output's own size is saved with it |
+| `zoom_min`, `zoom_max` | how far the canvas zooms out and in, as a scale: 0.25 and 3.0 by default, the first held to 0.05–1 and the second to 1–8 whatever the file says |
 | `main_input_collapsed`, `mixer_collapsed` | the Main Input panel folded to the left edge and the Main Mixer to the right, each to its spine. The Main Input starts folded and the Mixer open |
 | `main_input_width`, `mixer_width` | the width each panel's edge was last dragged to. Absent is the panel's own, 300 and 380 — see [the two side panels](#the-two-side-panels) |
 | `tick_rate` | how often the synth ticks: the editor's display, 60 or 30 — see [below](#the-preferences-window) |
@@ -807,7 +809,7 @@ along the wire. What phi spacing buys instead is telling two cables in a bundle 
 is worth more the denser a patch gets and nothing at all on a small one — so it is offered
 rather than assumed. See [cables](#cables) for what it does to a port.
 
-**Six answers on the Editing tab.**
+**Seven answers on the Editing tab.**
 
 *Lock the cursor while scrubbing* is on the Editing tab and nowhere else. It is taste rather
 than something toggled for an evening, and taste is what somebody opens this window for.
@@ -830,6 +832,13 @@ own row draws, its popover under the row while it is up, and names the size a ne
 made at — from the Nodes menu, the browser, a dropped cable or a new video workspace. It
 changes nothing about the Outputs that exist or a project opened, which keep the size each
 holds ([nodes.md](nodes.md#option-kinds)). Picking 1280x720, the Output's own, stores no choice.
+
+*Canvas zoom from … to …* is two typed percentages, 25% and 300% by default: how far the wheel,
+View ▸ Zoom in and Zoom out and their keys take a Canvas workspace out and in. The first is held
+to 5–100% and the second to 100–800%, so Actual size is always inside them, and a number past
+an end is taken as that end, the field's own rule (`text::number`). Framing the content zooms
+out no further than the first. A view already past a new end stays where it is until the next
+zoom.
 
 *MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
 with its control moves nothing until it passes the control's value, then takes over, so the
@@ -1015,7 +1024,7 @@ snapshot as everything else and round-trips through that workspace's own file.
 
 | | `Canvas` | `Linear` |
 | --- | --- | --- |
-| zoom | 0.25–3.0, about the pointer | pinned at 1.0 |
+| zoom | 0.25–3.0 or Preferences ▸ Editing's, about the pointer | pinned at 1.0 |
 | the wheel | zooms | scrolls along the strip |
 | background drag | pans freely | pans, clamped to the content |
 | node y | anywhere | clamped to the viewport |

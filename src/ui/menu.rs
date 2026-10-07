@@ -135,6 +135,8 @@ pub struct MenuState<'a> {
     pub fullscreen: bool,
     /// The canvas's zoom, which Zoom in and out stop at the ends of.
     pub zoom: f32,
+    /// Those ends: Preferences ▸ Editing's least and greatest zoom.
+    pub zoom_range: (f32, f32),
     /// The time readout's reading, or `None` while View ▸ Time is off.
     pub time: Option<Time>,
     pub show_costs: bool,
@@ -697,7 +699,7 @@ pub fn model(state: &MenuState<'_>) -> Vec<Menu> {
         items: edit,
     });
 
-    let (least, most) = (crate::ui::canvas::MIN_ZOOM, crate::ui::canvas::MAX_ZOOM);
+    let (least, most) = state.zoom_range;
     menus.push(Menu {
         title: "View",
         hint: None,
@@ -950,6 +952,7 @@ pub(crate) mod tests {
             editor_hidden: false,
             fullscreen: false,
             zoom: 1.0,
+            zoom_range: (crate::ui::canvas::MIN_ZOOM, crate::ui::canvas::MAX_ZOOM),
             time: None,
             show_costs: false,
             fps: None,

@@ -26,6 +26,10 @@ const VERSION: u32 = 1;
 /// How many files the Recent list holds.
 const RECENT_CAP: usize = 10;
 
+/// Where the canvas's least zoom may be set, and its greatest.
+pub const ZOOM_LEAST: (f32, f32) = (0.05, 1.0);
+pub const ZOOM_MOST: (f32, f32) = (1.0, 8.0);
+
 /// Overrides where preferences are read and written. Set to nothing for memory only.
 pub const PATH_ENV: &str = "SUPERSILVIA_PREFERENCES";
 
@@ -142,6 +146,10 @@ pub struct Preferences {
     /// saved with it; this is only the one it is born with.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output_resolution: Option<(u32, u32)>,
+    /// How far the canvas zooms out and in, as a scale: from [`ZOOM_LEAST`]'s ends for the
+    /// first and [`ZOOM_MOST`]'s for the second, read through [`Preferences::zoom_range`].
+    pub zoom_min: f32,
+    pub zoom_max: f32,
     /// The Main Input panel folded to the left edge, and the Main Mixer to the right.
     ///
     /// A preference and not project data: whether you can see a panel is about the editor in
@@ -207,6 +215,8 @@ impl Default for Preferences {
             scroll_x_inverted: false,
             default_layout: crate::graph::LayoutMode::default(),
             output_resolution: None,
+            zoom_min: crate::ui::canvas::MIN_ZOOM,
+            zoom_max: crate::ui::canvas::MAX_ZOOM,
             main_input_collapsed: true,
             tick_rate: TickRate::default(),
             status_folds: StatusFolds::default(),
@@ -235,6 +245,14 @@ impl Preferences {
         self.projects_dir
             .clone()
             .or_else(crate::project::default_projects_dir)
+    }
+
+    /// How far the canvas zooms out and in, each end held to its bounds whatever the file says.
+    pub fn zoom_range(&self) -> (f32, f32) {
+        (
+            self.zoom_min.clamp(ZOOM_LEAST.0, ZOOM_LEAST.1),
+            self.zoom_max.clamp(ZOOM_MOST.0, ZOOM_MOST.1),
+        )
     }
 
     /// The field a flag names.
@@ -614,6 +632,14 @@ impl Store {
     pub fn set_output_resolution(&mut self, size: (u32, u32)) {
         let chosen = (size != crate::nodes::output::DEFAULT_RESOLUTION).then_some(size);
         set(&mut self.prefs.output_resolution, chosen, &mut self.dirty);
+    }
+
+    /// How far the canvas zooms out and in, each end held to its bounds.
+    pub fn set_zoom_range(&mut self, least: f32, most: f32) {
+        let least = least.clamp(ZOOM_LEAST.0, ZOOM_LEAST.1);
+        let most = most.clamp(ZOOM_MOST.0, ZOOM_MOST.1);
+        set(&mut self.prefs.zoom_min, least, &mut self.dirty);
+        set(&mut self.prefs.zoom_max, most, &mut self.dirty);
     }
 
     pub fn set_window(&mut self, window: WindowGeometry) {

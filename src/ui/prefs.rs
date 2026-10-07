@@ -92,6 +92,8 @@ pub enum PrefAction {
     SetDefaultLayout(crate::graph::LayoutMode),
     /// The width and height a new Output is made at.
     SetOutputResolution(u32, u32),
+    /// How far the canvas zooms out and in.
+    SetZoomRange(f32, f32),
     /// How often the synth ticks: the display's rate, or a fixed one.
     SetTickRate(crate::preferences::TickRate),
     /// How large the whole editor is drawn.
@@ -519,6 +521,54 @@ fn editing(
         }
     });
     output_resolution(ui, state, theme, prefs, actions);
+    zoom_range(ui, theme, prefs, actions);
+}
+
+/// How far the canvas zooms out and in: two typed percentages, each held to its bounds.
+fn zoom_range(ui: &mut Ui, theme: &Theme, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
+    use crate::preferences::{ZOOM_LEAST, ZOOM_MOST};
+    let (least, most) = prefs.zoom_range();
+    let field = |(min, max): (f32, f32)| crate::nodes::NumberField {
+        min: min * 100.0,
+        max: max * 100.0,
+        integer: true,
+        unit: "%",
+    };
+    let percent = |v: f32| format!("{}", (v * 100.0).round());
+    // Each field is drawn in a child over the room taken for it, so the field's own layout of
+    // its text leaves the row's cursor past the field rather than inside it.
+    let typed = |ui: &mut Ui, name: &str, value: f32, bounds| {
+        let size = vec2(64.0, ui.spacing().interact_size.y);
+        let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+        let mut child = ui.new_child(UiBuilder::new().id_salt(name).max_rect(rect));
+        super::text::number(
+            &mut child,
+            rect,
+            name,
+            &percent(value),
+            bounds,
+            super::text::Chrome::Row,
+            theme,
+            1.0,
+        )
+    };
+    ui.horizontal(|ui| {
+        ui.label("Canvas zoom from");
+        let out = typed(ui, "Least canvas zoom", least, field(ZOOM_LEAST));
+        ui.label("to");
+        let into = typed(ui, "Greatest canvas zoom", most, field(ZOOM_MOST));
+        if let Some(v) = out {
+            actions.push(PrefAction::SetZoomRange(v / 100.0, most));
+        }
+        if let Some(v) = into {
+            actions.push(PrefAction::SetZoomRange(least, v / 100.0));
+        }
+    })
+    .response
+    .on_hover_text(
+        "How far the wheel and the zoom keys take the canvas out and in: from 5% to 100% \
+         at the far end, from 100% to 800% at the near one.",
+    );
 }
 
 /// The size a new Output is made at: a caption and the resolution picker an Output's own row

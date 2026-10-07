@@ -54,6 +54,7 @@ pub const PORT_HIT_SCALE: f32 = 3.0;
 /// Spacing of the canvas dot grid: a port row's pitch.
 pub const GRID_PITCH: f32 = 20.0;
 
+/// How far the canvas zooms out and in where Preferences ▸ Editing says nothing else.
 pub const MIN_ZOOM: f32 = 0.25;
 pub const MAX_ZOOM: f32 = 3.0;
 
@@ -116,10 +117,11 @@ impl Transform {
         (((screen - origin) - self.pan) / self.zoom).to_pos2()
     }
 
-    /// Zoom about a fixed screen point, so the thing under the cursor stays put.
-    pub fn zoom_about(&mut self, origin: Pos2, anchor: Pos2, factor: f32) {
+    /// Zoom about a fixed screen point, so the thing under the cursor stays put, within
+    /// `(least, most)`.
+    pub fn zoom_about(&mut self, origin: Pos2, anchor: Pos2, factor: f32, range: (f32, f32)) {
         let before = self.to_world(origin, anchor);
-        self.zoom = (self.zoom * factor).clamp(MIN_ZOOM, MAX_ZOOM);
+        self.zoom = (self.zoom * factor).clamp(range.0, range.1);
         let after = self.to_world(origin, anchor);
         self.pan += (after - before) * self.zoom;
     }

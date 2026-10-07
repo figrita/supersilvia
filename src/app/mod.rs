@@ -1672,7 +1672,10 @@ impl App {
                     crate::ui::menu::Zoom::Out => crate::ui::menu::ZOOM_STEP.recip(),
                     crate::ui::menu::Zoom::Actual => zoom.max(f32::EPSILON).recip(),
                 };
-                self.canvas.transform.zoom_about(origin, middle, factor);
+                let range = self.prefs.get().zoom_range();
+                self.canvas
+                    .transform
+                    .zoom_about(origin, middle, factor, range);
             }
             MenuAction::Nodes(ref command) => {
                 let _ = self.apply(command.clone());

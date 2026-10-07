@@ -224,6 +224,9 @@ impl App {
                 crate::ui::prefs::PrefAction::SetOutputResolution(w, h) => {
                     self.prefs.set_output_resolution((w, h));
                 }
+                crate::ui::prefs::PrefAction::SetZoomRange(least, most) => {
+                    self.prefs.set_zoom_range(least, most);
+                }
                 crate::ui::prefs::PrefAction::SetTickRate(rate) => self.prefs.set_tick_rate(rate),
                 crate::ui::prefs::PrefAction::SetInterfaceSize(size) => {
                     self.prefs.set_interface_size(size);
@@ -501,6 +504,7 @@ impl eframe::App for App {
             editor_hidden: self.show.hidden,
             fullscreen: ui.input(|i| i.viewport().fullscreen.unwrap_or(false)),
             zoom: self.canvas.transform.zoom,
+            zoom_range: self.prefs.get().zoom_range(),
             // The readout's reading, off the last tick, while the preference shows it.
             time: self.prefs.get().show_time.then(|| menu::Time {
                 report: self.transport_state(),
@@ -855,6 +859,7 @@ impl eframe::App for App {
                     cable_droop: prefs.cable_droop,
                     phi_cables: prefs.phi_cables,
                     node_shadow: prefs.node_shadow,
+                    zoom: prefs.zoom_range(),
                 },
             };
             let effects = crate::ui::show(ui, &mut self.canvas, &frame);

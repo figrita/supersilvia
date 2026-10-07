@@ -11328,6 +11328,47 @@ fn a_new_output_takes_the_preferences_resolution_and_an_old_one_keeps_its_own() 
     );
 }
 
+/// **Preferences ▸ Editing's canvas zoom is how far the canvas zooms out and in**: two typed
+/// percentages, each held to its bounds, which the zoom keys then stop at.
+#[test]
+fn the_canvas_zoom_stops_where_the_preferences_say() {
+    let mut h = harness();
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
+    for (field, typed) in [("Least canvas zoom", "10"), ("Greatest canvas zoom", "900")] {
+        h.get_by_label_contains(field).click();
+        h.step();
+        key(&mut h, egui::Key::End);
+        for _ in 0..4 {
+            key(&mut h, egui::Key::Backspace);
+        }
+        type_text(&mut h, typed);
+        key(&mut h, egui::Key::Enter);
+        h.run_steps(2);
+    }
+    assert_eq!(
+        h.state().preferences().zoom_range(),
+        (0.1, 8.0),
+        "900% is past the greatest the row allows"
+    );
+    assert!(h.query_by_label("Greatest canvas zoom 800").is_some());
+    h.get_by_label("Close window").click();
+    h.run_steps(2);
+
+    for (shortcut, end) in [(egui::Key::Minus, 0.1), (egui::Key::Plus, 8.0)] {
+        for _ in 0..40 {
+            h.key_press_modifiers(egui::Modifiers::COMMAND, shortcut);
+            h.step();
+        }
+        let zoom = h.state().canvas_transform().zoom;
+        assert!(
+            (zoom - end).abs() < 1e-4,
+            "{shortcut:?} stops at {end}: {zoom}"
+        );
+    }
+}
+
 /// **An Output's Record section**, under a heading of its own between Render and Send, closed
 /// on a new Output: its own FPS, then the Record row with a status and one button. Pressed on
 /// an Output with nothing cabled into it, the row says why rather than recording, and nothing
