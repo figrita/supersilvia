@@ -406,7 +406,10 @@ still `Code`, only how a person reaches a value differs. See
 
 A **`Runtime`** option is read while running rather than while compiling: a camera's device
 and a clip's loop are read by `tick`, and an Output's resolution is read into every frame's
-job, from which the renderer resizes while keeping the program. A node whose outputs are all
+job, from which the renderer resizes while keeping the program. That resolution, and the Text
+node's Texture Size, set `OptionDef::resolution`: any `WIDTHxHEIGHT` from 16 to 16384 a side,
+drawn as the [resolution picker](ui.md#options-and-the-file-button) rather than a select,
+`nodes::output::read_resolution` the one reading of it. A node whose outputs are all
 `UniformNumber` or `Action` — `mastergear`, `counter` — emits no WGSL at all, which puts every
 option it has here.
 
@@ -1381,7 +1384,8 @@ NDI® is a registered trademark of Vizrt NDI AB, [ndi.video](https://ndi.video).
 `text` is the one node that puts a letter on the screen. The words are the multi-line box
 `note` draws, four lines tall and [a value](#a-nodes-own-values) rather than an option, and
 the letters are rasterized by GStreamer's pango plugin — no font crate is taken on — into a
-picture of the size **Texture Size** names. `ink` is that picture as a port, white on black,
+picture of the size **Texture Size** names, any width and height the [resolution
+picker](ui.md#options-and-the-file-button) makes. `ink` is that picture as a port, white on black,
 and `output` is WGSL mixing **Text Color** into **Background Color** by it, which is silvia's
 own `mix(bg, textColor, mask)` and the shape `cellularautomata` takes: the state is the port
 and the picture is the shader reading it. So a color on a cable and a keystroke both cost no

@@ -21,7 +21,8 @@ is a number typed as text, with none of the s-number's hands — no scrub, no st
 fill: it admits only what a number is written with, wears the invalid border while the draft
 is not a number it would commit, commits once, on Enter or when it is left, clamped into its
 bounds, and puts back what was there on `Escape`. The range editor's fields are four of them,
-and an option that declares `OptionDef::number` is one — the Text node's size. The s-number and s-color are painted rectangles with
+and an option that declares `OptionDef::number` is one — the Text node's size — as are the
+resolution picker's width and height, in the s-number's bevel. The s-number and s-color are painted rectangles with
 `ui.interact` over them, not egui widgets.
 
 That trio — **painter, interact, widget_info** — is why the editor can look nothing like
@@ -2655,6 +2656,36 @@ Which options are ticks and which are headings is **the definition's** —
 `Node::def` the way `regions` is — so `canvas::rows` can tell that several options share a
 row, and which are left to draw as selects. `Row::Option(i)` counts only the selects.
 
+**A fixed width and height is the resolution picker, not a select** (`ui/resolution.rs`): an
+Output's **Resolution**, the Text node's **Texture Size** and the Main Mixer's resolution.
+`OptionDef::resolution` says so, and the value is any `WIDTHxHEIGHT` with both sides from 16
+to 16384 — stored as its text, `option_is_valid` holding a file to that range rather than to
+the choices, which are only the default's home. Closed, it is a select's box and chevron
+holding a painted rectangle of the picture's shape, the ratio's name and the short side,
+`16:9 · 1080` — `9:16 · 1080` stood on end, the size itself where it is no ratio on the strip.
+Open, it is a popover, drawn after every node as a select's list is:
+
+- **Shape**: *Wide* and *Tall* at the title's end, and a strip of thirteen cells, each a
+  painted rectangle of its ratio over its name — 1:1, 5:4, 4:3, 3:2, 16:10, 16:9, 1.85, 2:1,
+  21:9, 2.39, 32:9, 4:1 — and **Free**, a dashed square. *Tall* mirrors every glyph.
+- **Size**, one row of short sides — 480, 720, 1080, 1200, 1440, 2160 — so 1080 is 1920x1080
+  wide and 1080x1920 tall. Each one's size and memory is its hover text, and under the row is
+  the readout: the size, its megapixels and the memory an Output of it commits, the figure the
+  Output's own row prints.
+- A width and a height to type, in the s-number's bevel, committed on Enter or a click away.
+
+**Two axes, each kept while the other moves.** A shape keeps the short side, a short side keeps
+the shape, and *Tall* keeps both. The long side is the short one times the ratio, rounded to
+the nearest even number — an encoder wants even sizes, and a typed size is rounded the same
+way — except 21:9, a marketing name rather than one ratio, which takes the sizes ultrawide
+panels are sold at where there is one: 2560x1080, 3440x1440, 5120x2160. A size is a cell on the
+strip only where that cell's arithmetic gives it exactly, so a typed size off the strip lights
+**Free**, and a short side picked while Free keeps the size's own proportion. Clicking Free puts
+the keyboard in the width. The popover stays up through any number of picks and closes on a
+click away or Escape. Every glyph is paint, as the chevron is; every control is named under
+the row's own name — `output1.resolution 16:9`, `output1.resolution 1080`,
+`output1.resolution Tall`, `output1.resolution width`.
+
 That same select **doubles as a progress bar**. While the node's CPU half is working, its
 `NodeNote` supplies the label and a fraction, and the fraction is painted as a fill behind
 the text. A video import transcodes for tens of seconds, and the place a person is already
@@ -2848,10 +2879,11 @@ status line is what the node *is*, and silvia shows its own always.
 
 **A memory figure sits beside the resolution.** silvia prints one under its own resolution
 and moves it as the resolution moves, so a second Output at 4K can be thought about before it
-is made. Here it is on the resolution row itself, between the label and the select, in
-`text_muted`: whole megabytes, which is the grain the choice is made at — no resolution in the
-menu moves it by less than one. It is the two half-float targets an Output commits
-(`nodes::output::memory_bytes`, eight bytes a pixel, twice) and nothing else; a capture ring
+is made. Here it is on the resolution row itself, between the label and the picker, in
+`text_muted`: whole megabytes, which is the grain the choice is made at, and the picker prints
+the same figure for the size it holds and for each short side it offers. It is the two
+half-float targets an Output commits (`nodes::output::memory_bytes`, eight bytes a pixel,
+twice) and nothing else; a capture ring
 exists only while a render runs, and the figure is there to be read while one is not. It is
 not behind View ▸ Costs for the same reason the status line is not: it is what the node *is*.
 
@@ -3479,7 +3511,8 @@ width so lighting moves nothing. Each is a named `Response`, *Blackout* and *Fre
 while it holds. They are rig controls, as the fade is: not saved, not undo steps, off at every
 launch and on every Open and New, and `Alt` + click binds one to a MIDI note — it learns, wears
 the learning ring and then the dot on its top-left corner, and does not press on the way. Then **Projection**: the mix's
-resolution, *Match viewport* or one of the Output's own presets, *Project to background*,
+resolution, the [resolution picker](#options-and-the-file-button) with *Match viewport* above
+its strip, *Project to background*,
 **Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
 the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
 asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still

@@ -126,6 +126,40 @@ const BALANCE: crate::graph::ControlRange = crate::graph::ControlRange {
     step: 0.01,
 };
 
+/// The mix's resolution picker: the closed row across the panel row, and its popover with
+/// *Match viewport* above the strip while it is open. Returns a resolution picked.
+fn resolution_picker(ui: &mut Ui, current: Resolution, theme: &Theme) -> Option<Resolution> {
+    use crate::ui::resolution;
+    const NAME: &str = "mix resolution";
+    let open_id = ui.id().with("mix-resolution-open");
+    let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
+    let size = match current {
+        Resolution::Viewport => None,
+        Resolution::Fixed(w, h) => Some((w, h)),
+    };
+    let (rect, _) = ui.allocate_exact_size(
+        vec2(ui.available_width(), ui.spacing().interact_size.y),
+        Sense::hover(),
+    );
+    let response = resolution::closed(ui, rect, NAME, size, open, theme, 1.0);
+    if response.clicked() {
+        open = !open;
+    }
+    let mut picked = None;
+    if open {
+        let popped = resolution::popover(ui, rect.left_bottom(), NAME, size, true, theme);
+        picked = popped.picked.map(|pick| match pick {
+            resolution::Pick::Viewport => Resolution::Viewport,
+            resolution::Pick::Size(w, h) => Resolution::Fixed(w, h),
+        });
+        if popped.dismissed && !response.clicked() {
+            open = false;
+        }
+    }
+    ui.data_mut(|d| d.insert_temp(open_id, open));
+    picked
+}
+
 /// Draw the panel. The mix's own preview is drawn under it by the caller, in the space
 /// this leaves.
 pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool) -> MixerOutput {
@@ -171,24 +205,7 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
 
     heading(ui, "Projection", theme);
     panel::row(ui, "Resolution", theme, |ui| {
-        let mut resolution = view.resolution;
-        ComboBox::from_id_salt("mix-resolution")
-            .selected_text(resolution.label())
-            .width(ui.available_width())
-            .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut resolution,
-                    Resolution::Viewport,
-                    Resolution::Viewport.label(),
-                );
-                for (w, h) in Resolution::PRESETS {
-                    let r = Resolution::Fixed(w, h);
-                    ui.selectable_value(&mut resolution, r, r.label());
-                }
-            })
-            .response
-            .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
-        if resolution != view.resolution {
+        if let Some(resolution) = resolution_picker(ui, view.resolution, theme) {
             out.actions.push(MixerAction::SetResolution(resolution));
         }
     });

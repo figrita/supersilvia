@@ -9082,13 +9082,38 @@ fn the_mixer_panel_sets_the_fade_and_the_method() {
     h.step();
     assert_eq!(h.state().mixer().method, Method::RadialWipe);
 
-    h.get_by_value("Match viewport").click();
+    // The resolution is the picker: Match viewport above the strip, then a shape and a short
+    // side, two clicks that each keep the other.
+    h.get_by_label("mix resolution Match viewport").click();
     h.run_steps(2);
-    h.get_by_label("9:16 (720x1280)").click();
-    h.step();
+    h.snapshot("mixer_resolution_picker");
+    h.get_by_label("mix resolution 720").click();
+    h.run_steps(2);
     assert_eq!(
         h.state().mixer().resolution,
-        supersilvia::mixer::Resolution::Fixed(720, 1280)
+        supersilvia::mixer::Resolution::Fixed(1280, 720)
+    );
+    h.get_by_label("mix resolution Tall").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().mixer().resolution,
+        supersilvia::mixer::Resolution::Fixed(720, 1280),
+        "Tall keeps the short side"
+    );
+    h.get_by_label("mix resolution 21:9").click();
+    h.run_steps(2);
+    h.get_by_label("mix resolution 1440").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().mixer().resolution,
+        supersilvia::mixer::Resolution::Fixed(1440, 3440),
+        "21:9 at 1440 is the size ultrawides are sold at, stood on end"
+    );
+    h.get_by_label("mix resolution viewport").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().mixer().resolution,
+        supersilvia::mixer::Resolution::Viewport
     );
 }
 
@@ -11015,6 +11040,67 @@ fn the_render_section_carries_the_supersampling_multiplier() {
         "and the Output itself is untouched: the multiplier is the render's alone"
     );
     h.snapshot("output_render_section");
+}
+
+/// **An Output's Resolution is the resolution picker.** Closed, the row is the shape, the
+/// ratio and the short side; open, a strip of shapes, a row of short sides, the size's cost
+/// and a width and a height to type. A short side keeps the shape, a shape keeps the short
+/// side, Tall keeps both, and a typed size off the strip is Free — even, as the strip's are.
+#[test]
+fn an_outputs_resolution_is_picked_by_shape_and_short_side() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let out = h.state().graph().iter().next().expect("one node").0;
+    h.state_mut()
+        .apply(Command::MoveNodes {
+            moves: vec![(out, egui::pos2(60.0, 40.0))],
+        })
+        .unwrap();
+    h.run_steps(2);
+    let resolution = |h: &Harness<'_, App>| {
+        supersilvia::nodes::output::resolution_of(h.state().graph().get(out).unwrap())
+    };
+    let name = format!("output{out}.resolution");
+    h.get_by_label(&format!("{name} 16:9 · 720"));
+    h.snapshot("output_resolution_row");
+
+    h.get_by_label(&format!("{name} 16:9 · 720")).click();
+    // The popover is an `Area`: its first frame is a sizing pass.
+    h.run_steps(2);
+    h.get_by_label(&format!("{name} 1080")).click();
+    h.run_steps(2);
+    assert_eq!(resolution(&h), (1920, 1080), "a short side keeps the shape");
+    h.snapshot("output_resolution_picker");
+
+    h.get_by_label(&format!("{name} 4:3")).click();
+    h.run_steps(2);
+    assert_eq!(resolution(&h), (1440, 1080), "a shape keeps the short side");
+    h.get_by_label(&format!("{name} Tall")).click();
+    h.run_steps(2);
+    assert_eq!(resolution(&h), (1080, 1440), "Tall stands it on end");
+
+    h.get_by_label_contains(&format!("{name} width")).click();
+    h.step();
+    key(&mut h, egui::Key::End);
+    for _ in 0..4 {
+        key(&mut h, egui::Key::Backspace);
+    }
+    type_text(&mut h, "1001");
+    key(&mut h, egui::Key::Enter);
+    h.run_steps(2);
+    assert_eq!(resolution(&h), (1002, 1440), "typed, and even");
+    assert!(
+        h.query_by_label(&format!("{name} 1002×1440")).is_some(),
+        "a size off the strip reads as itself"
+    );
+
+    click_at(&mut h, egui::pos2(700.0, 500.0));
+    h.run_steps(2);
+    assert!(
+        h.query_by_label(&format!("{name} 1080")).is_none(),
+        "a click away closes it"
+    );
 }
 
 /// **An Output's Record section**, under a heading of its own between Render and Send, closed

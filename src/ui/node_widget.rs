@@ -2798,7 +2798,7 @@ fn choice_row(
     }
 }
 
-/// Select options, such as an Output's resolution.
+/// Option rows: selects, typed fields, file buttons and resolution pickers.
 ///
 /// Drawn in the definition's declaration order rather than `Node::options`' own —
 /// `BTreeMap` stays the storage, for a deterministic file and command bus, but the order an
@@ -2834,7 +2834,8 @@ fn option_rows(
     }
 }
 
-/// One option's row: its label, and the select, the file button or the typed field it is.
+/// One option's row: its label, and the select, the file button, the typed field or the
+/// resolution picker it is.
 fn option_row(
     ui: &mut Ui,
     cx: &NodeCtx<'_>,
@@ -2944,6 +2945,10 @@ fn option_row(
         }
         return;
     }
+    if option_def.is_some_and(|o| o.resolution) {
+        resolution_button(ui, cx, open, band, room, key, value);
+        return;
+    }
     if option_def.is_some_and(nodes::OptionDef::is_asset) {
         file_button(ui, cx, open, band, room, key, value);
         return;
@@ -2986,6 +2991,51 @@ fn option_row(
             key,
             at: cx.world(response.rect.left_bottom()),
             width: response.rect.width() / zoom,
+        });
+    }
+}
+
+/// A resolution option's closed picker, placed as a select is — right-aligned at the
+/// select's height and hugging what it shows — and the popover it opens.
+fn resolution_button(
+    ui: &mut Ui,
+    cx: &NodeCtx<'_>,
+    open: &mut Option<crate::ui::OpenControl>,
+    band: Rect,
+    room: f32,
+    key: &'static str,
+    value: &str,
+) {
+    use crate::ui::{OpenControl, resolution};
+    let (id, zoom) = (cx.id, cx.zoom());
+    let size = crate::nodes::output::read_resolution(value);
+    let width = resolution::closed_width(ui.ctx(), Some(size), zoom).min(room.max(0.0));
+    let height = canvas::SELECT_HEIGHT * zoom;
+    let rect = Rect::from_min_size(
+        Pos2::new(
+            band.max.x - 8.0 * zoom - width,
+            band.center().y - height * 0.5,
+        ),
+        vec2(width, height),
+    );
+    let is_open = matches!(
+        *open,
+        Some(OpenControl::Resolution { node, key: k, .. }) if node == id && k == key
+    );
+    let response = resolution::closed(
+        ui,
+        rect,
+        cx.control(key),
+        Some(size),
+        is_open,
+        cx.theme(),
+        zoom,
+    );
+    if response.clicked() {
+        *open = (!is_open).then(|| OpenControl::Resolution {
+            node: id,
+            key,
+            at: cx.world(response.rect.left_bottom()),
         });
     }
 }

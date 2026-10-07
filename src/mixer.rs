@@ -77,7 +77,8 @@ impl Method {
 /// How large the mix is drawn.
 ///
 /// `Viewport` follows the editor's canvas, capped at 1080 rows, which is silvia's *Match
-/// Viewport*; `Fixed` is a preset, for a projector whose shape is known.
+/// Viewport*; `Fixed` is any size the resolution picker makes, for a projector whose shape is
+/// known.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub enum Resolution {
@@ -87,27 +88,9 @@ pub enum Resolution {
 }
 
 impl Resolution {
-    /// The presets offered beside *Match viewport*, the Output's own list.
-    pub const PRESETS: [(u32, u32); 7] = [
-        (1280, 720),
-        (1920, 1080),
-        (3440, 1440),
-        (1024, 768),
-        (1080, 1080),
-        (720, 1280),
-        (1080, 1920),
-    ];
-
     /// The tallest a viewport-matched mix is drawn. A 4K editor window does not make the
     /// mix 4K; the projector is the size it is.
     pub const VIEWPORT_MAX_HEIGHT: u32 = 1080;
-
-    pub fn label(self) -> String {
-        match self {
-            Resolution::Viewport => "Match viewport".to_string(),
-            Resolution::Fixed(w, h) => format!("{}:{} ({w}x{h})", ratio(w, h).0, ratio(w, h).1),
-        }
-    }
 
     /// The size to draw at, given the editor's canvas in pixels.
     pub fn pixels(self, viewport: (u32, u32)) -> (u32, u32) {
@@ -123,21 +106,6 @@ impl Resolution {
             }
         }
     }
-}
-
-/// A resolution's aspect as small integers, for its label: `16:9`, `21:9`, `4:3`.
-fn ratio(w: u32, h: u32) -> (u32, u32) {
-    // 3440x1440 is 43:18 exactly, which nobody calls it; the labels are the names the
-    // presets are sold under.
-    if (w, h) == (3440, 1440) {
-        return (21, 9);
-    }
-    let g = gcd(w, h).max(1);
-    (w / g, h / g)
-}
-
-fn gcd(a: u32, b: u32) -> u32 {
-    if b == 0 { a } else { gcd(b, a % b) }
 }
 
 impl From<Resolution> for String {
@@ -352,13 +320,6 @@ mod tests {
             Resolution::Fixed(1080, 1920).pixels((1600, 900)),
             (1080, 1920)
         );
-    }
-
-    #[test]
-    fn presets_are_labeled_by_their_shape() {
-        assert_eq!(Resolution::Fixed(1920, 1080).label(), "16:9 (1920x1080)");
-        assert_eq!(Resolution::Fixed(3440, 1440).label(), "21:9 (3440x1440)");
-        assert_eq!(Resolution::Fixed(1080, 1080).label(), "1:1 (1080x1080)");
     }
 
     #[test]

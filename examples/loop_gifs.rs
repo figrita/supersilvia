@@ -28,8 +28,8 @@
 //! brought down to a size a page can carry
 //! — 480 wide, or 400 for a square or upright Output — mapped onto one palette the loop
 //! shares, and written through `video::gif`, the app's own GIF writer, as
-//! `renders/<workspace>.gif`. The Output's resolution is a closed list whose smallest is
-//! 1024x768, so the small size is this tool's rather than the export's. `--out` copies each GIF
+//! `renders/<workspace>.gif`. The small size is this tool's rather than the export's, which is
+//! the Output's own resolution. `--out` copies each GIF
 //! into a folder besides.
 //!
 //! Before the export the workspace plays live for `--warm` seconds, one by default, so its
