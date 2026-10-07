@@ -9409,12 +9409,12 @@ fn the_mixer_panel_sets_the_fade_and_the_method() {
     );
     h.get_by_label("mix resolution 21:9").click();
     h.run_steps(2);
-    h.get_by_label("mix resolution 1440").click();
+    h.get_by_label("mix resolution 1080").click();
     h.run_steps(2);
     assert_eq!(
         h.state().mixer().resolution,
-        supersilvia::mixer::Resolution::Fixed(1440, 3440),
-        "21:9 at 1440 is the size ultrawides are sold at, stood on end"
+        supersilvia::mixer::Resolution::Fixed(1080, 2560),
+        "21:9 at 1080 is the size ultrawides are sold at, stood on end"
     );
     h.get_by_label("mix resolution viewport").click();
     h.run_steps(2);

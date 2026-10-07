@@ -129,6 +129,11 @@ const BALANCE: crate::graph::ControlRange = crate::graph::ControlRange {
     step: 0.01,
 };
 
+/// The closed row's scale here, against the node canvas's own `zoom`: the panel's rows are
+/// drawn at the Crossfade `ComboBox`'s size, not a node's tiny one, so the resolution row's
+/// text and chevron are asked for at that size too, rather than the canvas's `FONT_TINY`.
+const CLOSED_ZOOM: f32 = theme::FONT_BASE / theme::FONT_TINY;
+
 /// The mix's resolution picker: the closed row across the panel row, and its popover with
 /// *Match display* and *Match viewport* above the strip while it is open. Returns a
 /// resolution picked.
@@ -155,7 +160,7 @@ fn resolution_picker(
         vec2(ui.available_width(), ui.spacing().interact_size.y),
         Sense::hover(),
     );
-    let response = resolution::closed(ui, rect, NAME, shown, open, theme, 1.0);
+    let response = resolution::closed(ui, rect, NAME, shown, open, theme, CLOSED_ZOOM);
     if response.clicked() {
         open = !open;
     }
