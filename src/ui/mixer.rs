@@ -147,10 +147,6 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
 
     let mix = heading(ui, "Mix", theme);
     midi_mark(ui, mix, view.bound.as_deref(), theme);
-    balance(ui, view, theme, lock_cursor, &mut out.actions);
-    ui.add_space(ROW_GAP);
-    holds(ui, view, theme, &mut out.actions);
-    ui.add_space(ROW_GAP);
     panel::row(ui, "Crossfade", theme, |ui| {
         let mut method = view.method;
         ComboBox::from_id_salt("crossfade-method")
@@ -167,6 +163,10 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
             out.actions.push(MixerAction::SetMethod(method));
         }
     });
+    ui.add_space(ROW_GAP);
+    balance(ui, view, theme, lock_cursor, &mut out.actions);
+    ui.add_space(ROW_GAP);
+    holds(ui, view, theme, &mut out.actions);
     ui.add_space(SECTION_GAP);
 
     heading(ui, "Projection", theme);
