@@ -58,6 +58,11 @@
   -->
   <!-- TODO: a release per tag. Keep the newest first; Flathub shows the top one. -->
   <releases>
+    <release version="0.9.0-alpha.3" type="development" date="2026-10-07">
+      <description>
+        <p>A new look: Space Grotesk text, a compact canvas, clearer side panels, and the right mouse cursor over everything. Preferences has an Interface size from 90 to 150 percent, and Ctrl with + and - zooms the canvas. Note and Text boxes keep a height you drag rather than jumping while you zoom. Smaller downloads: the Windows zip carries only the GStreamer plugins the app uses, and the AppImage is about 11 MB.</p>
+      </description>
+    </release>
     <release version="0.9.0-alpha.2" type="development" date="2026-10-05">
       <description>
         <p>A Ratio Gear is a pure product of its parent: Teeth p : q, Forward or Reverse, and an Offset, landing on the same picture after every seek, render and relaunch. Loops claim only what they do: every loop caption is exact or says it can't tell, and no picture comes back sooner than it says. Colors in the graph are premultiplied, so transparency composites the same everywhere.</p>

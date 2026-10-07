@@ -10,7 +10,7 @@ video synth.
 
 ## Status
 
-supersilvia is pre-release software. The current version is 0.9.0-alpha.2.
+supersilvia is pre-release software. The current version is 0.9.0-alpha.3.
 
 - Things change and break without notice.
 - The project file format can still change, and nothing converts old projects. Keep a render
