@@ -328,8 +328,8 @@ impl App {
         // whatever it was last left wearing — and at the scale it was left at.
         let theme = prefs.get().theme;
         cc.egui_ctx.set_zoom_factor(prefs.get().scale());
-        // The zoom keys are the menu's, read with the other shortcuts, so a step moves the
-        // View zoom and leaves the text size under it.
+        // The zoom keys are the canvas's, read with the other shortcuts: egui's own would scale
+        // the whole editor, which is the interface size's alone.
         cc.egui_ctx.options_mut(|o| o.zoom_with_keyboard = false);
         let ground = if gpu.is_some() {
             Ground::Cleared
@@ -1653,12 +1653,17 @@ impl App {
                 ui.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!is));
             }
             MenuAction::Zoom(step) => {
-                let zoom = self.prefs.get().zoom();
-                self.prefs.set_ui_zoom(match step {
-                    crate::ui::menu::Zoom::In => crate::preferences::zoom_step(zoom, 0.1),
-                    crate::ui::menu::Zoom::Out => crate::preferences::zoom_step(zoom, -0.1),
-                    crate::ui::menu::Zoom::Actual => 1.0,
-                });
+                // About the middle of the canvas, as last drawn: a key has no pointer to keep
+                // still under, and the middle is what a person is looking at.
+                let origin = self.canvas.origin();
+                let middle = origin + emath::vec2(self.canvas.width(), self.canvas.height()) * 0.5;
+                let zoom = self.canvas.transform.zoom;
+                let factor = match step {
+                    crate::ui::menu::Zoom::In => crate::ui::menu::ZOOM_STEP,
+                    crate::ui::menu::Zoom::Out => crate::ui::menu::ZOOM_STEP.recip(),
+                    crate::ui::menu::Zoom::Actual => zoom.max(f32::EPSILON).recip(),
+                };
+                self.canvas.transform.zoom_about(origin, middle, factor);
             }
             MenuAction::Nodes(ref command) => {
                 let _ = self.apply(command.clone());

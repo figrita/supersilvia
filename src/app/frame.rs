@@ -220,7 +220,9 @@ impl App {
                     self.prefs.set_default_layout(mode);
                 }
                 crate::ui::prefs::PrefAction::SetTickRate(rate) => self.prefs.set_tick_rate(rate),
-                crate::ui::prefs::PrefAction::SetTextSize(size) => self.prefs.set_text_size(size),
+                crate::ui::prefs::PrefAction::SetInterfaceSize(size) => {
+                    self.prefs.set_interface_size(size);
+                }
                 crate::ui::prefs::PrefAction::ShowProjects => self.show_projects_folder(),
                 crate::ui::prefs::PrefAction::ChangeProjects => {
                     self.ask_for_file(FileAsk::ProjectsFolder);
@@ -485,7 +487,7 @@ impl eframe::App for App {
             rendering: self.rendering(),
             editor_hidden: self.show.hidden,
             fullscreen: ui.input(|i| i.viewport().fullscreen.unwrap_or(false)),
-            zoom: self.prefs.get().zoom(),
+            zoom: self.canvas.transform.zoom,
             // The readout's reading, off the last tick, while the preference shows it.
             time: self.prefs.get().show_time.then(|| menu::Time {
                 report: self.transport_state(),

@@ -84,7 +84,7 @@ pub enum PrefAction {
     /// How often the synth ticks: the display's rate, or a fixed one.
     SetTickRate(crate::preferences::TickRate),
     /// How large the whole editor is drawn.
-    SetTextSize(crate::preferences::TextSize),
+    SetInterfaceSize(crate::preferences::InterfaceSize),
     /// The projects folder in the file manager.
     ShowProjects,
     /// A folder dialog for another projects folder.
@@ -344,17 +344,20 @@ fn flag(
 /// the others.
 fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
     ui.horizontal(|ui| {
-        ui.label("Text size");
-        for (size, name) in crate::preferences::TextSize::ALL {
-            if ui.selectable_label(prefs.text_size == size, name).clicked() {
-                actions.push(PrefAction::SetTextSize(size));
+        ui.label("Interface size");
+        for (size, name) in crate::preferences::InterfaceSize::ALL {
+            if ui
+                .selectable_label(prefs.interface_size == size, name)
+                .clicked()
+            {
+                actions.push(PrefAction::SetInterfaceSize(size));
             }
         }
     })
     .response
     .on_hover_text(
-        "Draws the whole editor larger: text, node rows, controls and panels grow together, \
-         so nothing sized for its text is cut off. View ▸ Zoom steps on top of it.",
+        "How large the whole editor is drawn: text, node rows, controls and panels grow \
+         together, so nothing sized for its text is cut off. Ctrl with + and − zoom the canvas.",
     );
     for row in EDITING {
         flag(ui, prefs, row, actions);

@@ -354,14 +354,14 @@ fn harness_with<'a>(prefs: supersilvia::preferences::Preferences) -> Harness<'a,
         })
 }
 
-/// **The editor's windows open where the last run left them**, and the zoom is the last
-/// run's: both are `preferences.json`'s, read at start, with no `app.ron` beside it. A window
-/// moved is written back, by its title.
+/// **The editor's windows open where the last run left them**, and at the interface size the
+/// last run's preferences hold: both are `preferences.json`'s, read at start, with no
+/// `app.ron` beside it. A window moved is written back, by its title.
 #[test]
-fn the_windows_and_the_zoom_open_where_the_last_run_left_them() {
-    use supersilvia::preferences::{Placement, Preferences};
+fn the_windows_and_the_size_open_where_the_last_run_left_them() {
+    use supersilvia::preferences::{InterfaceSize, Placement, Preferences};
     let mut h = harness_with(Preferences {
-        ui_zoom: 1.25,
+        interface_size: InterfaceSize::Percent125,
         windows: [(
             "Preferences".to_string(),
             Placement {
@@ -375,16 +375,8 @@ fn the_windows_and_the_zoom_open_where_the_last_run_left_them() {
     h.step();
     assert!(
         (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
-        "the zoom is the file's"
+        "the size is the file's"
     );
-    h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num0);
-    h.run_steps(2);
-    assert_eq!(
-        h.state().preferences().ui_zoom,
-        1.0,
-        "and a new zoom is kept"
-    );
-    assert!((h.ctx.zoom_factor() - 1.0).abs() < 1e-4);
 
     open_preferences(&mut h);
     let window = h.get_by_label("Preferences").rect();
@@ -409,19 +401,23 @@ fn the_windows_and_the_zoom_open_where_the_last_run_left_them() {
     );
 }
 
-/// **Text size zooms the whole editor**: Preferences ▸ Text size sets egui's zoom factor, so
-/// the window and everything in it grows in points, and it is kept. The View zoom steps on
-/// top of it, and its Actual size is the text size's rather than the display's.
+/// **The interface size scales the whole editor, and the zoom keys are the canvas's.**
+/// Preferences ▸ Interface size sets egui's zoom factor, so the window and everything in it
+/// grows in points, and it is kept. `Ctrl` with `+`, `-` and `0` zoom the canvas about its
+/// middle and leave the editor's size alone.
 #[test]
-fn the_text_size_zooms_the_whole_editor_under_the_view_zoom() {
-    use supersilvia::preferences::TextSize;
+fn the_interface_size_scales_the_editor_and_the_zoom_keys_zoom_the_canvas() {
+    use supersilvia::preferences::InterfaceSize;
     let mut h = harness();
     h.step();
     open_preferences(&mut h);
     let before = h.ctx.content_rect();
-    h.get_by_label("Large").click();
+    h.get_by_label("125%").click();
     h.run_steps(3);
-    assert_eq!(h.state().preferences().text_size, TextSize::Large);
+    assert_eq!(
+        h.state().preferences().interface_size,
+        InterfaceSize::Percent125
+    );
     assert!(
         (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
         "{}",
@@ -433,17 +429,25 @@ fn the_text_size_zooms_the_whole_editor_under_the_view_zoom() {
         (after.width() * 1.25 - before.width()).abs() < 1.0,
         "{before:?} {after:?}"
     );
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
 
+    let zoom = h.state().canvas_transform().zoom;
     h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Plus);
     h.run_steps(2);
-    assert_eq!(h.state().preferences().ui_zoom, 1.1, "the View zoom steps");
-    assert!((h.ctx.zoom_factor() - 1.25 * 1.1).abs() < 1e-4);
+    assert!(
+        h.state().canvas_transform().zoom > zoom,
+        "Ctrl+ zooms the canvas in"
+    );
+    assert!(
+        (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
+        "and leaves the editor's size alone"
+    );
     h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::Num0);
     h.run_steps(2);
     assert!(
-        (h.ctx.zoom_factor() - 1.25).abs() < 1e-4,
-        "Actual size keeps the text size: {}",
-        h.ctx.zoom_factor()
+        (h.state().canvas_transform().zoom - 1.0).abs() < 1e-4,
+        "Ctrl+0 puts the canvas back to actual size"
     );
 
     // The next run opens at the size this one was left at.

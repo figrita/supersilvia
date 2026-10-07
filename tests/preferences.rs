@@ -7,7 +7,7 @@
 
 use std::path::PathBuf;
 use supersilvia::preferences::{
-    Placement, Preferences, StatusFolds, Store, TextSize, WindowGeometry,
+    InterfaceSize, Placement, Preferences, StatusFolds, Store, WindowGeometry,
 };
 
 /// A directory of this test's own, named so two tests running at once cannot collide.
@@ -59,8 +59,7 @@ fn a_file_round_trips() {
             position: Some([12.0, 34.0]),
             maximized: true,
         },
-        ui_zoom: 1.5,
-        text_size: TextSize::Larger,
+        interface_size: InterfaceSize::Percent150,
         projects_dir: Some(PathBuf::from("/media/shows")),
         windows: [
             (
@@ -87,59 +86,30 @@ fn a_file_round_trips() {
     assert_eq!(Preferences::load(&path), written);
 }
 
-/// A zoom the file cannot mean is not handed to egui: out of range is clamped to egui's own
-/// keyboard limits, and a value that is not a number is 1.
+/// The interface size is written as it is picked and read back by the next run, and it is
+/// egui's zoom factor.
 #[test]
-fn a_zoom_out_of_range_starts_inside_it() {
-    let at = |ui_zoom| {
-        Preferences {
-            ui_zoom,
-            ..Preferences::default()
-        }
-        .zoom()
-    };
-    assert_eq!(at(1.3), 1.3);
-    assert_eq!(at(0.0), 0.2);
-    assert_eq!(at(40.0), 5.0);
-    assert_eq!(at(f32::NAN), 1.0);
-}
-
-/// The text size is written as it is picked and read back by the next run, and egui's zoom
-/// factor is it times the View zoom: a View zoom step moves a tenth of the View zoom and
-/// leaves the text size under it.
-#[test]
-fn the_text_size_is_kept_and_sits_under_the_view_zoom() {
-    let path = dir("text-size").join("preferences.json");
+fn the_interface_size_is_kept() {
+    let path = dir("interface-size").join("preferences.json");
     let mut store = Store::load(Some(path.clone()));
-    assert_eq!(store.get().text_size, TextSize::Default);
+    assert_eq!(store.get().interface_size, InterfaceSize::Percent100);
     assert_eq!(
         store.get().scale(),
         1.0,
         "the default is the display's own scale"
     );
 
-    store.set_text_size(TextSize::Large);
+    store.set_interface_size(InterfaceSize::Percent125);
     store.flush();
     let back = Store::load(Some(path)).get().clone();
     assert_eq!(
-        back.text_size,
-        TextSize::Large,
+        back.interface_size,
+        InterfaceSize::Percent125,
         "the next run reads it back"
     );
     assert_eq!(back.scale(), 1.25);
-
-    let zoomed = Preferences {
-        ui_zoom: supersilvia::preferences::zoom_step(back.ui_zoom, 0.1),
-        ..back
-    };
-    assert_eq!(zoomed.ui_zoom, 1.1, "a step is a tenth of the View zoom");
     assert!(
-        (zoomed.scale() - 1.25 * 1.1).abs() < 1e-6,
-        "{}",
-        zoomed.scale()
-    );
-    assert!(
-        TextSize::ALL
+        InterfaceSize::ALL
             .windows(2)
             .all(|pair| pair[0].0.factor() < pair[1].0.factor()),
         "each size is larger than the one before"

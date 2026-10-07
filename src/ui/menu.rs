@@ -96,17 +96,20 @@ pub enum MenuAction {
     HideEditor,
     /// View ▸ Fullscreen, and `F`: the editor's window.
     Fullscreen,
-    /// View ▸ Zoom in, Zoom out and Actual size: `ui_zoom`, egui's zoom over the whole
-    /// editor under the text size.
+    /// View ▸ Zoom in, Zoom out and Actual size: the canvas's zoom, about its middle.
     Zoom(Zoom),
 }
 
-/// A step of the editor's zoom, [`crate::preferences::zoom_step`].
+/// How far one Zoom in moves the canvas's zoom; Zoom out is its reciprocal, so the two undo
+/// each other exactly.
+pub const ZOOM_STEP: f32 = 1.25;
+
+/// A step of the canvas's zoom.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Zoom {
     In,
     Out,
-    /// Back to 1, the text size's own scale.
+    /// Back to 1, a world unit to a point.
     Actual,
 }
 
@@ -130,7 +133,7 @@ pub struct MenuState<'a> {
     pub editor_hidden: bool,
     /// The editor's window is fullscreen.
     pub fullscreen: bool,
-    /// The View zoom, `ui_zoom`, which Zoom in and out stop at the ends of.
+    /// The canvas's zoom, which Zoom in and out stop at the ends of.
     pub zoom: f32,
     /// The time readout's reading, or `None` while View ▸ Time is off.
     pub time: Option<Time>,
@@ -203,8 +206,8 @@ pub mod keys {
     /// `Ctrl+/`, the same window: `?` is the node browser's.
     pub const SHORTCUTS_ALT: KeyboardShortcut =
         KeyboardShortcut::new(Modifiers::COMMAND, Key::Slash);
-    /// egui's own zoom keys, consumed by [`super::shortcuts`] in place of egui, whose
-    /// `zoom_with_keyboard` is off.
+    /// egui's own zoom keys, consumed by [`super::shortcuts`] as the canvas's zoom; egui's
+    /// `zoom_with_keyboard` is off, so they never scale the whole editor.
     pub const ZOOM_IN: KeyboardShortcut = kb_shortcuts::ZOOM_IN;
     pub const ZOOM_IN_ALT: KeyboardShortcut = kb_shortcuts::ZOOM_IN_SECONDARY;
     pub const ZOOM_OUT: KeyboardShortcut = kb_shortcuts::ZOOM_OUT;
@@ -530,9 +533,9 @@ pub mod why {
     pub const NOTHING_TO_UNDO: &str = "Nothing to undo.";
     pub const NOTHING_TO_REDO: &str = "Nothing to redo.";
     pub const RENDERING: &str = "A render owns the playhead until it is done.";
-    pub const LARGEST: &str = "The editor is as large as it goes.";
-    pub const SMALLEST: &str = "The editor is as small as it goes.";
-    pub const ACTUAL: &str = "The editor is at its actual size.";
+    pub const LARGEST: &str = "The canvas is zoomed in as far as it goes.";
+    pub const SMALLEST: &str = "The canvas is zoomed out as far as it goes.";
+    pub const ACTUAL: &str = "The canvas is at its actual size.";
     /// The node menu's Workspaces ▸ box that would leave a node on none.
     pub const LAST_WORKSPACE: &str = "A node has to stay on at least one workspace.";
 }
@@ -694,10 +697,7 @@ pub fn model(state: &MenuState<'_>) -> Vec<Menu> {
         items: edit,
     });
 
-    let (least, most) = (
-        *crate::preferences::UI_ZOOM.start(),
-        *crate::preferences::UI_ZOOM.end(),
-    );
+    let (least, most) = (crate::ui::canvas::MIN_ZOOM, crate::ui::canvas::MAX_ZOOM);
     menus.push(Menu {
         title: "View",
         hint: None,
@@ -745,8 +745,8 @@ pub fn model(state: &MenuState<'_>) -> Vec<Menu> {
             .shortcut(keys::FULLSCREEN)
             .into(),
             Item::Separator,
-            // egui's zoom over the whole editor, kept in `ui_zoom` under the text size; not the
-            // canvas's own.
+            // The canvas's zoom, about its middle. The whole editor's size is the interface
+            // size's, in Preferences.
             Entry::new("Zoom in", MenuAction::Zoom(Zoom::In))
                 .unless(state.zoom < most, why::LARGEST)
                 .shortcut(keys::ZOOM_IN)
@@ -1134,7 +1134,7 @@ pub(crate) mod tests {
         let state = MenuState {
             file_busy: true,
             rendering: true,
-            zoom: *crate::preferences::UI_ZOOM.end(),
+            zoom: crate::ui::canvas::MAX_ZOOM,
             workspace: Some(("Main", LayoutMode::Canvas)),
             ..quiet()
         };

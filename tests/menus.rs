@@ -228,22 +228,21 @@ fn a_greyed_entry_says_why_on_hover() {
     );
 }
 
-/// View's zoom entries are egui's zoom, and the preference keeps it.
+/// View's zoom entries zoom the canvas and leave the editor's own size, egui's zoom factor,
+/// alone: that is the interface size's.
 #[test]
-fn view_zooms_the_editor() {
+fn view_zooms_the_canvas() {
     let mut h = harness();
     open(&mut h, "View");
     h.get_by_label_contains("Zoom in").click();
     h.run_steps(2);
-    assert!(
-        (h.ctx.zoom_factor() - 1.1).abs() < 1e-3,
-        "{}",
-        h.ctx.zoom_factor()
-    );
+    let zoom = h.state().canvas_transform().zoom;
+    assert!((zoom - 1.25).abs() < 1e-3, "{zoom}");
+    assert!((h.ctx.zoom_factor() - 1.0).abs() < 1e-3);
     open(&mut h, "View");
     h.get_by_label_contains("Actual size").click();
     h.run_steps(2);
-    assert!((h.ctx.zoom_factor() - 1.0).abs() < 1e-3);
+    assert!((h.state().canvas_transform().zoom - 1.0).abs() < 1e-3);
 }
 
 /// The Nodes button's hover gives the two keys that reach the library without it.

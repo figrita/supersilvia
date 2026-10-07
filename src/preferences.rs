@@ -63,9 +63,6 @@ pub struct Placement {
 /// The editor's own windows by their titles, each where it was left.
 pub type Placements = BTreeMap<String, Placement>;
 
-/// The UI zoom a file may hold: egui's own keyboard zoom stops at these.
-pub const UI_ZOOM: std::ops::RangeInclusive<f32> = 0.2..=5.0;
-
 /// Everything remembered between runs. `Default` is the app's behavior with no file, so a
 /// missing one changes nothing.
 // Each bool is one independent question a person answered about their own editor. Grouping
@@ -168,11 +165,8 @@ pub struct Preferences {
     /// Which of the Status box's sections are folded, and whether it lists every Output.
     pub status_folds: StatusFolds,
     pub window: WindowGeometry,
-    /// View ▸ Zoom: `Ctrl` with `+`, `-` and `0`, in tenths. 1 is actual size, which is the
-    /// text size's.
-    pub ui_zoom: f32,
-    /// How large the editor is drawn, under the View zoom. See [`TextSize`].
-    pub text_size: TextSize,
+    /// How large the whole editor is drawn. See [`InterfaceSize`].
+    pub interface_size: InterfaceSize,
     /// Where each of the editor's own windows was left, by its title. A window not here opens
     /// where it opens the first time.
     pub windows: Placements,
@@ -209,8 +203,7 @@ impl Default for Preferences {
             main_input_width: None,
             mixer_width: None,
             window: WindowGeometry::default(),
-            ui_zoom: 1.0,
-            text_size: TextSize::Default,
+            interface_size: InterfaceSize::default(),
             windows: Placements::new(),
             projects_dir: None,
             recent: Vec::new(),
@@ -219,20 +212,9 @@ impl Default for Preferences {
 }
 
 impl Preferences {
-    /// The UI zoom to start at: the file's, inside [`UI_ZOOM`], and 1 for a value that is not
-    /// a number.
-    pub fn zoom(&self) -> f32 {
-        if self.ui_zoom.is_finite() {
-            self.ui_zoom.clamp(*UI_ZOOM.start(), *UI_ZOOM.end())
-        } else {
-            1.0
-        }
-    }
-
-    /// egui's zoom factor: the text size's times the View zoom's, on top of the display's own
-    /// scale.
+    /// egui's zoom factor: the interface size's, on top of the display's own scale.
     pub fn scale(&self) -> f32 {
-        self.text_size.factor() * self.zoom()
+        self.interface_size.factor()
     }
 
     /// The projects folder: the one chosen, or the default. `None` only where there is no
@@ -373,44 +355,45 @@ impl TickRate {
     }
 }
 
-/// How large the editor is drawn: Preferences ▸ Editing ▸ Text size.
+/// How large the whole editor is drawn: Preferences ▸ Editing ▸ Interface size, the one
+/// control that scales it — for a display whose own scale is not the one wanted, and for
+/// eyes that want everything larger.
 ///
 /// **egui's zoom factor, not the fonts.** A node's rows, a number field and a panel's width
 /// are fixed sizes in points, each sized for the text it holds, so a larger font alone would
 /// clip in all of them. The zoom factor scales the points themselves: text, rows, controls and
-/// panels grow together. It multiplies the View zoom, which keeps its tenths and its actual
-/// size, and both sit on the display's own scale.
+/// panels grow together, on the display's own scale. It is set here and nowhere else: the
+/// zoom keys, `Ctrl` with `+`, `-` and `0`, are the canvas's, as they are in every node editor.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub enum TextSize {
+pub enum InterfaceSize {
+    Percent90,
     #[default]
-    Default,
-    Large,
-    Larger,
+    Percent100,
+    Percent110,
+    Percent125,
+    Percent150,
 }
 
-impl TextSize {
-    /// What the select shows, in order.
-    pub const ALL: [(Self, &'static str); 3] = [
-        (Self::Default, "Default"),
-        (Self::Large, "Large"),
-        (Self::Larger, "Larger"),
+impl InterfaceSize {
+    /// What the row shows, in order.
+    pub const ALL: [(Self, &'static str); 5] = [
+        (Self::Percent90, "90%"),
+        (Self::Percent100, "100%"),
+        (Self::Percent110, "110%"),
+        (Self::Percent125, "125%"),
+        (Self::Percent150, "150%"),
     ];
 
-    /// The zoom factor under the View zoom: a quarter and a half again, so the twelve-point
-    /// face lands on fifteen and eighteen.
+    /// egui's zoom factor.
     pub fn factor(self) -> f32 {
         match self {
-            Self::Default => 1.0,
-            Self::Large => 1.25,
-            Self::Larger => 1.5,
+            Self::Percent90 => 0.9,
+            Self::Percent100 => 1.0,
+            Self::Percent110 => 1.1,
+            Self::Percent125 => 1.25,
+            Self::Percent150 => 1.5,
         }
     }
-}
-
-/// The View zoom a step of `by` lands on: egui's `gui_zoom` arithmetic, a tenth at a time
-/// inside [`UI_ZOOM`], on the View zoom alone so the text size stays under it.
-pub fn zoom_step(zoom: f32, by: f32) -> f32 {
-    ((zoom + by).clamp(*UI_ZOOM.start(), *UI_ZOOM.end()) * 10.0).round() / 10.0
 }
 
 /// One of the answers the Preferences window ticks, each a `bool` on [`Preferences`] read
@@ -619,12 +602,8 @@ impl Store {
         set(&mut self.prefs.window, window, &mut self.dirty);
     }
 
-    pub fn set_ui_zoom(&mut self, zoom: f32) {
-        set(&mut self.prefs.ui_zoom, zoom, &mut self.dirty);
-    }
-
-    pub fn set_text_size(&mut self, size: TextSize) {
-        set(&mut self.prefs.text_size, size, &mut self.dirty);
+    pub fn set_interface_size(&mut self, size: InterfaceSize) {
+        set(&mut self.prefs.interface_size, size, &mut self.dirty);
     }
 
     /// Where the window of this title was left.
