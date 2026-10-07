@@ -411,11 +411,32 @@ for every glyph on screen on every frame of a smooth zoom. `theme::font_size` ro
 pixels, which bounds the number of distinct sizes. Measured on an 8-node graph: idle 0.94 ms,
 first zoom sweep 2.61 ms, a second sweep over the same range 0.53 ms.
 
+**Chosen: text that wraps keeps its line breaks at every zoom.** A note's box, the Text
+node's and a tag's workspace name wrap at `theme::wrap_width`: the room in world units times
+the *quantized* size over the base, so the wrap width over the font size is one number at
+every zoom. `text::wrapped` takes the line breaks once, at zoom 1's size and that width less a
+pixel, and lays each line out alone at the zoom's size, and a `TextEdit` lays its text out
+through the same function, so typing and reading break alike and the caret lands on the rows
+drawn.
+
 **The cost is real and accepted:** text steps rather than glides while zooming, and only
-while the zoom is moving.
+while the zoom is moving. And wrapped text keeps clear of the right of its box by up to a
+twelfth of the room: `theme::WRAP_SLACK` divides the width by 12/11, the most rounding enlarges
+a size (5.5 px to 6), so no line runs past the box at any zoom where the size scales. Below
+that zoom the 6 px floor holds the size while the box goes on shrinking, the same lines cannot
+fit, and the text wraps at the box.
 
 **Rejected: caching scaled `FontDefinitions` ourselves.** That is the cache egui already has,
 one layer up.
+
+**Rejected: wrapping at the box's own width.** The size is a whole pixel and the box scales
+smoothly, so at each zoom a different number of words fit a line and the text jumped between
+line breaks mid-zoom.
+
+**Rejected: wrapping at `theme::wrap_width` alone.** The ratio is right, but egui places each
+glyph on a whole pixel, so a line's width at one size is not exactly its width at another
+scaled: a line ending within a pixel of the wrap width broke one way at one zoom and the other
+at the next. Breaking once and laying each line out alone has no such edge.
 
 egui coalesces scroll events within a frame, so input rate was never the problem — but it
 *smooths* them across frames, so one trackpad flick yields distinct zoom values for many
@@ -5901,16 +5922,10 @@ sized to the thing it is commenting on, a label beside one node or a paragraph a
 of a canvas, and that is the one thing only the person writing it knows.
 
 **Rejected: a box that grows to fit its text.** It was the first design, and it moved under
-zoom. The text wraps at a font size quantized to whole pixels, so glyphs stay cached while the
-view zooms, but the box's width scales smoothly; at each zoom a different number of words fits
-a line, the line count changes, and the node gained or lost a line's height mid-gesture,
-pushing everything under it. The height was also measured by the field as it painted, a frame
-late. A height that is the document's own does not depend on the zoom at all.
-
-**Rejected: wrapping once at zoom 1 and keeping those line breaks at every zoom.** It would
-keep a growing box still, but the text editor would need its own layouter to wrap the same
-way while typing, and the glyphs at other sizes do not scale exactly, so a line could run past
-the box at some zooms. A hand-set height is simpler and stable.
+zoom: the node gained or lost a line's height mid-gesture, pushing everything under it. Its
+height was measured by the field as it painted, a frame late, and below the zoom where the
+font stops shrinking the text still wraps at the box, so it would move there yet. A height
+that is the document's own does not depend on the zoom or the text at all.
 
 **Rejected: a size that is session state.** It is not about this run of the app: reopening a
 patch to a paragraph reflowed into a column is reopening a different canvas. So it goes in the

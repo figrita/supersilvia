@@ -1967,9 +1967,8 @@ fn a_long_note_does_not_grow_to_fit_its_text() {
     );
 }
 
-/// Zooming wraps a note's text at a different width, which is exactly the geometry that
-/// drove the node's height before the box stopped measuring its text. A node's height is
-/// world geometry and must not move when somebody zooms in.
+/// A node's height is world geometry and must not move when somebody zooms in, whatever its
+/// text does at that zoom.
 #[test]
 fn zooming_does_not_change_a_notes_height() {
     let mut h = harness();

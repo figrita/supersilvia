@@ -502,9 +502,28 @@ pub fn icon_font(base: f32, zoom: f32) -> eframe::egui::FontId {
 /// `base * zoom` is during a smooth zoom — misses the cache every frame and re-lays-out and
 /// re-rasterizes every glyph on screen. Rounding bounds the whole zoom range to a few dozen
 /// sizes, all cached after first use. The cost is that text steps rather than glides while
-/// zooming, which is the normal behavior of every editor that does this.
+/// zooming, which is the normal behavior of every editor that does this. Text that wraps
+/// wraps at [`wrap_width`], which steps with it.
 pub fn font_size(base: f32, zoom: f32) -> f32 {
-    (base * zoom).round().max(6.0)
+    (base * zoom).round().max(FONT_FLOOR)
+}
+
+/// The smallest canvas font size, in pixels. [`font_size`] holds a smaller one here.
+const FONT_FLOOR: f32 = 6.0;
+
+/// How much narrower than its room [`wrap_width`] wraps: the most [`font_size`] rounds a size
+/// up by, which is half a pixel on the smallest size it rounds to, 6 for 5.5.
+pub const WRAP_SLACK: f32 = FONT_FLOOR / (FONT_FLOOR - 0.5);
+
+/// The width canvas text of size `base` wraps at, at `zoom`, in a room `world` units wide.
+///
+/// It follows the quantized size rather than the zoom, so the width over the font size is one
+/// number at every zoom; [`crate::ui::text::wrapped`] breaks lines at it. Divided by
+/// [`WRAP_SLACK`], it is never wider than `world * zoom` wherever the size scales with the
+/// zoom; where the floor holds the size it can be, and `wrapped` clamps it to its room. See
+/// "Canvas fonts are quantized to whole pixels" in `docs/decisions.md`.
+pub fn wrap_width(world: f32, base: f32, zoom: f32) -> f32 {
+    world * font_size(base, zoom) / (base * WRAP_SLACK)
 }
 
 /// What the editor's window is cleared to before egui paints a frame: the ground every panel
