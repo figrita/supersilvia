@@ -10,10 +10,11 @@
 #
 # GStreamer is the official macOS release, downloaded once into a cache outside the
 # repository and unpacked there with pkgutil — nothing is installed, and Homebrew's GStreamer
-# is never read. The binary is built against that copy, and the bundle carries the plugins the
-# app uses, the libraries they reach and the plugin scanner, in
-# Contents/Frameworks/GStreamer/{lib,libexec}: the layout GStreamer's own relocation expects,
-# so the app sets nothing at start-up. README.md beside this has the whole of it.
+# is never read. The binary is built against that copy, and the bundle carries the plugins
+# packaging/gstreamer-plugins.txt names for macOS, the libraries they reach and the plugin
+# scanner, in Contents/Frameworks/GStreamer/{lib,libexec}: the layout GStreamer's own
+# relocation expects, so the app sets nothing at start-up. README.md beside this has the whole
+# of it.
 #
 # Environment, all optional:
 #   SUPERSILVIA_SIGN_IDENTITY   a "Developer ID Application: …" identity in the keychain. Unset,
@@ -45,36 +46,22 @@ GST_RUNTIME_SHA256=529fdf4a4027d942e59b5b3564f6400adaa008f63ce5f3fed4ffe35d73911
 GST_DEVEL=gstreamer-1.0-devel-$GST_VERSION-universal.pkg
 GST_DEVEL_SHA256=72a44870cf02472cbf6e9a84bcc25ee6807dd1c26659a112066373544d365e7a
 
-# The elements supersilvia makes, by name in src/ or inside a pipeline string there, and the
-# ones a pipeline it builds reaches through decodebin for the files nodes::Accepts lets in.
-# Each one's plugin is carried; one missing from the release stops the build.
-ELEMENTS=(
-  # every pipeline's plumbing (video/, audio/)
-  filesrc filesink queue multiqueue capsfilter fakesink typefind appsrc appsink
-  # a file of any kind (video/clip.rs, audio/track.rs), and Discoverer's uridecodebin
-  decodebin uridecodebin
-  # conversion
-  videoconvert videoscale audioconvert audioresample
-  # the Test source and the Text node (video/mod.rs, video/text.rs)
-  videotestsrc textoverlay
-  # PNG in and out (video/png.rs), and JPEG from a camera or inside a clip
-  pngenc pngdec jpegdec
-  # the clip cache and the render writer: VideoToolbox and MP4 (platform/macos/video.rs,
-  # video/clip.rs, video/encode.rs)
-  vtenc_h264_hw vtenc_h265_hw vtdec_hw h264parse h265parse mp4mux qtdemux
-  # a camera and a microphone (platform/macos/video.rs, platform/macos/audio.rs)
-  avfvideosrc osxaudiosrc
-  # the containers Accepts::VIDEO and Accepts::AUDIO name, and what they hold
-  matroskademux avidemux tsdemux oggdemux asfdemux wavparse aiffparse id3demux
-  aacparse mpegaudioparse flacparse av1parse
-  vp8dec vp9dec dav1ddec avdec_mpeg4 avdec_mpeg2video
-  avdec_aac avdec_ac3 avdec_wmav2 mpg123audiodec opusdec vorbisdec flacdec
-)
-# Plugins no element above names: decodebin's type finders, and the types the registry
-# serializes for the base libraries.
-EXTRA_PLUGINS=(typefindfunctions pbtypes)
-# Device providers, as plugin:feature: the camera list (platform/macos/video.rs).
-PROVIDERS=(applemedia:avfdeviceprovider)
+# The rows of packaging/gstreamer-plugins.txt for macOS: each feature, an element or a device
+# provider, beside the plugin it is in, and each plugin's file once.
+features=()
+feature_plugins=()
+plugins=()
+while read -r feature plugin machines _; do
+  [[ -z $feature || $feature == \#* ]] && continue
+  [[ -z $machines || ,$machines, == *,macos,* ]] || continue
+  features+=("$feature")
+  feature_plugins+=("$plugin")
+  case " ${plugins[*]-} " in
+    *" libgst$plugin.dylib "*) ;;
+    *) plugins+=("libgst$plugin.dylib") ;;
+  esac
+done <"$root/packaging/gstreamer-plugins.txt"
+(( ${#plugins[@]} )) || die "packaging/gstreamer-plugins.txt names no plugin for macOS"
 
 cache=${SUPERSILVIA_PACKAGING_CACHE:-$HOME/Library/Caches/supersilvia-packaging}
 prefix=$cache/gstreamer-$GST_VERSION
@@ -152,6 +139,17 @@ release_inspect() { GST_REGISTRY=$prefix.registry.bin "$prefix/bin/gst-inspect-1
 filename_of() { # inspect feature
   "$1" "$2" 2>/dev/null | awk '/^  Filename/ {print $2}' || true
 }
+# The file a row's feature is in: the plugin an element loads from or, for a device provider,
+# which gst-inspect-1.0 does not take by name, the plugin that lists it; or nothing.
+feature_file() { # inspect feature plugin
+  local file listing
+  file=$(filename_of "$1" "$2")
+  if [[ -z $file ]]; then
+    listing=$("$1" "$3" 2>/dev/null || true)
+    if grep -q "^  $2: " <<<"$listing"; then file=$(filename_of "$1" "$3"); fi
+  fi
+  echo "$file"
+}
 is_macho() { [[ $(file -b "$1") == Mach-O* ]]; }
 # What a Mach-O links, without its own install name.
 deps() {
@@ -226,21 +224,23 @@ thin() { # src dst
 }
 
 say "choosing plugins"
-plugins=()
-add_plugin() { # file name
-  local p
-  for p in ${plugins[@]+"${plugins[@]}"}; do [[ $p == "$1" ]] && return 0; done
-  plugins+=("$1")
-}
-for element in "${ELEMENTS[@]}"; do
-  file=$(filename_of release_inspect "$element")
-  [[ -n $file ]] || die "GStreamer $GST_VERSION's release has no element $element"
-  case $file in "$prefix"/lib/gstreamer-1.0/*) ;; *) die "$element was found outside the release: $file" ;; esac
-  add_plugin "$(basename "$file")"
+# Every row's feature is in the release, in the plugin the row says.
+for plugin in "${plugins[@]}"; do
+  [[ -f $prefix/lib/gstreamer-1.0/$plugin ]] ||
+    die "GStreamer $GST_VERSION's release has no $plugin"
 done
-for plugin in "${EXTRA_PLUGINS[@]}"; do
-  [[ -f $prefix/lib/gstreamer-1.0/libgst$plugin.dylib ]] || die "no plugin $plugin in the release"
-  add_plugin "libgst$plugin.dylib"
+for i in "${!features[@]}"; do
+  feature=${features[$i]}
+  plugin=libgst${feature_plugins[$i]}.dylib
+  [[ $feature == '*' ]] && continue
+  file=$(feature_file release_inspect "$feature" "${feature_plugins[$i]}")
+  [[ -n $file ]] || die "GStreamer $GST_VERSION's release has no $feature"
+  case $file in
+    "$prefix"/lib/gstreamer-1.0/*) ;;
+    *) die "$feature was found outside the release: $file" ;;
+  esac
+  [[ $(basename "$file") == "$plugin" ]] ||
+    die "$feature is in $(basename "$file"), and packaging/gstreamer-plugins.txt says $plugin"
 done
 for plugin in "${plugins[@]}"; do
   thin "$prefix/lib/gstreamer-1.0/$plugin" "$gst/lib/gstreamer-1.0/$plugin"
@@ -338,17 +338,14 @@ grep -F "/Contents/Frameworks/GStreamer/lib/libgstreamer-1.0.0.dylib" "$work/loa
 if grep -v -E "^(/usr/lib/|/System/|$bundle_real/|$app/)" "$work/loaded.txt" >&2; then
   die "a library above was loaded from outside the bundle and the system"
 fi
-for element in "${ELEMENTS[@]}"; do
-  file=$(filename_of bundle_inspect "$element")
+for i in "${!features[@]}"; do
+  feature=${features[$i]}
+  [[ $feature == '*' ]] && continue
+  file=$(feature_file bundle_inspect "$feature" "${feature_plugins[$i]}")
   case $file in
     "$gst"/lib/gstreamer-1.0/* | "$bundle_real"/Contents/Frameworks/GStreamer/lib/gstreamer-1.0/*) ;;
-    *) die "element $element does not load from the bundle (found: ${file:-nothing})" ;;
+    *) die "$feature does not load from the bundle (found: ${file:-nothing})" ;;
   esac
-done
-for provider in "${PROVIDERS[@]}"; do
-  features=$(bundle_inspect "${provider%%:*}" 2>/dev/null || true)
-  [[ $features == *"${provider#*:}"* ]] ||
-    die "device provider ${provider#*:} is not in the carried ${provider%%:*}"
 done
 draw() { # file [element…]
   local out=$1

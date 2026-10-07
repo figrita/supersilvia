@@ -80,12 +80,16 @@ libraries are linked by absolute path and never read that rpath.
 moved. It carries every element the app makes — `applemedia` and `osxaudio` included — at the
 same version Homebrew has, 1.28.7.
 
-**What is carried.** `ELEMENTS` in the script is the inventory: every element `src/` names or
-builds in a pipeline string, and the demuxers, parsers and decoders `decodebin` reaches for the
-containers `nodes::Accepts::VIDEO` and `AUDIO` let in. Each element's plugin is carried, with
-`typefindfunctions` and `pbtypes`, which no element names; then every library any of them links,
-followed until nothing new appears. An element the release lacks stops the build. Add an
-element there when `src/` makes a new one.
+**What is carried.** [`../gstreamer-plugins.txt`](../gstreamer-plugins.txt), which the Windows
+folder reads too, is the inventory: every element `src/` names or builds in a pipeline string,
+the demuxers, parsers and decoders `decodebin` reaches for the containers
+`nodes::Accepts::VIDEO` and `AUDIO` let in, and `avfdeviceprovider`, each beside its plugin and
+the machines it is for. The plugin of each row for macOS is carried, `typefindfunctions` and
+`pbtypes` among them, which no element names; then every library any of them links, followed
+until nothing new appears. Before anything is copied, each row is looked up in the release's
+own `gst-inspect-1.0`: a feature the release lacks, or one in another plugin than its row says,
+stops the build. Add a row there when `src/` makes a new element
+([packaging/README.md](../README.md#the-gstreamer-the-windows-folder-and-the-app-carry)).
 
 **Nothing is set at start-up.** GStreamer finds itself: `gst_init` asks `dladdr` where
 `libgstreamer-1.0.0.dylib` was loaded from, scans `gstreamer-1.0/` beside it for plugins, and
@@ -101,7 +105,7 @@ never configured.
 **What the script proves before it signs.** The release's `gst-inspect-1.0` and
 `gst-launch-1.0` are copied into the bundle for the length of the check and run from there,
 with a registry of their own: the plugin scanner is found by relocation alone, every element
-in `ELEMENTS` loads from the bundle, `avfdeviceprovider` is there, dyld reports no library
+and device provider the list names for macOS loads from the bundle, dyld reports no library
 loaded from outside the bundle and the system, and `textoverlay` draws text with a system
 font. Then every Mach-O in the bundle is audited with `otool`: arm64 alone, linking only
 `/usr/lib`, `/System` and `@rpath`, with no absolute rpath and no mention of `/opt/homebrew`,

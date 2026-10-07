@@ -92,6 +92,35 @@ server and MIDI lines warn, as a container has none, and pass the session with W
 variable set. On Ubuntu 22.04 the binary refuses to start: its glibc is 2.35. Not tried: a
 window, a picture, a camera, a microphone, an imported clip, NDI, FUSE, AMD or NVIDIA.
 
+## The GStreamer the Windows folder and the `.app` carry
+
+The AppImage takes GStreamer from the machine. The Windows folder and the macOS `.app` carry
+GStreamer's official release instead, and only the part of it the app opens:
+[`gstreamer-plugins.txt`](gstreamer-plugins.txt) is that list, read by both scripts. It has a
+row for every element `src/` makes, by name or inside a pipeline string — the hardware codecs of
+`platform::video::CODECS` included — every demuxer, parser and decoder `decodebin` reaches for
+the files `nodes::Accepts` lets in, and the device providers a menu lists, each beside the
+plugin it is in and the machines it is for. Each script carries the plugin of every row for its
+machine, the plugin scanner, and every library those and the binary link, followed until
+nothing new appears: from each DLL's import table on Windows, with `llvm-objdump -p`, and with
+`otool -L` on the Mac. A plugin no row names is not carried, so neither is anything only it
+links. NDI®'s elements are compiled into the binary, and the release's own `ndi` plugin is
+never carried.
+
+**The plugin is written down rather than looked up**, because a hardware codec's elements are
+registered only on a machine with that hardware, which the machine building the package need
+not be: under Wine, which is how the Windows release is installed and inspected here, no
+NVENC, Quick Sync, AMF or Direct3D 12 codec registers at all. So `build.sh` checks only that
+each plugin's file is in the release, and `build-app.sh` checks every row against the release's
+own `gst-inspect-1.0` before it copies anything, and again from inside the bundle.
+
+**When `src/` makes a new element**, or a format `decodebin` has to reach, add its row with the
+plugin `gst-inspect-1.0 <element>` names on any machine that has it, and the same element to
+`platform::check::GROUPS` for each machine, so `--check` asks for it there. A plugin the release
+lacks stops the build. On Windows, `packaging/windows/wine.sh --check` then says whether each
+group of elements loads from the folder; the hardware codec line warns under Wine whatever is
+carried.
+
 ## Releases
 
 **A tag `v<version>` pushed to GitHub builds all three** —

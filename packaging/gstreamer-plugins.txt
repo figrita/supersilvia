@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# The GStreamer the macOS bundle and the Windows folder carry: every element supersilvia makes,
+# by name in src/ or inside a pipeline string there, the demuxers, parsers and decoders
+# decodebin reaches for the files nodes::Accepts lets in, and the device providers a menu
+# lists, each beside the plugin it is in. packaging/macos/build-app.sh and
+# packaging/windows/build.sh read it, carry each plugin named here for their machine, and
+# follow the libraries those plugins link. A plugin no row names is not carried.
+#
+# One row per feature:  <feature> <plugin> [machines]
+#
+#   feature   an element or a device provider, as gst-inspect-1.0 names it; `*` carries the
+#             plugin for what it registers besides elements
+#   plugin    the plugin's name, as gst-inspect-1.0 says it: gst<plugin>.dll on Windows,
+#             libgst<plugin>.dylib on macOS
+#   machines  macos, windows or both, comma-separated; every machine where it is left out
+#
+# The plugin is written here rather than looked up because a hardware codec's elements are
+# registered only on a machine with that hardware, which the machine building the package
+# need not be. A row is the same element `--check` asks after: platform::check::GROUPS and
+# platform::video::CODECS for that machine, so an element added there is added here. NDI's
+# elements are compiled into the binary (video::ndi), and are no plugin's.
+
+# every pipeline's plumbing (video/, audio/)
+filesrc                 coreelements
+filesink                coreelements
+queue                   coreelements
+multiqueue              coreelements
+capsfilter              coreelements
+fakesink                coreelements
+typefind                coreelements
+appsrc                  app
+appsink                 app
+# a file of any kind (video/clip.rs, audio/track.rs), and Discoverer's uridecodebin
+decodebin               playback
+uridecodebin            playback
+# decodebin's type finders, and the types the registry serializes for the base libraries
+*                       typefindfunctions
+*                       pbtypes
+# conversion
+videoconvert            videoconvertscale
+videoscale              videoconvertscale
+audioconvert            audioconvert
+audioresample           audioresample
+# the Test source and the Text node (video/mod.rs, video/text.rs)
+videotestsrc            videotestsrc
+textoverlay             pango
+# PNG in and out (video/png.rs), and JPEG from a camera or inside a clip
+pngenc                  png
+pngdec                  png
+jpegdec                 jpeg
+# the clip cache and the render writer (video/clip.rs, video/encode.rs)
+mp4mux                  isomp4
+qtdemux                 isomp4
+h264parse               videoparsersbad
+h265parse               videoparsersbad
+av1parse                videoparsersbad
+# the containers Accepts::VIDEO and Accepts::AUDIO name, and what they hold
+matroskademux           matroska
+avidemux                avi
+tsdemux                 mpegtsdemux
+oggdemux                ogg
+asfdemux                asf
+wavparse                wavparse
+aiffparse               aiff
+id3demux                id3demux
+aacparse                audioparsers
+mpegaudioparse          audioparsers
+flacparse               audioparsers
+vp8dec                  vpx
+vp9dec                  vpx
+dav1ddec                dav1d
+avdec_mpeg4             libav
+avdec_mpeg2video        libav
+avdec_h264              libav           windows
+avdec_h265              libav           windows
+avdec_aac               libav
+avdec_ac3               libav
+avdec_wmav2             libav
+mpg123audiodec          mpg123
+opusdec                 opus
+vorbisdec               vorbis
+flacdec                 flac
+
+# macOS: VideoToolbox, a camera and a microphone (platform/macos/video.rs, platform/macos/audio.rs)
+vtenc_h264_hw           applemedia      macos
+vtenc_h265_hw           applemedia      macos
+vtdec_hw                applemedia      macos
+avfvideosrc             applemedia      macos
+avfdeviceprovider       applemedia      macos
+osxaudiosrc             osxaudio        macos
+
+# Windows: a camera, a microphone and the loopback (platform/windows/video.rs, audio.rs)
+mfvideosrc              mediafoundation windows
+mfdeviceprovider        mediafoundation windows
+wasapi2src              wasapi2         windows
+wasapi2deviceprovider   wasapi2         windows
+# the screen (platform/windows/screen.rs), and the decoders AMF's and Quick Sync's AV1 rows use
+d3d11screencapturesrc   d3d11           windows
+d3d11download           d3d11           windows
+d3d11h264dec            d3d11           windows
+d3d11h265dec            d3d11           windows
+d3d11av1dec             d3d11           windows
+# a clip's frame as a Direct3D 12 texture, and Direct3D 12's own codecs (platform/windows/video.rs)
+d3d12upload             d3d12           windows
+d3d12h264dec            d3d12           windows
+d3d12h265dec            d3d12           windows
+d3d12av1dec             d3d12           windows
+d3d12h264enc            d3d12           windows
+# NVENC, Quick Sync and AMF: platform::video::CODECS
+nvh264enc               nvcodec         windows
+nvh264dec               nvcodec         windows
+nvh265enc               nvcodec         windows
+nvh265dec               nvcodec         windows
+nvav1enc                nvcodec         windows
+nvav1dec                nvcodec         windows
+qsvh264enc              qsv             windows
+qsvh264dec              qsv             windows
+qsvh265enc              qsv             windows
+qsvh265dec              qsv             windows
+qsvav1enc               qsv             windows
+amfh264enc              amfcodec        windows
+amfh265enc              amfcodec        windows
+amfav1enc               amfcodec        windows

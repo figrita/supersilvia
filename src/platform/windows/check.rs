@@ -24,8 +24,9 @@ const UGLY: &str = "gst-plugins-ugly";
 const LIBAV: &str = "gst-libav";
 
 /// Every element the app makes on Windows, by name in `src/` or inside a pipeline string there,
-/// and those `decodebin` reaches for the files `nodes::Accepts` lets in; the hardware codecs are
-/// `platform::video::CODECS`, which `--check` asks after separately.
+/// and those `decodebin` reaches for the files `nodes::Accepts` lets in: the rows of
+/// `packaging/gstreamer-plugins.txt` for Windows, whose plugins are the ones the folder carries.
+/// The hardware codecs are `platform::video::CODECS`, which `--check` asks after separately.
 pub const GROUPS: &[Group] = &[
     Group {
         what: "pipelines",
