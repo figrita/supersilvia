@@ -95,7 +95,7 @@ canvas it shows.
 | double-click | rename inline |
 | right-click | Rename · Duplicate · Close |
 | `+` (*add workspace*) | one entry per `WorkspaceKind` with a UI — Video, today |
-| the chevron (*all workspaces*) | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
+| the chevron (*all workspaces*), only once some open tab does not fit | exactly the tabs that do not fit, never one already on the bar; a click shows it |
 | `Ctrl`+T | a video workspace, opened and shown |
 | `Ctrl`+1..9 | the tab in that position, the project tab first |
 | `Ctrl`+Tab, `Ctrl`+Shift+Tab | the next tab and the one before, wrapping at the ends |
@@ -104,10 +104,15 @@ canvas it shows.
 **The bar never runs off the window.** The tabs that fit are drawn in project order and the
 rest leave the bar, the one showing always among those drawn: where it is further along than
 the room reaches, it takes the last place, because the lit tab is what says which canvas this
-is. Nothing is out of reach, since the chevron lists every workspace — the tabs that left the
-bar and the ones that have no tab — and a closed one chosen there is opened. The `+` and the
-chevron stand after the last tab drawn, and the bar keeps room for them (`tabs::fitting`).
-Both are painted ([design-system.md](design-system.md#component-rules-worth-stating)).
+is. **The chevron is a real overflow, not a second way to the whole project**: it is absent
+outright while every open tab fits, and once one does not, it stands after the `+` and lists
+only the tabs that left the bar — never one already drawn — so a click there is reaching for
+something the strip itself could not show. Whether it is needed, and which tabs it lists, is
+worked out fresh from the available width every frame rather than carried from the last one,
+so it never flickers in and out at the boundary: the room the tabs are measured against only
+loses the chevron's own width once they do not fit without it (`tabs::fitting`). The `+` is
+always drawn; the chevron, when it is, stands after it. Both are painted
+([design-system.md](design-system.md#component-rules-worth-stating)).
 
 **`Ctrl`+Tab walks the tabs `Ctrl`+1..9 counts**, the project tab first, and `Ctrl`+Shift+Tab
 walks back; both wrap. `Ctrl` on a Mac as well as on Linux, as every browser binds it, rather
@@ -115,9 +120,10 @@ than the command key. A text field does not take the chord, so it is read whatev
 keyboard, but not while a picture window does. Both are `menu::keys::NEXT_TAB` and
 `PREVIOUS_TAB`, rows of the shortcuts window's Global group.
 
-**A closed workspace comes back from the Project tab or from the chevron's list at the end of
-the bar**, which names every workspace in the project, the closed ones dimmed. There is no
-history of closed tabs to walk back through: two ways to every workspace are enough.
+**A closed workspace comes back from the Project tab**, whose card for it offers Open. The
+chevron does not list closed workspaces — it is the bar's overflow, not a directory of the
+project — so this is the one way back. There is no history of closed tabs to walk back
+through.
 
 **Duplicate copies the workspace whole**, beside it in project order, as `<name> copy` —
 `<name> copy 2` and up where that is taken — and opens the copy and shows it, looking where

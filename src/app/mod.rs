@@ -899,7 +899,6 @@ impl App {
             TabAction::Activate(to) => self.activate(to),
             TabAction::Add(kind) => self.add_workspace(kind),
             TabAction::Close(id) => self.close_workspace(id),
-            TabAction::Open(id) => self.open_workspace(id),
             TabAction::Duplicate(id) => self.duplicate_workspace(id),
             TabAction::Rename { id, name } => {
                 let _ = self.apply(Command::RenameWorkspace { id, name });
