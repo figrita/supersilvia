@@ -293,10 +293,8 @@ pub fn seed_value_height(rows: u8) -> f32 {
 ///
 /// **A text box is the height it was given, never the height of its text.** A box of more
 /// than one line is the node's `dragged_height` where a hand set one, and otherwise the lines
-/// its definition declares; what is typed scrolls inside it. A box that grew with its text
-/// grew differently at every zoom — the text wraps at a whole-pixel font size while the box
-/// scales smoothly — so zooming made the node jump by a line at a time. A height that is the
-/// document's own does not move.
+/// its definition declares; what is typed scrolls inside it. A height that is the document's
+/// own does not move with the zoom: see "A text box is sized by hand" in `docs/decisions.md`.
 pub fn value_height(node: &Node, index: usize) -> f32 {
     match node
         .def

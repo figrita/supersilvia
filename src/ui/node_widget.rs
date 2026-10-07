@@ -3860,7 +3860,6 @@ pub fn tag(
 ) -> (Rect, Response) {
     use crate::ui::theme;
 
-    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let dim = |c: eframe::egui::Color32| {
         if tag.closed {
             c.gamma_multiply(theme::TAG_CLOSED)
@@ -3876,11 +3875,27 @@ pub fn tag(
         dim(theme.tag_text(tag.ty)),
     );
     let gap = if tag.icon.is_empty() { 0.0 } else { 3.0 * zoom };
-    let galley = ui.painter().layout(
-        tag.label.to_string(),
-        font,
-        dim(theme.tag_text(tag.ty)),
-        (theme::TAG_MAX_WIDTH * zoom - theme::TAG_PAD * 2.0 * zoom - icon.size().x - gap).max(1.0),
+    // The name's room in world units, with the icon at its width at zoom 1, so a long name
+    // breaks into the same lines at every zoom.
+    let icon_world = ui
+        .painter()
+        .layout_no_wrap(
+            tag.icon.to_string(),
+            theme::icon_font(theme::FONT_TINY, 1.0),
+            Color32::PLACEHOLDER,
+        )
+        .size()
+        .x;
+    let room = (theme::TAG_MAX_WIDTH - theme::TAG_PAD * 2.0 - icon_world - gap / zoom).max(1.0);
+    let ink = dim(theme.tag_text(tag.ty));
+    let galley = crate::ui::text::wrapped(
+        ui.ctx(),
+        tag.label,
+        theme::FONT_TINY,
+        room,
+        room * zoom,
+        zoom,
+        |text, font, wrap| eframe::egui::text::LayoutJob::simple(text.to_owned(), font, ink, wrap),
     );
     // The pill takes its height from what is in it, floored at the row-sized minimum: an
     // icon four points larger than the name is also taller than it, and a fixed height would

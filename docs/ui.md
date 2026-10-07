@@ -1301,7 +1301,14 @@ The UI must never make the render miss a frame. Three rules keep it cheap:
   glyph rasterization per size, and `base * zoom` is a new size every frame during a smooth
   zoom, so every glyph on screen was being re-laid-out and re-rasterized continuously.
   Measured: a zoom sweep cost 5x idle CPU before, and nothing after the first pass once
-  sizes are bounded. The cost is that text steps rather than glides while zooming.
+  sizes are bounded. The cost is that text steps rather than glides while zooming. **Text that
+  wraps keeps its line breaks at every zoom**: a note's box, the Text node's and a tag's
+  workspace name wrap at `theme::wrap_width`, a width that follows the quantized size rather
+  than the zoom, and `text::wrapped` breaks the lines once at zoom 1's size and lays each out
+  alone at the zoom's, so a glyph placed on a whole pixel cannot move a word to the next line
+  either. The width is the room over `theme::WRAP_SLACK`, 12/11, the most rounding enlarges a
+  size, so the text stays inside its box at every zoom where the size scales. Below that,
+  where the 6 px floor holds the size, the text wraps at the box instead.
 - **The grid's world pitch steps up as you zoom out**, so the dot count stays bounded. A
   fixed pitch produced ~25,000 circles at zoom 0.35 and grew without limit.
 - **Nothing the canvas asks per port rescans the whole graph.** Port slots are laid out once
@@ -1880,10 +1887,10 @@ once and read the same wherever on the node the pointer landed.
   outside the body holding it.
 
   **A text box is the height it was given, never the height of its text.** Its definition's
-  lines until a hand drags it, and what is typed past the bottom scrolls inside it. A box that
-  grew with its text grew differently at every zoom — the text wraps at a whole-pixel font size
-  while the box scales smoothly — so zooming made the node jump a line at a time. A height that
-  is the document's own does not move.
+  lines until a hand drags it, and what is typed past the bottom scrolls inside it. A height
+  that is the document's own does not move with the zoom, and does not wait a frame for the
+  text to be measured. Its text breaks into the same lines at every zoom where the font scales,
+  with the box's right edge a few percent clear of the longest line ([Cost](#cost)).
 
 - **Collapsed, a node is its header and nothing else.** `canvas::rows` yields nothing, so the
   body and the port bands follow from that one early return. The height has exactly one term
