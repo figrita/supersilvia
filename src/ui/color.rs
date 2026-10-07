@@ -22,7 +22,7 @@ use eframe::egui::epaint::Mesh;
 use eframe::egui::style::NumericColorSpace;
 use eframe::egui::{
     Color32, CornerRadius, DragValue, FontId, Key, Rect, Response, Sense, Shape, Stroke, TextEdit,
-    Ui, lerp, vec2,
+    TextureId, Ui, lerp, vec2,
 };
 
 /// silvia's `background-size: 10px 10px`, a tile of four checks: each check is 5 points.
@@ -57,7 +57,8 @@ fn checkers(painter: &eframe::egui::Painter, rect: Rect, step: f32, theme: &Them
 /// per pixel, so there is no single color to show and `value` is one nobody is reading. The
 /// swatch then paints its own ground and says [`crate::ui::number::VARYING`] across it. A
 /// color is the whole of this control, so the word cannot go beside it as it can on a
-/// number — it has to stand where the color was.
+/// number — it has to stand where the color was. Where the color's own picture is at hand,
+/// [`swatch_picturing`] puts that there instead.
 // Every argument is used, and the two flags are independent questions: a swatch can be inert
 // without a varying color arriving, which is what an unpublished uniform color looks like.
 #[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
@@ -71,11 +72,34 @@ pub fn swatch(
     varying: bool,
     zoom: f32,
 ) -> Response {
+    swatch_picturing(ui, rect, label, value, theme, enabled, varying, None, zoom)
+}
+
+/// [`swatch`], with the picture of a varying color standing where the word would: `picture`
+/// is the thumbnail of the port the color arrives from, painted over the swatch's whole rect
+/// with its rounding ([`picture`]). Read only while `varying`; without one the swatch says
+/// the word.
+#[allow(clippy::fn_params_excessive_bools, clippy::too_many_arguments)]
+pub fn swatch_picturing(
+    ui: &mut Ui,
+    rect: Rect,
+    label: impl crate::ui::Name,
+    value: [f32; 4],
+    theme: &Theme,
+    enabled: bool,
+    varying: bool,
+    picture: Option<TextureId>,
+    zoom: f32,
+) -> Response {
     let radius = CornerRadius::same(theme::RADIUS_SM);
     let painter = ui.painter();
+    let picture = picture.filter(|_| varying);
 
     if varying {
         painter.rect_filled(rect, radius, theme.bg_interactive());
+        if let Some(texture) = picture {
+            self::picture(painter, rect, radius, texture);
+        }
     } else {
         // Alpha backing, so a transparent color does not read as the node body.
         painter.rect_filled(rect, radius, theme.bg_interactive());
@@ -121,7 +145,7 @@ pub fn swatch(
     // The word, over the ground and inside the dashed border the `enabled` arm just drew.
     // Fitted to the swatch rather than set at a fixed size: the same control is a full-width
     // slab on a node row and a small square in a readout slot.
-    if varying {
+    if varying && picture.is_none() {
         let size = (rect.height() * 0.5).min(rect.width() / 5.0);
         painter.text(
             rect.center(),
@@ -148,6 +172,38 @@ pub fn swatch(
         )
     });
     response
+}
+
+/// A port thumbnail filling `rect` with `radius`, as a swatch fills it with a color: the
+/// middle of the picture at the rect's own aspect, cropped across the long side and never
+/// stretched. Shared by the swatch and the s-number's trough, the two places a varying value
+/// arriving at a control shows what it is.
+pub(crate) fn picture(
+    painter: &eframe::egui::Painter,
+    rect: Rect,
+    radius: CornerRadius,
+    texture: TextureId,
+) {
+    use crate::compile::{THUMB_H, THUMB_W};
+    let picture = THUMB_W as f32 / THUMB_H as f32;
+    let aspect = rect.width() / rect.height().max(f32::EPSILON);
+    let uv = if aspect > picture {
+        let keep = picture / aspect;
+        Rect::from_min_max(
+            eframe::egui::pos2(0.0, 0.5 - keep / 2.0),
+            eframe::egui::pos2(1.0, 0.5 + keep / 2.0),
+        )
+    } else {
+        let keep = aspect / picture;
+        Rect::from_min_max(
+            eframe::egui::pos2(0.5 - keep / 2.0, 0.0),
+            eframe::egui::pos2(0.5 + keep / 2.0, 1.0),
+        )
+    };
+    painter.add(
+        eframe::egui::epaint::RectShape::filled(rect, radius, Color32::WHITE)
+            .with_texture(texture, uv),
+    );
 }
 
 /// The value as whole channels, rounded and clamped: the one place a `[f32; 4]` becomes

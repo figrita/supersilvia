@@ -2646,6 +2646,137 @@ fn clicking_the_same_swatch_again_closes_the_picker() {
     );
 }
 
+/// A checkerboard whose First Color is fed by another checkerboard's picture and whose
+/// Frequency is fed by World Coordinates' X: both controls are fed a varying value. Answers
+/// the fed node and the two ports feeding it.
+fn fed_by_varying_values(
+    h: &mut Harness<'_, App>,
+) -> (supersilvia::graph::NodeId, PortRef, PortRef) {
+    let picture = add_at(h, "checkerboard", Pos2::new(20.0, 20.0));
+    let field = add_at(h, "worldcoordinates", Pos2::new(20.0, 200.0));
+    let fed = add_at(h, "checkerboard", Pos2::new(280.0, 80.0));
+    let (color, number) = (PortRef::new(picture, "output"), PortRef::new(field, "x"));
+    h.state_mut()
+        .apply(Command::Connect {
+            from: color,
+            to: PortRef::new(fed, "color1"),
+        })
+        .expect("color into color");
+    h.state_mut()
+        .apply(Command::Connect {
+            from: number,
+            to: PortRef::new(fed, "frequency"),
+        })
+        .expect("number into number");
+    h.run_steps(4);
+    (fed, color, number)
+}
+
+/// **With no thumbnail of what arrives, a control fed by a varying value says `varying`**:
+/// the swatch across its whole face and the s-number in place of its digits. kittest hands
+/// the app no renderer, so no pass draws a thumbnail here, which is what thumbnails off
+/// looks like.
+#[test]
+fn a_control_fed_by_a_varying_value_says_varying() {
+    let mut h = wide_harness();
+    h.step();
+    let (fed, color, number) = fed_by_varying_values(&mut h);
+    assert!(
+        !h.state().snapshot().thumbs.contains_key(&color)
+            && !h.state().snapshot().thumbs.contains_key(&number),
+        "no renderer, no thumbnail"
+    );
+    let name = format!("checkerboard{fed}");
+    assert!(
+        h.query_by_label(&format!("{name}.color1 varying"))
+            .is_some(),
+        "the swatch says it"
+    );
+    assert!(
+        h.query_by_label_contains(&format!("{name}.frequency varying"))
+            .is_some(),
+        "and the number"
+    );
+    let painted = painted_text(&h);
+    assert_eq!(
+        painted.iter().filter(|t| *t == "varying").count(),
+        2,
+        "the word is painted on both: {painted:?}"
+    );
+    h.snapshot("varying_inputs_without_thumbnails");
+}
+
+/// **With a thumbnail of what arrives, a control fed by a varying value shows it**: the
+/// texture the source port's own row draws, cropped to the swatch's face and to the
+/// s-number's trough, the same size either way, with no word painted. The accessible name
+/// still says `varying`. The thumbnails are put in by hand, a horizontal and a vertical ramp
+/// for the color and a ramp for the number, since kittest hands the app no renderer.
+#[test]
+fn a_control_fed_by_a_varying_value_shows_its_thumbnail() {
+    use supersilvia::compile::{THUMB_H, THUMB_W};
+    use supersilvia::synth::PortThumb;
+    let mut h = wide_harness();
+    h.step();
+    let (fed, color, number) = fed_by_varying_values(&mut h);
+    let name = format!("checkerboard{fed}");
+    let slot = |h: &Harness<'_, App>, label: &str| h.get_by_label_contains(label).rect();
+    let (swatch, knob) = (
+        slot(&h, &format!("{name}.color1 varying")),
+        slot(&h, &format!("{name}.frequency varying")),
+    );
+
+    let cells = |f: &dyn Fn(usize, usize) -> u32| -> Vec<u32> {
+        (0..THUMB_H)
+            .flat_map(|row| (0..THUMB_W).map(move |col| (col, row)))
+            .map(|(col, row)| f(col, row))
+            .collect()
+    };
+    let ramp = |i: usize, n: usize| (i * 255 / (n - 1)) as u8;
+    h.state_mut().put_thumb(
+        color,
+        PortThumb {
+            number: false,
+            words: cells(&|col, row| {
+                u32::from_le_bytes([ramp(col, THUMB_W), ramp(row, THUMB_H), 160, 255])
+            }),
+        },
+    );
+    h.state_mut().put_thumb(
+        number,
+        PortThumb {
+            number: true,
+            words: cells(&|col, _| (col as f32 / (THUMB_W - 1) as f32).to_bits()),
+        },
+    );
+    h.run_steps(3);
+    assert!(
+        h.state().snapshot().thumbs.contains_key(&color)
+            && h.state().snapshot().thumbs.contains_key(&number),
+        "both thumbnails are published"
+    );
+    assert!(
+        h.query_by_label(&format!("{name}.color1 varying"))
+            .is_some(),
+        "the swatch's name still says it"
+    );
+    assert_eq!(
+        slot(&h, &format!("{name}.color1 varying")),
+        swatch,
+        "the swatch keeps its size"
+    );
+    assert_eq!(
+        slot(&h, &format!("{name}.frequency varying")),
+        knob,
+        "and so does the s-number"
+    );
+    let painted = painted_text(&h);
+    assert!(
+        !painted.iter().any(|t| t == "varying"),
+        "the picture stands where the word was: {painted:?}"
+    );
+    h.snapshot("varying_inputs_with_thumbnails");
+}
+
 #[test]
 fn a_connected_color_input_does_not_open_a_picker() {
     let mut h = harness();

@@ -67,6 +67,10 @@ pub struct NumberSpec {
     /// a number nobody is reading. The control says [`VARYING`] in place of its digits and
     /// draws no fill — see [The value on the row](../../docs/ui.md#the-value-on-the-row).
     pub varying: bool,
+    /// The thumbnail of the port a varying value arrives from, where it has one: painted
+    /// across the trough in place of [`VARYING`], which stays the accessible name. Read only
+    /// while `varying`.
+    pub picture: Option<eframe::egui::TextureId>,
     /// This control is waiting for a MIDI message: it wears [`crate::ui::learning_ring`] and
     /// its accessible name ends in [`crate::ui::LEARNING`].
     pub learning: bool,
@@ -401,6 +405,12 @@ fn chrome(
         };
         painter.rect_filled(fill, 0, ground);
     }
+    // A varying value's own picture fills the trough the fill would, square where it meets
+    // the caps and rounded with the control where there are none.
+    if let Some(texture) = spec.picture.filter(|_| spec.varying) {
+        let corners = if steppers { CornerRadius::ZERO } else { radius };
+        crate::ui::color::picture(painter, trough, corners, texture);
+    }
 
     if steppers {
         let font = value_font(zoom);
@@ -544,11 +554,17 @@ pub fn scrub(
     // Where the number sits is where the value is, and everything else on the bar is track.
     // The rect is measured from the shown text, so a unit widens it along with the number —
     // there is no separate fit to fall out of step and clip the unit off, as silvia's does.
+    // A varying value's picture says what the word would, so the word is left off it.
+    let shown = if spec.varying && spec.picture.is_some() {
+        String::new()
+    } else {
+        spec.with_unit()
+    };
     let value_rect = painter
         .text(
             rect.center(),
             Align2::CENTER_CENTER,
-            spec.with_unit(),
+            shown,
             value_font(zoom),
             text_color,
         )
@@ -1251,6 +1267,7 @@ mod tests {
             unit: "",
             log,
             varying: false,
+            picture: None,
             learning: false,
             ghost: None,
         }

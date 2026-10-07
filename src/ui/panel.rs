@@ -329,6 +329,7 @@ pub fn ghosted(
         unit: "",
         log: false,
         varying: false,
+        picture: None,
         learning,
         ghost,
     };

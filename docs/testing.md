@@ -95,6 +95,8 @@ Two rules this imposes:
 - **Every interactive thing must be a real egui `Response` with `widget_info`.**
 - **The app must run with `cc.wgpu_render_state == None`.** `App::headless()` is that state;
   the renderer is simply absent, the synth runs inline and the preview draws a placeholder.
+  No pass draws a port thumbnail either; a test that needs one on screen puts its cells in by
+  hand with `App::put_thumb`, which publishes it as though the pass had.
 
 **Never use `Harness::run()`.** It repaints until the UI settles and supersilvia's never does —
 `App::ui` calls `request_repaint` unconditionally, because it is a synth. Use `h.step()` or

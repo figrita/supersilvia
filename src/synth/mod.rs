@@ -2129,6 +2129,14 @@ impl Synth {
         self.sims.get(&port)
     }
 
+    /// **Test accessor.** A port's thumbnail as though its pass had drawn it, for a host with
+    /// no renderer: published from the next tick on, until a plan no longer thumbnails the
+    /// port.
+    #[doc(hidden)]
+    pub fn put_thumb(&mut self, port: PortRef, thumb: PortThumb) {
+        self.thumbs.insert(port, Arc::new(thumb));
+    }
+
     /// **Test accessor.** What the viewers were handed on the last tick.
     #[doc(hidden)]
     pub fn published(&self) -> &Published {

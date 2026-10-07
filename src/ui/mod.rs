@@ -2463,6 +2463,7 @@ fn range_editor(
             // The mixer's own readout of a bound control, not a port on a node: a cable
             // never lands here.
             varying: false,
+            picture: None,
             learning: false,
             ghost: None,
         })
