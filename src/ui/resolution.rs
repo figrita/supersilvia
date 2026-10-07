@@ -15,7 +15,8 @@
 //!
 //! Every size the strip makes is even on both sides, because a recording's encoder wants
 //! even sizes, and so is a typed one. 21:9 is a marketing name rather than one ratio, so it
-//! takes the sizes ultrawide panels are sold at where there is one, 3440x1440 among them.
+//! takes the size ultrawide panels are sold at where there is one, 2560x1080, and otherwise
+//! falls back to the same even rounding as every other ratio.
 //!
 //! Every glyph is paint, as the select's chevron is: the text face is proportional, and a
 //! character standing in for a shape is at the mercy of the font stack.
@@ -80,28 +81,23 @@ impl Ratio {
 }
 
 /// The strip, narrowest first. **Free** is the cell after the last, and is no ratio.
-pub const RATIOS: [Ratio; 12] = [
+pub const RATIOS: [Ratio; 5] = [
     Ratio::new("1:1", 1, 1),
-    Ratio::new("5:4", 5, 4),
     Ratio::new("4:3", 4, 3),
-    Ratio::new("3:2", 3, 2),
     Ratio::new("16:10", 16, 10),
     Ratio::new("16:9", 16, 9),
-    Ratio::new("1.85", 185, 100),
-    Ratio::new("2:1", 2, 1),
     Ratio {
         name: "21:9",
         long: 64,
         short: 27,
-        sold: &[(1080, 2560), (1440, 3440), (2160, 5120)],
+        sold: &[(1080, 2560)],
     },
-    Ratio::new("2.39", 239, 100),
-    Ratio::new("32:9", 32, 9),
-    Ratio::new("4:1", 4, 1),
 ];
 
-/// The short sides offered, in pixels: 1080 is 1920x1080 wide and 1080x1920 tall.
-pub const HEIGHTS: [u32; 6] = [480, 720, 1080, 1200, 1440, 2160];
+/// The short sides offered, in pixels: 1080 is 1920x1080 wide and 1080x1920 tall. The cost of
+/// a size grows with its square, and this is glitch art rather than delivery, so the small
+/// sizes below 720 earn their place beside the panel heights above it.
+pub const HEIGHTS: [u32; 6] = [240, 480, 512, 720, 1080, 1200];
 
 /// The free cell's name.
 const FREE: &str = "Free";
@@ -251,8 +247,8 @@ const CHEVRON_GAP: f32 = 6.0;
 const GLYPH: (f32, f32) = (14.0, 10.0);
 const GLYPH_GAP: f32 = 5.0;
 
-/// The strip's cells: seven to a row, each a glyph box over a name.
-const COLUMNS: usize = 7;
+/// The strip's cells, every ratio and Free, one row: a glyph box over a name.
+const COLUMNS: usize = RATIOS.len() + 1;
 const CELL: (f32, f32) = (38.0, 40.0);
 const CELL_GLYPH: (f32, f32) = (28.0, 16.0);
 const GAP: f32 = 3.0;
@@ -774,22 +770,22 @@ mod tests {
         assert_eq!(size_of(ratio("16:9"), 1080, false), (1920, 1080));
         assert_eq!(size_of(ratio("16:9"), 1080, true), (1080, 1920));
         assert_eq!(size_of(ratio("16:9"), 720, false), (1280, 720));
-        assert_eq!(size_of(ratio("16:9"), 2160, false), (3840, 2160));
+        assert_eq!(size_of(ratio("16:9"), 512, false), (910, 512));
         assert_eq!(size_of(ratio("4:3"), 480, false), (640, 480));
         assert_eq!(size_of(ratio("16:10"), 1200, false), (1920, 1200));
         assert_eq!(size_of(ratio("1:1"), 1080, true), (1080, 1080));
-        assert_eq!(size_of(ratio("1.85"), 1080, false), (1998, 1080));
-        assert_eq!(size_of(ratio("32:9"), 1440, false), (5120, 1440));
+        assert_eq!(size_of(ratio("1:1"), 512, false), (512, 512));
     }
 
-    /// 21:9 is the sizes ultrawide panels are sold at, and the arithmetic between them.
+    /// 21:9 is the size ultrawide panels are sold at where a short side remains on the strip —
+    /// only 1080, since 1440 and 2160 are no longer offered — and the arithmetic otherwise.
     #[test]
     fn twenty_one_by_nine_is_what_ultrawides_are_sold_at() {
         assert_eq!(size_of(ratio("21:9"), 1080, false), (2560, 1080));
-        assert_eq!(size_of(ratio("21:9"), 1440, false), (3440, 1440));
-        assert_eq!(size_of(ratio("21:9"), 2160, false), (5120, 2160));
-        assert_eq!(size_of(ratio("21:9"), 1440, true), (1440, 3440));
+        assert_eq!(size_of(ratio("21:9"), 1080, true), (1080, 2560));
         assert_eq!(size_of(ratio("21:9"), 720, false), (1706, 720));
+        assert_eq!(size_of(ratio("21:9"), 1440, false), (3414, 1440));
+        assert_eq!(size_of(ratio("21:9"), 2160, false), (5120, 2160));
     }
 
     /// Every size the strip makes is even on both sides, which is what an encoder wants.
@@ -824,16 +820,20 @@ mod tests {
         }
         assert_eq!(
             shape_of((1024, 768)).ratio,
-            Some(2),
+            Some(1),
             "4:3 off the row of short sides"
         );
         assert_eq!(shape_of((1000, 700)).ratio, None);
         assert_eq!(shape_of((1921, 1080)).ratio, None);
+        assert_eq!(
+            shape_of((3440, 1440)).ratio,
+            None,
+            "21:9 at 1440 is Free now the sold table only holds 1080"
+        );
         assert_eq!(caption((1000, 700)), "1000×700");
         assert_eq!(caption((1920, 1080)), "16:9 · 1080");
         assert_eq!(caption((1080, 1920)), "9:16 · 1080");
-        assert_eq!(caption((1080, 1998)), "1:1.85 · 1080");
-        assert_eq!(caption((3440, 1440)), "21:9 · 1440");
+        assert_eq!(caption((2560, 1080)), "21:9 · 1080");
     }
 
     /// A short side keeps the shape: the ratio's own long side on the strip, the size's own
@@ -841,7 +841,7 @@ mod tests {
     #[test]
     fn a_short_side_keeps_the_shape() {
         assert_eq!(with_short((1920, 1080), 1440, false), (2560, 1440));
-        assert_eq!(with_short((2560, 1080), 1440, false), (3440, 1440));
+        assert_eq!(with_short((2560, 1080), 1440, false), (3414, 1440));
         assert_eq!(with_short((1080, 1920), 720, false), (720, 1280));
         assert_eq!(with_short((1000, 500), 1080, false), (2160, 1080));
         assert_eq!(with_short((2560, 1080), 1440, true), (3414, 1440));

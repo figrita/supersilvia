@@ -2687,11 +2687,14 @@ holding a painted rectangle of the picture's shape, the ratio's name and the sho
 `16:9 · 1080` — `9:16 · 1080` stood on end, the size itself where it is no ratio on the strip.
 Open, it is a popover, drawn after every node as a select's list is:
 
-- **Shape**: *Wide* and *Tall* at the title's end, and a strip of thirteen cells, each a
-  painted rectangle of its ratio over its name — 1:1, 5:4, 4:3, 3:2, 16:10, 16:9, 1.85, 2:1,
-  21:9, 2.39, 32:9, 4:1 — and **Free**, a dashed square. *Tall* mirrors every glyph.
-- **Size**, one row of short sides — 480, 720, 1080, 1200, 1440, 2160 — so 1080 is 1920x1080
-  wide and 1080x1920 tall. Each one's size and memory is its hover text, and under the row is
+- **Shape**: *Wide* and *Tall* at the title's end, and a strip of six cells in one row, each a
+  painted rectangle of its ratio over its name — 1:1, 4:3, 16:10, 16:9, 21:9 — and **Free**, a
+  dashed square. *Tall* mirrors every glyph.
+- **Size**, one row of short sides — 240, 480, 512, 720, 1080, 1200 — so 1080 is 1920x1080
+  wide and 1080x1920 tall. The cost of a size grows with its square, so glitch art's small
+  sizes sit beside the panel heights rather than a delivery format's: there is no 1440 or
+  2160 on the row, and 512 is there because it is a GPU-cheap square or near-square a hand
+  reaches for often. Each one's size and memory is its hover text, and under the row is
   the readout: the size, its megapixels and the memory an Output of it commits, the figure the
   Output's own row prints.
 - A width and a height to type, in the s-number's bevel, committed on Enter or a click away.
@@ -2699,8 +2702,10 @@ Open, it is a popover, drawn after every node as a select's list is:
 **Two axes, each kept while the other moves.** A shape keeps the short side, a short side keeps
 the shape, and *Tall* keeps both. The long side is the short one times the ratio, rounded to
 the nearest even number — an encoder wants even sizes, and a typed size is rounded the same
-way — except 21:9, a marketing name rather than one ratio, which takes the sizes ultrawide
-panels are sold at where there is one: 2560x1080, 3440x1440, 5120x2160. A size is a cell on the
+way — except 21:9, a marketing name rather than one ratio, which takes the size ultrawide
+panels are sold at where there is one: 2560x1080 at a short side of 1080, the one height the
+strip still offers that ultrawides are sold at; any other short side falls back to the same
+rounding, short times 64 over 27. A size is a cell on the
 strip only where that cell's arithmetic gives it exactly, so a typed size off the strip lights
 **Free**, and a short side picked while Free keeps the size's own proportion. Clicking Free puts
 the keyboard in the width. The popover stays up through any number of picks and closes on a
@@ -3535,7 +3540,10 @@ launch and on every Open and New, and `Alt` + click binds one to a MIDI note —
 the learning ring and then the dot on its top-left corner, and does not press on the way. Then **Projection**: the mix's
 resolution, the [resolution picker](#options-and-the-file-button) with two entries above its
 strip — *Match display*, the default, which names the smallest display's size beside it
-([rendering.md](rendering.md#the-mixer)), and *Match viewport* — *Project to background*,
+([rendering.md](rendering.md#the-mixer)), and *Match viewport*. Its closed row reads at the
+panel's own text size and chevron, the Crossfade `ComboBox`'s rather than a node's tiny one —
+`mixer::CLOSED_ZOOM`, the ratio between them, is the one place the picker is asked for a size
+off a node's canvas. Then *Project to background*,
 **Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
 the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
 asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still
