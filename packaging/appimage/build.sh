@@ -127,6 +127,12 @@ command -v "$tool" >/dev/null || die "appimagetool not found: put it on PATH or 
 say "writing $out"
 rm -f "$out"
 # appimagetool is an AppImage itself, and one run where FUSE is not unpacks itself instead.
-APPIMAGE_EXTRACT_AND_RUN=1 ARCH=$arch "$tool" "$appdir" "$out"
+# zstd, the one compressor its mksquashfs has and one of the two its runtime reads, at level 19
+# rather than 15 and in 1 MB blocks rather than squashfs's 128 KB: the larger block is most of
+# what this takes off (packaging/README.md).
+APPIMAGE_EXTRACT_AND_RUN=1 ARCH=$arch "$tool" --comp zstd \
+  --mksquashfs-opt -Xcompression-level --mksquashfs-opt 19 \
+  --mksquashfs-opt -b --mksquashfs-opt 1M \
+  "$appdir" "$out"
 say "built"
 du -h "$out"

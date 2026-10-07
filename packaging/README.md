@@ -102,6 +102,14 @@ core dump from the AppImage is read through the same file: copied to
 `/usr/lib/debug/.build-id/<first two digits of the ID>/<the rest>.debug`, gdb and
 `coredumpctl gdb` find it by the build ID on their own.
 
+**The AppImage is zstd at level 19 in 1 MB blocks**: appimagetool's own compressor, with its
+level raised from 15 and squashfs's block from 128 KB. The block is what counts. It took the
+AppImage from 12.5 MB to 11.5 MB, where level 19 over 15 was under 0.1 MB and 22 nothing past
+19. xz is not a choice: the runtime appimagetool writes, the static type2 runtime, decompresses
+zstd and zlib and nothing else, and the mksquashfs it carries writes zstd alone. The runtime
+mounts and unpacks the larger block as it does the smaller, under FUSE and with
+`--appimage-extract-and-run`.
+
 **What was tried**, on clean Fedora 44, Ubuntu 24.04 and Arch containers with the packages
 TESTERS.md names and nothing else, no display, and an Intel iGPU handed in as
 `/dev/dri`. On all three the AppImage unpacks with `--appimage-extract` and runs with
