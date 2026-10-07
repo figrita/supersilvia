@@ -235,6 +235,7 @@ impl App {
                 crate::ui::prefs::PrefAction::RecordingsInProject => {
                     self.prefs.set_recordings_dir(None);
                 }
+                crate::ui::prefs::PrefAction::ClearRecent => self.prefs.clear_recent(),
                 crate::ui::prefs::PrefAction::ShowPreferencesFile => {
                     self.prefs.write_if_missing();
                     if let Some(file) = self.prefs.path() {

@@ -858,8 +858,8 @@ preference. It is here rather than under View because it is about the machine, a
 rate is, and the View menu keeps what changes what the canvas shows — the time readout and
 the cost strip.
 
-**Where things are kept, on the Files tab.** Three rows, each a caption with its buttons on the
-right and its path on the line under it:
+**Where things are kept, on the Files tab.** Four rows, each a caption with its buttons on the
+right and its path, or what it holds, on the line under it:
 
 - **Projects folder**, with **Show in Files** — **Show in Finder** on the Mac — which makes
   the folder if nobody has yet and opens it, and **Change…**, a folder dialog starting there.
@@ -876,6 +876,9 @@ right and its path on the line under it:
   `recordings/`. Choosing this project's own `recordings/` stores no choice. A folder chosen
   takes every project's recordings, so each file's name starts with its project's —
   `friday-output3-20261005-134501.mp4` — where in the project it is `output3-…` alone.
+- **Recent projects**, with **Clear**, which empties `recent` — Project ▸ Recent, and with it
+  the project the next launch opens, which is then a new `Untitled`. It is off while the list is
+  empty, and the line under it says how many projects the list holds.
 - **Preferences file**, with **Show**, which opens the folder holding `preferences.json` with
   the file selected where the file manager can, and **Open**, which opens it in the desktop's
   editor for it — `open -t` on the Mac, so a text editor rather than whatever claims `.json`.

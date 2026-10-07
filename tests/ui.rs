@@ -569,7 +569,8 @@ fn fake_gpus() -> adapter::Choice {
 /// Performance tabs.
 ///
 /// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the
-/// recordings folder with Choose… and In the project, the preferences file with Open
+/// recordings folder with Choose… and In the project, the recent projects with Clear, the
+/// preferences file with Open
 /// and Show, each path one line in monospace and cut in the middle where it is long, and the
 /// line saying when an edit to the file takes effect. GPU: the adapter in use, how it was
 /// picked, and every adapter offered with the one in use marked. Each tab is drawn whole, in a
@@ -617,6 +618,8 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         "Choose…",
         "In the project",
         "/home/tester/Videos/takes",
+        "Recent projects",
+        "Project ▸ Recent is empty",
         "Preferences file",
         "Open",
         "Show",
@@ -717,6 +720,27 @@ fn the_recordings_folder_is_the_projects_until_one_is_chosen() {
             .accesskit_node()
             .is_disabled()
     );
+}
+
+/// **Preferences ▸ Files ▸ Recent projects ▸ Clear empties Project ▸ Recent**, and is off while
+/// there is nothing in it.
+#[test]
+fn clear_empties_the_recent_projects() {
+    let mut h = harness_with(supersilvia::preferences::Preferences {
+        recent: vec!["/tmp/friday".into(), "/tmp/saturday".into()],
+        ..Default::default()
+    });
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
+    assert!(h.query_by_label("2 projects in Project ▸ Recent").is_some());
+    assert!(!h.get_by_label("Clear").accesskit_node().is_disabled());
+
+    h.get_by_label("Clear").click();
+    h.run_steps(2);
+    assert!(h.state().preferences().recent.is_empty());
+    assert!(h.query_by_label("Project ▸ Recent is empty").is_some());
+    assert!(h.get_by_label("Clear").accesskit_node().is_disabled());
 }
 
 /// **A projects folder that cannot be read says so beside its path**, in the Preferences window

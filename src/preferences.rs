@@ -632,6 +632,11 @@ impl Store {
         set(&mut self.prefs.recordings_dir, dir, &mut self.dirty);
     }
 
+    /// Empty the Recent list.
+    pub fn clear_recent(&mut self) {
+        set(&mut self.prefs.recent, Vec::new(), &mut self.dirty);
+    }
+
     pub fn push_recent(&mut self, path: PathBuf) {
         if self
             .prefs

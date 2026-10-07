@@ -102,6 +102,8 @@ pub enum PrefAction {
     ChooseRecordings,
     /// Recordings back into `recordings/` in the project.
     RecordingsInProject,
+    /// Empty Project ▸ Recent.
+    ClearRecent,
     /// `preferences.json` in the file manager.
     ShowPreferencesFile,
     /// `preferences.json` in the text editor.
@@ -530,8 +532,9 @@ fn performance(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) 
     }
 }
 
-/// Where things are kept: the projects folder, the recordings folder and the preferences file,
-/// each a caption with its buttons on the right and its path whole on the line under it.
+/// Where things are kept: the projects folder, the recordings folder, the recent projects and
+/// the preferences file, each a caption with its buttons on the right and its path, or what it
+/// holds, on the line under it.
 ///
 /// **A path is one line whatever it is.** It is drawn in monospace, cut in the middle with `…`
 /// where it is longer than the line — the start says which disk and the end which folder, and
@@ -579,6 +582,21 @@ fn files(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<Pre
          starting with its project's.",
     );
     path_line(ui, Some(view.recordings), "", theme);
+    ui.add_space(6.0);
+    let recent = view.prefs.recent.len();
+    file_row(ui, "Recent projects", |ui| {
+        let entry = ui.add_enabled(recent > 0, Button::new("Clear"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
+            actions.push(PrefAction::ClearRecent);
+        }
+    });
+    let held = match recent {
+        0 => "Project ▸ Recent is empty".to_string(),
+        1 => "1 project in Project ▸ Recent".to_string(),
+        n => format!("{n} projects in Project ▸ Recent"),
+    };
+    ui.label(RichText::new(held).color(theme.text_muted()));
     ui.add_space(6.0);
     file_row(ui, "Preferences file", |ui| {
         let there = view.file.is_some();
