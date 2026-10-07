@@ -168,9 +168,11 @@ pub struct Preferences {
     /// Which of the Status box's sections are folded, and whether it lists every Output.
     pub status_folds: StatusFolds,
     pub window: WindowGeometry,
-    /// The editor's scale, egui's zoom factor: `Ctrl` with `+`, `-` and `0`. 1 is the
-    /// display's own scale.
+    /// View ▸ Zoom: `Ctrl` with `+`, `-` and `0`, in tenths. 1 is actual size, which is the
+    /// text size's.
     pub ui_zoom: f32,
+    /// How large the editor is drawn, under the View zoom. See [`TextSize`].
+    pub text_size: TextSize,
     /// Where each of the editor's own windows was left, by its title. A window not here opens
     /// where it opens the first time.
     pub windows: Placements,
@@ -208,6 +210,7 @@ impl Default for Preferences {
             mixer_width: None,
             window: WindowGeometry::default(),
             ui_zoom: 1.0,
+            text_size: TextSize::Default,
             windows: Placements::new(),
             projects_dir: None,
             recent: Vec::new(),
@@ -224,6 +227,12 @@ impl Preferences {
         } else {
             1.0
         }
+    }
+
+    /// egui's zoom factor: the text size's times the View zoom's, on top of the display's own
+    /// scale.
+    pub fn scale(&self) -> f32 {
+        self.text_size.factor() * self.zoom()
     }
 
     /// The projects folder: the one chosen, or the default. `None` only where there is no
@@ -362,6 +371,46 @@ impl TickRate {
             .find(|(r, _)| *r == self)
             .map_or("Display", |(_, l)| *l)
     }
+}
+
+/// How large the editor is drawn: Preferences ▸ Editing ▸ Text size.
+///
+/// **egui's zoom factor, not the fonts.** A node's rows, a number field and a panel's width
+/// are fixed sizes in points, each sized for the text it holds, so a larger font alone would
+/// clip in all of them. The zoom factor scales the points themselves: text, rows, controls and
+/// panels grow together. It multiplies the View zoom, which keeps its tenths and its actual
+/// size, and both sit on the display's own scale.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum TextSize {
+    #[default]
+    Default,
+    Large,
+    Larger,
+}
+
+impl TextSize {
+    /// What the select shows, in order.
+    pub const ALL: [(Self, &'static str); 3] = [
+        (Self::Default, "Default"),
+        (Self::Large, "Large"),
+        (Self::Larger, "Larger"),
+    ];
+
+    /// The zoom factor under the View zoom: a quarter and a half again, so the twelve-point
+    /// face lands on fifteen and eighteen.
+    pub fn factor(self) -> f32 {
+        match self {
+            Self::Default => 1.0,
+            Self::Large => 1.25,
+            Self::Larger => 1.5,
+        }
+    }
+}
+
+/// The View zoom a step of `by` lands on: egui's `gui_zoom` arithmetic, a tenth at a time
+/// inside [`UI_ZOOM`], on the View zoom alone so the text size stays under it.
+pub fn zoom_step(zoom: f32, by: f32) -> f32 {
+    ((zoom + by).clamp(*UI_ZOOM.start(), *UI_ZOOM.end()) * 10.0).round() / 10.0
 }
 
 /// One of the answers the Preferences window ticks, each a `bool` on [`Preferences`] read
@@ -572,6 +621,10 @@ impl Store {
 
     pub fn set_ui_zoom(&mut self, zoom: f32) {
         set(&mut self.prefs.ui_zoom, zoom, &mut self.dirty);
+    }
+
+    pub fn set_text_size(&mut self, size: TextSize) {
+        set(&mut self.prefs.text_size, size, &mut self.dirty);
     }
 
     /// Where the window of this title was left.

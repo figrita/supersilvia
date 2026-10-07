@@ -390,8 +390,8 @@ impl App {
         }
     }
 
-    /// Note where the window is and how big it is, the UI zoom, and where each of the
-    /// editor's own windows stands, so the next launch opens like this one.
+    /// Note where the window is and how big it is, and where each of the editor's own
+    /// windows stands, so the next launch opens like this one.
     ///
     /// A maximized window records only that it is maximized: the size and position kept are
     /// the ones unmaximizing restores. Whole points, because a fractional wobble between
@@ -412,10 +412,6 @@ impl App {
             }
         }
         self.prefs.set_window(window);
-        // The UI zoom, in hundredths: egui's keyboard steps are tenths, and a float's last
-        // digits are not a change worth saving.
-        self.prefs
-            .set_ui_zoom((ctx.zoom_factor() * 100.0).round() / 100.0);
         for (title, placement) in crate::ui::placed::read(ctx) {
             self.prefs.set_placement(title, placement);
         }

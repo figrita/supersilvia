@@ -350,8 +350,11 @@ the entry's tooltip.
 
 **View ▸ Zoom in, Zoom out and Actual size are egui's zoom over the whole editor**, steps of a
 tenth between 0.2 and 5, which `ui_zoom` keeps — not the canvas's own zoom, which View ▸ Reset
-view puts back. The keys are egui's own and egui consumes them at the end of every frame; the
-entries call the same `gui_zoom` steps.
+view puts back. It stands on [the text size](#the-preferences-window): egui's zoom factor is the
+two multiplied, so Actual size is the text size's and a step is a tenth of the View zoom alone.
+The keys are egui's own, but egui's `zoom_with_keyboard` is off and `menu::shortcuts` consumes
+them as the entries, since egui's `Ctrl`+`0` would put the factor back to 1 and drop the text
+size with it.
 
 **`Ctrl`+C, `Ctrl`+X and `Ctrl`+V are consumed under a guard the others are not.** Undo is
 taken above whatever holds the keyboard, because `Ctrl`+Z in a text field is an undo of the
@@ -663,7 +666,8 @@ the same thing.
 | `tick_rate` | how often the synth ticks: the editor's display, 60 or 30 — see [below](#the-preferences-window) |
 | `status_folds` | which of the Status box's sections are folded, and whether it lists every Output — see [the Status box](#the-status-box) |
 | `window` | inner size, outer position and maximized, so the second launch opens where the first closed |
-| `ui_zoom` | the editor's scale, egui's zoom factor — `Ctrl` with `+`, `-` and `0`. 1 is the display's own |
+| `ui_zoom` | View ▸ Zoom, in tenths — `Ctrl` with `+`, `-` and `0`. 1 is actual size |
+| `text_size` | `Default`, `Large` or `Larger`: how large the whole editor is drawn, under the View zoom — see [the Preferences window](#the-preferences-window) |
 | `windows` | where each of the editor's own windows was left, by title — the Status box, Preferences, MIDI, About, Licences, Keyboard shortcuts and Undo History: the outer top-left corner, and the outer size of the two that resize |
 | `projects_dir` | the projects folder, where New project makes a project, Untitled is made and Open project… starts — chosen in [the Preferences window](#the-preferences-window). Absent is the default, `supersilvia` in the documents folder |
 | `recent` | project folders opened or saved, most recent first, deduplicated, capped at ten |
@@ -695,8 +699,9 @@ so a fractional wobble is not a change worth saving. A maximized window records 
 is maximized, keeping the size and position that unmaximizing restores. Wayland reports no
 window position, so `position` stays `None` there and the compositor places the window.
 
-The UI zoom is read back the same way, in hundredths, and handed to egui before the first
-frame. An editor window's place is read out of egui's own memory of it once a frame, by its
+The UI zoom is not read back from egui: the preference is the zoom, and egui is handed the text
+size times `ui_zoom` before the first frame and again at the end of every frame, which is when
+egui would take its own zoom keys. An editor window's place is read out of egui's own memory of it once a frame, by its
 title, and handed back as that window's default position — and default size, for the Status
 box and the MIDI window, which resize — the first time it is built in the next run
 (`ui::placed`). A window that has never been opened is not in the file and opens where it
@@ -750,7 +755,18 @@ And the preference is written to disk.
 There is nothing to confirm and nothing to roll back. The way back to where you started is the
 `vapor` preset, which is exactly what the editor ships with.
 
-**Six more answers, under Editing.**
+**Seven more answers, under Editing.**
+
+*Text size* is **Default**, **Large** or **Larger**, an accessibility setting: egui's zoom factor
+at 1, 1.25 and 1.5, so the twelve-point face lands on fifteen and eighteen. It is the zoom factor
+and not the fonts because a node's rows, a number field and a panel's width are fixed sizes in
+points, each sized for the text it holds: a larger font alone would clip in every one of them,
+where a larger point grows text, rows, controls and panels together. It multiplies the View
+zoom, and both sit on the display's own scale, `native_pixels_per_point`; the canvas's own zoom
+works inside the points as it always does. Everything that turns points into pixels reads egui's
+`pixels_per_point`, which is all three, so a drag, a dropped file and the inspection protocol's
+coordinates — logical points — line up at any size. A picture window is not egui and is
+untouched. It is applied at start-up and is not project data and not undoable.
 
 *Lock the cursor while scrubbing* is here and nowhere else. It is taste rather than something
 toggled for an evening, and taste is what somebody opens this window for.
