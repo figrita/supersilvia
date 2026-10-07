@@ -58,6 +58,11 @@
   -->
   <!-- TODO: a release per tag. Keep the newest first; Flathub shows the top one. -->
   <releases>
+    <release version="0.9.0-alpha.4" type="development" date="2026-10-07">
+      <description>
+        <p>A resolution picker on Outputs, the mixer and the Text node: a shape from one row of ratios and a size from one row of heights, down to 240 for cheap glitch work, or typed exactly. The mix starts at the size of the smallest connected display. Preferences is four tabs, and can choose the GPU, allow a software one, set a recordings folder, the size new Outputs start at and the canvas zoom range, with a Restart button where a change needs one. Icons are drawn rather than typed, so they sit centered. Every cable is one smooth curve whichever way it runs, canvas text glides while zooming and keeps its line breaks, a cabled control shows the picture feeding it, and a Ratio Gear marks every beat it fires.</p>
+      </description>
+    </release>
     <release version="0.9.0-alpha.3" type="development" date="2026-10-07">
       <description>
         <p>A new look: Space Grotesk text, a compact canvas, clearer side panels, and the right mouse cursor over everything. Preferences has an Interface size from 90 to 150 percent, and Ctrl with + and - zooms the canvas. Note and Text boxes keep a height you drag rather than jumping while you zoom. Smaller downloads: the Windows zip carries only the GStreamer plugins the app uses, and the AppImage is about 11 MB.</p>

@@ -430,7 +430,7 @@ of CPU a frame on an 8-node graph while the zoom moved, against 0.94 ms idle, an
 sizes are cached a sweep back costs nothing extra; those figures were taken with whole pixels,
 and the ladder has not been measured. The font atlas holds each size's glyphs, so a long zoom
 across the whole range can fill it, and egui clears and refills it. Wrapped text keeps clear
-of the right of its box by about 1% of the room and a unit. The owner's ruling: bounding the
+of the right of its box by about 1% of the room and a unit. The ruling: bounding the
 sizes harder was an optimization before it was needed, and text that glides is worth it.
 
 **Rejected: whole pixels**, `(base * zoom).round()` with a 6 px floor, the first design. Text

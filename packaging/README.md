@@ -158,7 +158,7 @@ carried.
 [`../.github/workflows/release.yml`](../.github/workflows/release.yml) — and nothing else does:
 
 ```sh
-git tag v0.9.0-alpha.3 && git push origin v0.9.0-alpha.3
+git tag v0.9.0-alpha.4 && git push origin v0.9.0-alpha.4
 ```
 
 The tag has to be Cargo.toml's version with a `v` before it, or the run stops at its first job.
