@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The on-air interlock: what Quit, Open and New stop, said before they stop it.
+//! The on-air interlock: what Quit, Restart, Open and New stop, said before they stop it.
 //!
 //! **Unsaved edits are not the only thing a Quit loses.** A picture window on the projector,
 //! the mix going out over NDI or Syphon, and a render halfway through all end on Quit, and
@@ -71,6 +71,7 @@ impl OnAir {
             (true, false) => "Stop the show?".to_string(),
             (false, _) => match pending {
                 Pending::Quit => "Quit and cancel it?".to_string(),
+                Pending::Restart => "Restart and cancel it?".to_string(),
                 Pending::OpenDialog | Pending::Open(_) => {
                     "Cancel it and open another project?".to_string()
                 }
@@ -95,6 +96,7 @@ impl OnAir {
 pub(super) fn go_on_label(pending: &Pending) -> &'static str {
     match pending {
         Pending::Quit => "Quit anyway",
+        Pending::Restart => "Restart anyway",
         Pending::OpenDialog | Pending::Open(_) => "Open anyway",
         Pending::NewDialog => "New anyway",
     }

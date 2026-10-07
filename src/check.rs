@@ -323,15 +323,25 @@ fn codec() -> Line {
     )
 }
 
-/// The GPU the app would render on, by the app's own rule and `SUPERSILVIA_ADAPTER`, with a
-/// device opened on it to show it opens.
+/// The GPU the app would render on, by the app's own rule, `SUPERSILVIA_ADAPTER` and
+/// `SUPERSILVIA_SOFTWARE_GPU`, and Preferences ▸ Performance ▸ GPU under them (`app::gpu`), with
+/// a device opened on it to show it opens. A GPU chosen in Preferences and passed over warns.
 fn gpu() -> Line {
-    match crate::render::Gpu::headless(&crate::render::adapter::Asked::from_env()) {
-        Ok(gpu) => Line::new(
-            Verdict::Pass,
-            "GPU",
-            crate::render::adapter::describe(&gpu.adapter().get_info()),
-        ),
+    let prefs = crate::preferences::path()
+        .map(|path| crate::preferences::Preferences::load(&path))
+        .unwrap_or_default();
+    let asked = crate::app::gpu::asked(
+        &crate::render::adapter::Asked::from_env(),
+        &crate::app::gpu::Setting::of(&prefs),
+    );
+    match crate::render::Gpu::headless(&asked) {
+        Ok(gpu) => {
+            let described = crate::render::adapter::describe(&gpu.adapter().get_info());
+            match gpu.choice().and_then(crate::app::gpu::fallback) {
+                Some(note) => Line::new(Verdict::Warn, "GPU", format!("{described}; {note}")),
+                None => Line::new(Verdict::Pass, "GPU", described),
+            }
+        }
         Err(why) => Line::new(Verdict::Fail, "GPU", why),
     }
 }

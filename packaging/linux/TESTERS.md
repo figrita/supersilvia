@@ -69,9 +69,12 @@ sudo pacman -S vulkan-radeon                     # AMD
 
 **NVIDIA** is untested. supersilvia renders on the strongest GPU the machine has — a discrete
 card, NVIDIA or AMD, before an integrated one — so a machine with an NVIDIA card renders on it
-by default. To render on another GPU, start it with `SUPERSILVIA_ADAPTER` in front of the
-command (below): `SUPERSILVIA_ADAPTER=integrated` for the integrated GPU, or a piece of a GPU's
-name, such as `intel`, `radeon` or `nvidia`. `--check` names the GPU it picked. Install
+by default. To render on another GPU, choose it in Preferences ▸ Performance ▸ Use GPU and
+press Restart to apply, or start it with `SUPERSILVIA_ADAPTER` in front of the command (below),
+which wins over the preference: `SUPERSILVIA_ADAPTER=integrated` for the integrated GPU, or a
+piece of a GPU's name, such as `intel`, `radeon` or `nvidia`. On a virtual machine with no GPU,
+tick Allow a software GPU there, or set `SUPERSILVIA_SOFTWARE_GPU=1`. `--check` names the GPU
+it picked. Install
 `gstreamer1.0-plugins-bad` / `gst-plugins-bad` for the NVENC codecs.
 
 ## Run it

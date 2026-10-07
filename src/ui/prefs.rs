@@ -102,6 +102,12 @@ pub enum PrefAction {
     ShowPreferencesFile,
     /// `preferences.json` in the text editor.
     OpenPreferencesFile,
+    /// The GPU the next start renders on, `None` for Automatic.
+    SetGpu(Option<crate::render::adapter::AdapterId>),
+    /// Whether the next start may render on a software GPU.
+    SetSoftwareGpu(bool),
+    /// Restart to apply: close as Quit does, asking what Quit asks, and start again.
+    Restart,
     /// The window's own close button.
     Close,
 }
@@ -119,6 +125,8 @@ pub struct PrefsView<'a> {
     pub file_busy: bool,
     /// Every adapter the machine offered and the one in use, or `None` where the host chose.
     pub gpu: Option<&'a crate::render::adapter::Choice>,
+    /// The GPU rows differ from what this run started on, so Restart to apply is offered.
+    pub gpu_restart: bool,
 }
 
 /// The window's tabs, in the order the strip shows them.
@@ -308,7 +316,7 @@ fn body(
             performance(ui, prefs, actions);
             rule(ui);
             ui.heading("GPU");
-            gpu(ui, view.gpu, theme);
+            gpu(ui, view, theme, actions);
         }
         PrefsTab::Files => files(ui, view, theme, actions),
     }
@@ -624,14 +632,18 @@ pub fn middle_cut(text: &str, fits: usize) -> String {
     format!("{start}…{end}")
 }
 
-/// What the editor and the synth draw on, read-only: the adapter in use, how it was picked, and
-/// every adapter the machine offered with the one in use marked.
+/// What the editor and the synth draw on: the adapter in use, how it was picked, and every
+/// adapter the machine offered with the one in use marked; then which of them the next start
+/// renders on, whether it may take a software one, and Restart to apply.
 ///
-/// A grid of a caption and its value, so a row for what can later be chosen here — the colour
-/// precision, the GPU itself — goes under the last. Every value is one line, cut at its end
-/// and whole on its hover: a driver's version string is as long as its vendor likes.
-fn gpu(ui: &mut Ui, choice: Option<&crate::render::adapter::Choice>, theme: &Theme) {
-    let Some(choice) = choice else {
+/// A grid of a caption and its value. Every value is one line, cut at its end and whole on its
+/// hover: a driver's version string is as long as its vendor likes. **The two settings take
+/// effect at the next start**, since the one device is made before the window, and a variable
+/// in the environment wins over each — the row says which and is not editable. The last row is
+/// a note, with Restart to apply before it while either differs from the start, and is as tall
+/// as the button either way, so the button arriving moves nothing.
+fn gpu(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<PrefAction>) {
+    let Some(choice) = view.gpu else {
         ui.label(RichText::new("Not reported by this host.").color(theme.text_muted()));
         return;
     };
@@ -652,7 +664,156 @@ fn gpu(ui: &mut Ui, choice: Option<&crate::render::adapter::Choice>, theme: &The
                 }
             });
             ui.end_row();
+            let label = ui
+                .vertical(|ui| ui.add(Label::new("Use GPU").extend()))
+                .inner;
+            ui.vertical(|ui| use_gpu(ui, view.prefs, choice, label.id, theme, actions));
+            ui.end_row();
+            ui.label("");
+            ui.vertical(|ui| software_gpu(ui, view.prefs, choice, theme, actions));
+            ui.end_row();
         });
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        // As tall as the button whether or not it is there.
+        let button = ui.text_style_height(&TextStyle::Button) + 2.0 * ui.spacing().button_padding.y;
+        ui.set_min_height(button.max(ui.spacing().interact_size.y));
+        let note = if view.gpu_restart {
+            let restart = ui.add(Button::new("Restart to apply")).on_hover_text(
+                "Close supersilvia as Quit does, asking first about unsaved changes, and \
+                     start it again on this project.",
+            );
+            crate::ui::pointing(&restart);
+            if restart.clicked() {
+                actions.push(PrefAction::Restart);
+            }
+            "The GPU rows take effect when supersilvia starts again."
+        } else {
+            "Takes effect the next time supersilvia starts."
+        };
+        one_line(ui, RichText::new(note).color(theme.text_muted()));
+    });
+}
+
+/// What an adapter is called in the Use GPU select: its name and its backend, which tells two
+/// backends' views of one card apart and is never the name the Offered list gives it.
+fn adapter_choice(info: &eframe::wgpu::AdapterInfo) -> String {
+    format!("{} · {:?}", info.name, info.backend)
+}
+
+/// What the Use GPU select says for Automatic.
+const AUTOMATIC: &str = "Automatic (the strongest)";
+
+/// The Use GPU select: Automatic, or one of the adapters offered, a software one only where a
+/// software GPU is allowed. Disabled, with the variable named under it, while
+/// `SUPERSILVIA_ADAPTER` decides. Named by the caption beside it, `label`.
+fn use_gpu(
+    ui: &mut Ui,
+    prefs: &Preferences,
+    choice: &crate::render::adapter::Choice,
+    label: eframe::egui::Id,
+    theme: &Theme,
+    actions: &mut Vec<PrefAction>,
+) {
+    use crate::render::adapter::{ADAPTER_ENV, AdapterId};
+    let software = choice
+        .asked
+        .software_env
+        .unwrap_or(prefs.allow_software_gpu);
+    let selected = match &prefs.gpu {
+        None => AUTOMATIC.to_owned(),
+        Some(pin) => choice
+            .offered
+            .iter()
+            .find(|info| pin.is(info))
+            .map_or_else(|| format!("{} (not offered)", pin.name), adapter_choice),
+    };
+    let mut picked = None;
+    ui.add_enabled_ui(choice.asked.adapter.is_none(), |ui| {
+        let select = eframe::egui::ComboBox::from_id_salt("prefs-use-gpu")
+            .selected_text(selected)
+            .width(ui.available_width().min(320.0))
+            .truncate()
+            .show_ui(ui, |ui| {
+                if ui
+                    .selectable_label(prefs.gpu.is_none(), AUTOMATIC)
+                    .clicked()
+                {
+                    picked = Some(None);
+                }
+                for info in &choice.offered {
+                    let id = AdapterId::of(info);
+                    let usable = software || info.device_type != eframe::wgpu::DeviceType::Cpu;
+                    let entry = ui
+                        .add_enabled(
+                            usable,
+                            Button::selectable(
+                                prefs.gpu.as_ref() == Some(&id),
+                                adapter_choice(info),
+                            ),
+                        )
+                        .on_disabled_hover_text("A software GPU needs Allow a software GPU.");
+                    if entry.clicked() {
+                        picked = Some(Some(id));
+                    }
+                }
+            })
+            .response
+            .labelled_by(label);
+        crate::ui::pointing(&select);
+        select.on_hover_text(
+            "The GPU supersilvia renders on from its next start. Automatic takes the strongest: \
+             a discrete GPU before an integrated one.",
+        );
+    });
+    if let Some(wanted) = &choice.asked.adapter {
+        one_line(
+            ui,
+            RichText::new(format!("Overridden by {ADAPTER_ENV}={wanted}"))
+                .color(theme.text_muted()),
+        );
+    }
+    if let Some(gpu) = picked
+        && gpu != prefs.gpu
+    {
+        actions.push(PrefAction::SetGpu(gpu));
+    }
+}
+
+/// Allow a software GPU: disabled, with the variable named under it, while
+/// `SUPERSILVIA_SOFTWARE_GPU` decides.
+fn software_gpu(
+    ui: &mut Ui,
+    prefs: &Preferences,
+    choice: &crate::render::adapter::Choice,
+    theme: &Theme,
+    actions: &mut Vec<PrefAction>,
+) {
+    use crate::render::adapter::SOFTWARE_ENV;
+    // One line, as every value in the grid is.
+    ui.style_mut().wrap_mode = Some(eframe::egui::TextWrapMode::Extend);
+    let mut on = prefs.allow_software_gpu;
+    let entry = ui
+        .add_enabled(
+            choice.asked.software_env.is_none(),
+            eframe::egui::Checkbox::new(&mut on, "Allow a software GPU"),
+        )
+        .on_hover_text(
+            "Let supersilvia render on the CPU, from its next start, where the machine has no GPU \
+             it will take — a virtual machine, most often. Slow, and no measure of a real GPU.",
+        );
+    crate::ui::pointing(&entry);
+    if entry.changed() {
+        actions.push(PrefAction::SetSoftwareGpu(on));
+    }
+    if let Some(set) = choice.asked.software_env {
+        let by = if set {
+            format!("Overridden by {SOFTWARE_ENV}=1")
+        } else {
+            format!("Overridden by {SOFTWARE_ENV}, set and not 1")
+        };
+        one_line(ui, RichText::new(by).color(theme.text_muted()));
+    }
 }
 
 /// One adapter in up to three lines: its name; its kind and backend; and its driver and the

@@ -28,6 +28,8 @@
 //! - [`edit`] — `App::apply`, which hands what an applied command did to whoever owns it.
 //! - [`files`] — dialogs, projects, assets, import and export.
 //! - [`frame`] — the `eframe::App` body and what it paints.
+//! - [`gpu`] — the GPU a start asks for: the environment over the preference over the rule.
+//! - [`restart`] — Restart to apply: Quit's close, and the same executable started again.
 //! - [`maininput`] — the left panel's view, and what a gesture on it sets.
 //! - [`show`] — the pop-outs and the toast.
 //! - [`undo`] — undo and redo by name: the toast that says what changed, and the history.
@@ -41,6 +43,7 @@ mod document;
 mod edit;
 mod files;
 mod frame;
+pub mod gpu;
 mod link;
 mod maininput;
 mod media;
@@ -50,6 +53,7 @@ pub use onair::OnAir;
 mod problems;
 mod record;
 pub mod render;
+pub mod restart;
 mod show;
 mod tabs;
 mod undo;
@@ -86,6 +90,8 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub(super) enum Pending {
     Quit,
+    /// Quit, then start again: Preferences ▸ Performance's Restart to apply.
+    Restart,
     OpenDialog,
     NewDialog,
     /// A project from the Recent list, or the command line.
@@ -205,6 +211,12 @@ pub struct App {
     /// Every adapter the machine offered and the one the editor and the synth draw on, for the
     /// Preferences window. `None` where the host handed over a device it chose itself.
     gpu_choice: Option<crate::render::adapter::Choice>,
+    /// Preferences ▸ Performance ▸ GPU as this run started on it, which Restart to apply is
+    /// offered against.
+    gpu_started: gpu::Setting,
+    /// Whether the app starts again once it has closed: asked by Restart to apply, read by
+    /// `main`.
+    restart: restart::Restart,
     /// The canvas in physical pixels, as of the last frame, which is what a
     /// viewport-matched mix is sized to. Kept from the last frame that had a canvas, so
     /// the project tab does not shrink the mix to nothing.
@@ -333,6 +345,7 @@ impl App {
         // The person's four numbers, not the built-in default: the editor opens wearing
         // whatever it was last left wearing — and at the scale it was left at.
         let theme = prefs.get().theme;
+        let gpu_started = gpu::Setting::of(prefs.get());
         cc.egui_ctx.set_zoom_factor(prefs.get().scale());
         // The zoom keys are the canvas's, read with the other shortcuts: egui's own would scale
         // the whole editor, which is the interface size's alone.
@@ -374,6 +387,7 @@ impl App {
             ground,
             theme,
             prefs,
+            gpu_started,
             midi: MidiDesk::new(midi),
             ..Self::headless()
         };
@@ -447,6 +461,8 @@ impl App {
             crashlog: crashlog::Desk::default(),
             undo_history: None,
             gpu_choice: None,
+            gpu_started: gpu::Setting::default(),
+            restart: restart::Restart::default(),
             mix_viewport: crate::nodes::output::DEFAULT_RESOLUTION,
             mix_canvas: None,
             mix_display: None,
@@ -1316,6 +1332,14 @@ impl App {
                 self.closing = true;
                 ui.send_viewport_cmd(egui::ViewportCommand::Close);
             }
+            Pending::Restart => {
+                let root = self.project.root();
+                let reopen =
+                    (self.home == Home::Folder && Project::is_project(root)).then_some(root);
+                self.restart.ask(restart::arguments(reopen));
+                self.closing = true;
+                ui.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
             Pending::OpenDialog => self.ask_for_file(FileAsk::OpenProject),
             Pending::NewDialog => self.ask_project_name(crate::ui::project_name::Purpose::New),
             Pending::Open(root) => self.open_project(root),
@@ -1595,8 +1619,28 @@ impl App {
 
     /// What the GPU was chosen from: the adapters `main` enumerated to pick the one it handed
     /// eframe, for the Preferences window to list. A test hands a list of its own.
+    ///
+    /// Where the adapter Preferences ▸ Performance ▸ Use GPU names was passed over for the
+    /// strongest, the run says so as it says any failure: the status line, a toast and the
+    /// problems list.
     pub fn use_gpu_choice(&mut self, choice: Option<crate::render::adapter::Choice>) {
+        if let Some(note) = choice.as_ref().and_then(gpu::fallback) {
+            log::warn!("{note}");
+            self.fail(note);
+        }
         self.gpu_choice = choice;
+    }
+
+    /// Where a Restart to apply is recorded for `main` to act on once the run has closed: a
+    /// clone of the one `main` holds.
+    pub fn use_restart(&mut self, restart: restart::Restart) {
+        self.restart = restart;
+    }
+
+    /// **Test accessor.** Whether the app is to start again once it has closed.
+    #[doc(hidden)]
+    pub fn restart_asked(&self) -> bool {
+        self.restart.asked()
     }
 
     /// Put the menus in the operating system's own menu bar, where it has one — AppKit's on
@@ -1839,6 +1883,7 @@ impl App {
     #[doc(hidden)]
     pub fn use_preferences(&mut self, prefs: preferences::Store) {
         self.theme = prefs.get().theme;
+        self.gpu_started = gpu::Setting::of(prefs.get());
         self.prefs = prefs;
     }
 

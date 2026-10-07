@@ -394,6 +394,11 @@ fn the_preferences_tabs_keep_one_height_and_the_last_tab_comes_back() {
 
 /// An app on the default preferences, its window `size`, with [`fake_gpus`] as its machine.
 fn harness_with_gpus<'a>(size: egui::Vec2) -> Harness<'a, App> {
+    harness_with_gpus_choosing(size, fake_gpus())
+}
+
+/// An app on the default preferences, its window `size`, with `choice` as its machine.
+fn harness_with_gpus_choosing<'a>(size: egui::Vec2, choice: adapter::Choice) -> Harness<'a, App> {
     Harness::builder()
         .renderer(renderer())
         .with_size(size)
@@ -406,7 +411,7 @@ fn harness_with_gpus<'a>(size: egui::Vec2) -> Harness<'a, App> {
                     supersilvia::preferences::Preferences::default(),
                 ),
             );
-            app.use_gpu_choice(Some(fake_gpus()));
+            app.use_gpu_choice(Some(choice.clone()));
             app
         })
 }
@@ -530,6 +535,17 @@ fn the_interface_size_scales_the_editor_and_the_zoom_keys_zoom_the_canvas() {
 /// because `SUPERSILVIA_ADAPTER` names it: what the GPU section is drawn from in a test, so its
 /// snapshot does not depend on the GPUs of the machine it runs on.
 fn fake_gpus() -> adapter::Choice {
+    fake_gpus_asked(
+        adapter::Asked {
+            adapter: Some("intel".to_owned()),
+            ..adapter::Asked::default()
+        },
+        0,
+    )
+}
+
+/// [`fake_gpus`]' machine, asked `asked` and rendering on adapter `chosen`.
+fn fake_gpus_asked(asked: adapter::Asked, chosen: usize) -> adapter::Choice {
     let gpu = |name: &str, kind, driver: &str, info: &str| eframe::wgpu::AdapterInfo {
         name: name.to_owned(),
         driver: driver.to_owned(),
@@ -557,11 +573,8 @@ fn fake_gpus() -> adapter::Choice {
                 "Mesa 25.2.4 (LLVM 22.1.8)",
             ),
         ],
-        chosen: 0,
-        asked: adapter::Asked {
-            adapter: Some("intel".to_owned()),
-            software: false,
-        },
+        chosen,
+        asked,
     }
 }
 
@@ -660,11 +673,131 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         (1, 2),
         "the offered list's dots: one filled for the adapter in use, a hollow one for each other"
     );
+    // `SUPERSILVIA_ADAPTER` named the adapter at start, so Use GPU says the variable wins and
+    // cannot be changed; Allow a software GPU, with its variable unset, can.
+    assert!(
+        h.query_by_label("Overridden by SUPERSILVIA_ADAPTER=intel")
+            .is_some()
+    );
+    assert!(h.get_by_label("Use GPU").accesskit_node().is_disabled());
+    assert!(
+        !h.get_by_label("Allow a software GPU")
+            .accesskit_node()
+            .is_disabled()
+    );
     // The one answer of the machine's this window shows is the file manager's name, Files or
     // Finder, so the pictures are Linux's and a Mac checks the labels alone.
     #[cfg(target_os = "linux")]
     h.snapshot("preferences_performance");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// **Use GPU and Allow a software GPU take effect at the next start**, and Restart to apply is
+/// offered while either differs from what the run started on. It closes as Quit does: with
+/// unsaved edits it asks first, a Cancel restarts nothing, and a Discard closes the window with
+/// the restart recorded for `main` to start once the run has ended.
+#[test]
+fn choosing_a_gpu_offers_a_restart_that_closes_as_quit_does() {
+    let mut h = harness_with_gpus_choosing(
+        egui::vec2(820.0, 1300.0),
+        fake_gpus_asked(adapter::Asked::default(), 1),
+    );
+    h.step();
+    add_node(&mut h, ADD_CHECKERBOARD);
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Performance");
+    let window = h.get_by_label("Preferences").rect();
+    let offered = |h: &Harness<'_, App>| h.query_by_label("Restart to apply").is_some();
+    assert!(!offered(&h), "nothing to apply yet");
+    assert!(
+        h.query_by_label_contains("Overridden by").is_none(),
+        "no variable set"
+    );
+
+    h.get_by_label("Use GPU").click();
+    h.run_steps(2);
+    assert!(
+        h.get_by_label("llvmpipe (LLVM 22.1.8, 256 bits) · Vulkan")
+            .accesskit_node()
+            .is_disabled(),
+        "a software GPU needs Allow a software GPU"
+    );
+    h.get_by_label("Intel(R) Graphics (RPL-S) · Vulkan").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().preferences().gpu,
+        Some(adapter::AdapterId::of(&fake_gpus().offered[0]))
+    );
+    assert!(offered(&h), "a GPU chosen offers the restart");
+    assert_eq!(
+        h.get_by_label("Preferences").rect(),
+        window,
+        "and moves nothing"
+    );
+
+    h.get_by_label("Use GPU").click();
+    h.run_steps(2);
+    h.get_by_label("Automatic (the strongest)").click();
+    h.run_steps(2);
+    assert_eq!(h.state().preferences().gpu, None);
+    assert!(!offered(&h), "back to what it started on");
+
+    h.get_by_label("Allow a software GPU").click();
+    h.run_steps(2);
+    assert!(h.state().preferences().allow_software_gpu);
+    assert!(offered(&h), "software allowed offers it too");
+    h.snapshot("preferences_gpu_restart");
+
+    h.get_by_label("Restart to apply").click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("Discard").is_some(),
+        "the edit is asked about"
+    );
+    h.get_by_label("Cancel").click();
+    h.run_steps(2);
+    assert!(
+        !h.state().restart_asked() && !closed(&h),
+        "Cancel restarts nothing"
+    );
+
+    h.get_by_label("Restart to apply").click();
+    h.run_steps(2);
+    h.get_by_label("Discard").click();
+    h.step();
+    assert!(closed(&h), "Discard closes the window");
+    assert!(h.state().restart_asked(), "with the restart recorded");
+}
+
+/// **A GPU chosen in Preferences that is not there at start** is passed over for the strongest,
+/// and the run says so in a toast and in the problems list.
+#[test]
+fn a_chosen_gpu_not_there_at_start_says_so() {
+    let gone = adapter::AdapterId {
+        name: "AMD Radeon RX 7900 XTX".to_owned(),
+        vendor: 0x1002,
+        device: 0x744c,
+        backend: "vulkan".to_owned(),
+    };
+    let mut h = harness_with_gpus_choosing(
+        egui::vec2(820.0, 1000.0),
+        fake_gpus_asked(
+            adapter::Asked {
+                pinned: Some(gone),
+                ..adapter::Asked::default()
+            },
+            1,
+        ),
+    );
+    h.step();
+    let said = "the GPU chosen in Preferences, AMD Radeon RX 7900 XTX, is not on this machine: \
+                rendering on NVIDIA GeForce RTX 3090 instead";
+    assert_eq!(h.state().toast(), Some(said));
+    let problems = h.state().problems();
+    assert!(
+        problems.iter().any(|p| p.text == said),
+        "and the problems list keeps it: {problems:?}"
+    );
 }
 
 /// **A projects folder that cannot be read says so beside its path**, in the Preferences window

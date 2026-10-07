@@ -106,8 +106,9 @@ cargo run --release
 ```
 
 `cargo run --release -- --check` reports what the machine is missing, such as GStreamer
-plugins, a hardware codec, the GPU or the NDI runtime, and exits. `SUPERSILVIA_ADAPTER` picks
-a GPU when there is more than one, for example `SUPERSILVIA_ADAPTER=integrated`.
+plugins, a hardware codec, the GPU or the NDI runtime, and exits. Preferences ▸ Performance ▸
+Use GPU picks a GPU when there is more than one, from the next start; `SUPERSILVIA_ADAPTER` wins
+over it, for example `SUPERSILVIA_ADAPTER=integrated`.
 
 NDI needs NDI's free runtime from [ndi.video](https://ndi.video). Nothing proprietary is needed
 to build.

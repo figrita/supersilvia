@@ -13,6 +13,12 @@
 //! `SUPERSILVIA_ADAPTER` names an adapter outright and wins: `SUPERSILVIA_ADAPTER=integrated`
 //! is how a machine with a discrete GPU renders on its integrated one instead.
 //!
+//! **The app's own setting sits under the two variables**: Preferences ▸ Performance ▸ GPU keeps
+//! an adapter by its [`AdapterId`] and whether a software one may be taken, and the app hands
+//! both in through [`Asked::pinned`] and [`Asked::software`] wherever the environment says
+//! nothing. A pinned adapter that is not offered is dropped for the rule rather than refused,
+//! and [`Choice::pin_dropped`] says so.
+//!
 //! **Tests and benches ask for the integrated GPU**, [`Asked::integrated`], rather than taking
 //! the app's default: a run on a discrete GPU would draw different pixels, and the
 //! snapshots are an Intel iGPU's pixels (Mesa). See
@@ -47,24 +53,64 @@ fn renders_on(backend: Backend) -> bool {
     matches!(backend, Backend::Vulkan | Backend::Metal | Backend::Dx12)
 }
 
-/// What the environment asks of [`choose`].
+/// An adapter by what identifies it from one run to the next: its name, its PCI ids and its
+/// backend. An index is not one, since the order an instance lists adapters in is its own.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct AdapterId {
+    pub name: String,
+    pub vendor: u32,
+    pub device: u32,
+    /// [`Backend::to_str`]: `vulkan`, `metal`, `dx12`.
+    pub backend: String,
+}
+
+impl AdapterId {
+    /// The identity of an adapter offered.
+    pub fn of(info: &AdapterInfo) -> Self {
+        Self {
+            name: info.name.clone(),
+            vendor: info.vendor,
+            device: info.device,
+            backend: info.backend.to_str().to_owned(),
+        }
+    }
+
+    /// Whether `info` is this adapter.
+    pub fn is(&self, info: &AdapterInfo) -> bool {
+        self.name == info.name
+            && self.vendor == info.vendor
+            && self.device == info.device
+            && self.backend == info.backend.to_str()
+    }
+}
+
+/// What the environment, and the app's own setting under it, ask of [`choose`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Asked {
     /// `SUPERSILVIA_ADAPTER`, if set and not empty.
     pub adapter: Option<String>,
-    /// `SUPERSILVIA_SOFTWARE_GPU=1`.
+    /// A software adapter may be taken: `SUPERSILVIA_SOFTWARE_GPU=1`, or the app's own setting
+    /// where the variable is unset.
     pub software: bool,
+    /// `SUPERSILVIA_SOFTWARE_GPU`, where it is set: whether it is `1`.
+    pub software_env: Option<bool>,
+    /// The adapter the app's own setting names: taken where it is offered and `adapter` is
+    /// unset, and passed over for the rule where it is not.
+    pub pinned: Option<AdapterId>,
 }
 
 impl Asked {
     /// The two variables, read from this process's environment: what the app asks.
     pub fn from_env() -> Self {
+        let software_env = std::env::var(SOFTWARE_ENV).ok().map(|v| v.trim() == "1");
         Self {
             adapter: std::env::var(ADAPTER_ENV)
                 .ok()
                 .map(|s| s.trim().to_owned())
                 .filter(|s| !s.is_empty()),
-            software: std::env::var(SOFTWARE_ENV).is_ok_and(|v| v.trim() == "1"),
+            software: software_env == Some(true),
+            software_env,
+            pinned: None,
         }
     }
 
@@ -95,16 +141,28 @@ impl Choice {
         &self.offered[self.chosen]
     }
 
-    /// How it was picked, in a few words: by the variable that named it, or by the rule.
+    /// The adapter the app's own setting pinned, where it was passed over for the rule: not
+    /// offered, or a software adapter with no software allowed.
+    pub fn pin_dropped(&self) -> Option<&AdapterId> {
+        self.asked
+            .pinned
+            .as_ref()
+            .filter(|pin| self.asked.adapter.is_none() && !pin.is(self.in_use()))
+    }
+
+    /// How it was picked, in a few words: by the variable that named it, by the app's own
+    /// setting, or by the rule.
     pub fn how(&self) -> String {
-        let how = match &self.asked.adapter {
-            Some(wanted) => format!("{ADAPTER_ENV}={wanted}"),
-            None => "the strongest: a discrete GPU before an integrated one".to_owned(),
+        let how = match (&self.asked.adapter, &self.asked.pinned) {
+            (Some(wanted), _) => format!("{ADAPTER_ENV}={wanted}"),
+            (None, Some(pin)) if pin.is(self.in_use()) => "chosen under Use GPU".to_owned(),
+            (None, Some(pin)) => format!("the strongest, as {} cannot be used", pin.name),
+            (None, None) => "the strongest: a discrete GPU before an integrated one".to_owned(),
         };
-        if self.asked.software {
-            format!("{how}, {SOFTWARE_ENV}=1")
-        } else {
-            how
+        match (self.asked.software_env, self.asked.software) {
+            (Some(true), _) => format!("{how}, {SOFTWARE_ENV}=1"),
+            (None, true) => format!("{how}, a software GPU allowed"),
+            _ => how,
         }
     }
 }
@@ -125,8 +183,9 @@ pub fn kind(device_type: DeviceType) -> &'static str {
 /// an override leaves only the adapters it names and refuses to start if it names none; a
 /// software adapter needs `software`, named or not; of what is left, a discrete GPU before an
 /// integrated one before any other hardware before a software adapter, and among adapters of
-/// one kind the first in the order the instance lists them. `Err` names every adapter offered
-/// and why each was passed over.
+/// one kind the first in the order the instance lists them. A [`pinned`](Asked::pinned) adapter
+/// left among the candidates is taken before that rule, and one that is not is passed over for
+/// it. `Err` names every adapter offered and why each was passed over.
 pub fn choose(adapters: &[AdapterInfo], asked: &Asked) -> Result<usize, String> {
     let mut passed = Vec::new();
     let mut candidates = Vec::new();
@@ -160,6 +219,12 @@ pub fn choose(adapters: &[AdapterInfo], asked: &Asked) -> Result<usize, String> 
         DeviceType::Other | DeviceType::VirtualGpu => 2,
         DeviceType::Cpu => 3,
     };
+    if asked.adapter.is_none()
+        && let Some(pin) = &asked.pinned
+        && let Some(&chosen) = candidates.iter().find(|&&i| pin.is(&adapters[i]))
+    {
+        return Ok(chosen);
+    }
     // `min_by_key` keeps the first of equals, so the list's own order breaks a tie.
     if let Some(&chosen) = candidates.iter().min_by_key(|i| tier(i)) {
         return Ok(chosen);
@@ -349,14 +414,22 @@ mod tests {
     fn named(wanted: &str) -> Asked {
         Asked {
             adapter: Some(wanted.to_owned()),
-            software: false,
+            ..Asked::default()
         }
     }
 
     fn software() -> Asked {
         Asked {
-            adapter: None,
             software: true,
+            software_env: Some(true),
+            ..Asked::default()
+        }
+    }
+
+    fn pinned(info: &AdapterInfo) -> Asked {
+        Asked {
+            pinned: Some(AdapterId::of(info)),
+            ..Asked::default()
         }
     }
 
@@ -542,6 +615,64 @@ mod tests {
                 .ends_with("SUPERSILVIA_SOFTWARE_GPU=1")
         );
         assert_eq!(kind(DeviceType::IntegratedGpu), "integrated");
+    }
+
+    #[test]
+    fn a_pinned_adapter_is_taken_before_the_rule_and_dropped_where_it_is_not_offered() {
+        let list = [uhd770(), rtx3090(), llvmpipe()];
+        assert_eq!(choose(&list, &pinned(&uhd770())), Ok(0));
+        // Not offered: the rule, with no refusal.
+        assert_eq!(choose(&list, &pinned(&radeon())), Ok(1));
+        // A software adapter pinned with no software allowed is passed over too.
+        assert_eq!(choose(&list, &pinned(&llvmpipe())), Ok(1));
+        let allowed = Asked {
+            software: true,
+            ..pinned(&llvmpipe())
+        };
+        assert_eq!(choose(&list, &allowed), Ok(2));
+        // The variable wins over a pin.
+        let both = Asked {
+            adapter: Some("3090".to_owned()),
+            ..pinned(&uhd770())
+        };
+        assert_eq!(choose(&list, &both), Ok(1));
+        // One field off is another adapter: the backend, the name.
+        let mut metal = AdapterId::of(&uhd770());
+        metal.backend = "metal".to_owned();
+        assert!(!metal.is(&uhd770()));
+        let mut renamed = AdapterId::of(&uhd770());
+        renamed.name.push('!');
+        assert!(!renamed.is(&uhd770()));
+    }
+
+    #[test]
+    fn a_choice_says_when_its_pin_was_dropped() {
+        let choice = |asked: Asked| {
+            let offered = vec![uhd770(), rtx3090()];
+            let chosen = choose(&offered, &asked).unwrap();
+            Choice {
+                offered,
+                chosen,
+                asked,
+            }
+        };
+        let kept = choice(pinned(&uhd770()));
+        assert_eq!(kept.pin_dropped(), None);
+        assert_eq!(kept.how(), "chosen under Use GPU");
+        let dropped = choice(pinned(&radeon()));
+        assert_eq!(dropped.chosen, 1);
+        assert_eq!(dropped.pin_dropped(), Some(&AdapterId::of(&radeon())));
+        assert!(
+            dropped
+                .how()
+                .contains("AMD Radeon RX 7900 XTX cannot be used")
+        );
+        assert_eq!(choice(none()).pin_dropped(), None);
+        let allowed = Asked {
+            software: true,
+            ..none()
+        };
+        assert!(choice(allowed).how().ends_with("a software GPU allowed"));
     }
 
     #[test]
