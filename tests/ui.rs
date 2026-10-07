@@ -9082,9 +9082,9 @@ fn the_mixer_panel_sets_the_fade_and_the_method() {
     h.step();
     assert_eq!(h.state().mixer().method, Method::RadialWipe);
 
-    // The resolution is the picker: Match viewport above the strip, then a shape and a short
-    // side, two clicks that each keep the other.
-    h.get_by_label("mix resolution Match viewport").click();
+    // The resolution is the picker: Match display and Match viewport above the strip, then a
+    // shape and a short side, two clicks that each keep the other.
+    h.get_by_label("mix resolution Match display").click();
     h.run_steps(2);
     h.snapshot("mixer_resolution_picker");
     h.get_by_label("mix resolution 720").click();
@@ -9114,6 +9114,12 @@ fn the_mixer_panel_sets_the_fade_and_the_method() {
     assert_eq!(
         h.state().mixer().resolution,
         supersilvia::mixer::Resolution::Viewport
+    );
+    h.get_by_label("mix resolution display").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().mixer().resolution,
+        supersilvia::mixer::Resolution::Display
     );
 }
 

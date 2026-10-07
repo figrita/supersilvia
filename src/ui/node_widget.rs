@@ -3009,7 +3009,8 @@ fn resolution_button(
     use crate::ui::{OpenControl, resolution};
     let (id, zoom) = (cx.id, cx.zoom());
     let size = crate::nodes::output::read_resolution(value);
-    let width = resolution::closed_width(ui.ctx(), Some(size), zoom).min(room.max(0.0));
+    let shown = resolution::Shown::Size(size.0, size.1);
+    let width = resolution::closed_width(ui.ctx(), shown, zoom).min(room.max(0.0));
     let height = canvas::SELECT_HEIGHT * zoom;
     let rect = Rect::from_min_size(
         Pos2::new(
@@ -3022,15 +3023,7 @@ fn resolution_button(
         *open,
         Some(OpenControl::Resolution { node, key: k, .. }) if node == id && k == key
     );
-    let response = resolution::closed(
-        ui,
-        rect,
-        cx.control(key),
-        Some(size),
-        is_open,
-        cx.theme(),
-        zoom,
-    );
+    let response = resolution::closed(ui, rect, cx.control(key), shown, is_open, cx.theme(), zoom);
     if response.clicked() {
         *open = (!is_open).then(|| OpenControl::Resolution {
             node: id,

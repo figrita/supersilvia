@@ -2363,7 +2363,7 @@ fn popups(
                         .get(key)
                         .map(|v| crate::nodes::output::read_resolution(v));
                     let name = format!("{}{node}.{key}", n.def.slug);
-                    let popped = resolution::popover(ui, at, &name, size, false, theme);
+                    let popped = resolution::popover(ui, at, &name, size, &[], theme);
                     if let Some(resolution::Pick::Size(w, h)) = popped.picked {
                         fx.commands.push(Command::SetOption {
                             node,

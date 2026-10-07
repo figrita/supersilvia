@@ -205,11 +205,40 @@ pub fn readout(size: (u32, u32)) -> (String, String) {
     )
 }
 
-/// What the mixer's first entry says.
-pub const VIEWPORT: &str = "Match viewport";
+/// The size a strip or a short side starts from while an entry above the strip is chosen
+/// whose size is not known.
+const FALLBACK: (u32, u32) = (1920, 1080);
 
-/// The size a strip or a short side starts from while the mixer matches the viewport.
-const VIEWPORT_BASE: (u32, u32) = (1920, 1080);
+/// What the closed row shows: a size, or the name of an entry above the strip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shown<'a> {
+    Size(u32, u32),
+    Named(&'a str),
+}
+
+impl Shown<'_> {
+    fn text(self) -> String {
+        match self {
+            Shown::Size(w, h) => caption((w, h)),
+            Shown::Named(label) => label.to_string(),
+        }
+    }
+}
+
+/// An entry above the strip that is no size of its own but follows something: the mixer's
+/// *Match display* and *Match viewport*.
+pub struct Entry<'a> {
+    /// The last word of its accessible name, `{name} {key}`.
+    pub key: &'a str,
+    pub label: &'a str,
+    /// It is the one chosen.
+    pub on: bool,
+    /// The size it stands for, where that is known: what the strip and the short sides start
+    /// from while it is chosen, and what the readout reads.
+    pub size: Option<(u32, u32)>,
+    /// What the readout says while it is chosen and its size is not known.
+    pub note: &'a str,
+}
 
 // Geometry, in points at zoom 1.
 
@@ -229,7 +258,7 @@ const CELL_GLYPH: (f32, f32) = (28.0, 16.0);
 const GAP: f32 = 3.0;
 /// The popover's content width: the strip's.
 pub const WIDTH: f32 = CELL.0 * COLUMNS as f32 + GAP * (COLUMNS - 1) as f32;
-/// A short side's button, the Match viewport row and a section's title row.
+/// A short side's button, an entry's row and a section's title row.
 const ROW: f32 = 22.0;
 const TITLE: f32 = 18.0;
 /// The space either side of a section's rule.
@@ -237,16 +266,14 @@ const RULE_GAP: f32 = 6.0;
 /// A typed side's field, the s-number's height.
 const FIELD: (f32, f32) = (64.0, 20.0);
 
-/// How wide the closed row is drawn for `size` (`None`, the viewport), before the room the
-/// row leaves it.
-pub fn closed_width(ctx: &eframe::egui::Context, size: Option<(u32, u32)>, zoom: f32) -> f32 {
+/// How wide the closed row is drawn for what it shows, before the room the row leaves it.
+pub fn closed_width(ctx: &eframe::egui::Context, shown: Shown<'_>, zoom: f32) -> f32 {
     let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
-    let text = size.map_or_else(|| VIEWPORT.to_string(), caption);
+    let text = shown.text();
     let text_w = ctx.fonts_mut(|f| text.chars().map(|c| f.glyph_width(&font, c)).sum::<f32>());
-    let glyph = if size.is_some() {
-        GLYPH.0 + GLYPH_GAP
-    } else {
-        0.0
+    let glyph = match shown {
+        Shown::Size(..) => GLYPH.0 + GLYPH_GAP,
+        Shown::Named(_) => 0.0,
     };
     text_w + (PAD * 2.0 + glyph + CHEVRON * 2.0 + CHEVRON_GAP) * zoom
 }
@@ -259,7 +286,7 @@ pub fn closed(
     ui: &mut Ui,
     rect: Rect,
     name: impl crate::ui::Name,
-    size: Option<(u32, u32)>,
+    shown: Shown<'_>,
     open: bool,
     theme: &Theme,
     zoom: f32,
@@ -286,24 +313,21 @@ pub fn closed(
 
     let painter = painter.with_clip_rect(rect.intersect(ui.clip_rect()));
     let mut x = rect.min.x + PAD * zoom;
-    let text = match size {
-        Some(size) => {
-            let glyph = Rect::from_min_size(
-                pos2(x, rect.center().y - GLYPH.1 * zoom * 0.5),
-                vec2(GLYPH.0, GLYPH.1) * zoom,
-            );
-            outline(
-                &painter,
-                glyph,
-                size_ratio(size),
-                1.0 * zoom,
-                theme.text_secondary(),
-            );
-            x = glyph.max.x + GLYPH_GAP * zoom;
-            caption(size)
-        }
-        None => VIEWPORT.to_string(),
-    };
+    if let Shown::Size(w, h) = shown {
+        let glyph = Rect::from_min_size(
+            pos2(x, rect.center().y - GLYPH.1 * zoom * 0.5),
+            vec2(GLYPH.0, GLYPH.1) * zoom,
+        );
+        outline(
+            &painter,
+            glyph,
+            size_ratio((w, h)),
+            1.0 * zoom,
+            theme.text_secondary(),
+        );
+        x = glyph.max.x + GLYPH_GAP * zoom;
+    }
+    let text = shown.text();
     painter.text(
         pos2(x, rect.center().y),
         Align2::LEFT_CENTER,
@@ -336,8 +360,8 @@ pub fn closed(
 /// What the popover was asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Pick {
-    /// The mixer's *Match viewport*.
-    Viewport,
+    /// An entry above the strip, by its place in the list it was given.
+    Entry(usize),
     Size(u32, u32),
 }
 
@@ -348,16 +372,16 @@ pub struct Popped {
     pub dismissed: bool,
 }
 
-/// The popover at `at`, for the size `size` holds (`None`: the viewport, offered only where
-/// `viewport` is). Its controls are named `{name} 16:9`, `{name} Free`, `{name} Wide`,
-/// `{name} 1080`, `{name} width`, `{name} height` and `{name} viewport`, none of them the
-/// closed row's own name.
+/// The popover at `at`, for the size `size` holds, with `entries` above the strip; `None`
+/// where one of them is chosen instead. Its controls are named `{name} 16:9`, `{name} Free`,
+/// `{name} Wide`, `{name} 1080`, `{name} width`, `{name} height` and `{name} {key}` for each
+/// entry, none of them the closed row's own name.
 pub fn popover(
     ui: &mut Ui,
     at: Pos2,
     name: &str,
     size: Option<(u32, u32)>,
-    viewport: bool,
+    entries: &[Entry<'_>],
     theme: &Theme,
 ) -> Popped {
     let id = ui.id().with(("resolution-popover", name));
@@ -370,24 +394,31 @@ pub fn popover(
         ui.set_width(WIDTH);
         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
         let free_asked = ui.data(|d| d.get_temp::<bool>(free_id)).unwrap_or(false);
-        let base = size.unwrap_or(VIEWPORT_BASE);
+        let chosen = entries.iter().find(|e| e.on && size.is_none());
+        let base = size
+            .or_else(|| chosen.and_then(|e| e.size))
+            .unwrap_or(FALLBACK);
         let shape = shape_of(base);
         let free = size.is_some() && (free_asked || shape.ratio.is_none());
 
-        if viewport {
+        for (i, entry) in entries.iter().enumerate() {
+            if i > 0 {
+                ui.add_space(GAP);
+            }
+            let on = entry.on && size.is_none();
             let (rect, _) = ui.allocate_exact_size(vec2(WIDTH, ROW), Sense::hover());
-            if cell(ui, rect, &format!("{name} viewport"), size.is_none(), theme).clicked()
-                && size.is_some()
-            {
-                picked = Some(Pick::Viewport);
+            if cell(ui, rect, &format!("{name} {}", entry.key), on, theme).clicked() && !on {
+                picked = Some(Pick::Entry(i));
             }
             paint_text(
                 ui.painter(),
                 rect.center(),
                 Align2::CENTER_CENTER,
-                VIEWPORT,
-                cell_ink(ui, rect, size.is_none(), theme),
+                entry.label,
+                cell_ink(ui, rect, on, theme),
             );
+        }
+        if !entries.is_empty() {
             rule(ui, theme);
         }
 
@@ -400,7 +431,7 @@ pub fn popover(
             pos2(title.max.x - toggle_w, title.min.y + 1.0),
             vec2(toggle_w, TITLE - 2.0),
         );
-        let tall = usize::from(size.is_some() && shape.tall);
+        let tall = usize::from(shape.tall);
         if crate::ui::press::choice(ui, toggle, &captions, tall, name, theme, 1.0).is_some()
             && base.0 != base.1
         {
@@ -505,7 +536,7 @@ pub fn popover(
         ui.add_space(RULE_GAP);
         let (line, _) = ui.allocate_exact_size(vec2(WIDTH, 14.0), Sense::hover());
         let font = FontId::proportional(theme::font_size(theme::FONT_TINY, 1.0));
-        match size {
+        match size.or_else(|| chosen.and_then(|e| e.size)) {
             Some(size) => {
                 let (dims, rest) = readout(size);
                 let first = ui.painter().text(
@@ -527,7 +558,7 @@ pub fn popover(
                 ui.painter().text(
                     line.left_center(),
                     Align2::LEFT_CENTER,
-                    "The canvas's shape, up to 1080 rows",
+                    chosen.map_or("", |e| e.note),
                     font,
                     theme.text_muted(),
                 );

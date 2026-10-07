@@ -1582,7 +1582,7 @@ fn the_mixer_is_not_in_the_project_file_and_the_main_input_is() {
     assert_eq!(mixer.a, None, "no deck is claimed on opening");
     assert_eq!(mixer.balance, -1.0);
     assert_eq!(mixer.method, Method::Blend);
-    assert_eq!(mixer.resolution, Resolution::Viewport);
+    assert_eq!(mixer.resolution, Resolution::Display);
     assert!(!mixer.background);
     let input = back.main_input();
     assert_eq!(input.video, clip, "the clip comes back");

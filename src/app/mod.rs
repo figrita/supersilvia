@@ -210,6 +210,10 @@ pub struct App {
     /// The canvas size seen last and the time it was first seen, which `mix_viewport` takes
     /// once it has held for `frame::MIX_SETTLE_S`. `None` until a frame has had a canvas.
     mix_canvas: Option<((u32, u32), f64)>,
+    /// The connected display with the fewest pixels, its physical size, which is what a
+    /// display-matched mix — the default — is sized to. As the pictures thread last reported
+    /// the displays; `None` until it has, and in a run with no window system.
+    mix_display: Option<(u32, u32)>,
     /// Which pictures should have windows of their own, and what those windows are doing.
     ///
     /// Session state: which picture is on which screen is decided on the night, so it is not
@@ -442,6 +446,7 @@ impl App {
             gpu_choice: None,
             mix_viewport: crate::nodes::output::DEFAULT_RESOLUTION,
             mix_canvas: None,
+            mix_display: None,
             wall: crate::render::picture::Wall::default(),
             pictures: crate::render::picture::Host::detached(),
             filedrop: crate::platform::filedrop::FileDrop::none(),
@@ -1129,6 +1134,7 @@ impl App {
             &self.project,
             &self.prefs,
             self.mix_viewport,
+            self.mix_display,
             seen,
         );
         f(&mut self.link, &session)
@@ -1185,6 +1191,7 @@ impl App {
             ghost: self.midi_ghost(crate::midi::Target::Balance),
             method: m.method,
             resolution: m.resolution,
+            display: self.mix_display,
             popped: self
                 .wall
                 .open()
@@ -2338,6 +2345,7 @@ fn session<'a>(
     project: &'a Project,
     prefs: &'a preferences::Store,
     mix_viewport: (u32, u32),
+    mix_display: Option<(u32, u32)>,
     seen: Seen,
 ) -> link::Session<'a> {
     link::Session {
@@ -2347,6 +2355,7 @@ fn session<'a>(
         active: project.session().active_workspace(),
         mixer: project.mixer(),
         mix_viewport,
+        mix_display,
         report: seen.report,
         status: prefs.get().show_status_box,
         preview: !prefs.get().main_input_collapsed,

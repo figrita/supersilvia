@@ -90,6 +90,9 @@ pub struct MixerView<'a> {
     pub freeze: SwitchView,
     pub method: Method,
     pub resolution: Resolution,
+    /// The smallest connected display's physical size, which *Match display* names, where
+    /// one has been reported.
+    pub display: Option<(u32, u32)>,
     /// Whether the mix has a window of its own, and whether that window is fullscreen.
     pub popped: Option<bool>,
     /// Why there are no picture windows in this session — no Wayland, no GPU, a
@@ -127,29 +130,57 @@ const BALANCE: crate::graph::ControlRange = crate::graph::ControlRange {
 };
 
 /// The mix's resolution picker: the closed row across the panel row, and its popover with
-/// *Match viewport* above the strip while it is open. Returns a resolution picked.
-fn resolution_picker(ui: &mut Ui, current: Resolution, theme: &Theme) -> Option<Resolution> {
+/// *Match display* and *Match viewport* above the strip while it is open. Returns a
+/// resolution picked.
+fn resolution_picker(
+    ui: &mut Ui,
+    current: Resolution,
+    display: Option<(u32, u32)>,
+    theme: &Theme,
+) -> Option<Resolution> {
     use crate::ui::resolution;
     const NAME: &str = "mix resolution";
+    const FOLLOWING: [Resolution; 2] = [Resolution::Display, Resolution::Viewport];
     let open_id = ui.id().with("mix-resolution-open");
     let mut open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
-    let size = match current {
-        Resolution::Viewport => None,
-        Resolution::Fixed(w, h) => Some((w, h)),
+    let label = current.label(display);
+    let (size, shown) = match (current, &label) {
+        (Resolution::Fixed(w, h), _) => (Some((w, h)), resolution::Shown::Size(w, h)),
+        (_, label) => (
+            None,
+            resolution::Shown::Named(label.as_deref().unwrap_or("")),
+        ),
     };
     let (rect, _) = ui.allocate_exact_size(
         vec2(ui.available_width(), ui.spacing().interact_size.y),
         Sense::hover(),
     );
-    let response = resolution::closed(ui, rect, NAME, size, open, theme, 1.0);
+    let response = resolution::closed(ui, rect, NAME, shown, open, theme, 1.0);
     if response.clicked() {
         open = !open;
     }
     let mut picked = None;
     if open {
-        let popped = resolution::popover(ui, rect.left_bottom(), NAME, size, true, theme);
+        let labels = FOLLOWING.map(|r| r.label(display).unwrap_or_default());
+        let entries = [
+            resolution::Entry {
+                key: "display",
+                label: &labels[0],
+                on: current == Resolution::Display,
+                size: display,
+                note: "The canvas's shape, until a display is reported",
+            },
+            resolution::Entry {
+                key: "viewport",
+                label: &labels[1],
+                on: current == Resolution::Viewport,
+                size: None,
+                note: "The canvas's shape, up to 1080 rows",
+            },
+        ];
+        let popped = resolution::popover(ui, rect.left_bottom(), NAME, size, &entries, theme);
         picked = popped.picked.map(|pick| match pick {
-            resolution::Pick::Viewport => Resolution::Viewport,
+            resolution::Pick::Entry(i) => FOLLOWING[i],
             resolution::Pick::Size(w, h) => Resolution::Fixed(w, h),
         });
         if popped.dismissed && !response.clicked() {
@@ -205,7 +236,7 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
 
     heading(ui, "Projection", theme);
     panel::row(ui, "Resolution", theme, |ui| {
-        if let Some(resolution) = resolution_picker(ui, view.resolution, theme) {
+        if let Some(resolution) = resolution_picker(ui, view.resolution, view.display, theme) {
             out.actions.push(MixerAction::SetResolution(resolution));
         }
     });

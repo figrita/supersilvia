@@ -38,6 +38,9 @@ pub(in crate::app) struct Session<'a> {
     pub mixer: &'a Mixer,
     /// The canvas in physical pixels, which a viewport-matched mix is sized to.
     pub mix_viewport: (u32, u32),
+    /// The smallest connected display in physical pixels, which a display-matched mix is
+    /// sized to, where one has been reported.
+    pub mix_display: Option<(u32, u32)>,
     /// Whether anything will read the per-node half of a tick.
     pub report: bool,
     /// Whether the Status box is open.
@@ -58,7 +61,10 @@ impl Session<'_> {
         Mix {
             a: self.mixer.a,
             b: self.mixer.b,
-            resolution: self.mixer.resolution.pixels(self.mix_viewport),
+            resolution: self
+                .mixer
+                .resolution
+                .pixels(self.mix_viewport, self.mix_display),
         }
     }
 
