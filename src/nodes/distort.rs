@@ -286,7 +286,7 @@ node! {
     tooltip: "Twists the input around a center and pulls it in or out, both fading to nothing \
               at the radius. Its mask is that falloff. Negative pinch is cool.",
     // "Pinch Amount" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "whirledUV" = Control::None,
         VaryingNumber "whirl" "Whirl Angle" = Control::num(0.25, -2.0, 2.0, 0.001, crate::nodes::TURNS),
@@ -368,7 +368,7 @@ node! {
               Continuous repeats one without mirroring, and Spiral unwraps the wedge into a \
               tunnel. Source Segment picks which wedge is copied.",
     // "Source Segment" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "sampleUV" = Control::None,
         VaryingNumber "segments" "Segments" = Control::num(6.0, 2.0, 32.0, 1.0, ""),
@@ -427,7 +427,7 @@ node! {
     // "Slide Direction" beside "Horizontal (Rows)" needs 246 of the 200 a body has by
     // default, and a direction that reads "Horizont…" closed is the one setting that says
     // which way the bond runs.
-    width: 250.0,
+    width: 224.0,
     inputs: [
         VaryingColor "input" "Input" at "tiledUV" = Control::None,
         VaryingNumber "width" "Width" = Control::num(2.0, 0.1, 10.0, 0.1, "⬓"),
@@ -512,7 +512,7 @@ node! {
     tooltip: "Copies one rectangle of the input into a grid of rows and columns, with spacing \
               between them and the background showing through. Grid Mask is where a copy is.",
     // "Source Height" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "sourceUV" = Control::None,
         VaryingColor "bgColor" "Background" = Control::color("#00000000"),

@@ -251,11 +251,12 @@ const CONTROL_LABEL_GAP: f32 = 4.0;
 /// Clear space between a node's title and the leftmost mark on its header.
 const TITLE_CLEARANCE: f32 = 6.0;
 
-/// One monospace advance, which is every advance.
+/// A digit's advance, which is every digit's, and at least most letters'.
 ///
-/// Everything a node paints is monospace, so `fit` is division rather than a text layout per
-/// row per frame — and the `.max` is what keeps a font that has not loaded from dividing by
-/// zero.
+/// The text face's figures are tabular and wider than its lower case, so a label measured in
+/// digits is measured long: `fit` stays division rather than a text layout per row per frame,
+/// and errs towards cutting a little early rather than running into the control beside it.
+/// The `.max` is what keeps a font that has not loaded from dividing by zero.
 pub fn advance(ctx: &eframe::egui::Context, font: &FontId) -> f32 {
     ctx.fonts_mut(|f| f.glyph_width(font, '0')).max(0.01)
 }
@@ -283,8 +284,8 @@ fn label_room(block_width: f32, is_output: bool, has_control: bool, taken: f32, 
 /// published ([`crate::synth::Uniforms::get`]), so a gear's Cycles climb for as long as the
 /// show runs and the label beside them gives up its room a character at a time.
 ///
-/// **Two fixed places, not three significant figures.** Everything on the canvas is
-/// monospace, so a fixed decimal count changes width only when the integer part gains a
+/// **Two fixed places, not three significant figures.** Every digit on the canvas is one
+/// width, so a fixed decimal count changes width only when the integer part gains a
 /// digit — once a decade — where significant figures re-flow on every crossing of a power
 /// of ten, and a value crossing 1.0 sixty times a second would jitter its own label. Two
 /// places is also what the readout on the control beside it shows for the same step, so a
@@ -637,7 +638,8 @@ fn title(ui: &Ui, cx: &NodeCtx<'_>, header: Rect, marks: &Marks) {
         theme.text_primary(),
     );
     let title_at = Pos2::new(drawn.max.x + 5.0 * zoom, at.y);
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    // In the strong face: a node's name is the one line on it that says what the rest is.
+    let font = crate::ui::theme::strong_font(crate::ui::theme::font_size(
         crate::ui::theme::FONT_BASE,
         zoom,
     ));
@@ -649,9 +651,10 @@ fn title(ui: &Ui, cx: &NodeCtx<'_>, header: Rect, marks: &Marks) {
         .or(marks.help.or(marks.close))
         .map_or(header.max.x, |r| r.min.x)
         - TITLE_CLEARANCE * zoom;
-    let shown = fit(
+    let (shown, _) = fit_text(
+        ui.ctx(),
+        &font,
         cx.node.def.label,
-        advance(ui.ctx(), &font),
         (boundary - title_at.x).max(0.0),
         Keep::Start,
     );
@@ -680,7 +683,7 @@ fn sampling_warning(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, taps: f64) {
         rect.center(),
         Align2::CENTER_CENTER,
         "⚠",
-        FontId::monospace(crate::ui::theme::font_size(
+        FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_BASE,
             cx.zoom(),
         )),
@@ -721,7 +724,7 @@ fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option
         rect.center(),
         Align2::CENTER_CENTER,
         "!",
-        FontId::monospace(crate::ui::theme::font_size(
+        FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             cx.zoom(),
         )),
@@ -743,7 +746,7 @@ fn fault_flag(ui: &mut Ui, cx: &NodeCtx<'_>, rect: Rect, why: &str, taps: Option
 /// is where the port hangs off the node's true edge.
 fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
     let (node, def, theme, zoom) = (cx.node, cx.node.def, cx.theme(), cx.zoom());
-    let small = FontId::monospace(crate::ui::theme::font_size(
+    let small = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -751,7 +754,6 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
     // so it is a fresh galley whatever happens; what it must not also be is a fresh
     // allocation per uniform number output per frame, and a node like `audioin` has six.
     let mut number = String::new();
-    let advance = advance(ui.ctx(), &small);
     for (r, block) in cx.layout.blocks() {
         let band = cx.screen(block);
         let Some((index, is_input)) = r.row.port() else {
@@ -874,7 +876,7 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
             taken,
             zoom,
         );
-        let shown = fit(label, advance, room, Keep::Start);
+        let (shown, _) = fit_text(ui.ctx(), &small, label, room, Keep::Start);
         ui.painter()
             .text(at, align, &shown, small.clone(), theme.text_secondary());
     }
@@ -1330,7 +1332,7 @@ fn row_heading_of(def: &'static nodes::NodeDef, key: &'static str) -> Option<nod
 /// with the accent kept for the one cell that is a live capture.
 fn readout_lines(ui: &Ui, cx: &NodeCtx<'_>, readout: &crate::ui::OutputReadout) {
     let (theme, zoom) = (cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -1939,15 +1941,16 @@ pub fn controls(
     option_rows(ui, cx, fx, open);
     value_rows(ui, cx, fx);
     check_row(ui, cx, fx);
-    // The grip that sets the body's width, for the one kind that has one.
-    if cx.node.def.resizable {
+    // The grip that sizes the text box: its height on any node with one, and the body's
+    // width too on the one kind whose width a hand sets.
+    if cx.node.def.resizable || cx.node.def.values.iter().any(|v| v.rows() > 1) {
         let corner = cx
             .layout
             .blocks()
             .filter(|(r, _)| matches!(r.row, canvas::Row::Value(_)))
             .last()
             .map_or(cx.layout.rect, |(_, band)| band);
-        fx.commands.extend(width_grip(ui, cx, corner));
+        fx.commands.extend(size_grip(ui, cx, corner));
     }
     if let Some(at) = live_at {
         toggle(
@@ -2291,7 +2294,7 @@ fn setting_row(
         band.left_center() + vec2(12.0 * zoom, 0.0),
         Align2::LEFT_CENTER,
         input.label,
-        FontId::monospace(crate::ui::theme::font_size(
+        FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             zoom,
         )),
@@ -2322,7 +2325,7 @@ fn record_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
     use crate::nodes::output::{self, Press as Asks};
     use crate::ui::press;
     let (theme, zoom) = (cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -2374,7 +2377,7 @@ fn record_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
     ui.painter().text(
         Pos2::new(text_at, band.center().y),
         Align2::LEFT_CENTER,
-        fit(&status.line, advance, room, Keep::Start),
+        fit_text(ui.ctx(), &font, &status.line, room, Keep::Start).0,
         font,
         ink,
     );
@@ -2447,7 +2450,7 @@ fn render_button(
             rect.center(),
             Align2::CENTER_CENTER,
             "!",
-            FontId::monospace(crate::ui::theme::font_size(
+            FontId::proportional(crate::ui::theme::font_size(
                 crate::ui::theme::FONT_BASE,
                 zoom,
             )),
@@ -2550,7 +2553,7 @@ const NAME_LABEL: &str = "Name";
 fn name_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect) {
     use crate::nodes::output;
     let (node, theme, zoom) = (cx.node, cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -2598,7 +2601,7 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
     use crate::nodes::output::{self, Press as Asks, Way};
     use crate::ui::press;
     let (node, theme, zoom) = (cx.node, cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -2656,7 +2659,7 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
     ui.painter().text(
         Pos2::new(text_at, band.center().y),
         Align2::LEFT_CENTER,
-        fit(&status.line, advance, room, Keep::Start),
+        fit_text(ui.ctx(), &font, &status.line, room, Keep::Start).0,
         font,
         ink,
     );
@@ -2727,7 +2730,7 @@ fn choice_row(
     let &[(first, first_caption), (second, second_caption)] = option.choices else {
         return;
     };
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -2812,7 +2815,7 @@ fn option_row(
     use crate::command::Command;
     use crate::ui::OpenControl;
     let (node, id, def, theme, zoom) = (cx.node, cx.id, cx.node.def, cx.theme(), cx.zoom());
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -2850,7 +2853,7 @@ fn option_row(
     // select's height, beside the label — and wide enough for its longest number and its
     // unit.
     if let Some(bounds) = option_def.and_then(|o| o.number) {
-        let font = FontId::monospace(crate::ui::theme::font_size(
+        let font = FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             zoom,
         ));
@@ -3036,8 +3039,8 @@ fn value_rows(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects) {
                     // Nothing a note can hold is invalid: it is prose, and the border says
                     // "this will not compile" about things that compile.
                     valid: true,
-                    // The floor under an empty box, in lines. How tall it actually ends up
-                    // is the text's business, and the field reports that back below.
+                    // The box's lines, which is what makes it a box rather than a row; its
+                    // height is the layout's, and what does not fit scrolls.
                     rows,
                 };
                 let name = cx.control(value_def.key);
@@ -3048,17 +3051,6 @@ fn value_rows(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects) {
                         key: value_def.key,
                         value: crate::graph::Value::Text(next),
                     });
-                }
-                // No cap. One was tried, at 320 points, and a node that stops growing while
-                // its text does not is a node with text lying on the canvas underneath it.
-                // A note tall enough to be a nuisance has the same answer every node has:
-                // collapse it to its header.
-                let wants = edited.height;
-                // Compared loosely: a height is a float that comes back through a galley and
-                // a zoom, and reporting a change every frame over a rounding error would keep
-                // the node resizing forever.
-                if (canvas::value_height(node, cx.layout.measured, index) - wants).abs() > 0.5 {
-                    fx.grown.push((id, index, wants));
                 }
             }
             // Drawn in a region, which has no row to find here — see `widgets::curve`,
@@ -3119,38 +3111,43 @@ const GRIP: f32 = 16.0;
 /// of them this long.
 const GRIP_MARK: f32 = 11.0;
 
-/// The corner a hand drags a body wider by, in the bottom-right of the box it belongs to.
+/// The corner a hand drags a node's text box bigger by, in the bottom-right of the box.
 ///
-/// **Width only.** silvia's corner takes both axes, because its note holds a fixed box with
-/// its own scrollbar; here the height is the text's own — the box grows as it is typed into
-/// and shrinks back — so there is no height for a hand to set that the next keystroke would
-/// not overrule. What is left is the one thing a person sizes a comment box for: how wide the
-/// prose runs.
+/// **Both axes on a note, height alone elsewhere.** A note's body width is the one a hand may
+/// set; every text box's height is, since the box no longer grows with its text and a hand
+/// is the only thing that sizes it (`canvas::value_height`). What is typed past it scrolls.
 ///
-/// The grip is grabbed where it is taken, not where its corner is: the width follows the
-/// pointer plus the distance from it to the body's edge at the press, so the body does not
-/// jump to the cursor on the first frame of the drag.
-fn width_grip(ui: &mut Ui, cx: &NodeCtx<'_>, box_world: Rect) -> Option<crate::command::Command> {
+/// The drag is measured from where it started: the size at the press plus how far the pointer
+/// has gone since, so the box does not jump to the cursor on the first frame of the drag.
+fn size_grip(ui: &mut Ui, cx: &NodeCtx<'_>, box_world: Rect) -> Option<crate::command::Command> {
     let (node, id, t, origin, theme) = (cx.node, cx.id, &cx.t, cx.origin, cx.theme());
+    let wide = node.def.resizable;
     let size = GRIP * t.zoom;
     let corner = t.to_screen_rect(origin, box_world).max;
     let rect = Rect::from_min_max(Pos2::new(corner.x - size, corner.y - size), corner);
-    let widget = ui.id().with(("width-grip", id));
+    let widget = ui.id().with(("size-grip", id));
     let response = ui.interact(rect, widget, Sense::drag());
-    let name = cx.control("width");
+    // `resize`, not `size`: the Text node has an option called Size, and the grip must not
+    // answer to that option's name.
+    let name = cx.control("resize");
     let width = canvas::node_width(node);
+    let index = node.def.values.iter().position(|v| v.rows() > 1);
+    let height = index.map_or(0.0, |i| canvas::value_height(node, i));
     crate::ui::accessible(
         &response,
         WidgetType::Other,
-        format_args!("{name} {width:.0}"),
+        format_args!("{name} {width:.0}x{height:.0}"),
     );
     if response.hovered() || response.dragged() {
-        ui.ctx()
-            .set_cursor_icon(eframe::egui::CursorIcon::ResizeHorizontal);
+        ui.ctx().set_cursor_icon(if wide {
+            eframe::egui::CursorIcon::ResizeNwSe
+        } else {
+            eframe::egui::CursorIcon::ResizeVertical
+        });
     }
 
     // Three hairlines across the corner, shortest at the outside: the mark a browser draws
-    // on a resizable box, which is the mark silvia's note wears.
+    // on a resizable box.
     let ink = if response.hovered() || response.dragged() {
         theme.accent()
     } else {
@@ -3172,30 +3169,41 @@ fn width_grip(ui: &mut Ui, cx: &NodeCtx<'_>, box_world: Rect) -> Option<crate::c
     if response.drag_started()
         && let Some(press) = ui.input(|i| i.pointer.press_origin())
     {
-        // How far the body's own edge was from the pointer when it closed. Held in egui's
-        // temporary store rather than in a field, the way `ui::text`'s draft is: it belongs
-        // to this gesture and to nothing that outlives it.
-        let at = t.to_world(origin, press).x;
-        ui.data_mut(|d| d.insert_temp(widget, node.pos.x + width - at));
+        // Where the drag began and the size it began at, held in egui's temporary store
+        // rather than in a field, the way `ui::text`'s draft is: it belongs to this gesture
+        // and to nothing that outlives it.
+        let at = t.to_world(origin, press);
+        ui.data_mut(|d| d.insert_temp(widget, (at, width, height)));
     }
     if response.dragged()
         && let Some(at) = ui.ctx().pointer_latest_pos()
+        && let Some((from, w0, h0)) = ui.data(|d| d.get_temp::<(Pos2, f32, f32)>(widget))
     {
-        let grab: f32 = ui.data(|d| d.get_temp(widget)).unwrap_or(0.0);
-        let want = (t.to_world(origin, at).x + grab - node.pos.x)
-            .clamp(canvas::natural_width(node), canvas::MAX_NODE_WIDTH);
-        // Rounded to the point: a width is a number a file carries and a test reads, and a
+        let moved = t.to_world(origin, at) - from;
+        // Rounded to the point: a size is a number a file carries and a test reads, and a
         // drag that wrote 261.0837 would put the pointer's own sub-pixel noise in both.
-        let want = want.round();
-        if (want - width).abs() >= 0.5 {
-            return Some(crate::command::Command::SetNodeWidth {
+        let want_w = wide.then(|| {
+            (w0 + moved.x)
+                .clamp(canvas::natural_width(node), canvas::MAX_NODE_WIDTH)
+                .round()
+        });
+        let want_h = index.map(|_| {
+            (h0 + moved.y)
+                .clamp(canvas::MIN_TEXT_HEIGHT, canvas::MAX_TEXT_HEIGHT)
+                .round()
+        });
+        let changed = want_w.is_some_and(|w| (w - width).abs() >= 0.5)
+            || want_h.is_some_and(|h| (h - height).abs() >= 0.5);
+        if changed {
+            return Some(crate::command::Command::SetNodeSize {
                 node: id,
-                width: Some(want),
+                width: want_w.or(node.dragged_width),
+                height: want_h.or(node.dragged_height),
             });
         }
     }
     if response.drag_stopped() {
-        ui.data_mut(|d| d.remove::<f32>(widget));
+        ui.data_mut(|d| d.remove::<(Pos2, f32, f32)>(widget));
     }
     None
 }
@@ -3264,7 +3272,7 @@ fn select_button(
     theme: &crate::ui::theme::Theme,
     zoom: f32,
 ) -> Response {
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -3277,14 +3285,13 @@ fn select_button(
         } else {
             0.0
         };
-    let advance = advance(ui.ctx(), &font);
-    let shown = fit(
+    let (shown, text_w) = fit_text(
+        ui.ctx(),
+        &font,
         select.value,
-        advance,
         (room - furniture).max(0.0),
         select.keep,
     );
-    let text_w = advance * shown.chars().count() as f32;
 
     let height = canvas::SELECT_HEIGHT * zoom;
     let width = (text_w + furniture).min(room.max(0.0));
@@ -3372,31 +3379,74 @@ fn select_button(
     response
 }
 
-/// Cut `value` to what fits in `room`, keeping the end that tells values apart.
+/// Cut `value` to what fits in `room`, keeping the end that tells values apart, and say how
+/// wide the result is. `width` is one character's advance.
 ///
-/// Monospace everywhere, so this is division rather than a text layout. An ellipsis marks
-/// the cut and costs one of the characters it was going to save.
+/// A sum of advances rather than a text layout: kerning is left out, which is a point or two
+/// on a label, and it is what keeps this cheap enough for every row on every frame. An
+/// ellipsis marks the cut and is paid for out of `room`.
 ///
 /// Borrowed unless something is actually cut: every port row and every node title fits this
 /// through on every frame, and the registry's own labels are `&'static str` that were never
 /// going to need an allocation to be drawn.
-pub fn fit(value: &str, advance: f32, room: f32, keep: Keep) -> std::borrow::Cow<'_, str> {
+pub fn fit(
+    value: &str,
+    room: f32,
+    keep: Keep,
+    mut width: impl FnMut(char) -> f32,
+) -> (std::borrow::Cow<'_, str>, f32) {
     use std::borrow::Cow;
+    let whole: f32 = value.chars().map(&mut width).sum();
+    if whole <= room {
+        return (Cow::Borrowed(value), whole);
+    }
+    let ellipsis = width('…');
+    let budget = room - ellipsis;
+    let mut used = 0.0;
+    let mut kept = 0;
+    let mut take = |c: char, used: &mut f32, kept: &mut usize| {
+        let w = width(c);
+        (*used + w <= budget).then(|| {
+            *used += w;
+            *kept += 1;
+        })
+    };
+    match keep {
+        Keep::End => {
+            for c in value.chars().rev() {
+                if take(c, &mut used, &mut kept).is_none() {
+                    break;
+                }
+            }
+        }
+        Keep::Start => {
+            for c in value.chars() {
+                if take(c, &mut used, &mut kept).is_none() {
+                    break;
+                }
+            }
+        }
+    }
+    if kept == 0 {
+        return (Cow::Borrowed("…"), ellipsis);
+    }
     let n = value.chars().count();
-    let fits = (room / advance).floor().max(0.0) as usize;
-    if n <= fits {
-        return Cow::Borrowed(value);
-    }
-    if fits <= 1 {
-        return Cow::Borrowed("…");
-    }
-    Cow::Owned(match keep {
-        Keep::End => format!(
-            "…{}",
-            value.chars().skip(n - (fits - 1)).collect::<String>()
-        ),
-        Keep::Start => format!("{}…", value.chars().take(fits - 1).collect::<String>()),
-    })
+    let shown = match keep {
+        Keep::End => format!("…{}", value.chars().skip(n - kept).collect::<String>()),
+        Keep::Start => format!("{}…", value.chars().take(kept).collect::<String>()),
+    };
+    (Cow::Owned(shown), used + ellipsis)
+}
+
+/// [`fit`] in `font`, under one lock of the context's fonts.
+pub fn fit_text<'a>(
+    ctx: &eframe::egui::Context,
+    font: &FontId,
+    value: &'a str,
+    room: f32,
+    keep: Keep,
+) -> (std::borrow::Cow<'a, str>, f32) {
+    ctx.fonts_mut(|f| fit(value, room, keep, |c| f.glyph_width(font, c)))
 }
 
 /// How tall an open select grows before it scrolls, in points.
@@ -3580,7 +3630,7 @@ pub fn live_popup(
             ui.label(
                 eframe::egui::RichText::new("A render reads these as they are now:")
                     .color(theme.text_muted())
-                    .font(FontId::monospace(crate::ui::theme::FONT_TINY)),
+                    .font(FontId::proportional(crate::ui::theme::FONT_TINY)),
             );
             ui.with_layout(rows(), |ui| {
                 for (i, source) in sources.iter().enumerate() {
@@ -3702,7 +3752,7 @@ pub fn tag(
 ) -> (Rect, Response) {
     use crate::ui::theme;
 
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let dim = |c: eframe::egui::Color32| {
         if tag.closed {
             c.gamma_multiply(theme::TAG_CLOSED)
@@ -4065,7 +4115,7 @@ mod tests {
     #[test]
     fn a_value_too_wide_is_cut_from_the_end_that_says_least() {
         // One point a character, so `room` is a character count.
-        let fits = |room: f32, keep| fit("gumbasia.webm", 1.0, room, keep);
+        let fits = |room: f32, keep| fit("gumbasia.webm", room, keep, |_| 1.0).0;
         assert_eq!(fits(13.0, Keep::End), "gumbasia.webm", "it fits whole");
         assert_eq!(fits(99.0, Keep::Start), "gumbasia.webm");
         // A file name keeps its tail: the extension is what says what it is.
@@ -4083,8 +4133,8 @@ mod tests {
 
     #[test]
     fn a_value_that_fits_is_left_alone() {
-        assert_eq!(fit("all", 1.0, 3.0, Keep::Start), "all");
-        assert_eq!(fit("", 1.0, 0.0, Keep::End), "");
+        assert_eq!(fit("all", 3.0, Keep::Start, |_| 1.0).0, "all");
+        assert_eq!(fit("", 0.0, Keep::End, |_| 1.0).0, "");
     }
 
     /// One Output node at the world origin, laid out alone: its body and the band its render
@@ -4092,7 +4142,7 @@ mod tests {
     fn output() -> (Rect, Rect) {
         let mut g = Graph::new();
         let id = crate::nodes::add_to_graph(&mut g, "output", Pos2::ZERO).expect("in registry");
-        let laid = canvas::Layouts::one(&g, id, &[]);
+        let laid = canvas::Layouts::one(&g, id);
         let l = laid.find(id).expect("just added");
         (l.rect, l.region(canvas::Region::Declared(0)))
     }
@@ -4165,7 +4215,7 @@ mod tests {
             crate::ui::theme::apply(ctx, &crate::ui::theme::Theme::default());
         });
         output.textures_delta.clear();
-        let small = FontId::monospace(crate::ui::theme::font_size(
+        let small = FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             1.0,
         ));

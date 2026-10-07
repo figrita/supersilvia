@@ -103,7 +103,7 @@ node! {
     tooltip: "A star with a chosen number of points, inner radius and rotation. Its mask is \
               the inside/outside test that drew it.",
     // "Inner Radius" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
@@ -204,7 +204,7 @@ node! {
     tooltip: "A spiral in one of three families. Its mask is the coverage of the arm, and its \
               angle is the polar sweep the arm is drawn along.",
     // "Inner Radius" and "Outer Radius" do not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),
@@ -251,7 +251,7 @@ node! {
     tooltip: "The spiral packing a sunflower head uses. The angle between seeds is what makes \
               the arms; the golden angle is 0.382 turns.",
     // "Background Color" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingNumber "count" "Count" = Control::num(100.0, 1.0, 500.0, 1.0, ""),
         VaryingNumber "radius" "Radius" = Control::num(0.9, 0.01, 2.0, 0.01, "⬓"),

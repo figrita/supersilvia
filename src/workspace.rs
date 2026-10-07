@@ -75,6 +75,10 @@ pub struct SavedNode {
     /// still the width its kind asks for, which is almost all of them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f32>,
+    /// A text box's height a hand dragged. Left out for a box still the height its kind
+    /// declares.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,6 +238,7 @@ impl WorkspaceFile {
                 pos: node.pos,
                 collapsed: node.collapsed,
                 width: node.dragged_width,
+                height: node.dragged_height,
                 controls: node
                     .controls
                     .iter()
@@ -332,6 +337,7 @@ impl WorkspaceFile {
                     inputs,
                     outputs,
                     dragged_width: saved.width,
+                    dragged_height: saved.height,
                     controls: HashMap::default(),
                     values: BTreeMap::default(),
                     options: BTreeMap::default(),

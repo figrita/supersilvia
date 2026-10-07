@@ -25,7 +25,7 @@ const MIN_WIDTH: f32 = 18.0;
 pub fn keycap(ui: &mut Ui, legend: &str, theme: &Theme) {
     let galley = ui.painter().layout_no_wrap(
         legend.to_owned(),
-        FontId::monospace(theme::FONT_BASE),
+        FontId::proportional(theme::FONT_BASE),
         theme.text_primary(),
     );
     let size = vec2(
@@ -61,7 +61,7 @@ pub fn keycap(ui: &mut Ui, legend: &str, theme: &Theme) {
 pub fn word(ui: &mut Ui, text: &str, color: Color32) {
     ui.label(
         eframe::egui::RichText::new(text)
-            .font(FontId::monospace(theme::FONT_BASE))
+            .font(FontId::proportional(theme::FONT_BASE))
             .color(color),
     );
 }

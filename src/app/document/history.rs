@@ -120,7 +120,7 @@ pub(super) fn control_target(cmd: &Command) -> Option<(NodeId, &'static str)> {
 pub(super) fn coalescable(cmd: &Command) -> bool {
     matches!(
         cmd,
-        Command::MoveNodes { .. } | Command::SetNodeWidth { .. } | Command::SetControls { .. }
+        Command::MoveNodes { .. } | Command::SetNodeSize { .. } | Command::SetControls { .. }
     ) || control_target(cmd).is_some()
 }
 
@@ -143,7 +143,7 @@ pub(super) fn joins(last: &Command, cmd: &Command) -> bool {
         // region that writes a node's controls and its options together — a pad's preset, its
         // edges either side of its numbers — is one undo step: only across the two kinds, so
         // two options or two handles are still told apart as before.
-        (Command::SetNodeWidth { node: a, .. }, Command::SetNodeWidth { node: b, .. })
+        (Command::SetNodeSize { node: a, .. }, Command::SetNodeSize { node: b, .. })
         | (Command::SetControls { node: a, .. }, Command::SetOption { node: b, .. })
         | (Command::SetOption { node: a, .. }, Command::SetControls { node: b, .. }) => a == b,
         (

@@ -260,16 +260,18 @@ pub enum Command {
         key: &'static str,
         value: crate::graph::Value,
     },
-    /// Set one node's body width, or hand it back to the width its kind asks for.
+    /// Set one node's body width and its text box's height, or hand either back to what its
+    /// kind asks for.
     ///
     /// Layout, and document data like a position: it goes through the bus, is undoable and
-    /// rides in the file. `history::joins` coalesces consecutive widths of the same node, so
-    /// a drag on a note's grip is one undo step rather than one per frame. A width below
-    /// what the kind asks for is not refused — `canvas::node_width` is the one place that
-    /// decides how wide a node is drawn, and it holds every width to that floor.
-    SetNodeWidth {
+    /// rides in the file. `history::joins` coalesces consecutive sizes of the same node, so
+    /// a drag on a grip is one undo step rather than one per frame. A size below what the
+    /// kind asks for is not refused — `canvas::node_width` and `canvas::value_height` are the
+    /// places that decide how big a node is drawn, and they hold every size to that floor.
+    SetNodeSize {
         node: NodeId,
         width: Option<f32>,
+        height: Option<f32>,
     },
     /// Draw a node as a header only, or restore it. Presentation, so it never recompiles;
     /// document data, so it is undoable and rides in the file.
@@ -382,7 +384,7 @@ impl Command {
         !matches!(
             self,
             Self::MoveNodes { .. }
-                | Self::SetNodeWidth { .. }
+                | Self::SetNodeSize { .. }
                 | Self::AutoArrange { .. }
                 | Self::SetCollapsed { .. }
                 | Self::SetLayout { .. }
@@ -409,7 +411,7 @@ impl Command {
                 | Self::ResetControls(..)
                 | Self::SetValue { .. }
                 | Self::MoveNodes { .. }
-                | Self::SetNodeWidth { .. }
+                | Self::SetNodeSize { .. }
                 | Self::AutoArrange { .. }
                 | Self::SetCollapsed { .. }
                 | Self::SetLayout { .. }
@@ -498,7 +500,7 @@ impl Command {
             Self::SetRange { node, key, .. } => format!("Change {} range", row(*node, key)),
             Self::ClearRange { node, key } => format!("Reset {} range", row(*node, key)),
             Self::SetValue { node, key, .. } => format!("Edit {}", row(*node, key)),
-            Self::SetNodeWidth { node: id, .. } => format!("Resize {}", nodes(&[*id])),
+            Self::SetNodeSize { node: id, .. } => format!("Resize {}", nodes(&[*id])),
             Self::SetCollapsed {
                 nodes: ids,
                 collapsed,
@@ -574,7 +576,7 @@ impl Command {
             | Self::SetOption { node, .. }
             | Self::SetSettings { node, .. }
             | Self::SetValue { node, .. }
-            | Self::SetNodeWidth { node, .. } => (vec![*node], None),
+            | Self::SetNodeSize { node, .. } => (vec![*node], None),
             Self::ShowOn { nodes, workspace }
             | Self::HideFrom { nodes, workspace }
             | Self::MoveTo { nodes, workspace } => (nodes.clone(), Some(*workspace)),

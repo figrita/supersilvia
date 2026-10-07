@@ -236,7 +236,7 @@ node! {
               generic ones use all six. After Frank A. Farris's Creating Symmetry.",
     // The symmetry row is a long name and a longer hint, and "Texture Scale" does not fit
     // the default 200 either.
-    width: 260.0,
+    width: 232.0,
     inputs: [
         VaryingColor "input" "Input" at "finalUV" = Control::None,
         VaryingNumber "scale" "Frequency" = Control::num(1.0, 0.1, 5.0, 0.01, "/⬓"),

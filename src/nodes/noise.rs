@@ -648,7 +648,7 @@ node! {
               from each point, Cells flattens each to one tone, Borders draws the Voronoi \
               edges.",
     // "Distance Metric" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),

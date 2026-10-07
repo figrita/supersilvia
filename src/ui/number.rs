@@ -32,11 +32,11 @@ use eframe::egui::{
     vec2,
 };
 
-/// Design system: `.s-number` is 100x25; `snumber.js`'s own markup insets the slider track
-/// `left: 19px; right: 19px`, which is where a cap's own width comes from.
-pub const WIDTH: f32 = 100.0;
-pub const HEIGHT: f32 = 25.0;
-const BUTTON_WIDTH: f32 = 19.0;
+/// The s-number's size, and the width of each of its two caps: the least that holds a
+/// five-character value and a pair of `−` `+` targets a hand still hits.
+pub const WIDTH: f32 = 84.0;
+pub const HEIGHT: f32 = 20.0;
+const BUTTON_WIDTH: f32 = 14.0;
 
 /// How far the pointer travels for one step.
 const PIXELS_PER_STEP: f32 = 4.0;
@@ -344,7 +344,7 @@ pub(crate) fn bevel_border(painter: &eframe::egui::Painter, rect: Rect, zoom: f3
 /// same baseline — a field whose text is a hair larger makes the number jump the moment it is
 /// clicked, which is the one frame the eye is already on it.
 pub(crate) fn value_font(zoom: f32) -> FontId {
-    FontId::monospace(theme::font_size(theme::FONT_BASE * 0.9, zoom))
+    FontId::proportional(theme::font_size(theme::FONT_BASE * 0.9, zoom))
 }
 
 /// The control's own chrome — background, trough fill, caps, bevel, and the accent border a
@@ -1016,10 +1016,14 @@ pub fn range_popup(
         .margin(10.0)
         .show(ui.ctx(), theme, |ui| {
             ui.spacing_mut().item_spacing = vec2(10.0, 6.0);
-            // Every label here is monospace, and the headings are tiny.
-            let mono = |text: &str, color| RichText::new(text).monospace().color(color);
-            let tiny = |text: &str, color| mono(text, color).size(theme::FONT_TINY);
-            ui.label(mono(label, theme.text_primary()).strong());
+            // The headings are tiny, and the control's name is in the strong face.
+            let plain = |text: &str, color| RichText::new(text).color(color);
+            let tiny = |text: &str, color| plain(text, color).size(theme::FONT_TINY);
+            ui.label(
+                RichText::new(label)
+                    .font(theme::strong_font(theme::FONT_BASE))
+                    .color(theme.text_primary()),
+            );
             // The definition's own ends, so "how far can this go" is answered from
             // the header alone rather than something to go find in the node source.
             let declared = format!("declared {} .. {}", spec.declared.min, spec.declared.max);
@@ -1081,7 +1085,7 @@ pub fn range_popup(
                     ui.end_row();
 
                     for row in rows {
-                        ui.label(mono(row.name, theme.text_secondary()));
+                        ui.label(plain(row.name, theme.text_secondary()));
                         // The same recessed field the control itself draws — the
                         // popup is the control's own instrument for these numbers,
                         // and should read as the same family rather than a bare
@@ -1106,7 +1110,7 @@ pub fn range_popup(
                         let shown = spec.shown(row.default);
                         let default = ui
                             .add(
-                                eframe::egui::Label::new(mono(&shown, theme.text_muted()))
+                                eframe::egui::Label::new(plain(&shown, theme.text_muted()))
                                     .sense(Sense::click()),
                             )
                             .on_hover_text("click to reset this field");
@@ -1120,9 +1124,9 @@ pub fn range_popup(
                     // nothing to commit an edit of it to — so it is shown rather
                     // than offered, in the same row shape as the numbers above it.
                     if !spec.unit.is_empty() {
-                        ui.label(mono("unit", theme.text_secondary()));
-                        ui.label(mono(spec.unit, theme.text_secondary()));
-                        ui.label(mono(spec.unit, theme.text_muted()));
+                        ui.label(plain("unit", theme.text_secondary()));
+                        ui.label(plain(spec.unit, theme.text_secondary()));
+                        ui.label(plain(spec.unit, theme.text_muted()));
                         ui.end_row();
                     }
                 });

@@ -712,12 +712,6 @@ impl App {
         self.canvas.drawn()
     }
 
-    /// What one node's value fields measured when the canvas last drew them: the heights
-    /// `canvas` lays that node out with. Empty for a node whose fields have not drawn.
-    pub fn measured(&self, node: NodeId) -> &[f32] {
-        self.canvas.measured().of(node)
-    }
-
     /// Height of the canvas area last frame.
     pub fn canvas_height(&self) -> f32 {
         self.canvas.height()
@@ -910,8 +904,7 @@ impl App {
     fn navigate_to(&mut self, workspace: crate::graph::WorkspaceId, node: NodeId) {
         self.open_workspace(workspace);
         let graph = self.doc.graph();
-        let measured = self.canvas.measured().of(node);
-        if let Some(at) = crate::ui::canvas::Layouts::one(graph, node, measured)
+        if let Some(at) = crate::ui::canvas::Layouts::one(graph, node)
             .find(node)
             .map(|l| l.rect.center())
         {
@@ -1689,7 +1682,6 @@ impl App {
                         let clamped = crate::ui::clamp_to_strip(
                             self.doc.graph(),
                             id,
-                            self.canvas.measured().of(id),
                             n.pos,
                             self.canvas.height(),
                         );

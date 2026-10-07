@@ -245,7 +245,7 @@ pub static DEF: NodeDef = NodeDef {
     // game you cannot watch is a game you cannot play, and until this was here the only way
     // to see the field was to wire it to an Output and put that Output on a deck.
     regions: &[crate::nodes::Region::Preview("field")],
-    width: Some(240.0),
+    width: Some(216.0),
     cpu: Some(CpuDef {
         create: || Box::new(Game::new()),
         integrates: true,

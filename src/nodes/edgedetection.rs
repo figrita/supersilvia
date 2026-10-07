@@ -27,7 +27,7 @@ pub static DEF: NodeDef = NodeDef {
               node one cable later gives dark lines on light.",
     // `sampleDistance`'s label does not fit the default 200.
     // See docs/decisions.md#a-node-may-declare-a-wider-body.
-    width: Some(240.0),
+    width: Some(216.0),
     inputs: &[
         InputDef {
             key: "input",

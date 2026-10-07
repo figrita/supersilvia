@@ -26,15 +26,7 @@ const MAX_SPACING: f32 = 30.0;
 ///
 /// Ranks come from the whole graph and only this workspace's nodes are placed: a node fed
 /// from another workspace still lands to the right of what feeds it.
-///
-/// `measured` is the canvas's own heights for the value fields that have drawn, so a long note
-/// takes the room it is drawn with.
-pub fn arrange(
-    graph: &Graph,
-    measured: &canvas::Measured,
-    workspace: WorkspaceId,
-    height: f32,
-) -> Vec<(NodeId, Pos2)> {
+pub fn arrange(graph: &Graph, workspace: WorkspaceId, height: f32) -> Vec<(NodeId, Pos2)> {
     let ranks = ranks(graph);
     let mut by_rank: Vec<(u32, Vec<NodeId>)> = Vec::new();
     let mut ordered: Vec<(u32, NodeId)> = graph
@@ -51,7 +43,7 @@ pub fn arrange(
 
     let mut columns: Vec<Vec<NodeId>> = Vec::new();
     for (_, ids) in by_rank {
-        columns.extend(split(graph, measured, &ids, height));
+        columns.extend(split(graph, &ids, height));
     }
 
     let mut placed = Vec::with_capacity(columns.iter().map(Vec::len).sum());
@@ -62,7 +54,7 @@ pub fn arrange(
             .filter_map(|id| graph.get(*id))
             .map(canvas::node_width)
             .fold(0.0_f32, f32::max);
-        for (id, y) in distribute(graph, measured, &column, height) {
+        for (id, y) in distribute(graph, &column, height) {
             placed.push((id, Pos2::new(x, y)));
         }
         x += 2.0 * HORIZONTAL_MARGIN + widest;
@@ -126,24 +118,19 @@ fn rank_of(
 }
 
 /// How tall one node is drawn, or nothing for an id the graph does not hold.
-fn node_height(graph: &Graph, measured: &canvas::Measured, id: NodeId) -> f32 {
-    canvas::Layouts::one(graph, id, measured.of(id))
+fn node_height(graph: &Graph, id: NodeId) -> f32 {
+    canvas::Layouts::one(graph, id)
         .find(id)
         .map_or(0.0, |l| l.height)
 }
 
 /// Break one rank into as many columns as it takes for each to fit the strip's height.
-fn split(
-    graph: &Graph,
-    measured: &canvas::Measured,
-    ids: &[NodeId],
-    height: f32,
-) -> Vec<Vec<NodeId>> {
+fn split(graph: &Graph, ids: &[NodeId], height: f32) -> Vec<Vec<NodeId>> {
     let mut columns = Vec::new();
     let mut current: Vec<NodeId> = Vec::new();
     let mut used = VERTICAL_MARGIN;
     for id in ids {
-        let node_height = node_height(graph, measured, *id);
+        let node_height = node_height(graph, *id);
         let spacing = if current.is_empty() { 0.0 } else { MIN_SPACING };
         if used + spacing + node_height > height && !current.is_empty() {
             columns.push(std::mem::take(&mut current));
@@ -161,16 +148,8 @@ fn split(
 }
 
 /// Stack one column, spreading into the space left over up to `MAX_SPACING`.
-fn distribute(
-    graph: &Graph,
-    measured: &canvas::Measured,
-    ids: &[NodeId],
-    height: f32,
-) -> Vec<(NodeId, f32)> {
-    let heights: Vec<f32> = ids
-        .iter()
-        .map(|id| node_height(graph, measured, *id))
-        .collect();
+fn distribute(graph: &Graph, ids: &[NodeId], height: f32) -> Vec<(NodeId, f32)> {
+    let heights: Vec<f32> = ids.iter().map(|id| node_height(graph, *id)).collect();
     let spacing = if ids.len() < 2 {
         0.0
     } else {
@@ -268,15 +247,15 @@ mod tests {
     #[test]
     fn a_rank_taller_than_the_strip_becomes_two_columns() {
         let (app, ids) = app_with(&["checkerboard", "checkerboard", "checkerboard"]);
-        let one = node_height(app.graph(), &canvas::Measured::default(), ids[0]);
+        let one = node_height(app.graph(), ids[0]);
 
         let short = VERTICAL_MARGIN + one * 2.0 + MIN_SPACING;
-        let placed = arrange(app.graph(), &canvas::Measured::default(), ws(&app), short);
+        let placed = arrange(app.graph(), ws(&app), short);
         let xs: std::collections::BTreeSet<i32> = placed.iter().map(|(_, p)| p.x as i32).collect();
         assert_eq!(xs.len(), 2, "three nodes, room for two: two columns");
 
         let tall = VERTICAL_MARGIN + one * 3.0 + MIN_SPACING * 2.0;
-        let placed = arrange(app.graph(), &canvas::Measured::default(), ws(&app), tall);
+        let placed = arrange(app.graph(), ws(&app), tall);
         let xs: std::collections::BTreeSet<i32> = placed.iter().map(|(_, p)| p.x as i32).collect();
         assert_eq!(xs.len(), 1, "room for all three: one column");
     }
@@ -289,8 +268,8 @@ mod tests {
         connect(&mut app, (ids[1], "output"), (ids[2], "input"));
 
         assert_eq!(
-            arrange(app.graph(), &canvas::Measured::default(), ws(&app), 800.0),
-            arrange(app.graph(), &canvas::Measured::default(), ws(&app), 800.0)
+            arrange(app.graph(), ws(&app), 800.0),
+            arrange(app.graph(), ws(&app), 800.0)
         );
     }
 }

@@ -20,18 +20,10 @@
 
 use crate::ui::theme::{self, Hsl, Theme};
 
-/// What a field reports back: what was typed, if anything, and how tall the text turned out
-/// once it wrapped.
+/// What a field reports back: what was typed, if anything.
 pub struct Edited {
     /// `Some` on the frame a keystroke changed it.
     pub text: Option<String>,
-    /// How tall the field drew itself, in world units — the wrapped text, the padding, and
-    /// never less than the lines it was asked for.
-    ///
-    /// Measured rather than worked out from a line count. Only this function knows the font
-    /// and the width, and those are what wrapping depends on; a node laid out from an assumed
-    /// line height gains the difference on every line, which is a box that outgrows its text.
-    pub height: f32,
 }
 
 /// The gap between the text and the field's own border, left and right.
@@ -102,7 +94,7 @@ pub fn edit(
     };
     crate::ui::field(ui.painter(), rect, theme.bg_interactive(), None, border);
 
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let row = ui.ctx().fonts_mut(|f| f.row_height(&font));
     // A single-line field centers its one row in whatever height the row was given. A
     // multi-line one starts at the top and fills downwards, because its height is the rows
@@ -132,7 +124,7 @@ pub fn edit(
             } else {
                 TextEdit::multiline(&mut draft)
             };
-            field
+            let field = field
                 .id(id)
                 .frame(Frame::NONE.inner_margin(pad))
                 .font(font)
@@ -142,18 +134,22 @@ pub fn edit(
                 // padding rather than up against the border.
                 .desired_width(rect.width())
                 .desired_rows(lines as usize)
-                .clip_text(lines == 1)
-                .show(ui)
+                .clip_text(lines == 1);
+            if lines == 1 {
+                return field.show(ui);
+            }
+            // A box of lines keeps the height the layout gave it, and what is typed past it
+            // scrolls: the box is never sized from its text, so a zoom that wraps the text
+            // differently moves nothing. See `canvas::value_height`.
+            eframe::egui::ScrollArea::vertical()
+                .id_salt(id)
+                .max_height(rect.height())
+                .auto_shrink(false)
+                .show(ui, |ui| field.min_size(rect.size()).show(ui))
+                .inner
         })
         .inner;
-    // The text itself, and nothing else — not the widget's allocated rect, which carries
-    // whatever egui rounded it up to and leaves the box a little taller on every line.
-    // Never less than the lines the definition asked for, so an empty box keeps its floor.
-    let content = out.galley.size().y.max(f32::from(lines) * row);
     let response = out.response;
-    // Back out of the canvas zoom: a node's height is world geometry and must not move when
-    // somebody zooms in.
-    let drawn = 2.0f32.mul_add(pad_y, content) / zoom.max(0.01);
 
     // The row names itself, the way every other control does. It had not, since the typed
     // option landed: a `TextEdit` inside a `scope_builder` carries whatever egui gives it,
@@ -175,7 +171,6 @@ pub fn edit(
     }
     Edited {
         text: changed.then_some(draft),
-        height: drawn,
     }
 }
 
@@ -244,7 +239,7 @@ pub fn number(
         Chrome::Row => theme::FONT_TINY,
         Chrome::Inset => theme::FONT_BASE,
     };
-    let font = FontId::monospace(theme::font_size(size, zoom));
+    let font = FontId::proportional(theme::font_size(size, zoom));
     let row = ui.ctx().fonts_mut(|f| f.row_height(&font));
     let pad_x = match chrome {
         Chrome::Row => ROW_PAD_X * zoom,
@@ -369,7 +364,7 @@ pub fn line(
     let radius = eframe::egui::CornerRadius::same(theme::RADIUS_SM);
     ui.painter()
         .rect_filled(rect, radius, theme.bg_interactive());
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let row = ui.ctx().fonts_mut(|f| f.row_height(&font));
     let pad = Margin::symmetric(
         points(ROW_PAD_X * zoom),

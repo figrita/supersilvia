@@ -362,6 +362,11 @@ pub struct Node {
     /// Distinct from `NodeDef::width`, which is the same on every node of a kind. This is the
     /// one node's own, and it never goes below the kind's.
     pub dragged_width: Option<f32>,
+    /// The height a hand set for the node's text box, for the kinds that hold one — the note
+    /// and the Text node. Document data for the same reasons a width is. `None` is the box
+    /// its kind declares, in lines; either way the box keeps its height whatever is typed,
+    /// and its text scrolls inside it.
+    pub dragged_height: Option<f32>,
     /// Current value of each unconnected control, keyed by input port.
     ///
     /// This is the single source of truth for a parameter. The renderer reads it each frame

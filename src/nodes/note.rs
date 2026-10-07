@@ -44,7 +44,7 @@ pub static DEF: NodeDef = NodeDef {
     // what silvia's own note is: a comment box is sized to the thing it is commenting on —
     // a label beside one node, or a paragraph across the top of a canvas — and that is the
     // one thing only the person writing it knows. The height keeps looking after itself.
-    width: Some(260.0),
+    width: Some(232.0),
     resizable: true,
     values: &[ValueDef {
         key: "text",

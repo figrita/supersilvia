@@ -294,7 +294,7 @@ pub static DEF: NodeDef = NodeDef {
         OptionDef::check("trails", "Trails", true, OptionKind::Code),
         OptionDef::check("agents", "Agents", false, OptionKind::Code),
     ],
-    width: Some(240.0),
+    width: Some(216.0),
     regions: &[Region::Buttons(&PRESET_BAR)],
     cpu: Some(CpuDef {
         create: || Box::new(Mold::new()),

@@ -54,7 +54,7 @@ node! {
               is how close a color has to be to count as the key, Softness feathers the edge, \
               and Spill Suppression pulls the key's own channel off what is left. Its mask is \
               the key, 1 where the picture stays.",
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" = Control::None,
         VaryingColor "background" "Background" = Control::color("#ff00ffff"),

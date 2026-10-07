@@ -252,7 +252,7 @@ node! {
               border between them. Square, hexagon, triangle and Voronoi lattices; randomness \
               jitters each center off the grid. Its mask is the inside of a cell.",
     // "Border Color" and "Border Width" do not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "cellCenter" = Control::None,
         VaryingNumber "cellSize" "Cell Freq" = Control::num(10.0, 2.0, 50.0, 0.5, "/⬓"),

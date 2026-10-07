@@ -43,11 +43,11 @@ use eframe::egui::{
 const OPEN_DELAY: f64 = 0.2;
 /// How long an open submenu survives the pointer leaving it or its category.
 const CLOSE_DELAY: f64 = 0.3;
-const ROW: f32 = 24.0;
+const ROW: f32 = 20.0;
 /// Width of the category column. silvia's 16rem.
 const WIDTH: f32 = 220.0;
 /// The button, and how far it floats off the canvas's bottom-left corner.
-const BUTTON_HEIGHT: f32 = 22.0;
+const BUTTON_HEIGHT: f32 = 18.0;
 const BUTTON_PAD: f32 = 10.0;
 const MARGIN: f32 = 8.0;
 /// The popup frame's own padding, which the panel's height has to be known without measuring.
@@ -468,7 +468,7 @@ pub fn button_rect(ctx: &eframe::egui::Context) -> Option<Rect> {
 /// when it was last laid out, and a menu standing on last frame's button lands in the wrong
 /// place on the frame the window changes size.
 fn button(ui: &mut Ui, menu: &StartMenu, within: Rect, theme: &Theme) -> (Response, Rect) {
-    let font = FontId::monospace(theme::FONT_BASE);
+    let font = FontId::proportional(theme::FONT_BASE);
     let label = if menu.open { "▼ Nodes" } else { "▲ Nodes" };
     let galley = ui
         .painter()

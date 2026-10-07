@@ -13,7 +13,7 @@
 //! It reports a **click**, not a level: unlike `press`, a tick is an edit — the value is an
 //! option, so it goes through `Command::SetOption` and rides the undo history like any other.
 
-use crate::ui::node_widget::{Keep, advance, fit};
+use crate::ui::node_widget::{Keep, fit_text};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
     Align2, Color32, FontId, Painter, Pos2, Rect, Response, Sense, Stroke, Ui, WidgetInfo,
@@ -34,11 +34,10 @@ const GAP: f32 = 4.0;
 pub fn shares(ui: &Ui, captions: &[&str], room: f32, zoom: f32) -> Vec<f32> {
     let n = captions.len().max(1) as f32;
     let equal = room / n;
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
-    let advance = advance(ui.ctx(), &font);
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let natural: Vec<f32> = captions
         .iter()
-        .map(|c| (BOX + GAP) * zoom + c.chars().count() as f32 * advance)
+        .map(|c| (BOX + GAP) * zoom + fit_text(ui.ctx(), &font, c, f32::INFINITY, Keep::Start).1)
         .collect();
     let total: f32 = natural.iter().sum();
     if natural.iter().all(|w| *w <= equal) || total > room {
@@ -62,17 +61,16 @@ pub fn tick(
     theme: &Theme,
     zoom: f32,
 ) -> Response {
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let size = BOX * zoom;
     // The caption takes what is left of the slot after the box and the gap, elided from the
     // end where it does not fit — a zoomed-out `Uniforms` reads as `Unifo…` rather than
     // sliding under the tick beside it.
     let room = (slot.width() - size - GAP * zoom).max(0.0);
-    // One glyph-width lookup, not one per measurement: `advance` takes the context's font
-    // lock, and this runs for every tick on every node that has one, every frame.
-    let advance = advance(ui.ctx(), &font);
-    let text = fit(caption, advance, room, Keep::Start);
-    let width = size + GAP * zoom + text.chars().count() as f32 * advance;
+    // One lock of the context's fonts for the cut and its width: this runs for every tick on
+    // every node that has one, every frame.
+    let (text, text_width) = fit_text(ui.ctx(), &font, caption, room, Keep::Start);
+    let width = size + GAP * zoom + text_width;
     // Centerd in its share of the row, box first, as the `<label>`'s flex line is.
     let left = slot.center().x - width * 0.5;
     let hit = Rect::from_min_size(

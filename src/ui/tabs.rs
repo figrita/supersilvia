@@ -18,16 +18,17 @@
 use crate::graph::{Workspace, WorkspaceId, WorkspaceKind};
 use crate::project::Active;
 use crate::ui::theme::{self, Theme};
-use eframe::egui::{FontId, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use eframe::egui::{Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use std::collections::BTreeSet;
 
 /// How tall a tab is, and therefore how tall the bar is.
-pub const TAB_HEIGHT: f32 = 24.0;
+pub const TAB_HEIGHT: f32 = 20.0;
 /// Padding either side of a tab's label.
-const TAB_PAD: f32 = 10.0;
+const TAB_PAD: f32 = 8.0;
 /// Space between two tabs, so the strip reads as tabs rather than as one bar.
 const TAB_GAP: f32 = 2.0;
-/// The widest a tab gets, however long the name is. A long name is elided.
+/// The widest a tab gets, however long the name is. A long name is elided on one line, never
+/// wrapped: a wrapped name makes its tab two lines in a bar one line tall.
 const TAB_MAX: f32 = 180.0;
 /// How wide the inline rename editor is.
 const RENAME_WIDTH: f32 = 140.0;
@@ -170,6 +171,12 @@ fn tab(
     response.widget_info(|| {
         eframe::egui::WidgetInfo::selected(eframe::egui::WidgetType::Button, true, active, &owned)
     });
+    // A name cut short is whole under the pointer.
+    let response = if galley.elided {
+        response.on_hover_text(label)
+    } else {
+        response
+    };
 
     // `contains_pointer`, not `hovered`: egui takes hover away from every other widget while
     // something is being dragged, and a node drag over a tab is exactly that case.
@@ -233,14 +240,15 @@ fn tab(
     response
 }
 
-/// A tab's label, laid out as the tab draws it.
+/// A tab's label, laid out as the tab draws it: one line, ending in `…` where it does not fit.
 fn tab_galley(ui: &Ui, label: &str, theme: &Theme) -> std::sync::Arc<eframe::egui::Galley> {
-    ui.painter().layout(
+    let mut job = eframe::egui::text::LayoutJob::simple_singleline(
         label.to_string(),
-        FontId::monospace(theme::FONT_BASE),
+        theme::ui_font(theme::FONT_BASE),
         theme.text_primary(),
-        TAB_MAX - TAB_PAD * 2.0,
-    )
+    );
+    job.wrap = eframe::egui::text::TextWrapping::truncate_at_width(TAB_MAX - TAB_PAD * 2.0);
+    ui.painter().layout_job(job)
 }
 
 /// How wide a tab is drawn, as [`tab`] draws it.

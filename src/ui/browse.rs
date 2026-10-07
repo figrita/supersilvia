@@ -25,7 +25,7 @@ pub const WIDTH: f32 = 320.0;
 /// How much list is shown before it scrolls.
 const LIST_HEIGHT: f32 = 300.0;
 /// One row.
-const ROW_HEIGHT: f32 = 24.0;
+const ROW_HEIGHT: f32 = 20.0;
 /// A port dot in a row.
 const DOT: f32 = 4.0;
 
@@ -299,7 +299,7 @@ pub fn show(
                     } else {
                         "Search nodes…"
                     })
-                    .font(FontId::monospace(theme::FONT_BASE))
+                    .font(FontId::proportional(theme::FONT_BASE))
                     .desired_width(f32::INFINITY),
             );
             if browser.fresh {
@@ -315,7 +315,6 @@ pub fn show(
             if hits.is_empty() {
                 ui.label(
                     eframe::egui::RichText::new("no node by that name")
-                        .monospace()
                         .size(theme::FONT_TINY)
                         .color(theme.text_muted()),
                 );
@@ -446,7 +445,7 @@ pub fn paint_row(
         rect.left_center() + vec2(28.0, 0.0),
         Align2::LEFT_CENTER,
         label,
-        FontId::monospace(theme::FONT_BASE),
+        FontId::proportional(theme::FONT_BASE),
         theme.text_primary(),
     );
 }

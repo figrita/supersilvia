@@ -29,7 +29,6 @@ impl App {
             return Err(CommandError::Rendering);
         }
         let env = Env {
-            measured: self.canvas.measured(),
             project: &self.project,
         };
         let applied = self.doc.apply(cmd, &env, origin)?;

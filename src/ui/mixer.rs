@@ -2,8 +2,8 @@
 
 //! The Main Mixer panel: silvia's right panel over the two decks and the fade.
 //!
-//! Channel A and Channel B, each a live picture of the Output on it and the name of the
-//! workspace it lives on, or *No assignment*; the balance as an `s-number`, because it is a
+//! Channel A and Channel B, each a live picture of the Output on it with the name of the
+//! workspace it lives on beside its heading, or *No Output assigned* inside the box; the balance as an `s-number`, because it is a
 //! control and gets what every control gets; **Blackout** and **Freeze**, the two presses a
 //! show is caught with; the crossfade method; and the mix's
 //! resolution, *Project to background*, and the mix's own pop-out marks. What it draws over is [`crate::mixer::Mixer`], the rig's, and like every
@@ -17,9 +17,12 @@ use crate::graph::{NodeId, WorkspaceId};
 use crate::mixer::{Method, Resolution};
 use crate::ui::Thumbnail;
 use crate::ui::number;
-use crate::ui::panel::{self, Scrubbed, heading};
+use crate::ui::panel::{self, ROW_GAP, SECTION_GAP, Scrubbed, heading};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{Align2, ComboBox, FontId, Modifiers, Rect, Sense, Ui, vec2};
+
+/// A picture mark's painter: what `node_widget` draws a mark on a picture with.
+type Mark = fn(&eframe::egui::Painter, Rect, eframe::egui::Color32);
 
 /// What the panel asked for.
 #[derive(Debug, Clone, PartialEq)]
@@ -123,9 +126,6 @@ const BALANCE: crate::graph::ControlRange = crate::graph::ControlRange {
     step: 0.01,
 };
 
-/// Space between sections.
-const SECTION_GAP: f32 = 10.0;
-
 /// Draw the panel. The mix's own preview is drawn under it by the caller, in the space
 /// this leaves.
 pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool) -> MixerOutput {
@@ -141,21 +141,21 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
     }
 
     for (name, channel) in [("Channel A", &view.a), ("Channel B", &view.b)] {
-        heading(ui, name, theme);
         channel_preview(ui, name, channel.as_ref(), theme, &mut out);
         ui.add_space(SECTION_GAP);
     }
 
-    heading(ui, "Mix", theme);
+    let mix = heading(ui, "Mix", theme);
+    midi_mark(ui, mix, view.bound.as_deref(), theme);
     balance(ui, view, theme, lock_cursor, &mut out.actions);
-    ui.add_space(4.0);
+    ui.add_space(ROW_GAP);
     holds(ui, view, theme, &mut out.actions);
-    ui.add_space(4.0);
-    ui.horizontal(|ui| {
-        ui.label("Crossfade method");
+    ui.add_space(ROW_GAP);
+    panel::row(ui, "Crossfade", theme, |ui| {
         let mut method = view.method;
         ComboBox::from_id_salt("crossfade-method")
             .selected_text(method.label())
+            .width(ui.available_width())
             .show_ui(ui, |ui| {
                 for m in Method::ALL {
                     ui.selectable_value(&mut method, m, m.label());
@@ -168,11 +168,11 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
     ui.add_space(SECTION_GAP);
 
     heading(ui, "Projection", theme);
-    ui.horizontal(|ui| {
-        ui.label("Resolution");
+    panel::row(ui, "Resolution", theme, |ui| {
         let mut resolution = view.resolution;
         ComboBox::from_id_salt("mix-resolution")
             .selected_text(resolution.label())
+            .width(ui.available_width())
             .show_ui(ui, |ui| {
                 ui.selectable_value(
                     &mut resolution,
@@ -188,38 +188,43 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
             out.actions.push(MixerAction::SetResolution(resolution));
         }
     });
+    ui.add_space(ROW_GAP);
     let mut background = view.background;
-    if ui
-        .checkbox(&mut background, "Project to background")
-        .on_hover_text("Paint the mix behind the canvas, the nodes and cables floating on the show. H hides them.")
-        .changed()
-    {
+    if panel::row(ui, "", theme, |ui| {
+        ui.checkbox(&mut background, "Project to background")
+            .on_hover_text("Paint the mix behind the canvas, the nodes and cables floating on the show. H hides them.")
+            .changed()
+    }) {
         out.actions.push(MixerAction::SetBackground(background));
     }
-    ui.add_space(4.0);
-    // The mix's own two marks, the pair every picture in the app carries, in a row of their
-    // own because the panel has no picture here to hang them on. The projector was a button
-    // saying *Open projector*; this is the same gesture, with the same meaning everywhere.
-    ui.horizontal(|ui| {
-        heading(ui, "Window", theme);
-        let side = crate::ui::canvas::MARK_SIZE;
-        for (fullscreen, draw) in [
+    ui.add_space(ROW_GAP);
+    // The mix's own two picture marks, the pair every picture in the app carries, as worded
+    // buttons: the panel has the room a node's header does not, and a word is read where an
+    // icon is decoded. Each keeps its icon beside the word, so it is still the same gesture
+    // as the marks on a picture. Lit while the thing it asks for is already true: the pop-out
+    // says the window is up, fullscreen says it is fullscreen.
+    panel::row(ui, "Window", theme, |ui| {
+        let [left, right] = halves(ui);
+        for (rect, fullscreen, word, draw) in [
             (
+                left,
                 false,
-                crate::ui::node_widget::popout_mark
-                    as fn(&eframe::egui::Painter, Rect, eframe::egui::Color32),
+                "Pop out",
+                crate::ui::node_widget::popout_mark as Mark,
             ),
-            (true, crate::ui::node_widget::expand_mark),
+            (
+                right,
+                true,
+                "Fullscreen",
+                crate::ui::node_widget::expand_mark,
+            ),
         ] {
-            let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
-            // Lit while the thing it asks for is already true, which is what a picture's
-            // marks do: the pop-out says the window is up, fullscreen says it is fullscreen.
             let lit = match (view.popped, fullscreen) {
                 (Some(full), true) => full,
                 (Some(_), false) => true,
                 (None, _) => false,
             };
-            let w = crate::ui::node_widget::picture_mark(
+            let w = worded_mark(
                 ui,
                 rect,
                 ui.id().with(("mix-mark", fullscreen)),
@@ -228,8 +233,9 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
                 } else {
                     "pop out the mix"
                 },
+                word,
                 draw,
-                Some(if lit { theme.primary() } else { theme.text_primary() }),
+                lit,
                 theme,
             )
             .on_hover_text(view.no_windows.unwrap_or(if fullscreen {
@@ -238,26 +244,28 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
                 "The mix in a window of its own: no decorations, dragged by the picture, F for fullscreen."
             }));
             if w.clicked() {
-                out.actions.push(MixerAction::PopOut(crate::ui::PopOutRequest {
-                    picture: crate::ui::PopOut::Mix,
-                    fullscreen,
-                }));
+                out.actions
+                    .push(MixerAction::PopOut(crate::ui::PopOutRequest {
+                        picture: crate::ui::PopOut::Mix,
+                        fullscreen,
+                    }));
             }
         }
-        // Beside the pair: the mix sent to other apps rather than to a window, lit while it is.
-        if let Some(on) = view.syphon {
-            let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
-            let w = crate::ui::node_widget::picture_mark(
+    });
+    ui.add_space(ROW_GAP);
+    // The mix sent to other apps and other machines rather than to a window, lit while it is.
+    // NDI is everywhere; Syphon only on a Mac, where it takes the first half.
+    panel::row(ui, "Send", theme, |ui| {
+        let [left, right] = halves(ui);
+        let ndi_at = if let Some(on) = view.syphon {
+            let w = worded_mark(
                 ui,
-                rect,
+                left,
                 ui.id().with("mix-syphon"),
                 "publish the mix over Syphon",
+                "Syphon",
                 crate::ui::node_widget::syphon_mark,
-                Some(if on {
-                    theme.primary()
-                } else {
-                    theme.text_primary()
-                }),
+                on,
                 theme,
             )
             .on_hover_text(
@@ -266,20 +274,18 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
             if w.clicked() {
                 out.actions.push(MixerAction::Syphon(!on));
             }
-        }
-        // And to other machines on the network.
-        let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
-        let w = crate::ui::node_widget::picture_mark(
+            right
+        } else {
+            left
+        };
+        let w = worded_mark(
             ui,
-            rect,
+            ndi_at,
             ui.id().with("mix-ndi"),
             "send the mix over NDI",
+            "NDI®",
             crate::ui::node_widget::ndi_mark,
-            Some(if view.ndi == Ok(true) {
-                theme.primary()
-            } else {
-                theme.text_primary()
-            }),
+            view.ndi == Ok(true),
             theme,
         )
         .on_hover_text(view.ndi.err().unwrap_or(
@@ -291,13 +297,14 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
             out.actions.push(MixerAction::Ndi(!on));
         }
     });
-    ui.add_space(SECTION_GAP);
+    ui.add_space(ROW_GAP * 2.0);
 
     out
 }
 
-/// A deck's picture, 16:9 across the panel, with the name of its workspace under it. A deck
-/// with nothing on it is the same black with *No assignment* under it.
+/// A deck: its heading with the name of its workspace at the far end of the same line, and
+/// its picture 16:9 across the panel. A deck with nothing on it is the same black with
+/// *No Output assigned* in it, named `Channel A: no Output assigned` for the tree.
 fn channel_preview(
     ui: &mut Ui,
     name: &str,
@@ -305,10 +312,31 @@ fn channel_preview(
     theme: &Theme,
     out: &mut MixerOutput,
 ) {
+    ui.horizontal(|ui| {
+        heading(ui, name, theme);
+        ui.with_layout(
+            eframe::egui::Layout::right_to_left(eframe::egui::Align::Center),
+            |ui| workspace_link(ui, channel, theme, out),
+        );
+    });
     // A deck is an Output, so the picture is the node's own render.
-    out.previews
-        .extend(panel::picture(ui, channel.map(|c| (c.node, None)), theme));
+    let unassigned = format!("{name}: no Output assigned");
+    out.previews.extend(panel::picture(
+        ui,
+        channel.map(|c| (c.node, None)),
+        Some(("No Output assigned", &unassigned)),
+        theme,
+    ));
+}
 
+/// The workspace a deck's Output lives on, as a link that goes there; nothing for an empty
+/// deck, whose box says so.
+fn workspace_link(
+    ui: &mut Ui,
+    channel: Option<&ChannelView<'_>>,
+    theme: &Theme,
+    out: &mut MixerOutput,
+) {
     match channel {
         Some(ChannelView {
             node,
@@ -333,16 +361,13 @@ fn channel_preview(
         }) => {
             ui.label(eframe::egui::RichText::new("On no workspace").color(theme.text_muted()));
         }
-        None => {
-            ui.label(
-                eframe::egui::RichText::new(format!("{name}: no assignment"))
-                    .color(theme.text_muted()),
-            );
-        }
+        None => {}
     }
 }
 
 /// The fade, as the `s-number` it is: `A` at one end, `B` at the other, the control between.
+/// No caption of its own: the section is the mix, and the letters at its two ends say the
+/// rest.
 fn balance(
     ui: &mut Ui,
     view: &MixerView<'_>,
@@ -350,12 +375,10 @@ fn balance(
     lock_cursor: bool,
     actions: &mut Vec<MixerAction>,
 ) {
-    let caption = ui.label("A / B balance");
-    midi_mark(ui, caption.rect, view.bound.as_deref(), theme);
     let width = ui.available_width();
     let (row, _) = ui.allocate_exact_size(vec2(width, number::HEIGHT), Sense::hover());
     let side = 14.0;
-    let font = FontId::monospace(theme::FONT_BASE);
+    let font = FontId::proportional(theme::FONT_BASE);
     ui.painter().text(
         row.left_center(),
         Align2::LEFT_CENTER,
@@ -390,8 +413,80 @@ fn balance(
     }
 }
 
-/// The space between Blackout and Freeze, wide enough for a bound press's dot in the gutter.
+/// The space between Blackout and Freeze, wide enough for a bound press's dot in the gutter,
+/// and between the two buttons of any row split in half.
 const HOLD_GAP: f32 = 8.0;
+
+/// What is left of a row, an `s-number` tall, as two halves with [`HOLD_GAP`] between them.
+fn halves(ui: &mut Ui) -> [Rect; 2] {
+    let (row, _) =
+        ui.allocate_exact_size(vec2(ui.available_width(), number::HEIGHT), Sense::hover());
+    let half = (row.width() - HOLD_GAP) / 2.0;
+    [
+        Rect::from_min_size(row.min, vec2(half, row.height())),
+        Rect::from_min_size(
+            row.min + vec2(half + HOLD_GAP, 0.0),
+            vec2(half, row.height()),
+        ),
+    ]
+}
+
+/// A picture mark with its word beside it, as a button filling `rect`: the field every press
+/// here wears, the icon and the word centerd in it together. Lit, it is ringed and inked in
+/// the primary hue, which is what a lit mark on a picture is. Named `name` in the tree, which
+/// is the name the mark carries everywhere else.
+#[allow(clippy::too_many_arguments)]
+fn worded_mark(
+    ui: &mut Ui,
+    rect: Rect,
+    id: eframe::egui::Id,
+    name: &str,
+    word: &str,
+    draw: fn(&eframe::egui::Painter, Rect, eframe::egui::Color32),
+    lit: bool,
+    theme: &Theme,
+) -> eframe::egui::Response {
+    let response = ui
+        .interact(rect, id, Sense::click())
+        .on_hover_cursor(eframe::egui::CursorIcon::PointingHand);
+    response.widget_info(|| {
+        eframe::egui::WidgetInfo::selected(eframe::egui::WidgetType::Button, true, lit, name)
+    });
+    let fill = if response.hovered() {
+        theme.bg_hover()
+    } else {
+        theme.bg_interactive()
+    };
+    let border = if lit {
+        theme.primary()
+    } else {
+        theme.border_normal()
+    };
+    crate::ui::field(ui.painter(), rect, fill, None, border);
+    let ink = if lit {
+        theme.primary()
+    } else {
+        theme.text_secondary()
+    };
+    let galley =
+        ui.painter()
+            .layout_no_wrap(word.to_string(), theme::ui_font(theme::FONT_BASE), ink);
+    let icon = rect.height();
+    let gap = 2.0;
+    let width = icon + gap + galley.size().x;
+    let left = rect.center().x - width * 0.5;
+    draw(
+        ui.painter(),
+        Rect::from_min_size(eframe::egui::pos2(left, rect.min.y), vec2(icon, icon)),
+        ink,
+    );
+    ui.painter().galley(
+        eframe::egui::pos2(left + icon + gap, rect.center().y - galley.size().y * 0.5),
+        galley,
+        ink,
+    );
+    response
+}
 
 /// Blackout and Freeze, side by side under the fade, each half the panel and the height of an
 /// `s-number`, so a lit one changes no width and moves nothing.
@@ -525,8 +620,8 @@ fn hold(
     }
 }
 
-/// The mark a bound fade wears: the dot every bound control wears, after the caption rather
-/// than beside the slot, since the fade's slot has `A` and `B` on its two sides. Named as a
+/// The mark a bound fade wears: the dot every bound control wears, after the section's
+/// heading rather than beside the slot, since the fade's slot has `A` and `B` on its two sides. Named as a
 /// node's is, `A / B balance bound to CC 1 ch 1`. Unbinding is in the MIDI window, on the
 /// fade's own row. See [`crate::ui::midi_mark`].
 fn midi_mark(ui: &Ui, caption: Rect, bound: Option<&str>, theme: &Theme) {

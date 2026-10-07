@@ -208,7 +208,7 @@ node! {
               upstream, 9x9 is eighty-one.",
     // "Kernel Size" beside its widest choice does not fit the default 200.
     // See docs/decisions.md#a-node-may-declare-a-wider-body.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "uv + offset" = Control::None,
         VaryingNumber "cutoff" "Cutoff" = Control::num(0.5, 0.1, 1.0, 0.01, ""),

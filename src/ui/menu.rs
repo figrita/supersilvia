@@ -842,12 +842,14 @@ fn draw_entry(ui: &mut Ui, entry: &Entry) -> bool {
     chosen
 }
 
-/// The frame-rate meter. Monospace and padded to three digits, so the figure changing does
-/// not move it. On the egui bar it is at the far right; where the bar is the operating
+/// The frame-rate meter. Padded to three digits with figure spaces, which are a digit wide
+/// in the tabular face, so the figure changing does not move it. On the egui bar it is at the far right; where the bar is the operating
 /// system's, `App` puts it at the end of the tab row instead. In the accent while the synth
 /// is short of its rate.
 pub fn meter(ui: &mut Ui, fps: Fps, theme: &crate::ui::theme::Theme) {
-    let mut figure = egui::RichText::new(format!("{:>3.0} fps", fps.synth)).monospace();
+    let digits = format!("{:.0}", fps.synth);
+    let pad = "\u{2007}".repeat(3usize.saturating_sub(digits.len()));
+    let mut figure = egui::RichText::new(format!("{pad}{digits} fps"));
     if fps.short {
         figure = figure.color(theme.accent());
     }

@@ -57,7 +57,7 @@ pub fn controls(ui: &mut Ui, within: Rect, theme: &Theme) -> bool {
     let open = ui
         .ctx()
         .animate_bool_with_time(id.with("open"), was, OPEN_TIME);
-    let font = FontId::monospace(theme::FONT_TINY);
+    let font = FontId::proportional(theme::FONT_TINY);
     let galley = ui
         .painter()
         .layout_no_wrap(LABEL.to_owned(), font.clone(), theme.text_primary());

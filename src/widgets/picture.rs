@@ -86,7 +86,7 @@ fn working(r: &mut RegionUi<'_>) {
     if r.rect.height() < 8.0 {
         return;
     }
-    let font = eframe::egui::FontId::monospace(crate::ui::theme::font_size(
+    let font = eframe::egui::FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         r.zoom,
     ));

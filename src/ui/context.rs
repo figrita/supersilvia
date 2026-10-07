@@ -209,9 +209,6 @@ pub struct Effects {
     pub unbind_midi: Option<PortRef>,
     /// A copy, a cut or a paste asked for by a node's menu or by the browser's own row.
     pub clip: Option<ClipAction>,
-    /// `(node, which value, height)`: a value's box wants to be as tall as what it drew, in
-    /// world units. Layout, not an edit.
-    pub grown: Vec<(NodeId, usize, f32)>,
 }
 
 /// One node on screen: the frame, the node, the layout the pass made of it, and where the

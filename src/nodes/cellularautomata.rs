@@ -200,7 +200,7 @@ pub static DEF: NodeDef = NodeDef {
     // *into* the cells is a different ask — a node body that takes the pointer — and is not
     // here.
     regions: &[crate::nodes::Region::Preview("cells")],
-    width: Some(240.0),
+    width: Some(216.0),
     cpu: Some(CpuDef {
         create: || Box::new(Automaton::new()),
         integrates: true,

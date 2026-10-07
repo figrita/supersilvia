@@ -49,8 +49,8 @@ fn caption(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
         return Vec::new();
     };
     let painter = r.ui.painter().clone();
-    let label_font = FontId::monospace(theme::font_size(theme::FONT_TINY, r.zoom));
-    let value_font = FontId::monospace(theme::font_size(theme::FONT_BASE, r.zoom));
+    let label_font = FontId::proportional(theme::font_size(theme::FONT_TINY, r.zoom));
+    let value_font = FontId::proportional(theme::font_size(theme::FONT_BASE, r.zoom));
     let width = r.rect.width() / cells.len() as f32;
     for (index, (key, value)) in cells.iter().enumerate() {
         let cell = Rect::from_min_size(

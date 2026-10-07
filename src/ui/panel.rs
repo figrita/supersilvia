@@ -14,8 +14,13 @@
 //! same size: a strip to put away, a strip to bring back. The arrow says which way the panel
 //! is going rather than being the one place the click lands.
 //!
-//! Inside, the two share a section heading, a 16:9 picture box and a labeled number, drawn
-//! here once so a deck and the Main Input's picture are the same box.
+//! Inside, the two share a section heading, a labeled row, a 16:9 picture box and a labeled
+//! number, drawn here once so a deck and the Main Input's picture are the same box.
+//!
+//! **Three levels of type and no more**: the panel's name in the strong face a step up, a
+//! section's heading in the strong face at the text size, and everything under it in the text
+//! face, its labels in the secondary ink. A label sits in a column [`LABEL_WIDTH`] wide, so
+//! every control in a panel starts at the same x.
 
 use crate::graph::{ControlRange, NodeId};
 use crate::render::Fit;
@@ -27,11 +32,21 @@ use eframe::egui::{
 };
 
 /// How wide a folded panel is. Room for the arrow, and for the name written up it.
-pub const SPINE: f32 = 24.0;
+pub const SPINE: f32 = 20.0;
 
 /// How tall an open panel's header bar is, and the width of the arrow's own box at its outer
 /// end.
-const HEADER: f32 = 18.0;
+const HEADER: f32 = 22.0;
+
+/// The label column of a [`row`]: wide enough for the longest label either panel has, so the
+/// controls beside them line up.
+pub const LABEL_WIDTH: f32 = 76.0;
+
+/// The space above a section's heading.
+pub const SECTION_GAP: f32 = 12.0;
+
+/// The space between two rows of a section.
+pub const ROW_GAP: f32 = 4.0;
 
 /// Which edge a panel lives on, which is the only thing that differs between the two.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -73,12 +88,18 @@ pub fn header(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
     let name = format!("Hide {title}");
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, &name);
     let response = response.on_hover_text(format!("Hide {title}"));
-    // The band lights under the pointer. Without it a bar that is entirely a button looks
-    // like a heading that happens to have an arrow on it.
-    if response.hovered() {
-        ui.painter()
-            .rect_filled(rect, CornerRadius::same(theme::RADIUS_SM), theme.bg_hover());
-    }
+    // A band of its own, so the panel's name reads as the top of the panel rather than as
+    // one more line in it, and it lights under the pointer. Without that a bar that is
+    // entirely a button looks like a heading that happens to have an arrow on it.
+    ui.painter().rect_filled(
+        rect,
+        CornerRadius::same(theme::RADIUS_SM),
+        if response.hovered() {
+            theme.bg_hover()
+        } else {
+            theme.bg_secondary()
+        },
+    );
     let gap = ui.spacing().item_spacing.x;
     let (arrow, name_at) = match side {
         Side::Left => (
@@ -94,8 +115,8 @@ pub fn header(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
         arrow,
         Align2::CENTER_CENTER,
         side.fold(),
-        FontId::monospace(theme::FONT_BASE),
-        theme.text_secondary(),
+        theme::ui_font(theme::FONT_TITLE),
+        theme.text_muted(),
     );
     // Clipped clear of the arrow, so dragging the panel narrow runs the name under its own
     // edge rather than over the arrow.
@@ -107,10 +128,10 @@ pub fn header(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
         name_at,
         Align2::LEFT_CENTER,
         title,
-        FontId::monospace(theme::FONT_BASE),
+        theme::strong_font(theme::FONT_TITLE),
         theme.text_primary(),
     );
-    ui.separator();
+    ui.add_space(SECTION_GAP * 0.5);
     response.clicked()
 }
 
@@ -132,9 +153,11 @@ pub fn spine(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
     } else {
         theme.text_muted()
     };
-    let galley =
-        ui.painter()
-            .layout_no_wrap(title.to_string(), FontId::monospace(theme::FONT_BASE), ink);
+    let galley = ui.painter().layout_no_wrap(
+        title.to_string(),
+        FontId::proportional(theme::FONT_BASE),
+        ink,
+    );
     // A quarter turn anticlockwise, so the name reads upwards — the way a book's spine does.
     // `TextShape`'s angle rotates about the position given, so the anchor is the text's
     // bottom-left once turned, which is the center of the strip plus half the line's length.
@@ -149,19 +172,51 @@ pub fn spine(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
         rect.center_top() + vec2(0.0, 10.0),
         Align2::CENTER_CENTER,
         side.unfold(),
-        FontId::monospace(theme::FONT_TINY),
+        FontId::proportional(theme::FONT_TINY),
         ink,
     );
     response.clicked()
 }
 
-/// A section's heading inside a panel: small, monospace, secondary.
-pub fn heading(ui: &mut Ui, text: &str, theme: &Theme) {
+/// A section's heading inside a panel: the strong face at the text size, in the primary ink.
+/// Returns where it was drawn, for a mark that belongs to the whole section.
+pub fn heading(ui: &mut Ui, text: &str, theme: &Theme) -> Rect {
     ui.label(
         eframe::egui::RichText::new(text)
-            .font(FontId::monospace(theme::FONT_BASE))
-            .color(theme.text_secondary()),
-    );
+            .font(theme::strong_font(theme::FONT_BASE))
+            .color(theme.text_primary()),
+    )
+    .rect
+}
+
+/// One labeled row: `label` in the label column, in the secondary ink, and whatever `add`
+/// puts after it starting at the column's edge. An empty label leaves the column empty, so a
+/// checkbox that names itself still lines up with the controls above it.
+pub fn row<R>(ui: &mut Ui, label: &str, theme: &Theme, add: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.horizontal(|ui| {
+        // Every row is a number's height, whatever is in it, so a select and a number in
+        // one section keep one rhythm and a label centers on either.
+        let height = ui.spacing().interact_size.y.max(number::HEIGHT);
+        ui.allocate_ui_with_layout(
+            vec2(LABEL_WIDTH, height),
+            eframe::egui::Layout::left_to_right(eframe::egui::Align::Center),
+            |ui| {
+                ui.set_min_size(vec2(LABEL_WIDTH, height));
+                if !label.is_empty() {
+                    ui.add(
+                        eframe::egui::Label::new(
+                            eframe::egui::RichText::new(label)
+                                .font(theme::ui_font(theme::FONT_BASE))
+                                .color(theme.text_secondary()),
+                        )
+                        .truncate(),
+                    );
+                }
+            },
+        );
+        add(ui)
+    })
+    .inner
 }
 
 /// A picture 16:9 across the panel: the screen's black ground and a border, and where
@@ -169,10 +224,14 @@ pub fn heading(ui: &mut Ui, text: &str, theme: &Theme) {
 ///
 /// The box is a fixed 16:9 and a source may be any shape, so the whole frame is shown with
 /// bars rather than cropped to the box. With nothing to show it is the same black, so the
-/// panel's shape never changes.
+/// panel's shape never changes, and `empty` says why **inside** the box: a line of its own
+/// under it would be one more row saying what the black already shows. `empty` is the words
+/// drawn and the name the accessibility tree reads, which may say more, since two boxes can
+/// be empty for the same reason.
 pub fn picture(
     ui: &mut Ui,
     shown: Option<(NodeId, Option<&'static str>)>,
+    empty: Option<(&str, &str)>,
     theme: &Theme,
 ) -> Option<Thumbnail> {
     let width = ui.available_width();
@@ -194,6 +253,17 @@ pub fn picture(
         Stroke::new(1.0, theme.border_subtle()),
         StrokeKind::Inside,
     );
+    if let (None, Some((words, name))) = (&thumbnail, empty) {
+        painter.text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            words,
+            theme::ui_font(theme::FONT_BASE),
+            theme.text_muted(),
+        );
+        let response = ui.interact(rect, ui.id().with(("empty-picture", name)), Sense::hover());
+        crate::ui::accessible(&response, eframe::egui::WidgetType::Label, name);
+    }
     thumbnail
 }
 

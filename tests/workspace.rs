@@ -510,7 +510,7 @@ fn a_loaded_node_carries_its_definitions_layout_bits() {
         2,
         "the trace and the caption under it"
     );
-    assert_eq!(back.get(wide).unwrap().def.width, Some(240.0));
+    assert_eq!(back.get(wide).unwrap().def.width, Some(216.0));
 }
 
 /// A cable from Mandelbrot's `mask` is still on `mask` after a save and a reopen. Every output

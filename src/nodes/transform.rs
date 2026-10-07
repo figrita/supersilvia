@@ -269,7 +269,7 @@ node! {
               coordinate from the untouched one to the folded one rather than blending two \
               pictures, so the picture walks into its own reflection.",
     // "Mirror Y + Flip X" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "finalUV" = Control::None,
         VaryingNumber "mix" "Mix" = Control::num(1.0, 0.0, 1.0, 0.01, ""),
@@ -425,7 +425,7 @@ node! {
               becomes a sunburst; back out of it, a sunburst flattens into stripes. The \
               log-polar pair turns a repeating pattern into a spiral.",
     // "Cartesian → Log-Polar" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "sampleUV" = Control::None,
         VaryingNumber "scale" "Scale" = Control::num(1.0, 0.1, 5.0, 0.01, ""),
@@ -470,7 +470,7 @@ node! {
               makes the two breathe together. Base Zoom multiplies the sampling coordinate, \
               so a larger one pulls the picture away — the opposite sense of the Zoom node.",
     // "Sin Coefficient" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     timing: Timing::repeating(1.0 / 60.0, |n| Some(rotozoom_period(n))),
     inputs: [
         VaryingColor "input" "Input" at "rotozoomedUV" = Control::None,
@@ -567,7 +567,7 @@ node! {
               handheld camera rather than as static. Each axis has a Time, a Speed and an \
               Offset of its own, so Y can shake alone, at a speed or on a gear of its own.",
     // "Sin Coefficient" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     timing_xy: Timing::repeating(1.0 / 60.0, |n| Some(shaky_period(n, SHAKY_X_WAVES)))
         .y(1.0 / 15.0, |n| Some(shaky_period(n, SHAKY_Y_WAVES))),
     inputs: [

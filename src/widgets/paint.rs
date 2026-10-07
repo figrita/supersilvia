@@ -448,7 +448,7 @@ fn brush_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
 
     // Size, Color and Background: a label and its control across the row, silvia's
     // `justify-content: space-between`.
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
@@ -482,7 +482,7 @@ fn brush_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
     }
 
     // The keys, silvia's dim line under everything.
-    let hint = FontId::monospace(crate::ui::theme::font_size(HINT_SIZE, zoom));
+    let hint = FontId::proportional(crate::ui::theme::font_size(HINT_SIZE, zoom));
     for (i, line) in HINT.into_iter().enumerate() {
         r.ui.painter().text(
             pos2(r.rect.center().x, top + HINT_LINE * zoom * (i as f32 + 0.5)),

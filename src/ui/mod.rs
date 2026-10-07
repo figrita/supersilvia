@@ -389,9 +389,6 @@ pub struct CanvasState {
     /// and re-firing puts one back, so a port that fires again restarts rather than
     /// finishing the throb it was already in.
     fires: std::collections::HashMap<PortRef, Option<f64>>,
-    /// How tall each node's value fields came out when they last drew: the one part of a
-    /// node's height the document cannot say. See [`canvas::Measured`].
-    measured: canvas::Measured,
     /// Every node on the workspace, laid out once a frame. Kept between frames only so its
     /// buffers are reused; nothing reads last frame's answer.
     layouts: canvas::Layouts,
@@ -439,23 +436,6 @@ const FIRE_SECONDS: f64 = 0.15;
 const FIRE_LIFT: f32 = 0.55;
 
 impl CanvasState {
-    /// What each node's value fields last measured, for anything outside the canvas that
-    /// lays a node out: an arrange, a clamp to the strip, a test.
-    pub fn measured(&self) -> &canvas::Measured {
-        &self.measured
-    }
-
-    /// Record how tall one value's field says it needs to be, and forget every node the graph
-    /// no longer holds. View state: nothing here is an edit, so nothing here is undone.
-    pub fn measure(&mut self, graph: &Graph, grown: &[(NodeId, usize, f32)]) {
-        for &(id, index, height) in grown {
-            if let Some(node) = graph.get(id) {
-                self.measured.set(id, node, index, height);
-            }
-        }
-        self.measured.retain_in(graph);
-    }
-
     /// The rectangle the view is clamped to and the minimap is a map of, easing toward the
     /// strip as the graph makes it. `None` on a plane and on an empty workspace.
     pub fn bounds(&self) -> Option<Rect> {
@@ -1109,7 +1089,7 @@ pub fn show(ui: &mut Ui, state: &mut CanvasState, frame: &CanvasFrame<'_>) -> Ef
     // node's rows again. Out of the state for the pass, so it can be read while the rest of
     // the state is written.
     let mut layouts = std::mem::take(&mut state.layouts);
-    layouts.lay_out(frame.graph, frame.workspace, &state.measured);
+    layouts.lay_out(frame.graph, frame.workspace);
 
     let view = view(ui, state, frame, &layouts, &mut fx);
     let mut pass = Pass::new(ui, state, frame, view, &layouts);
@@ -2922,7 +2902,7 @@ fn selection_count(ui: &Ui, state: &CanvasState, pass: &Pass<'_>) {
     }
     let theme = pass.frame.theme;
     let rect = pass.view.rect;
-    let font = eframe::egui::FontId::monospace(theme::FONT_TINY);
+    let font = eframe::egui::FontId::proportional(theme::FONT_TINY);
     let widest = ui
         .painter()
         .layout_no_wrap("0000 selected".to_owned(), font.clone(), theme.text_muted())
@@ -3089,7 +3069,7 @@ fn cost_strips(ui: &mut Ui, state: &CanvasState, pass: &Pass<'_>) {
             theme.primary()
         };
         painter.rect_filled(bar, theme::RADIUS_SHARP, ink.gamma_multiply(0.35));
-        let font = eframe::egui::FontId::monospace(theme::font_size(theme::FONT_TINY, t.zoom));
+        let font = eframe::egui::FontId::proportional(theme::font_size(theme::FONT_TINY, t.zoom));
         painter.text(
             strip.left_center() + vec2(4.0 * t.zoom, 0.0),
             eframe::egui::Align2::LEFT_CENTER,
@@ -3484,8 +3464,8 @@ fn reveal_pan(
 /// Clamp a node's position to the strip: anywhere along it, within the viewport across it.
 ///
 /// A node taller than the viewport is pinned to the top margin rather than pushed off it.
-pub fn clamp_to_strip(graph: &Graph, id: NodeId, measured: &[f32], to: Pos2, height: f32) -> Pos2 {
-    let laid = canvas::Layouts::one(graph, id, measured);
+pub fn clamp_to_strip(graph: &Graph, id: NodeId, to: Pos2, height: f32) -> Pos2 {
+    let laid = canvas::Layouts::one(graph, id);
     clamp_into(laid.find(id).map_or(0.0, |l| l.height), to, height)
 }
 

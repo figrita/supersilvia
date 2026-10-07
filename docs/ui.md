@@ -83,6 +83,11 @@ menu bar.
 `Ctrl+2` and a click on a tab are the same gesture to a test and to the agent-driven layer.
 The name in the tree is the workspace's name, not whatever text fits in the tab.
 
+**A tab's name is one line.** A tab is at most `TAB_MAX` wide, and a name longer than that
+ends in `…` rather than wrapping: a wrapped name makes its tab two lines tall in a bar one line
+tall. The whole name is under the pointer. The bar has no margin under it: a tab sits on the
+canvas it shows.
+
 | gesture | what it does |
 | --- | --- |
 | click | show that tab |
@@ -176,7 +181,7 @@ left:
 | --- | --- |
 | `F8` | pause or play, whatever is showing — the key a Mac's keyboard prints ⏯ on, read only while no field has the keyboard and the editor window has the focus, as `H` and `F` are; View ▸ Pause, which reads Play while paused, is the same press. Not `Space`: a hand brushes it, and it would stop the whole show |
 
-**Nothing on it moves.** The time is monospace and laid out for `000:00.00`, so the playhead
+**Nothing on it moves.** The time is in tabular figures and laid out for `000:00.00`, so the playhead
 crossing ten or a hundred minutes changes what it says and never where anything is: live data
 never reflows the layout. Pause and back to zero are squares the height of the bar.
 
@@ -1739,23 +1744,24 @@ once and read the same wherever on the node the pointer landed.
   reflow the node under the hand that closed it. See
   [decisions.md](decisions.md#a-region-declares-its-own-heading-its-own-width-and-its-own-hit-rect).
 
-  **And a hand may drag one kind wider.** `NodeDef::resizable` is true on the note and on
-  nothing else, and a note wears a **grip** in the bottom-right corner of its text box — three
-  hairlines across the corner, in the accent under the pointer, which is the mark a browser
-  draws on the `resize` textarea silvia's note is. Dragging it writes `Node::dragged_width`
-  through `Command::SetNodeWidth`: document data like a position, so it is undoable, the whole
-  drag coalesces into one step, and it rides in the workspace file. `canvas::node_width` is
-  then the *larger* of the two — `canvas::natural_width`, which is the rows' and the regions'
-  answer above, and what was dragged, clamped between it and `canvas::MAX_NODE_WIDTH` — so a
-  width from a file, from undo or from a grip can never put a row outside the body holding it.
-  **Width only**: a note's height is the text's own and grows as it is typed into, so there is
-  no height for a hand to set that the next keystroke would not overrule. That height is
-  measured by the field as it paints — wrapping needs the font and the width, which layout
-  does not have — and kept in `canvas::Measured`, keyed by the node, which every layout
-  question is handed beside the node itself. It is the canvas's view state and not document
-  data: a note resizing itself writes nothing to the graph, opens no undo step and never
-  reaches the synth, and a note that has not drawn yet is laid out from its definition's line
-  count.
+  **And a hand may size a text box.** A node holding a text box of more than one line — the
+  note and the Text node — wears a **grip** in the bottom-right corner of the box: three
+  hairlines across the corner, in the accent under the pointer, the mark a browser draws on a
+  resizable textarea. Dragging it writes `Command::SetNodeSize`: document data like a
+  position, so it is undoable, the whole drag coalesces into one step, and it rides in the
+  workspace file. **The box's height on both**, as `Node::dragged_height`; **the body's width
+  too on the note**, the one kind with `NodeDef::resizable`, as `Node::dragged_width`.
+  `canvas::node_width` is the *larger* of `canvas::natural_width` — the rows' and the regions'
+  answer above — and what was dragged, clamped below `canvas::MAX_NODE_WIDTH`, and
+  `canvas::value_height` holds a dragged height between `MIN_TEXT_HEIGHT` and
+  `MAX_TEXT_HEIGHT`, so a size from a file, from undo or from a grip can never put a row
+  outside the body holding it.
+
+  **A text box is the height it was given, never the height of its text.** Its definition's
+  lines until a hand drags it, and what is typed past the bottom scrolls inside it. A box that
+  grew with its text grew differently at every zoom — the text wraps at a whole-pixel font size
+  while the box scales smoothly — so zooming made the node jump a line at a time. A height that
+  is the document's own does not move.
 
 - **Collapsed, a node is its header and nothing else.** `canvas::rows` yields nothing, so the
   body and the port bands follow from that one early return. The height has exactly one term
@@ -2106,7 +2112,7 @@ picture back to the CPU, and three summaries of what it measures.
 
 ## The number control
 
-`s-number` is 100x25: a decrement stepper, a draggable value with a value-proportional fill
+`s-number` is 84x20: a decrement stepper, a draggable value with a value-proportional fill
 behind it, and an increment stepper. Dragging is the primary gesture — it is a slider you can
 also type into, rather than one or the other — with `Shift` for a tenth of a step and `Ctrl`
 for ten. A control whose input is connected is drawn disabled and shows the **arriving**
@@ -2341,8 +2347,9 @@ it says what it is: the Oscillator's DC level is **Level**, the Clock's hours fr
 cannot be mistaken for it and keeps its word: Translate's X Offset and Y Offset, Tile's
 Offset X and Offset Y, the Slime Mold's Sensor Offset.
 
-**Two fixed decimal places, not three significant figures.** Everything on the canvas is
-monospace, so a fixed decimal count changes width only when the integer part gains a digit —
+**Two fixed decimal places, not three significant figures.** Every digit on the canvas is
+one width (the text face's figures are tabular), so a fixed decimal count changes width only
+when the integer part gains a digit —
 once a decade — where significant figures re-flow on every crossing of a power of ten, and a
 value crossing 1.0 sixty times a second would jitter its own label. A negative that rounds to
 zero drops its sign, for the same reason.
@@ -2408,7 +2415,7 @@ Timing heading, and only at `DETAIL_ZOOM` and closer, as every control is.
 
 ## The color control
 
-`s-color` is a 100x25 swatch drawn over a 5px checkerboard, so a transparent color does not
+`s-color` is an 84x20 swatch drawn over a 5px checkerboard, so a transparent color does not
 read as the node body. Its border is the s-number's own `bevel_border` — silvia's `2px inset
 border-normal` is the same rule on both controls — so a color and a number read as the same
 family of recessed field; a disabled swatch (its input is connected) wears a dashed
@@ -2558,9 +2565,9 @@ tells files apart: the episode number, the extension. So `loop` takes the room `
 and a path takes more of itself on a wide node than on a narrow one. The whole value is the
 hover text either way. An option with none set reads `choose…`.
 
-The row is `canvas::OPTION_ROW_PITCH`, 24 points, against `CONTROL_ROW_PITCH`'s 34 for an
-input carrying an s-number. An s-number is 25 points because it holds two steppers and a
-track a hand scrubs along; a select holds one line and hugs it.
+The row is `canvas::OPTION_ROW_PITCH`, 20 points, against `CONTROL_ROW_PITCH`'s 26 for an
+input carrying an s-number. An s-number is taller than a select because it holds two
+steppers and a track a hand scrubs along; a select holds one line and hugs it.
 
 **An option that is only ever yes or no is a tick, and every tick a node has shares one
 row.** `OptionDef::checkbox` says so, the value is `on` or `off`, and `canvas::Row::Checks` is
@@ -3378,6 +3385,17 @@ gesture at the same size in both directions; it lights under the pointer to say 
 on its outer edge points at the edge the panel goes to rather than being the one place the
 click lands.
 
+**Three levels of type, and one label column.** The panel's name is in the strong face (Space
+Grotesk SemiBold) a step up, on a band of its own; a section's heading is the strong face at the text
+size; everything under it is the text face, a row's label in the secondary ink.
+`panel::row` puts every label in a column `LABEL_WIDTH` wide and every row at an `s-number`'s
+height, so the controls of a panel start at one x and a select and a number keep one rhythm.
+
+**An empty picture says so inside its box**, in the muted ink — *No video source*, *No Output
+assigned* — rather than on a line of its own under the black, which would be a second row
+saying what the first one shows. The box keeps its size either way, so nothing moves when a
+source comes or goes.
+
 Each fold is a preference, not project data: whether you can see a panel is about the editor
 in front of you, and a project carried to a smaller screen should not unfold two panels on it.
 The Main Input starts **folded** where the Mixer starts open, because a new project has no
@@ -3402,11 +3420,14 @@ id used both ways comes back from its folded turn remembering the spine's width.
 The right panel is silvia's Main Mixer, drawn by `ui/mixer.rs` over
 [the mixer](rendering.md#the-mixer): **Channel A** and **Channel B**, each a live picture of
 the Output on it — a slot the panel reserves and `App` fills with a paint callback, exactly
-as a node's on-body render is filled — with the name of the workspace it lives on under it,
-which is a link to that workspace centerd on that Output; or *no assignment*. Then **Mix**:
-the **A / B balance** as an `s-number` from −1 to +1, because the fade is a control and gets
+as a node's on-body render is filled — with the name of the workspace it lives on at the far
+end of the channel's heading, which is a link to that workspace centerd on that Output; or,
+in the box, *No Output assigned*, named `Channel A: no Output assigned` for the tree. Then
+**Mix**: the balance as an `s-number` from −1 to +1, `A` and `B` at its two ends and no
+caption of its own — the tree names it `A / B balance`, and a binding's dot stands after the
+*Mix* heading — because the fade is a control and gets
 what every control gets — `Alt` + click binds it to a MIDI knob, see [the MIDI
-window](#the-midi-window) — then **Blackout** and **Freeze**, and the **crossfade method**.
+window](#the-midi-window) — then **Blackout** and **Freeze**, and the **Crossfade** method.
 
 **Blackout and Freeze are two presses side by side under the fade**, each half the panel and
 an `s-number`'s height. **Blackout** takes the mix to black until it is pressed again;
@@ -3420,8 +3441,10 @@ width so lighting moves nothing. Each is a named `Response`, *Blackout* and *Fre
 while it holds. They are rig controls, as the fade is: not saved, not undo steps, off at every
 launch and on every Open and New, and `Alt` + click binds one to a MIDI note — it learns, wears
 the learning ring and then the dot on its top-left corner, and does not press on the way. Then **Projection**: the mix's
-resolution, *Match viewport* or one of the Output's own presets. The mix itself fills the
-space that is left. The status line is not here: it is in the Status box, and it still
+resolution, *Match viewport* or one of the Output's own presets, *Project to background*,
+**Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
+the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
+asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still
 describes the selected Output.
 
 **`mixer::show` draws and returns `MixerOutput`; it never mutates**, the same shape as the
@@ -3438,9 +3461,10 @@ The left panel is silvia's Main Input, drawn by `ui/maininput.rs` over
 [the Main Input](media.md#the-main-input): one **video source** and one **audio source** for
 the whole rig, read by any number of `maininput` nodes.
 
-**Video source** is *None*, *Camera*, *Screen or window*, *Syphon* on a Mac, *NDI®* or *Video file*, with a 16:9 picture
-under it — a slot the panel reserves and `App` fills, exactly as a deck's is — and a line
-saying what is actually happening: `camera, 640x480`, `preparing clip… 40%`, `waiting for the
+**Video** is *None*, *Camera*, *Screen or window*, *Syphon* on a Mac, *NDI®* or *Video file*, with a 16:9 picture
+under it — a slot the panel reserves and `App` fills, exactly as a deck's is, reading *No video
+source* while the source is *None* — and, while there is a source, a line saying what is
+actually happening: `camera, 640x480`, `preparing clip… 40%`, `waiting for the
 screen picker…`, `camera, no frame yet`. A source that has delivered nothing for ten seconds
 since it opened, a clip's transcode and the picker's wait not counted, reads `not responding`
 instead, and so does a camera that stops for ten seconds after its first frame
@@ -3457,10 +3481,11 @@ the network by the name NDI gives each,
 then on — and a **Transparent** tick ([media.md](media.md#ndi)); where the NDI runtime is
 missing, the panel says so under the menu.
 
-**Audio source** is *None*, **System audio (what you hear)**, *Microphone or line in*, *Video
+**Audio** is *None*, **System audio (what you hear)**, *Microphone or line in*, *Video
 source*, any named capture device the machine has, or a sound file. *Video source* is the
 soundtrack of whatever the video source is, so it follows a clip changed under it and is
-silent over a camera or a screen. Monitors in that list are marked `↺`. Under it, **Gain** and **Monitor** as `s-number`s.
+silent over a camera or a screen. Monitors in that list are marked `↺`. Under it, while there
+is a source, its line, and then **Gain** and **Monitor** as `s-number`s.
 
 **A file is picked the way a node's file button picks one.** Choosing *Video file* or *Sound
 file…*, or clicking the file's own button, puts up the same picker a `video` node's button
@@ -3531,7 +3556,7 @@ no held buttons, so a press button under a finger when `H` was pressed is let go
 
 ## Preview and on-node render
 
-An Output draws its own frame on the node, 240x135, flush to the bottom corners. The preview
+An Output draws its own frame on the node, 216x122, flush to the bottom corners. The preview
 panel shows **the mix** — what the audience sees, whatever is selected; see
 [rendering.md](rendering.md#the-mixer). Both are paint callbacks blitting a texture,
 letterboxed — see [rendering.md](rendering.md) for why not a registered texture. The status

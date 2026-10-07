@@ -3,11 +3,10 @@
 //! Pan/zoom transform and node geometry. World units are what node positions are stored in;
 //! screen units are what egui draws with.
 //!
-//! Layout reads a node's kind through `Node::def` — its rows, its regions, its width — and the
-//! one thing it cannot know from the document, how tall a value's text came out, from
-//! [`Measured`], which is the canvas's own view state. Every function that answers a height
-//! takes the node's measured heights beside the node, so a frame and a hit test that ask
-//! about the same node ask about the same body.
+//! Layout reads a node's kind entirely through `Node::def` — its rows, its regions, its
+//! width — plus `dragged_height`/`dragged_width` where a hand has set one. A text box's
+//! height is never measured off its drawn text, so layout needs nothing from the canvas
+//! beyond the node itself.
 //!
 //! A frame asks once: [`Layouts`] lays every node on the workspace out at the top of the pass,
 //! and the canvas reads each node's [`NodeLayout`]. Whatever needs one node outside a frame
@@ -17,14 +16,17 @@ use crate::graph::{Graph, Node, NodeId};
 use eframe::egui::{Pos2, Rect, Vec2, vec2};
 use std::collections::HashMap;
 
-/// Node body width in world units. The design system sets `min-width: 200px`, and an
-/// Output grows to 240 wide to hold its render — the height of that render is not fixed,
-/// see `widgets::picture::RENDER`, since it follows the Output's own `resolution` option.
-pub const NODE_WIDTH: f32 = 200.0;
-pub const OUTPUT_NODE_WIDTH: f32 = 240.0;
-/// Header height: the taller of a 20px icon padded 0.25rem top and bottom, and a title padded
-/// 0.5rem top and bottom — both about 26px, which is silvia's own header.
-pub const HEADER_HEIGHT: f32 = 26.0;
+/// Node body width in world units, and an Output's, which is wider to hold its render — the
+/// height of that render is not fixed, see `widgets::picture::RENDER`, since it follows the
+/// Output's own `resolution` option.
+///
+/// **The canvas is set compact**: every size here is the least that holds its text and its
+/// target comfortably at zoom 1, so a screen holds more of the patch and there is less chrome
+/// to read past and to draw.
+pub const NODE_WIDTH: f32 = 180.0;
+pub const OUTPUT_NODE_WIDTH: f32 = 216.0;
+/// Header height: the title's line and four points either side, which also holds the icon.
+pub const HEADER_HEIGHT: f32 = 22.0;
 /// Where the header's kind icon starts, from the body's left edge.
 ///
 /// silvia's `.node-icon` is a 20px box at `margin-left: 0.25rem` holding a 16px glyph, so its
@@ -33,24 +35,24 @@ pub const HEADER_HEIGHT: f32 = 26.0;
 /// from the top of the header — six points, measured off a 6x crop rather than assumed.
 pub const ICON_INSET: f32 = 6.0;
 
-/// The header's `?` and `✕`: silvia's `.node-tooltip`/`.node-close`, 20px square.
-pub const MARK_SIZE: f32 = 20.0;
-/// `✕`'s own inset from the header's right edge — silvia's `.node-close { right: 0.25rem }`.
+/// The header's `?` and `✕`, square.
+pub const MARK_SIZE: f32 = 16.0;
+/// `✕`'s own inset from the header's right edge.
 pub const MARK_MARGIN: f32 = 3.0;
-/// Clear space between the `?` and `✕` marks — silvia's two 20px boxes sit one point apart.
+/// Clear space between the `?` and `✕` marks.
 pub const MARK_GAP: f32 = 1.0;
-/// Vertical pitch of one port row: 0.4rem padding either side of a 14px port.
-pub const PORT_PITCH: f32 = 24.0;
-/// Port radius. Data ports are 1.2rem across, action ports 1rem and rounded-square.
-pub const PORT_RADIUS: f32 = 7.2;
-pub const ACTION_PORT_RADIUS: f32 = 6.0;
+/// Vertical pitch of one port row: a 12-point port and four points either side.
+pub const PORT_PITCH: f32 = 20.0;
+/// Port radius. Action ports are a little smaller and rounded-square.
+pub const PORT_RADIUS: f32 = 6.0;
+pub const ACTION_PORT_RADIUS: f32 = 5.0;
 /// How much larger than the dot the pointer's target for it is. A port is easier to hit than
-/// to miss: 3x `PORT_RADIUS` is a 21.6-point square against a 24-point row pitch, so the rows
+/// to miss: 3x `PORT_RADIUS` is an 18-point square against a 20-point row pitch, so the rows
 /// above and below stay reachable. `node_widget::port_hit` is the square it makes, and it is
 /// the one shape a port answers in: the hover, the click and a cable let go.
 pub const PORT_HIT_SCALE: f32 = 3.0;
-/// Spacing of the canvas dot grid.
-pub const GRID_PITCH: f32 = 24.0;
+/// Spacing of the canvas dot grid: a port row's pitch.
+pub const GRID_PITCH: f32 = 20.0;
 
 pub const MIN_ZOOM: f32 = 0.25;
 pub const MAX_ZOOM: f32 = 3.0;
@@ -126,8 +128,8 @@ impl Transform {
 /// How far below the deeper node a backward cable passes, in world units.
 pub const CABLE_CLEARANCE: f32 = 24.0;
 
-/// A row holding an s-number or s-color: 25px control plus 0.4rem either side.
-pub const CONTROL_ROW_PITCH: f32 = 34.0;
+/// A row holding an s-number or s-color: the control's height and three points either side.
+pub const CONTROL_ROW_PITCH: f32 = 26.0;
 
 /// The rows of an Output's Render section, under the **Render** heading that folds them: its
 /// three selects, then one row per number, then the Render button.
@@ -149,9 +151,9 @@ pub const RECORD_FPS_ROW: usize = 0;
 pub const RECORD_ROW: usize = 1;
 
 /// How tall the status line is. A line of `FONT_TINY` and the air around it, well under
-/// `OPTION_ROW_PITCH`: it is a line of monospace, not a control, and giving it a control's
+/// `OPTION_ROW_PITCH`: it is a line of text, not a control, and giving it a control's
 /// height would put twenty-five points of nothing on every Output in the graph.
-pub const READOUT_ROW_PITCH: f32 = 15.0;
+pub const READOUT_ROW_PITCH: f32 = 14.0;
 
 /// Does this node carry the Render heading — the bar and disclosure triangle over the render
 /// rows, drawn open or closed on every Output and on nothing else. The Record and Send
@@ -267,65 +269,33 @@ pub fn send_rows(node: &Node) -> impl Iterator<Item = crate::nodes::output::Send
 
 /// A row holding a select: the control plus 3 points either side.
 ///
-/// Tighter than `CONTROL_ROW_PITCH` because a select is not an s-number. An s-number is 25
-/// points because it holds two stepper buttons and a field a hand scrubs along; a select
+/// Tighter than `CONTROL_ROW_PITCH` because a select is not an s-number. An s-number is
+/// taller because it holds two stepper buttons and a field a hand scrubs along; a select
 /// holds one line of text and hugs it. A node's options are the part of it that is set once
 /// and then read, so the rows that carry them are the rows worth taking height out of — a
 /// `video` node has four.
-pub const OPTION_ROW_PITCH: f32 = 24.0;
+pub const OPTION_ROW_PITCH: f32 = 20.0;
 /// What each line past the first adds to a multi-line value's row. The row's own padding is
 /// already in `OPTION_ROW_PITCH`, so this is a line of text and nothing else — otherwise a
 /// four-line note would carry four rows' worth of padding down its side.
 pub const VALUE_LINE: f32 = 14.0;
-/// A value's height before its field has ever drawn, from the lines the definition asked
-/// for. An assumed line height, which is exactly what the measured one replaces — so it is
-/// used for one frame and never again.
+/// A value's height for a field that declares `rows` lines: an option row for one line, and
+/// a line of text for every one after that, with no field drawing more than its declaration
+/// unless a hand has dragged it taller. See [`value_height`].
 pub fn seed_value_height(rows: u8) -> f32 {
     f32::from(rows.max(1) - 1).mul_add(VALUE_LINE, OPTION_ROW_PITCH)
 }
 
-/// How tall each value a node declares came out the last time its field drew, in world units,
-/// keyed by node.
+/// How tall one value of a node is drawn, in world units. Zero for a value a region draws,
+/// which takes no row.
 ///
-/// **View state, not document data.** Wrapping needs the font and the width, so only the
-/// field that draws a value knows how tall its text is, and it says so while it paints. That
-/// answer is about this canvas rather than about the graph: it is not an edit, it is not in
-/// the file or the undo history, and it never crosses to the synth. A node whose fields have
-/// not drawn yet has no entry, and is laid out from its definition's line counts through
-/// [`value_height`] until they have.
-#[derive(Debug, Clone, Default)]
-pub struct Measured(HashMap<NodeId, Vec<f32>>);
-
-impl Measured {
-    /// One node's heights, one per value its definition declares, in declaration order —
-    /// empty for a node whose fields have not drawn.
-    pub fn of(&self, id: NodeId) -> &[f32] {
-        self.0.get(&id).map_or(&[], Vec::as_slice)
-    }
-
-    /// What one value's field says it needs. The rest of the node's values start at their
-    /// seeds, so a node's list is always whole once it has one.
-    pub fn set(&mut self, id: NodeId, node: &Node, index: usize, height: f32) {
-        let heights = self.0.entry(id).or_insert_with(|| {
-            (0..node.def.values.len())
-                .map(|i| value_height(node, &[], i))
-                .collect()
-        });
-        if let Some(slot) = heights.get_mut(index) {
-            *slot = height;
-        }
-    }
-
-    /// Forget every node the graph no longer holds.
-    pub fn retain_in(&mut self, graph: &Graph) {
-        self.0.retain(|id, _| graph.get(*id).is_some());
-    }
-}
-
-/// How tall one value of a node is drawn, in world units: what its field last measured, or
-/// the seed its definition's line count gives before it has drawn. Zero for a value a region
-/// draws, which takes no row.
-pub fn value_height(node: &Node, measured: &[f32], index: usize) -> f32 {
+/// **A text box is the height it was given, never the height of its text.** A box of more
+/// than one line is the node's `dragged_height` where a hand set one, and otherwise the lines
+/// its definition declares; what is typed scrolls inside it. A box that grew with its text
+/// grew differently at every zoom — the text wraps at a whole-pixel font size while the box
+/// scales smoothly — so zooming made the node jump by a line at a time. A height that is the
+/// document's own does not move.
+pub fn value_height(node: &Node, index: usize) -> f32 {
     match node
         .def
         .values
@@ -333,12 +303,18 @@ pub fn value_height(node: &Node, measured: &[f32], index: usize) -> f32 {
         .map_or(0, crate::nodes::ValueDef::rows)
     {
         0 => 0.0,
-        rows => measured
-            .get(index)
-            .copied()
-            .unwrap_or_else(|| seed_value_height(rows)),
+        1 => seed_value_height(1),
+        rows => node.dragged_height.filter(|h| h.is_finite()).map_or_else(
+            || seed_value_height(rows),
+            |h| h.clamp(MIN_TEXT_HEIGHT, MAX_TEXT_HEIGHT),
+        ),
     }
 }
+
+/// The least a dragged text box can be: two lines, so it still reads as a box of text.
+pub const MIN_TEXT_HEIGHT: f32 = OPTION_ROW_PITCH + VALUE_LINE;
+/// The most: a few screenfuls of a note, past which collapsing it is the answer.
+pub const MAX_TEXT_HEIGHT: f32 = 2000.0;
 
 /// How far a value's box pulls in from the node's edges, on every side. `ROW_BLOCK_INSET`'s
 /// value, because it is the same gesture an input block makes on its far side — the width
@@ -347,7 +323,7 @@ pub const VALUE_INSET: f32 = ROW_BLOCK_INSET;
 
 /// How tall a select is: 4 points of padding around one `FONT_TINY` line, which is a chip's
 /// height for the same reason `TAG_HEIGHT` is.
-pub const SELECT_HEIGHT: f32 = 18.0;
+pub const SELECT_HEIGHT: f32 = 16.0;
 
 /// An audio scope: a spectrum with the band handles over it, then a meter a band.
 ///
@@ -365,10 +341,10 @@ pub const METERS_HEIGHT: f32 = SCOPE_HEIGHT - SCOPE_SPECTRUM;
 /// How wide a node carrying a scope is. silvia's 320 for the same reason it is 160 tall.
 pub const SCOPE_NODE_WIDTH: f32 = 300.0;
 
-/// How tall a region's heading is in world units, its bar and the air around it: silvia's
-/// `.section-toggle` min-height with its own `padding` around it. `widgets::HEADING_PAD` of that is clear above
-/// and below the bar itself, so two stacked headings read as two strips rather than one block.
-pub const HEADING_HEIGHT: f32 = 24.0;
+/// How tall a region's heading is in world units, its bar and the air around it.
+/// `widgets::HEADING_PAD` of that is clear above and below the bar itself, so two stacked
+/// headings read as two strips rather than one block.
+pub const HEADING_HEIGHT: f32 = 20.0;
 
 /// A trace band: a picture of the shape a node like `adsr` or `oscillator` is editing,
 /// flush to the body's bottom corners as the audio scope and an Output's own render are.
@@ -378,9 +354,9 @@ pub const TRACE_HEIGHT: f32 = 48.0;
 /// world units a 300 wide body is measured in.
 pub const CURVE_HEIGHT: f32 = 90.0;
 
-/// The caption under a trace: silvia's two stacked lines, a tiny label over a reading, with
-/// the air around them a row of the node has.
-pub const CAPTION_HEIGHT: f32 = 26.0;
+/// The caption under a trace: two stacked lines, a tiny label over a reading, with the air
+/// around them a row of the node has.
+pub const CAPTION_HEIGHT: f32 = 24.0;
 
 /// One horizontal band inside a node body. Everything about node layout derives from the
 /// row list, so heights, port centers and hit rects cannot disagree.
@@ -475,28 +451,20 @@ impl Row {
     }
 }
 
-/// How far an input or output block sits from the node's far edge — silvia's
-/// `.node-inputs { padding-right: 0.5rem }` and `.node-outputs { padding-left: 0.5rem }`.
-/// The near edge, where the ports hang off it, stays flush; only the far side pulls in,
+/// How far an input or output block sits from the node's far edge. The near edge, where the ports hang off it, stays flush; only the far side pulls in,
 /// which is what makes each block read as a slab short of the edge rather than the full row.
-pub const ROW_BLOCK_INSET: f32 = 6.0;
+pub const ROW_BLOCK_INSET: f32 = 4.0;
 
 /// The corner an input or output block rounds on its own first and last row, on the side
-/// away from the ports — silvia's `.node-input:first-child { border-top-right-radius: 6px }`
-/// and `:last-child { border-bottom-right-radius: 6px }` (mirrored for outputs, top/bottom
-/// left). Options carry no such rounding of their own.
-pub const ROW_BLOCK_RADIUS: f32 = 6.0;
+/// away from the ports. Options carry no such rounding of their own.
+pub const ROW_BLOCK_RADIUS: f32 = 5.0;
 
 /// Room a section boundary — inputs to outputs, outputs to options — takes beyond its two
-/// rows' own heights: silvia's own `<hr>` sets no margin of its own, so it keeps the browser's
-/// unstyled default, `0.5em` above and below, resolved against this design system's 12px
-/// root — 6px, 6px — plus the rule's own `border-top: 2px groove`. Measured against a 2x crop
-/// of silvia's `blur.png` between "Blur Y" and "Output" (28 device px = 14 CSS px, split
-/// 6/2/6) rather than assumed from the CSS alone.
-pub const SECTION_GAP_ABOVE: f32 = 6.0;
-/// The groove's own thickness: silvia's `hr { border-top: 2px groove ... }`.
+/// rows' own heights: four points either side of a two-point groove.
+pub const SECTION_GAP_ABOVE: f32 = 4.0;
+/// The groove's own thickness.
 pub const GROOVE_HEIGHT: f32 = 2.0;
-pub const SECTION_GAP_BELOW: f32 = 6.0;
+pub const SECTION_GAP_BELOW: f32 = 4.0;
 /// Total vertical room one section boundary takes, gap included on both sides of the groove.
 pub const SECTION_GAP: f32 = SECTION_GAP_ABOVE + GROOVE_HEIGHT + SECTION_GAP_BELOW;
 /// Plain gap under the header before the first row — no groove, just the room silvia's own
@@ -598,9 +566,9 @@ pub fn input_has_control(node: &Node, index: usize) -> bool {
         .is_some_and(|p| node.controls.contains_key(p.key))
 }
 
-/// Height of one row. A row carrying a control is taller, and a value's row is as tall as its
-/// text: `measured` is the node's own heights out of [`Measured`].
-pub fn row_height(node: &Node, measured: &[f32], row: Row) -> f32 {
+/// Height of one row. A row carrying a control is taller, and a value's row is as tall as
+/// its declared lines, or the node's own `dragged_height` where a hand has set one.
+pub fn row_height(node: &Node, row: Row) -> f32 {
     match row {
         Row::Input(i) if input_has_control(node, i) || speed_tall(node, i) => CONTROL_ROW_PITCH,
         Row::Input(_) | Row::Output(_) => PORT_PITCH,
@@ -619,11 +587,10 @@ pub fn row_height(node: &Node, measured: &[f32], row: Row) -> f32 {
         }
         Row::Readout => READOUT_ROW_PITCH,
         // A value's height is the lines it declares: one line is an option row, and each
-        // line after that adds a line of text rather than a whole row's padding.
-        // Whatever the field last said it needed, plus the gap around it. The inset is part
-        // of the row rather than taken out of it, so the box keeps the whole height it asked
-        // for and the node grows by the margin.
-        Row::Value(i) => value_height(node, measured, i) + 2.0 * VALUE_INSET,
+        // line after that adds a line of text rather than a whole row's padding. The inset
+        // is part of the row rather than taken out of it, so the box keeps the whole height
+        // it was given and the node grows by the margin.
+        Row::Value(i) => value_height(node, i) + 2.0 * VALUE_INSET,
     }
 }
 
@@ -677,7 +644,7 @@ fn output_shown(node: &Node, index: usize) -> bool {
 ///
 /// An iterator, not a `Vec`: it is walked for every node on the workspace every frame, and at
 /// 60 Hz an allocation per node was once the largest single cost in the canvas.
-pub fn rows<'a>(node: &'a Node, measured: &'a [f32]) -> impl Iterator<Item = (Row, f32)> + 'a {
+pub fn rows(node: &Node) -> impl Iterator<Item = (Row, f32)> + '_ {
     let n = if node.collapsed { 0 } else { usize::MAX };
     // The options that are still selects. A tick is an option too, and so is a region's
     // heading: the ticks share the single `Checks` row after them and a heading is drawn on its
@@ -726,7 +693,7 @@ pub fn rows<'a>(node: &'a Node, measured: &'a [f32]) -> impl Iterator<Item = (Ro
         // Last, so the line sits directly above the Output's own picture — where silvia's
         // own status line sits, immediately above its preview canvas.
         .chain((node.def.is_output && !node.collapsed).then_some(Row::Readout))
-        .map(move |row| (row, row_height(node, measured, row)))
+        .map(move |row| (row, row_height(node, row)))
 }
 
 /// Every row with its top offset from the body's top, in one pass.
@@ -740,15 +707,12 @@ pub fn rows<'a>(node: &'a Node, measured: &'a [f32]) -> impl Iterator<Item = (Ro
 /// either side of the groove itself. The very first row instead gets `HEADER_GAP` alone: the
 /// header is not a section, so what sits below it is the one plain gap `margin-bottom`
 /// describes, not a groove with nothing above it to separate.
-pub fn rows_with_top<'a>(
-    node: &'a Node,
-    measured: &'a [f32],
-) -> impl Iterator<Item = (Row, f32, f32)> + 'a {
+pub fn rows_with_top(node: &Node) -> impl Iterator<Item = (Row, f32, f32)> + '_ {
     let mut top = HEADER_HEIGHT;
     let mut section: Option<u8> = None;
     let mut timed = false;
     let mut closed = false;
-    rows(node, measured).map(move |(row, h)| {
+    rows(node).map(move |(row, h)| {
         top += match section {
             None => HEADER_GAP,
             Some(s) if s != row.section() => SECTION_GAP,
@@ -772,7 +736,7 @@ pub fn rows_with_top<'a>(
 }
 
 /// The body's bottom padding, which is what a node with no region of its own has.
-pub const BODY_PAD: f32 = 6.0;
+pub const BODY_PAD: f32 = 4.0;
 
 /// The clearance the body's own rounded corner needs under a band that is not flush.
 ///
@@ -900,8 +864,6 @@ pub struct NodeLayout<'a> {
     pub regions: &'a [RegionBox],
     /// Every port's dot in world units, inputs first: where a cable ends.
     pub ports: &'a [PortSlot],
-    /// What the node's value fields measured, as it was laid out from: [`Measured::of`].
-    pub measured: &'a [f32],
 }
 
 impl NodeLayout<'_> {
@@ -946,7 +908,6 @@ struct Laid {
     rows: std::ops::Range<usize>,
     regions: std::ops::Range<usize>,
     ports: std::ops::Range<usize>,
-    measured: std::ops::Range<usize>,
 }
 
 /// Every node on one workspace, laid out once for the frame.
@@ -962,46 +923,39 @@ pub struct Layouts {
     ports: Vec<PortSlot>,
     /// Which of `ports` a port is, so a cable resolves both ends without a scan.
     index: HashMap<crate::graph::PortRef, usize>,
-    measured: Vec<f32>,
 }
 
 impl Layouts {
     /// Lay out every node shown on `workspace`, in `Graph::on_workspace` order — which is id
     /// order, and what [`Layouts::find`] searches by.
-    pub fn lay_out(
-        &mut self,
-        graph: &Graph,
-        workspace: crate::graph::WorkspaceId,
-        measured: &Measured,
-    ) {
+    pub fn lay_out(&mut self, graph: &Graph, workspace: crate::graph::WorkspaceId) {
         self.nodes.clear();
         self.rows.clear();
         self.regions.clear();
         self.ports.clear();
         self.index.clear();
-        self.measured.clear();
         for (id, node) in graph.on_workspace(workspace) {
-            self.push(graph, id, node, measured.of(id));
+            self.push(graph, id, node);
         }
     }
 
     /// One node laid out alone, where the graph holds it: what an arrange, a clamp to the strip
     /// and a test ask about a node outside a frame. The same walk a frame makes, so there is
     /// one layout and not two that have to agree. Empty where the graph does not hold `id`.
-    pub fn one(graph: &Graph, id: NodeId, measured: &[f32]) -> Self {
+    pub fn one(graph: &Graph, id: NodeId) -> Self {
         let mut laid = Self::default();
         if let Some(node) = graph.get(id) {
-            laid.push(graph, id, node, measured);
+            laid.push(graph, id, node);
         }
         laid
     }
 
     /// Lay one node out on the end of the buffers: one walk of its rows and one of its
     /// regions, each region's size asked once.
-    fn push(&mut self, graph: &Graph, id: NodeId, node: &Node, measured: &[f32]) {
+    fn push(&mut self, graph: &Graph, id: NodeId, node: &Node) {
         let rows = self.rows.len();
         let mut last = None;
-        for (row, top, height) in rows_with_top(node, measured) {
+        for (row, top, height) in rows_with_top(node) {
             self.rows.push(RowBox { row, top, height });
             last = Some((top, height));
         }
@@ -1111,8 +1065,6 @@ impl Layouts {
         for (i, slot) in self.ports.iter().enumerate().skip(ports) {
             self.index.insert(slot.port, i);
         }
-        let from = self.measured.len();
-        self.measured.extend_from_slice(measured);
         self.nodes.push(Laid {
             id,
             rect,
@@ -1120,7 +1072,6 @@ impl Layouts {
             rows: rows..self.rows.len(),
             regions: regions..self.regions.len(),
             ports: ports..self.ports.len(),
-            measured: from..self.measured.len(),
         });
     }
 
@@ -1143,7 +1094,6 @@ impl Layouts {
             rows: &self.rows[laid.rows.clone()],
             regions: &self.regions[laid.regions.clone()],
             ports: &self.ports[laid.ports.clone()],
-            measured: &self.measured[laid.measured.clone()],
         }
     }
 
@@ -1194,7 +1144,7 @@ mod tests {
 
     /// One node of `g` laid out alone, from its definition's line counts.
     fn laid(g: &Graph, id: NodeId) -> Layouts {
-        Layouts::one(g, id, &[])
+        Layouts::one(g, id)
     }
 
     /// How tall one node of `g` is.

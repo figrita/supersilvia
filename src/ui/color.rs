@@ -127,7 +127,7 @@ pub fn swatch(
             rect.center(),
             eframe::egui::Align2::CENTER_CENTER,
             crate::ui::number::VARYING,
-            eframe::egui::FontId::monospace(size),
+            eframe::egui::FontId::proportional(size),
             theme.text_secondary(),
         );
     }
@@ -454,13 +454,13 @@ fn channels<T: eframe::egui::emath::Numeric>(
     edited
 }
 
-/// One of the picker's two worded buttons, `INT`/`FLOAT` and `COPY`: tiny monospace on
+/// One of the picker's two worded buttons, `INT`/`FLOAT` and `COPY`: tiny text on
 /// `bg_interactive`, at least `width` across.
 fn worded(ui: &mut Ui, label: &str, width: f32, theme: &Theme) -> Response {
     ui.add(
         eframe::egui::Button::new(
             eframe::egui::RichText::new(label)
-                .font(FontId::monospace(theme::FONT_TINY))
+                .font(FontId::proportional(theme::FONT_TINY))
                 .color(theme.text_secondary()),
         )
         .min_size(vec2(width, 0.0))
@@ -566,7 +566,7 @@ pub fn picker(
             .horizontal(|ui| {
                 let field = TextEdit::singleline(&mut text)
                     .id(hex_id)
-                    .font(FontId::monospace(theme::FONT_TINY))
+                    .font(FontId::proportional(theme::FONT_TINY))
                     .text_color(theme.text_primary())
                     .background_color(theme.bg_interactive())
                     .desired_width(content - COPY - GAP)

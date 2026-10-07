@@ -25,7 +25,7 @@ pub const WIDTH: f32 = 260.0;
 /// How much list is shown before it scrolls.
 const LIST_HEIGHT: f32 = 300.0;
 /// One row, the browser's.
-const ROW_HEIGHT: f32 = 24.0;
+const ROW_HEIGHT: f32 = 20.0;
 /// Space between the target port and the panel's near edge, in screen points.
 const OFFSET: f32 = 12.0;
 
@@ -146,7 +146,7 @@ pub fn show(
             ui.spacing_mut().item_spacing.y = 0.0;
             ui.label(
                 eframe::egui::RichText::new("Convert")
-                    .monospace()
+                    .strong()
                     .size(theme::FONT_TINY)
                     .color(theme.text_secondary()),
             );
@@ -212,7 +212,7 @@ fn row(ui: &mut Ui, bridge: &Bridge, selected: bool, follow: bool, theme: &Theme
         rect.left_center() + vec2(28.0, 0.0),
         Align2::LEFT_CENTER,
         bridge.label,
-        FontId::monospace(theme::FONT_BASE),
+        FontId::proportional(theme::FONT_BASE),
         theme.text_primary(),
     );
     // Named for the ports it would wire, so the tree an agent and a test read says which

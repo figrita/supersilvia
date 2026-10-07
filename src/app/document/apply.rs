@@ -15,8 +15,6 @@ use emath::Pos2;
 
 /// What an edit reads that is not the document's.
 pub(in crate::app) struct Env<'a> {
-    /// What the canvas measured, which an auto-arrange lays each node out by.
-    pub measured: &'a crate::ui::canvas::Measured,
     /// The project an imported workspace copies its media into.
     pub project: &'a Project,
 }
@@ -263,15 +261,21 @@ impl Document {
                 }
                 // Position is not compile-relevant, so nothing is marked stale.
             }
-            Command::SetNodeWidth { node, width } => {
+            Command::SetNodeSize {
+                node,
+                width,
+                height,
+            } => {
                 let n = self
                     .graph_mut()
                     .get_mut(node)
                     .ok_or(CommandError::NoSuchNode(node))?;
-                // Anything that is not a width is no width at all: a NaN through undo would
+                // Anything that is not a size is no size at all: a NaN through undo would
                 // be a node of no size, and a negative one a node drawn inside out.
-                n.dragged_width = width.filter(|w| w.is_finite() && *w > 0.0);
-                // Nothing is marked stale: a body's width is layout, exactly as a position
+                let size = |v: Option<f32>| v.filter(|v| v.is_finite() && *v > 0.0);
+                n.dragged_width = size(width);
+                n.dragged_height = size(height);
+                // Nothing is marked stale: a body's size is layout, exactly as a position
                 // is, and no shader has ever read one.
             }
             Command::SetControl { node, key, value } => {
@@ -468,8 +472,7 @@ impl Document {
                 if !self.graph.has_workspace(workspace) {
                     return Err(CommandError::NoSuchWorkspace(workspace));
                 }
-                let placed =
-                    crate::ui::layout::arrange(&self.graph, env.measured, workspace, height);
+                let placed = crate::ui::layout::arrange(&self.graph, workspace, height);
                 for (id, pos) in placed {
                     if let Some(node) = self.graph_mut().get_mut(id) {
                         node.pos = pos;

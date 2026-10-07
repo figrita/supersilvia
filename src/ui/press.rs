@@ -105,7 +105,7 @@ pub fn button(
         rect.center(),
         Align2::CENTER_CENTER,
         caption,
-        FontId::monospace(theme::font_size(theme::FONT_TINY, zoom)),
+        FontId::proportional(theme::font_size(theme::FONT_TINY, zoom)),
         text,
     );
 
@@ -158,7 +158,7 @@ pub fn click(
         rect.center(),
         Align2::CENTER_CENTER,
         caption,
-        FontId::monospace(theme::font_size(theme::FONT_TINY, zoom)),
+        FontId::proportional(theme::font_size(theme::FONT_TINY, zoom)),
         theme.text_primary(),
     );
     crate::ui::accessible(&response, WidgetType::Button, &name);
@@ -173,7 +173,7 @@ const CHOICE_PAD: f32 = 6.0;
 pub fn choice_width(ctx: &eframe::egui::Context, captions: &[&str], zoom: f32) -> f32 {
     let advance = crate::ui::node_widget::advance(
         ctx,
-        &FontId::monospace(theme::font_size(theme::FONT_TINY, zoom)),
+        &FontId::proportional(theme::font_size(theme::FONT_TINY, zoom)),
     );
     captions
         .iter()
@@ -198,7 +198,7 @@ pub fn choice(
     theme: &Theme,
     zoom: f32,
 ) -> Option<usize> {
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, zoom));
     let advance = crate::ui::node_widget::advance(ui.ctx(), &font);
     let natural: Vec<f32> = captions
         .iter()

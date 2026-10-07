@@ -133,10 +133,16 @@ These are things the handoff specified that a reasonable person would guess wron
   rather than typed, because a glyph is the one thing a font fallback is allowed to turn into
   `◻`. The row it sits in is `OPTION_ROW_PITCH`, which is **tighter than the handoff's**: an
   option is set once and then read, and a `video` node has four of them.
-- **Everything is monospace at a 12 px base.** There are no serif or display faces.
-- **The on-node render is a defined component**: 240x135, flush to the node's bottom corners.
-  That is why an Output node is 240 wide where others are 200. A handful of other nodes are
-  240 too — `NodeDef::width`, for a node whose longest row does not fit 200; see
+- **Text is Space Grotesk at a 12 px base**, headings Space Grotesk SemiBold. Monospace is kept for what is
+  read column by column: a path, a MIDI message, the Status box. See
+  [Fonts](#fonts-and-why-four-are-vendored).
+- **The canvas is compact.** Every size is the least that holds its text and its target at
+  zoom 1: a 180-wide node, a 22-point header, 20-point port and option rows, 26-point control
+  rows, and an s-number of 84x20. A screen holds more of the patch, and there is less chrome
+  to read past and to draw.
+- **The on-node render is a defined component**: 216x122, flush to the node's bottom corners.
+  That is why an Output node is 216 wide where others are 180. A handful of other nodes are
+  216 too — `NodeDef::width`, for a node whose longest row does not fit 180; see
   [decisions.md](decisions.md#a-node-may-declare-a-wider-body).
 - Wires are 4 px data, 2 px dashed action, in a lighter and less saturated version of the
   port color.
@@ -148,23 +154,35 @@ These are things the handoff specified that a reasonable person would guess wron
   is what says where the plane is and how far you have panned, and one you have to hunt for
   does none of that job.
 
-## Fonts, and why two are vendored
+## Fonts, and why four are vendored
 
-Everything is monospace; `theme::fonts` builds the stack. egui supplies four faces — Ubuntu,
-Hack, a **subset** of Noto Emoji, and emoji-icon-font — and that subset is the problem: 887
-codepoints against the full face's 1,496. An icon outside it draws as `◻`, silently, visible
-only to whoever opens that menu.
+`theme::fonts` builds the stack. **The text face is Space Grotesk**, Regular for text and
+SemiBold as the family `theme::STRONG` for headings: `theme::ui_font` and `theme::strong_font`
+name them.
+Monospace (egui's Hack) is kept for what is read column by column — a path, a MIDI message,
+the Status box — and nothing else.
 
-Two faces are vendored into `assets/fonts/` to close that, both OFL:
+Space Grotesk is cut by `scripts/text-fonts.py` from the variable face: an instance per weight,
+its **digits pointed at the tabular figures its `tnum` feature names** so a live number never
+shuffles sideways (egui has no shaper to turn on `tnum`), and the cut **text only** — Latin, punctuation and the figure
+space. It goes first in the proportional family, and because it carries no arrows, shapes or
+symbols, every icon still falls through to the face that drew it before.
+
+egui supplies four faces — Ubuntu, Hack, a **subset** of Noto Emoji, and emoji-icon-font — and
+that subset is the problem: 887 codepoints against the full face's 1,496. An icon outside it
+draws as `◻`, silently, visible only to whoever opens that menu.
+
+Four faces are vendored into `assets/fonts/`, all OFL:
 
 | | | |
 | --- | --- | --- |
+| `SpaceGrotesk-Regular.ttf`, `SpaceGrotesk-SemiBold.ttf` | 29 KB each | the text face, cut and given tabular digits by `scripts/text-fonts.py` |
 | `NotoEmoji-Regular.ttf` | 869 KB | the whole face. Icons in the library fall outside egui's subset |
 | `NotoSansMath-Subset.ttf` | 87 KB | Noto Sans Math cut to the symbol blocks by `scripts/subset-fonts.py`. `∿` for Sine, and `⬓` — the half-height, worldspace's length unit, on every transform control |
 
 Vendored rather than read from the system, so an icon that renders here renders everywhere.
 
-**They are appended as the last fallbacks, deliberately.** epaint walks a family in order and
+**The two symbol faces are appended as the last fallbacks, deliberately.** epaint walks a family in order and
 moves on when a face lacks a glyph, so every character that renders today still comes from
 the face it comes from now, and these are reached only where the alternative is a box.
 Inserting them earlier would silently restyle glyphs that already work.

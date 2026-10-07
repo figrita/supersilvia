@@ -19,7 +19,7 @@ use crate::nodes::cpu::FLASH;
 use crate::ui::canvas;
 use eframe::egui::{Align2, FontId, Sense, WidgetType};
 
-/// A status line, flush to the foot of the body: one line of monospace and the air around
+/// A status line, flush to the foot of the body: one line of text and the air around
 /// it, which is the Output's own status row rather than a control's height.
 pub const STATUS: RegionDef = RegionDef {
     size,
@@ -38,7 +38,7 @@ fn show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
         return Vec::new();
     };
     let flashing = text.starts_with(FLASH);
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         r.zoom,
     ));

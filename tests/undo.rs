@@ -1397,8 +1397,8 @@ mod fuzz {
         let controls: BTreeMap<_, _> = n.controls.iter().collect();
         let _ = write!(
             s,
-            " w={:?} c={controls:?} v={:?} o={:?} col={}",
-            n.dragged_width, n.values, n.options, n.collapsed
+            " w={:?} h={:?} c={controls:?} v={:?} o={:?} col={}",
+            n.dragged_width, n.dragged_height, n.values, n.options, n.collapsed
         );
         s
     }
@@ -1828,9 +1828,10 @@ mod fuzz {
                     nodes: self.subset(&ids, 3),
                     collapsed: self.rng.chance(0.5),
                 },
-                62 if some => Command::SetNodeWidth {
+                62 if some => Command::SetNodeSize {
                     node: *self.rng.pick(&ids).expect("some"),
                     width: Some(self.rng.f(-10.0, 400.0)),
+                    height: Some(self.rng.f(-10.0, 400.0)),
                 },
                 63..=65 if some => Command::Duplicate {
                     nodes: self.subset(&ids, 4),

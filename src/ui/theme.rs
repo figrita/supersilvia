@@ -462,6 +462,25 @@ pub const TAG_CLOSED: f32 = 0.45;
 /// Base font size. silvia sets `html { font-size: 12px }` and scales in rem from there.
 pub const FONT_BASE: f32 = 12.0;
 pub const FONT_TINY: f32 = FONT_BASE * 0.8;
+/// A side panel's name in its header bar, one step above the text under it.
+pub const FONT_TITLE: f32 = 13.0;
+/// A section's heading inside a panel: small capitals' worth of size, in the strong face.
+pub const FONT_SECTION: f32 = 10.5;
+
+/// The family of the strong face, Space Grotesk SemiBold: headings, and a name that has to stand out
+/// from the text around it. egui picks a face by family rather than by weight, so the weight
+/// is a family of its own.
+pub const STRONG: &str = "strong";
+
+/// The text face at `size`: Space Grotesk, with tabular digits.
+pub fn ui_font(size: f32) -> eframe::egui::FontId {
+    eframe::egui::FontId::proportional(size)
+}
+
+/// The strong face at `size`: Space Grotesk SemiBold.
+pub fn strong_font(size: f32) -> eframe::egui::FontId {
+    eframe::egui::FontId::new(size, eframe::egui::FontFamily::Name(STRONG.into()))
+}
 
 /// How much larger an icon is drawn than the text beside it, in points before zoom.
 ///
@@ -559,18 +578,16 @@ pub fn apply(ctx: &eframe::egui::Context, theme: &Theme) {
 
     ctx.set_fonts(fonts());
 
-    // Everything is monospace. There are no serif or display faces in silvia.
+    // Text is Space Grotesk, headings its SemiBold. Monospace is kept for what is read column by
+    // column: a path, a MIDI message, the Status box.
     ctx.all_styles_mut(|style| {
-        use eframe::egui::{FontFamily, FontId, TextStyle};
+        use eframe::egui::{FontId, TextStyle};
         style.text_styles = [
-            (TextStyle::Heading, FontId::monospace(FONT_BASE)),
-            (TextStyle::Body, FontId::monospace(FONT_BASE)),
+            (TextStyle::Heading, strong_font(FONT_TITLE)),
+            (TextStyle::Body, ui_font(FONT_BASE)),
             (TextStyle::Monospace, FontId::monospace(FONT_BASE)),
-            (TextStyle::Button, FontId::monospace(FONT_BASE)),
-            (
-                TextStyle::Small,
-                FontId::new(FONT_TINY, FontFamily::Monospace),
-            ),
+            (TextStyle::Button, ui_font(FONT_BASE)),
+            (TextStyle::Small, ui_font(FONT_TINY)),
         ]
         .into();
 
@@ -602,16 +619,41 @@ const NOTO_EMOJI: &[u8] = include_bytes!("../../assets/fonts/NotoEmoji-Regular.t
 /// emoji font carries and none of egui's four faces have. 81 KB against the full face's 967.
 const NOTO_SANS_MATH: &[u8] = include_bytes!("../../assets/fonts/NotoSansMath-Subset.ttf");
 
-/// The font stack, with the vendored faces appended as the **last** fallbacks.
+/// Space Grotesk Regular and SemiBold, cut to text by `scripts/text-fonts.py`, with tabular
+/// digits.
+const TEXT: &[u8] = include_bytes!("../../assets/fonts/SpaceGrotesk-Regular.ttf");
+const TEXT_SEMIBOLD: &[u8] = include_bytes!("../../assets/fonts/SpaceGrotesk-SemiBold.ttf");
+
+/// The font stack: the text face **first** in the proportional family and in [`STRONG`], and the
+/// vendored symbol faces appended as the **last** fallbacks.
 ///
-/// Last, deliberately. epaint walks a family's list in order and moves on when a face has no
-/// glyph, so every character that renders today still comes from the face it comes from now,
-/// and this one is reached only where the alternative is a box. Inserting it earlier would
-/// silently restyle glyphs that already work.
+/// The text face goes first because it is the text face. It carries letters, digits and punctuation
+/// only, so every icon still falls through to the face that drew it before.
+///
+/// The symbol faces go last, deliberately. epaint walks a family's list in order and moves on
+/// when a face has no glyph, so they are reached only where the alternative is a box.
+/// Inserting them earlier would silently restyle glyphs that already work.
 pub fn fonts() -> eframe::egui::FontDefinitions {
-    use eframe::egui::{FontData, FontDefinitions};
+    use eframe::egui::{FontData, FontDefinitions, FontFamily};
 
     let mut defs = FontDefinitions::default();
+    for (name, bytes) in [("text", TEXT), ("text-semibold", TEXT_SEMIBOLD)] {
+        defs.font_data.insert(
+            name.to_owned(),
+            std::sync::Arc::new(FontData::from_static(bytes)),
+        );
+    }
+    let fallbacks = defs.families[&FontFamily::Proportional].clone();
+    defs.families
+        .get_mut(&FontFamily::Proportional)
+        .expect("egui defines the proportional family")
+        .insert(0, "text".to_owned());
+    defs.families.insert(
+        FontFamily::Name(STRONG.into()),
+        std::iter::once("text-semibold".to_owned())
+            .chain(fallbacks)
+            .collect(),
+    );
     for (name, bytes) in [
         ("noto-emoji-full", NOTO_EMOJI),
         ("noto-sans-math", NOTO_SANS_MATH),

@@ -64,7 +64,7 @@ node! {
     tooltip: "Ruled lines in both directions, with independent cell counts. Its mask is the \
               ink the lines lay down.",
     // "Line Thickness" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "foreground" "Foreground" = Control::color("#ffffffff"),
         VaryingColor "background" "Background" = Control::color("#000000ff"),

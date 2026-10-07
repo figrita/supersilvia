@@ -347,7 +347,7 @@ pub fn show(
                     // under it, so each group starts where the eye can find it.
                     ui.label(
                         RichText::new(group.title)
-                            .font(egui::FontId::monospace(HEADING_SIZE))
+                            .font(crate::ui::theme::strong_font(HEADING_SIZE))
                             .color(theme.text_primary())
                             .strong(),
                     );

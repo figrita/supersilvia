@@ -21,7 +21,7 @@ use crate::audio::{BANDS, Scope, bands, device};
 use crate::maininput::{AudioSource, MainInput, VideoSource};
 use crate::ui::Thumbnail;
 use crate::ui::number;
-use crate::ui::panel::{self, Scrubbed, heading};
+use crate::ui::panel::{self, ROW_GAP, SECTION_GAP, Scrubbed, heading};
 use crate::ui::scope;
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{ComboBox, FontId, Sense, Ui, vec2};
@@ -108,8 +108,6 @@ pub struct MainInputOutput {
     pub preview: Option<Thumbnail>,
 }
 
-/// Space between sections.
-const SECTION_GAP: f32 = 10.0;
 /// The analyzer's height. The same proportion a node's scope region gives it: a third spectrum
 /// above, the three meters below.
 const SCOPE_HEIGHT: f32 = 120.0;
@@ -148,16 +146,23 @@ pub fn show(
         out.actions.push(MainInputAction::SetCollapsed(true));
     }
 
-    heading(ui, "Video source", theme);
+    // A source's status line is there only while a source is: with none, the picture box and
+    // the analyzer say so themselves, and a line under them saying it again is noise.
+    heading(ui, "Video", theme);
     video_source(ui, view, theme, &mut out);
+    ui.add_space(ROW_GAP);
     picture(ui, view, theme, &mut out);
-    status_line(ui, view.video_status, theme);
+    if view.input.video != VideoSource::None {
+        status_line(ui, view.video_status, theme);
+    }
     ui.add_space(SECTION_GAP);
 
-    heading(ui, "Audio source", theme);
+    heading(ui, "Audio", theme);
     audio_source(ui, view, theme, &mut out);
-    status_line(ui, view.audio_status, theme);
-    ui.add_space(4.0);
+    if view.input.audio != AudioSource::None {
+        status_line(ui, view.audio_status, theme);
+    }
+    ui.add_space(ROW_GAP);
     row(
         ui,
         "Gain",
@@ -187,7 +192,7 @@ pub fn show(
         ui.add_space(SECTION_GAP);
         ui.label(
             eframe::egui::RichText::new(error)
-                .font(FontId::monospace(theme::FONT_BASE))
+                .font(FontId::proportional(theme::FONT_BASE))
                 .color(theme.accent()),
         );
     }
@@ -464,10 +469,13 @@ fn short(reference: &str) -> String {
 /// it. See `maininput::PREVIEW`.
 fn picture(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut MainInputOutput) {
     let preview = crate::maininput::PREVIEW;
+    // Words in the box only for no source at all: a source with no frame yet is a black box
+    // with the status line under it saying why.
     out.preview = panel::picture(
         ui,
         view.has_picture
             .then_some((preview.node, Some(preview.key))),
+        (view.input.video == VideoSource::None).then_some(("No video source", "No video source")),
         theme,
     );
 }
@@ -475,7 +483,7 @@ fn picture(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut MainI
 fn status_line(ui: &mut Ui, text: &str, theme: &Theme) {
     ui.label(
         eframe::egui::RichText::new(text)
-            .font(FontId::monospace(theme::FONT_TINY))
+            .font(FontId::proportional(theme::FONT_TINY))
             .color(theme.text_muted()),
     );
 }
@@ -652,7 +660,7 @@ fn audio_label(source: &AudioSource, devices: &[device::Listed]) -> String {
     }
 }
 
-/// One labeled number across the panel, as the mixer's balance is.
+/// One labeled number across the panel, its label in the panel's label column.
 #[allow(clippy::too_many_arguments)]
 fn row(
     ui: &mut Ui,
@@ -664,12 +672,7 @@ fn row(
     make: &mut dyn FnMut(f32) -> MainInputAction,
     actions: &mut Vec<MainInputAction>,
 ) {
-    ui.horizontal(|ui| {
-        ui.label(
-            eframe::egui::RichText::new(label)
-                .font(FontId::monospace(theme::FONT_BASE))
-                .color(theme.text_secondary()),
-        );
+    panel::row(ui, label, theme, |ui| {
         let width = ui.available_width();
         let (rect, _) = ui.allocate_exact_size(vec2(width, number::HEIGHT), Sense::hover());
         let default = if range.max > 1.0 { 1.0 } else { 0.0 };
@@ -702,8 +705,8 @@ fn analyzer(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut Main
         ui.painter().text(
             rect.center(),
             eframe::egui::Align2::CENTER_CENTER,
-            "no audio source",
-            FontId::monospace(theme::FONT_TINY),
+            "No audio source",
+            FontId::proportional(theme::FONT_TINY),
             theme.text_muted(),
         );
         return;
@@ -741,7 +744,7 @@ fn analyzer(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut Main
             let cfg = view.input.bands[band];
             ui.label(
                 eframe::egui::RichText::new(format!("{} {:.0}Hz", bands::NAMES[band], cfg.freq))
-                    .font(FontId::monospace(theme::FONT_TINY))
+                    .font(FontId::proportional(theme::FONT_TINY))
                     .color(theme.band(band)),
             );
         }

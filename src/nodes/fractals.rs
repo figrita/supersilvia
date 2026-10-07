@@ -94,7 +94,7 @@ node! {
     tooltip: "The Mandelbrot set. Its mask is the set itself, its smooth output the escape \
               count as a field, and its map reads the input picture along each orbit.",
     // "Map Strength" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     timing: Timing::periodic(0.5),
     inputs: [
         VaryingColor "input" "Map Texture" at "finalUV" = Control::None,
@@ -134,7 +134,7 @@ node! {
     tooltip: "The Julia set of one complex constant. Move c and the whole picture changes \
               shape; its mask, smooth and map are the Mandelbrot's.",
     // "Map Strength" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     timing: Timing::periodic(0.5),
     inputs: [
         VaryingColor "input" "Map Texture" at "finalUV" = Control::None,
@@ -398,7 +398,7 @@ node! {
     tooltip: "The Lyapunov fractal of a sin² map, with radius driving A and angle driving B. \
               Its mask is the stable region; depth lights it as a height map.",
     // "Stable Color" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "foreground" "Stable Color" = Control::color("#ffffffff"),
         VaryingColor "background" "Chaos Color" = Control::color("#000000ff"),

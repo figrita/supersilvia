@@ -63,7 +63,7 @@ node! {
               Amount. Preserve Luminance puts back the brightness the tint cost it, which is \
               what a mix against a solid color cannot do.",
     // "Preserve Luminance" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" = Control::None,
         VaryingColor "tint" "Tint Color" = Control::color("#ff00ffff"),

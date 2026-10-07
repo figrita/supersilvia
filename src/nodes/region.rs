@@ -110,7 +110,7 @@ node! {
               outward. The background color also shows through the input where it is \
               transparent. Edge Softness bites in background mode only.",
     // "Outside Mode" beside "Background Color" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "sampleUV" = Control::None,
         VaryingNumber "top" "Top" = Control::num(1.0, -4.0, 4.0, 0.01, "⬓"),
@@ -150,7 +150,7 @@ node! {
               smeared outward. The background color also shows through the input where it \
               is transparent. Edge Softness bites in background mode only.",
     // "Outside Mode" beside "Background Color" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "sampleUV" = Control::None,
         VaryingNumber "centerX" "Center X" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),

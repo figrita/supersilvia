@@ -287,7 +287,7 @@ node! {
               from the lamp still is. Its value is the diffuse term.",
     // "Surface Color" does not fit the default 200 beside its swatch.
     // See docs/decisions.md#a-node-may-declare-a-wider-body.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "normalMap" "Normal Map" = Control::None,
         VaryingColor "surfaceColor" "Surface Color" = Control::color("#ffffffff"),

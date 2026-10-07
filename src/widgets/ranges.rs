@@ -35,7 +35,7 @@ pub const RANGES: RegionDef = RegionDef {
 };
 
 /// silvia's five bases, by `sliderule`'s own keys. The caption is what fits a fifth of the
-/// body at the tiny monospace the rest of a node's chrome is set in; the name the key spells
+/// body at the tiny text the rest of a node's chrome is set in; the name the key spells
 /// out is what the row above it says.
 const BASES: &[(&str, &str, f32, f32)] = &[
     ("unit", "0–1", 0.0, 1.0),
@@ -96,7 +96,7 @@ fn show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
 
 /// The tiny label over a row of buttons, at an option row's own inset.
 fn label(r: &mut RegionUi<'_>, top: f32, text: &str) {
-    let font = FontId::monospace(theme::font_size(theme::FONT_TINY, r.zoom));
+    let font = FontId::proportional(theme::font_size(theme::FONT_TINY, r.zoom));
     r.ui.painter().text(
         pos2(r.rect.left() + INSET * r.zoom, top + CAPTION * r.zoom * 0.5),
         Align2::LEFT_CENTER,

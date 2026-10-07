@@ -47,6 +47,10 @@ pub const ASSETS: &[(&str, &str)] = &[
         include_str!("../../licenses/progress-pride.txt"),
     ),
     (
+        "space-grotesk.txt",
+        include_str!("../../licenses/space-grotesk.txt"),
+    ),
+    (
         "spatial-hash.txt",
         include_str!("../../licenses/spatial-hash.txt"),
     ),

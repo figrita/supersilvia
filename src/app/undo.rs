@@ -114,10 +114,9 @@ impl App {
     /// Whether any of this node is inside the canvas as it was last drawn.
     fn node_in_view(&self, node: crate::graph::NodeId) -> bool {
         let graph = self.doc.graph();
-        let Some(rect) =
-            crate::ui::canvas::Layouts::one(graph, node, self.canvas.measured().of(node))
-                .find(node)
-                .map(|l| l.rect)
+        let Some(rect) = crate::ui::canvas::Layouts::one(graph, node)
+            .find(node)
+            .map(|l| l.rect)
         else {
             return false;
         };

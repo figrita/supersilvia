@@ -546,7 +546,15 @@ impl eframe::App for App {
         let mut asked = None;
         let mut badge = false;
         let time = menu_state.time;
-        egui::Panel::top("tabs").show(ui, |ui| {
+        // No margin under the tabs: a tab is joined to the canvas below it, and the panel's
+        // default two points of air under the row read as a gap between them.
+        let tabs_frame = egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin {
+            left: 8,
+            right: 8,
+            top: 2,
+            bottom: 0,
+        });
+        egui::Panel::top("tabs").frame(tabs_frame).show(ui, |ui| {
             // The bar's own state out of `self` while the bar borrows the rest of it.
             let mut state = std::mem::take(&mut self.tabs);
             ui.horizontal(|ui| {
@@ -709,9 +717,9 @@ impl eframe::App for App {
                 }
                 mixer_actions = panel.actions;
                 // No preview while folded: the frame is already drawn, so a folded panel is a
-                // picture nobody is looking at and nothing else.
+                // picture nobody is looking at and nothing else. No rule over it: it is the
+                // Projection section's picture, what the rows above it project.
                 if !mixer_collapsed {
-                    ui.separator();
                     self.preview(ui, self.link.plan().display);
                 }
             },
@@ -1276,10 +1284,6 @@ impl App {
         if let Some(nodes) = out.cancel_node_drag {
             self.cancel_node_drag(&nodes);
         }
-        // A value's box grew or shrank to fit its text. The canvas's own view state, not a
-        // command, so a note resizing itself is not an edit, does not enter the undo history,
-        // does not dirty the file and does not copy the graph.
-        self.canvas.measure(self.doc.graph(), &out.grown);
         // Letting go ends the gesture, so two scrubs of one control are two undo steps rather
         // than one that walks back both. The **release**, not the button being up: a key
         // repeat holds its gesture the way a drag does, and has no release to end it. After

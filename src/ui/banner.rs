@@ -39,7 +39,7 @@ pub fn show(ui: &mut Ui, view: &RenderView, destination: &str, theme: &Theme) ->
         rect.left_center() + vec2(16.0, 0.0),
         Align2::LEFT_CENTER,
         text,
-        FontId::monospace(theme::font_size(theme::FONT_BASE, 1.0)),
+        FontId::proportional(theme::font_size(theme::FONT_BASE, 1.0)),
         Color32::BLACK,
     );
 
@@ -71,7 +71,7 @@ pub fn show(ui: &mut Ui, view: &RenderView, destination: &str, theme: &Theme) ->
         button.center(),
         Align2::CENTER_CENTER,
         caption,
-        FontId::monospace(theme::font_size(theme::FONT_BASE, 1.0)),
+        FontId::proportional(theme::font_size(theme::FONT_BASE, 1.0)),
         theme.text_primary(),
     );
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, caption);

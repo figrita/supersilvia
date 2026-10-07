@@ -80,7 +80,7 @@ pub fn show(ui: &mut Ui, report: Report, enabled: bool, theme: &Theme) -> Option
 
 /// The width `chars` monospace characters take, and the padding either side.
 fn text_width(ui: &Ui, chars: usize) -> f32 {
-    let font = FontId::monospace(theme::FONT_BASE);
+    let font = FontId::proportional(theme::FONT_BASE);
     let advance = ui.ctx().fonts_mut(|f| f.glyph_width(&font, '0'));
     advance * chars as f32 + PAD * 2.0
 }
@@ -184,7 +184,7 @@ fn time(ui: &mut Ui, playhead: f64, height: f32, theme: &Theme) {
         rect.center(),
         Align2::CENTER_CENTER,
         &shown,
-        FontId::monospace(theme::FONT_BASE),
+        FontId::proportional(theme::FONT_BASE),
         ink(ui, theme),
     );
     response.on_hover_text("Ambient time: the playhead every node keeps time by");

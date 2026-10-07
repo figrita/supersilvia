@@ -330,7 +330,7 @@ impl RegionUi<'_> {
             at,
             align,
             text,
-            FontId::monospace(crate::ui::theme::font_size(
+            FontId::proportional(crate::ui::theme::font_size(
                 crate::ui::theme::FONT_TINY,
                 self.zoom,
             )),
@@ -368,7 +368,7 @@ pub fn button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str) -> bo
         rect.center(),
         Align2::CENTER_CENTER,
         caption,
-        FontId::monospace(crate::ui::theme::font_size(
+        FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             r.zoom,
         )),
@@ -593,7 +593,7 @@ pub fn heading_row(
         ),
         Align2::LEFT_CENTER,
         heading.label,
-        FontId::monospace(crate::ui::theme::font_size(
+        FontId::proportional(crate::ui::theme::font_size(
             crate::ui::theme::FONT_TINY,
             zoom,
         )),
@@ -662,7 +662,7 @@ pub fn segments(
     let height = frame.height();
     let radius = CornerRadius::same(crate::ui::theme::RADIUS_SM);
     let hair = (1.0 * zoom).max(1.0);
-    let font = FontId::monospace(crate::ui::theme::font_size(
+    let font = FontId::proportional(crate::ui::theme::font_size(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));

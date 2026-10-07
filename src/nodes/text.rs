@@ -49,7 +49,7 @@ pub static DEF: NodeDef = NodeDef {
               and a face it does not have falls back to one it does.",
     // Prose in a column the width of a number control is a column of single words, which is
     // what widened `note`.
-    width: Some(260.0),
+    width: Some(232.0),
     inputs: &[
         InputDef {
             key: "textColor",

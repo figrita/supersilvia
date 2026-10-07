@@ -296,6 +296,7 @@ impl Graph {
                 inputs,
                 outputs,
                 dragged_width: None,
+                dragged_height: None,
                 controls: HashMap::new(),
                 values: BTreeMap::new(),
                 options: BTreeMap::new(),

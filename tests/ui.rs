@@ -241,12 +241,12 @@ fn add_node(h: &mut Harness<'_, App>, path: (&str, &str)) {
     h.run_steps(2);
 }
 
-/// One node laid out alone, as the canvas lays it out, from what its fields last measured.
+/// One node laid out alone, as the canvas lays it out.
 fn laid_out(
     h: &Harness<'_, App>,
     id: supersilvia::graph::NodeId,
 ) -> supersilvia::ui::canvas::Layouts {
-    supersilvia::ui::canvas::Layouts::one(h.state().graph(), id, h.state().measured(id))
+    supersilvia::ui::canvas::Layouts::one(h.state().graph(), id)
 }
 
 /// A node's body in world units.
@@ -1469,11 +1469,12 @@ fn a_notes_grip_drags_its_body_wider_in_one_undo_step() {
     let (was, at) = {
         let node = h.state().graph().get(id).expect("the note");
         assert_eq!(node.dragged_width, None, "a new note is its kind's width");
+        assert_eq!(node.dragged_height, None, "and its kind's height");
         (supersilvia::ui::canvas::node_width(node), node.pos)
     };
     let undo = h.state().undo_len();
 
-    let grip = h.get_by_label_contains("note1.width").rect().center();
+    let grip = h.get_by_label_contains("note1.resize").rect().center();
     drag_with(
         &mut h,
         grip,
@@ -1488,6 +1489,10 @@ fn a_notes_grip_drags_its_body_wider_in_one_undo_step() {
         "the body followed the grip: {width} from {was}"
     );
     assert_eq!(node.dragged_width, Some(width), "and the node kept it");
+    assert!(
+        node.dragged_height.is_some(),
+        "the same drag fixes the height too, even where the pointer never moved along it"
+    );
     assert_eq!(node.pos, at, "the grip is not the body's own drag handle");
     assert_eq!(
         h.state().undo_len(),
@@ -1497,11 +1502,12 @@ fn a_notes_grip_drags_its_body_wider_in_one_undo_step() {
 
     h.state_mut().undo();
     h.run_steps(2);
+    let node = h.state().graph().get(id).expect("the note");
     assert_eq!(
-        h.state().graph().get(id).expect("the note").dragged_width,
-        None,
+        node.dragged_width, None,
         "and undo hands the width back to the kind"
     );
+    assert_eq!(node.dragged_height, None, "and the height too");
 }
 
 /// A note is never dragged narrower than what it is drawn with: the floor is the width the
@@ -1516,7 +1522,7 @@ fn a_note_cannot_be_dragged_narrower_than_its_kind() {
 
     let id = h.state().graph().iter().next().expect("one node").0;
     let floor = supersilvia::ui::canvas::natural_width(h.state().graph().get(id).unwrap());
-    let grip = h.get_by_label_contains("note1.width").rect().center();
+    let grip = h.get_by_label_contains("note1.resize").rect().center();
     drag_with(
         &mut h,
         grip,
@@ -1532,13 +1538,53 @@ fn a_note_cannot_be_dragged_narrower_than_its_kind() {
     );
 }
 
-/// A note grows to fit what is in it, and shrinks back when the text goes.
-///
-/// The height cannot be worked out where a node is laid out: wrapping needs the font and the
-/// width, and `canvas` has neither. So the field measures itself while it draws and the node
-/// is that tall on the next frame. This is the test that the round trip closes.
+/// The Text node is not a note: its body width is set by the kind, not by a hand, so its
+/// grip only ever moves along one axis. Dragging it sideways as well as down must still
+/// change nothing but the height.
 #[test]
-fn a_note_grows_to_fit_its_text_and_shrinks_back() {
+fn the_text_nodes_grip_changes_only_its_height() {
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ("Source", "add text"));
+    h.run_steps(2);
+
+    let id = h.state().graph().iter().next().expect("one node").0;
+    let width = supersilvia::ui::canvas::node_width(h.state().graph().get(id).unwrap());
+
+    let grip = h.get_by_label_contains("text1.resize").rect().center();
+    drag_with(
+        &mut h,
+        grip,
+        grip + egui::vec2(120.0, 40.0),
+        egui::Modifiers::NONE,
+    );
+
+    let node = h.state().graph().get(id).expect("the text node");
+    assert_eq!(
+        node.dragged_width, None,
+        "the grip's horizontal reach did nothing: the text node has no width of its own to set"
+    );
+    assert_eq!(
+        supersilvia::ui::canvas::node_width(node),
+        width,
+        "and the body stayed the kind's own width"
+    );
+    assert!(
+        node.dragged_height.is_some(),
+        "but the drag did set its height"
+    );
+}
+
+/// A note no longer grows to fit what is in it: its box is a fixed size, the lines the kind
+/// declares or whatever a hand dragged it to, and text past that scrolls inside the box
+/// instead of pushing the node taller.
+///
+/// There was a round trip here: the field measured its own wrapped height while it drew, and
+/// the node was that tall on the next frame. Wrapping needs the font and the width, which
+/// changed with the zoom, so the box visibly jumped a line at a time as a hand zoomed in or
+/// out. A height that is the document's own, or the kind's declared lines, does not move.
+#[test]
+fn a_long_note_does_not_grow_to_fit_its_text() {
     let mut h = harness();
     h.step();
     add_node(&mut h, ("Control", "add note"));
@@ -1547,115 +1593,8 @@ fn a_note_grows_to_fit_its_text_and_shrinks_back() {
 
     h.get_by_label_contains("note1.text").click();
     h.step();
-    // Ten hard lines, well past the four the node declares.
-    h.input_mut().events.push(egui::Event::Text((1..=10).fold(
-        String::new(),
-        |mut s, n| {
-            use std::fmt::Write;
-            let _ = writeln!(s, "line {n}");
-            s
-        },
-    )));
-    h.run_steps(3);
-
-    let grown = node_height(&h, id);
-    assert!(
-        grown > empty,
-        "the node is still {grown} tall with ten lines in it, the same as empty",
-    );
-
-    // Take it all back out. Select everything, then delete.
-    h.input_mut().events.push(egui::Event::Key {
-        key: egui::Key::A,
-        physical_key: None,
-        pressed: true,
-        repeat: false,
-        modifiers: egui::Modifiers::COMMAND,
-    });
-    h.step();
-    h.input_mut().events.push(egui::Event::Key {
-        key: egui::Key::Backspace,
-        physical_key: None,
-        pressed: true,
-        repeat: false,
-        modifiers: egui::Modifiers::NONE,
-    });
-    h.run_steps(3);
-
-    assert_eq!(
-        node_height(&h, id),
-        empty,
-        "an emptied note is back to the four lines it declares",
-    );
-}
-
-/// The box grows by exactly one line of text per line of text.
-///
-/// It did not. The node was laid out from an assumed 14 points a line where a row of this
-/// font is about 11, so every line added three points of dead space and the box visibly
-/// outgrew its own text. The field measures itself now, and this is what holds it there.
-#[test]
-fn the_box_grows_by_one_line_of_text_per_line() {
-    let mut h = harness();
-    h.step();
-    add_node(&mut h, ("Control", "add note"));
-    let id = h.state().graph().iter().next().expect("one node").0;
-
-    let lines = |h: &mut Harness<'_, App>, n: usize| {
-        h.get_by_label_contains("note1.text").click();
-        h.step();
-        h.input_mut().events.push(egui::Event::Key {
-            key: egui::Key::A,
-            physical_key: None,
-            pressed: true,
-            repeat: false,
-            modifiers: egui::Modifiers::COMMAND,
-        });
-        h.step();
-        h.input_mut()
-            .events
-            .push(egui::Event::Text((0..n).map(|_| "x\n").collect::<String>()));
-        h.run_steps(3);
-        node_height(h, id)
-    };
-
-    // Well past the four lines the node declares, so both are measuring text rather than
-    // the floor under an empty box.
-    let ten = lines(&mut h, 10);
-    let twenty = lines(&mut h, 20);
-
-    // The size the field actually draws at, not `FONT_TINY` itself: `font_size` rounds to
-    // whole points so a zoom does not shimmer, and at zoom 1 that is a different number.
-    let row = h.ctx.fonts_mut(|f| {
-        f.row_height(&egui::FontId::monospace(supersilvia::ui::theme::font_size(
-            supersilvia::ui::theme::FONT_TINY,
-            1.0,
-        )))
-    });
-    let per_line = (twenty - ten) / 10.0;
-    // Within a point, because egui rounds each row of a galley to a whole pixel so glyphs sit
-    // on pixel boundaries. A point of slack absorbs that and still catches the 14 points a
-    // line this used to assume, which is what made the box outgrow its own text.
-    assert!(
-        (per_line - row).abs() <= 1.0,
-        "the box grows {per_line} a line where a row of this font is {row}",
-    );
-}
-
-/// A note keeps growing however much is in it, and the node always covers its own text.
-///
-/// There was a cap, at 320 points, and a node that stops growing while its text does not is a
-/// node with text lying on the canvas underneath it. A note too tall to live with collapses
-/// to its header, the same as any other node.
-#[test]
-fn a_long_note_stays_inside_its_own_node() {
-    let mut h = harness();
-    h.step();
-    add_node(&mut h, ("Control", "add note"));
-    let id = h.state().graph().iter().next().expect("one node").0;
-
-    h.get_by_label_contains("note1.text").click();
-    h.step();
+    // Two hundred hard lines, well past the four the node declares and past the 320-point
+    // cap the box used to grow to.
     h.input_mut().events.push(egui::Event::Text((1..=200).fold(
         String::new(),
         |mut s, n| {
@@ -1666,62 +1605,38 @@ fn a_long_note_stays_inside_its_own_node() {
     )));
     h.run_steps(3);
 
-    let height = node_height(&h, id);
-    assert!(
-        height > 2000.0,
-        "two hundred lines only made the node {height} tall, so something is still capping it",
-    );
-    // The value's own box, plus the header above it and the gap around it, is the node. If
-    // the box were taller than the node, the difference is text drawn outside it.
-    let measured = h.state().measured(id);
-    assert!(
-        measured[0] < height,
-        "the box is {} tall inside a node that is {height}",
-        measured[0],
+    assert_eq!(
+        node_height(&h, id),
+        empty,
+        "two hundred lines moved the node, so the box is still sized from its text",
     );
 }
 
-/// A note measuring its own text is the canvas's business, not the document's.
-///
-/// The field reports how tall it came out while it paints, and that answer is kept beside the
-/// canvas: the node in the graph is the very one it was before the field drew, no undo step
-/// opens and nothing crosses to the synth. When the height rode on the `Node`, the first frame
-/// a note drew copied the node out from under the undo step that shared it.
+/// Zooming wraps a note's text at a different width, which is exactly the geometry that
+/// drove the node's height before the box stopped measuring its text. A node's height is
+/// world geometry and must not move when somebody zooms in.
 #[test]
-fn a_note_measuring_itself_is_not_an_edit() {
+fn zooming_does_not_change_a_notes_height() {
     let mut h = harness();
     h.step();
-    // Through the bus rather than the menu, so the graph can be taken before the node's first
-    // frame: the menu's own frames draw it.
-    let workspace = h.state().graph().default_workspace();
-    h.state_mut()
-        .apply(Command::AddNode {
-            slug: "note",
-            at: Pos2::new(120.0, 120.0),
-            workspace,
-        })
-        .expect("a note");
+    add_node(&mut h, ("Control", "add note"));
     let id = h.state().graph().iter().next().expect("one node").0;
-    assert!(h.state().measured(id).is_empty(), "not drawn yet");
-    let before = h.state().graph().clone();
-    let undo = h.state().undo_len();
-    let generation = h.state().graph_generation();
 
+    h.get_by_label_contains("note1.text").click();
+    h.step();
+    h.input_mut().events.push(egui::Event::Text(
+        "a few\nhard\nlines\nof text\nto wrap".to_string(),
+    ));
     h.run_steps(3);
+    let before = node_height(&h, id);
 
-    assert!(
-        !h.state().measured(id).is_empty(),
-        "the field measured itself, so there was something to keep"
-    );
-    assert!(
-        h.state().graph().shares_node(&before, id),
-        "and the node is the one the graph held before it drew"
-    );
-    assert_eq!(h.state().undo_len(), undo, "no undo step");
+    wheel(&mut h, -2.0);
+    h.run_steps(2);
+
     assert_eq!(
-        h.state().graph_generation(),
-        generation,
-        "and nothing crossed to the synth"
+        node_height(&h, id),
+        before,
+        "zooming moved the node's height"
     );
 }
 
@@ -4073,10 +3988,10 @@ fn a_regions_own_number_learns_and_wears_its_binding() {
     h.snapshot("cosine_gradient_bound_number");
 }
 
-/// The Main Mixer's fade wears the dot every bound control wears, after its caption and
-/// inside the panel, named for what drives it.
+/// The Main Mixer's fade wears the dot every bound control wears, after the Mix heading over
+/// it and inside the panel, named for what drives it.
 #[test]
-fn a_bound_fade_wears_the_mark_beside_its_caption() {
+fn a_bound_fade_wears_the_mark_beside_its_heading() {
     use supersilvia::midi::{Target, Trigger};
 
     let mut h = tall_harness();
@@ -4092,7 +4007,7 @@ fn a_bound_fade_wears_the_mark_beside_its_caption() {
     let fade = h.get_by_label("A / B balance -1.00").rect();
     assert!(
         mark.max.y <= fade.min.y && mark.min.x >= fade.min.x && mark.max.x <= fade.max.x,
-        "over the fade, beside its caption: {mark:?} over {fade:?}"
+        "over the fade, beside its heading: {mark:?} over {fade:?}"
     );
     h.snapshot("mixer_fade_bound");
 }
@@ -4538,7 +4453,7 @@ fn the_minimap_keeps_its_scale_while_a_node_is_dragged() {
     for (n, id) in ids.iter().enumerate() {
         h.state_mut()
             .apply(Command::MoveNodes {
-                moves: vec![(*id, Pos2::new(n as f32 * 600.0, 60.0))],
+                moves: vec![(*id, Pos2::new(n as f32 * 3000.0, 60.0))],
             })
             .unwrap();
     }
@@ -6096,7 +6011,7 @@ fn the_nodes_menu_stands_on_its_button() {
     h.run_steps(2);
 
     let button = h.get_by_label("Nodes").rect();
-    let last = h.get_by_label_contains("Output").rect();
+    let last = h.get_by_label_contains("📺 Output").rect();
     assert!(
         last.max.y <= button.min.y + 1.0,
         "the menu hangs over its own button: last category to {}, button from {}",
@@ -9204,19 +9119,19 @@ fn the_main_input_panel_folds_and_its_gain_and_monitor_step() {
     assert!(h.query_by_label("Show Main Input").is_some());
 }
 
-/// A claimed deck names the workspace its Output lives on, and an empty one says so.
+/// A claimed deck names the workspace its Output lives on, and an empty one says so in its box.
 #[test]
 fn the_mixer_panel_names_the_deck_workspace() {
     let mut h = tall_harness();
-    assert!(h.query_by_label("Channel A: no assignment").is_some());
+    assert!(h.query_by_label("Channel A: no Output assigned").is_some());
     add_node(&mut h, ADD_OUTPUT);
     let out = h.state().graph().iter().map(|(id, _)| id).next().unwrap();
     h.get_by_label(&format!("output{out}.show_a")).click();
     h.run_steps(2);
-    assert!(h.query_by_label("Channel A: no assignment").is_none());
+    assert!(h.query_by_label("Channel A: no Output assigned").is_none());
     // The tab is `tab Workspace 1`; the bare name is the channel's link.
     h.get_by_label("Workspace 1");
-    assert!(h.query_by_label("Channel B: no assignment").is_some());
+    assert!(h.query_by_label("Channel B: no Output assigned").is_some());
 }
 
 /// **There is no projector.** The mix is a picture like any other, and the Main Mixer
@@ -9489,7 +9404,7 @@ fn h_hides_the_editor_with_a_toast_and_not_while_typing() {
         "and so is the start button"
     );
     h.get_by_label("Editor hidden — press H to show");
-    h.get_by_label("Channel A: no assignment");
+    h.get_by_label("Channel A: no Output assigned");
 
     h.key_press(egui::Key::H);
     h.run_steps(2);
@@ -12046,7 +11961,7 @@ fn an_automations_curve_is_drawn_from_the_value_the_node_holds() {
     let node = h.state().graph().get(id).unwrap();
     assert_eq!(node.def.values.len(), 1, "the curve is the one value");
     assert!(
-        supersilvia::ui::canvas::value_height(node, h.state().measured(id), 0) == 0.0,
+        supersilvia::ui::canvas::value_height(node, 0) == 0.0,
         "the curve is a region, so its value asks for no row"
     );
     h.get_by_label_contains("automation1.curve 0 points");

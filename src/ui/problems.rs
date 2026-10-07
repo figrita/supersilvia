@@ -101,7 +101,7 @@ pub fn count_text(n: usize) -> String {
 
 /// The badge's width: a square for the glyph and the count's three characters.
 fn badge_width(ui: &Ui, height: f32) -> f32 {
-    let font = FontId::monospace(theme::FONT_BASE);
+    let font = FontId::proportional(theme::FONT_BASE);
     let advance = ui.ctx().fonts_mut(|f| f.glyph_width(&font, '0'));
     height + advance * COUNT_CHARS as f32 + PAD * 2.0
 }
@@ -149,7 +149,7 @@ pub fn badge(ui: &mut Ui, count: Count, theme: &Theme) -> bool {
         pos2(glyph.max.x, rect.center().y),
         Align2::LEFT_CENTER,
         count_text(count.total()),
-        FontId::monospace(theme::FONT_BASE),
+        FontId::proportional(theme::FONT_BASE),
         ink,
     );
     let said = |n: usize, one: &str, many: &str| match n {
@@ -239,7 +239,7 @@ pub fn list(ctx: &Context, problems: &[Problem], theme: &Theme) -> Listed {
 /// One problem: what it is, the line cut to the row, and `▸ go` at the right where there is
 /// a node to go to.
 fn row(ui: &mut Ui, i: usize, problem: &Problem, theme: &Theme) -> Option<ProblemAction> {
-    let small = FontId::monospace(theme::FONT_TINY);
+    let small = FontId::proportional(theme::FONT_TINY);
     let height = ui.spacing().interact_size.y;
     let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
     let (word, ink) = match problem.severity {

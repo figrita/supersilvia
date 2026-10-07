@@ -74,7 +74,7 @@ node! {
     tooltip: "A ramp between two colors out from a center. Loop mode says what happens past \
               the radius.",
     // "Center Color" does not fit the default 200.
-    width: 240.0,
+    width: 216.0,
     inputs: [
         VaryingColor "centerColor" "Center Color" = Control::color("#ffffffff"),
         VaryingColor "edgeColor" "Edge Color" = Control::color("#000000ff"),

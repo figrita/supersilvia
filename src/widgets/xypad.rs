@@ -110,7 +110,7 @@ fn show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
         pos2(inner.center().x, top + HINT * z * 0.5),
         Align2::CENTER_CENTER,
         "Right-drag: place well / Right-click well: remove",
-        FontId::monospace(theme::font_size(theme::FONT_TINY, z)),
+        FontId::proportional(theme::font_size(theme::FONT_TINY, z)),
         r.theme.text_disabled(),
     );
     out
@@ -519,7 +519,7 @@ fn presets(r: &mut RegionUi<'_>, inner: Rect, top: f32) -> Vec<RegionEvent> {
             rect.center(),
             Align2::CENTER_CENTER,
             format!("{}", i + 1),
-            FontId::monospace(theme::font_size(theme::FONT_BASE, z)),
+            FontId::proportional(theme::font_size(theme::FONT_BASE, z)),
             r.theme.text_secondary(),
         );
         crate::ui::accessible(&w, eframe::egui::WidgetType::Button, &name);

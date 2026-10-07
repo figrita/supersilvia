@@ -3533,7 +3533,7 @@ the key is what a file calls it, and the row is for meaning.
 
 **Chosen.** `NodeDef::width` is `Option<f32>`, and `canvas::node_width` is the larger of it
 and the widest thing the node's regions ask for — a node whose longest row's label does not fit
-`NODE_WIDTH` at 200 declares 240, the same width an Output's own render asks for.
+`NODE_WIDTH` at 180 declares 216, the same width an Output's own render asks for.
 Twenty-seven do, found by
 rendering every node in the registry and reading which rows elided, after [the row-label
 change](#a-port-row-paints-the-declared-label-and-keeps-the-key-as-the-machine-name) started
@@ -5809,7 +5809,7 @@ It now publishes 1 through 4, and the shader subtracts the one back off before i
 number on the row is the number in the label above it.
 
 The decimals are an `OutputDef::integral` flag rather than a special case in the canvas. Two
-fixed places is the right default — it keeps a monospace readout from re-flowing sixty times a
+fixed places is the right default — it keeps a tabular readout from re-flowing sixty times a
 second — and it is wrong for a count, where the two zeroes claim a precision the value does
 not have. A node says which of the two it publishes, and `ui/node_widget.rs` draws it without
 knowing whose output it is.
@@ -5874,26 +5874,35 @@ takes the first of them is a texture the capture ring already knows how to free.
 the Output's resolution does not divide by is refused back to 1x rather than rounded, since a
 film one pixel off the preview is the lie the shared resolution was chosen to prevent.
 
-### A note is dragged wider, and never taller
+### A text box is sized by hand, and its text scrolls
 
-**Chosen.** `NodeDef::resizable` is true on the note alone, and the grip in the corner of its
-box writes a width through `Command::SetNodeWidth` — document data like a position, undoable,
-one step for the whole drag, saved with the patch. A comment box is sized to the thing it is
-commenting on, a label beside one node or a paragraph across the top of a canvas, and that is
-the one thing only the person writing it knows.
+**Chosen.** A text box of more than one line — the note's and the Text node's — is the height
+its definition declares until a hand drags the grip in its corner, and what is typed past it
+scrolls inside it. The grip writes `Command::SetNodeSize`: the box's height on both kinds, and
+on the note, the one kind with `NodeDef::resizable`, the body's width too — document data like
+a position, undoable, one step for the whole drag, saved with the patch. A comment box is
+sized to the thing it is commenting on, a label beside one node or a paragraph across the top
+of a canvas, and that is the one thing only the person writing it knows.
 
-**Rejected: silvia's both-axis corner.** silvia's note is a fixed box that scrolls inside
-itself, so a height is a thing a hand has to set. Here the box grows to fit what is typed and
-shrinks back, which is the better half of the two behaviors and the one worth keeping; a
-height a hand set would be overruled by the next keystroke or would start hiding text again.
-Width is what is left, and it is what the resizing was for.
+**Rejected: a box that grows to fit its text.** It was the first design, and it moved under
+zoom. The text wraps at a font size quantized to whole pixels, so glyphs stay cached while the
+view zooms, but the box's width scales smoothly; at each zoom a different number of words fits
+a line, the line count changes, and the node gained or lost a line's height mid-gesture,
+pushing everything under it. The height was also measured by the field as it painted, a frame
+late. A height that is the document's own does not depend on the zoom at all.
 
-**Rejected: a width that is session state.** It is not about this run of the app: reopening a
+**Rejected: wrapping once at zoom 1 and keeping those line breaks at every zoom.** It would
+keep a growing box still, but the text editor would need its own layouter to wrap the same
+way while typing, and the glyphs at other sizes do not scale exactly, so a line could run past
+the box at some zooms. A hand-set height is simpler and stable.
+
+**Rejected: a size that is session state.** It is not about this run of the app: reopening a
 patch to a paragraph reflowed into a column is reopening a different canvas. So it goes in the
 workspace file, and a node nobody dragged writes nothing at all.
 
 **Rejected: letting the width go below the node's own.** `canvas::node_width` clamps every
 width — from a grip, a file or an undo — to `canvas::natural_width` and to `MAX_NODE_WIDTH`,
+and `canvas::value_height` holds a height to `MIN_TEXT_HEIGHT` and `MAX_TEXT_HEIGHT`,
 rather than trusting the writer. There is one place that decides how wide a node is drawn, and
 a body narrower than its rows is a node with its rows outside it. The ceiling is six default
 bodies: silvia's textarea has none, but silvia's is a box inside a node where here it *is* the

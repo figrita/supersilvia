@@ -123,8 +123,8 @@ fn show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
     }
 
     // The words beside it: what it is set to, what it closes in, what is waiting.
-    let big = FontId::monospace(theme::font_size(theme::FONT_BASE, z));
-    let small = FontId::monospace(theme::font_size(theme::FONT_TINY, z));
+    let big = FontId::proportional(theme::font_size(theme::FONT_BASE, z));
+    let small = FontId::proportional(theme::font_size(theme::FONT_TINY, z));
     let lines = words(reading.as_ref(), drawn.as_ref(), gears);
     let mut y = text.min.y + 2.0 * z;
     for (i, line) in lines.iter().enumerate() {
@@ -368,7 +368,7 @@ fn draw_gears(painter: &eframe::egui::Painter, rect: Rect, d: &Drawn, c: &Colors
             co,
             Align2::CENTER_CENTER,
             label(d.p, d.q),
-            FontId::monospace(theme::font_size(theme::FONT_TINY, z)),
+            FontId::proportional(theme::font_size(theme::FONT_TINY, z)),
             c.dot,
         );
     }
@@ -495,7 +495,7 @@ fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
         pos2(rect.min.x + crate::ui::node_widget::LABEL_INSET * z, y),
         Align2::LEFT_CENTER,
         "Teeth",
-        FontId::monospace(theme::font_size(theme::FONT_TINY, z)),
+        FontId::proportional(theme::font_size(theme::FONT_TINY, z)),
         r.theme.text_secondary(),
     );
     let size = vec2(TEETH_NUMBER, number::HEIGHT) * z;
@@ -512,7 +512,7 @@ fn teeth_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
         colon.center(),
         Align2::CENTER_CENTER,
         ":",
-        FontId::monospace(theme::font_size(theme::FONT_BASE, z)),
+        FontId::proportional(theme::font_size(theme::FONT_BASE, z)),
         r.theme.text_secondary(),
     );
     let mut out = Vec::new();
