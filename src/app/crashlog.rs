@@ -197,6 +197,13 @@ impl Log {
         self.line(CLOSED);
     }
 
+    /// Let go of the file's lock before the process ends, so a run started from this one —
+    /// a restart — takes the main log over. Nothing is written after it, since that run
+    /// empties the file it now holds.
+    pub fn release(&self) {
+        let _ = lock(&self.sink).file.unlock();
+    }
+
     /// What env_logger writes records through: the same file, up to [`CAP`].
     fn pipe(&self) -> Pipe {
         Pipe(Arc::clone(&self.sink))
@@ -363,6 +370,14 @@ pub fn panicked(reason: &str, backtrace: &str) {
 pub fn closed() {
     if let Some(log) = RUN.get() {
         log.closed();
+    }
+}
+
+/// Let go of the log's lock, after [`closed`], for a restart's run to take it over. Nothing is
+/// logged after it.
+pub fn release() {
+    if let Some(log) = RUN.get() {
+        log.release();
     }
 }
 

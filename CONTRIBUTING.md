@@ -36,7 +36,10 @@ the environment is broken: a green run on it says nothing about the render pipel
 every GPU test and `doctor.sh` take the adapter by one rule, `render::adapter::choose`: never
 a software one unless `SUPERSILVIA_SOFTWARE_GPU=1`, and otherwise the strongest GPU, a
 discrete one before an integrated one. `SUPERSILVIA_ADAPTER` names another: `integrated`, a
-piece of a name such as `intel`, an index, or `vendor:device` in hex.
+piece of a name such as `intel`, an index, or `vendor:device` in hex. The app also reads
+Preferences ▸ Performance ▸ Use GPU and Allow a software GPU, under the two variables: either
+variable, when set, wins over its preference, so a saved preference never moves the gate or a
+test.
 
 The tests and benches ask for the integrated GPU themselves (`adapter::Asked::integrated`),
 because the image snapshots are an Intel iGPU's pixels, and `check.sh` exports

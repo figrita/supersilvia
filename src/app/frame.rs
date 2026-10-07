@@ -186,7 +186,8 @@ impl App {
     /// draws with it, egui's own `Visuals` are rebuilt from it so a `Window` and a menu match
     /// the canvas, and the preference is written. There is no undo step, because a
     /// preference is not an edit to the document — the same rule the Status box follows.
-    pub(super) fn show_preferences(&mut self, ctx: &egui::Context) {
+    pub(super) fn show_preferences(&mut self, ui: &egui::Ui) {
+        let ctx = ui.ctx();
         let Some(mut state) = self.prefs_window.take() else {
             return;
         };
@@ -204,6 +205,7 @@ impl App {
             file: self.prefs.path(),
             file_busy: self.media.file_busy(),
             gpu: self.gpu_choice.as_ref(),
+            gpu_restart: super::gpu::Setting::of(self.prefs.get()) != self.gpu_started,
         };
         let actions = crate::ui::prefs::show(ctx, &mut state, &self.theme, &view);
         for action in actions {
@@ -253,6 +255,13 @@ impl App {
                     if let Some(file) = self.prefs.path() {
                         crate::platform::files::edit_text(file.to_path_buf());
                     }
+                }
+                crate::ui::prefs::PrefAction::SetGpu(gpu) => self.prefs.set_gpu(gpu),
+                crate::ui::prefs::PrefAction::SetSoftwareGpu(on) => {
+                    self.prefs.set_allow_software_gpu(on);
+                }
+                crate::ui::prefs::PrefAction::Restart => {
+                    self.guarded(ui, Pending::Restart);
                 }
                 crate::ui::prefs::PrefAction::Close => open = false,
             }
@@ -926,7 +935,7 @@ impl eframe::App for App {
         self.project_name_window(ui.ctx());
         self.crashlog_frame(ui);
         self.recovery_window(ui);
-        self.show_preferences(ui.ctx());
+        self.show_preferences(ui);
         self.show_midi(ui.ctx());
         self.show_about(ui.ctx());
         self.show_licences(ui.ctx());

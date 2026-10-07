@@ -175,6 +175,17 @@ pub struct Preferences {
     /// A preference rather than project data: it is about this machine tonight. See
     /// `proposals/deterministic-loop.md`.
     pub tick_rate: TickRate,
+    /// The GPU the app renders on from its next start: Preferences ▸ Performance ▸ Use GPU.
+    /// Absent is Automatic, the strongest the machine offers; one not offered at start is
+    /// passed over for Automatic, and the run says so. `SUPERSILVIA_ADAPTER` wins over it. See
+    /// [`crate::render::adapter`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpu: Option<crate::render::adapter::AdapterId>,
+    /// A software adapter may be rendered on from the next start: Preferences ▸ Performance ▸
+    /// Allow a software GPU, for a tester on a machine with no GPU, a virtual one most often.
+    /// Off by default, since a picture drawn on the CPU is no measure of anything.
+    /// `SUPERSILVIA_SOFTWARE_GPU` wins over it.
+    pub allow_software_gpu: bool,
     /// Which of the Status box's sections are folded, and whether it lists every Output.
     pub status_folds: StatusFolds,
     pub window: WindowGeometry,
@@ -219,6 +230,8 @@ impl Default for Preferences {
             zoom_max: crate::ui::canvas::MAX_ZOOM,
             main_input_collapsed: true,
             tick_rate: TickRate::default(),
+            gpu: None,
+            allow_software_gpu: false,
             status_folds: StatusFolds::default(),
             mixer_collapsed: false,
             main_input_width: None,
@@ -559,6 +572,15 @@ impl Store {
 
     pub fn set_tick_rate(&mut self, rate: TickRate) {
         set(&mut self.prefs.tick_rate, rate, &mut self.dirty);
+    }
+
+    /// The GPU the next start renders on, or `None` for Automatic.
+    pub fn set_gpu(&mut self, gpu: Option<crate::render::adapter::AdapterId>) {
+        set(&mut self.prefs.gpu, gpu, &mut self.dirty);
+    }
+
+    pub fn set_allow_software_gpu(&mut self, on: bool) {
+        set(&mut self.prefs.allow_software_gpu, on, &mut self.dirty);
     }
 
     pub fn set_show_status_box(&mut self, on: bool) {

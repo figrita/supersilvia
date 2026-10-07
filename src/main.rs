@@ -45,14 +45,17 @@ fn main() -> eframe::Result {
     }
 
     // **The one device**, made before the window: on the adapter `render::adapter` picks —
-    // the strongest GPU, discrete before integrated, whatever `SUPERSILVIA_ADAPTER` names
-    // instead, and never a software one unless told — with the features the renderer takes. eframe paints through it, the synth draws on it and the
+    // the strongest GPU, discrete before integrated, whatever `SUPERSILVIA_ADAPTER` or else
+    // Preferences ▸ Performance ▸ Use GPU names instead, and never a software one unless told
+    // — with the features the renderer takes. eframe paints through it, the synth draws on it and the
     // picture windows blit on it; a box with no adapter the rule accepts refuses to start and
     // says what it was offered, in a box on the desktop as well as on stderr. See
-    // `proposals/wgpu.md`, sections 3 and 4.
-    let gpu = match supersilvia::render::Gpu::headless(
+    // `proposals/wgpu.md`, sections 3 and 4, and `app::gpu` for the precedence.
+    let asked = supersilvia::app::gpu::asked(
         &supersilvia::render::adapter::Asked::from_env(),
-    ) {
+        &supersilvia::app::gpu::Setting::of(prefs.get()),
+    );
+    let gpu = match supersilvia::render::Gpu::headless(&asked) {
         Ok(gpu) => gpu,
         Err(why) => {
             log::error!("no GPU to render on: {why}");
@@ -90,6 +93,9 @@ fn main() -> eframe::Result {
     // the project that file is inside, and a loose `.ssw` becomes a project of its own.
     // The only argument there is past the flags above.
     let open = std::env::args().nth(1).map(std::path::PathBuf::from);
+    // Preferences ▸ Performance's Restart to apply, asked inside the run and acted on after it.
+    let restart = supersilvia::app::restart::Restart::default();
+    let asked_restart = restart.clone();
 
     // `eframe::run_native` on Linux, exactly. On macOS eframe runs inside an event loop the
     // picture windows are made in; see `render::picture::run`.
@@ -100,6 +106,7 @@ fn main() -> eframe::Result {
             let mut app = App::new(cc, prefs);
             app.use_native_menu(&cc.egui_ctx);
             app.use_gpu_choice(choice);
+            app.use_restart(asked_restart);
             // Said first, before the recovery question the project below may raise.
             app.notice_last_run(crashlog::last_run());
             match open {
@@ -110,9 +117,22 @@ fn main() -> eframe::Result {
             Ok(Box::new(app))
         }),
     );
-    // The log's last line says how the run ended, for the next launch to read.
+    // The log's last line says how the run ended, for the next launch to read; then a restart
+    // asked for starts the next run, the last thing this one does, with everything it held
+    // let go of. See `app::restart`.
     match &ran {
-        Ok(()) => crashlog::closed(),
+        Ok(()) => {
+            if restart.asked() {
+                log::info!("restarting");
+            }
+            crashlog::closed();
+            if restart.asked() {
+                crashlog::release();
+            }
+            if let Err(e) = restart.relaunch() {
+                eprintln!("supersilvia: could not restart: {e}");
+            }
+        }
         Err(e) => {
             log::error!("{e}");
             crashlog::why(&e.to_string());

@@ -419,15 +419,16 @@ or not it says anything, so typing never moves the buttons. Spaces at either end
 part of the name; Escape cancels. A projects folder that cannot be made or read is that line
 instead, and Choose location… is the way on.
 
-**Two questions and one notice, and they are the only other dialogs.** Quit, Open project… and New project… with
+**Two questions and one notice, and they are the only other dialogs.** Quit, Preferences ▸
+Performance's Restart to apply, Open project… and New project… with
 unsaved edits put up a small window — Save, Discard, Cancel — and the window's own close
 button does the same, held with `ViewportCommand::CancelClose` until it is answered.
 
 **The same question stands in front of a show going out**, edits or none: a picture window
 open, the mix sent over NDI or published over Syphon, or a render running. With no unsaved
 edits it says only what is going out and asks — *The mix is on a screen. Stop the show?*, *A
-render is running (frame 120 / 300). Quit and cancel it?* — over **Quit anyway**, **Open
-anyway** or **New anyway**, named for what it goes on to, and **Cancel**. With unsaved edits
+render is running (frame 120 / 300). Quit and cancel it?* — over **Quit anyway**,
+**Restart anyway**, **Open anyway** or **New anyway**, named for what it goes on to, and **Cancel**. With unsaved edits
 the same lines stand under them, with *Save or Discard stops the show*. Going on with a render
 running cancels it and waits for it to end before quitting, opening or starting, so what was
 written stays whole (`app/onair.rs`). `Escape` on a picture window asks nothing: one `Escape`
@@ -671,6 +672,8 @@ the same thing.
 | `main_input_collapsed`, `mixer_collapsed` | the Main Input panel folded to the left edge and the Main Mixer to the right, each to its spine. The Main Input starts folded and the Mixer open |
 | `main_input_width`, `mixer_width` | the width each panel's edge was last dragged to. Absent is the panel's own, 300 and 380 — see [the two side panels](#the-two-side-panels) |
 | `tick_rate` | how often the synth ticks: the editor's display, 60 or 30 — see [below](#the-preferences-window) |
+| `gpu` | the GPU the next start renders on, by its name, PCI ids and backend (`render::adapter::AdapterId`). Absent is Automatic, the strongest. `SUPERSILVIA_ADAPTER` wins over it — see [below](#the-preferences-window) |
+| `allow_software_gpu` | the next start may render on a software GPU. Off. `SUPERSILVIA_SOFTWARE_GPU` wins over it |
 | `status_folds` | which of the Status box's sections are folded, and whether it lists every Output — see [the Status box](#the-status-box) |
 | `window` | inner size, outer position and maximized, so the second launch opens where the first closed |
 | `interface_size` | `Percent90` to `Percent150`: how large the whole editor is drawn — see [the Preferences window](#the-preferences-window) |
@@ -912,25 +915,54 @@ right and its path, or what it holds, on the line under it:
 longer than the window is wide — the start says which disk and the end which folder — and
 whole on its hover, so no path moves a row.
 
-**What it draws on, under GPU** at the foot of the Performance tab, read-only: a grid of a
-caption and its value. *In use* is the adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
+**What it draws on, under GPU** at the foot of the Performance tab: a grid of a caption and
+its value. *In use* is the adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
 *software* or *other*) and backend, then its driver and the driver's own version string, as
 wgpu reports them. *Picked by* is one line: `SUPERSILVIA_ADAPTER=…` when the variable named it,
-or *the strongest: a discrete GPU before an integrated one*. *Offered* is every adapter the
+*chosen under Use GPU* when the row below did, *the strongest, as … cannot be used* when the
+GPU that row names was passed over, or *the strongest: a discrete GPU before an integrated
+one*, with *, a software GPU allowed* or `, SUPERSILVIA_SOFTWARE_GPU=1` after it where one is. *Offered* is every adapter the
 machine reported, in its order, the same three lines each behind a painted dot from
 `ui::icon`, as every status dot is: the one in use filled, named *in use* for the tree, with
 *(in use)* after its name, and the rest hollow, named *not in use*. Every value is one line, cut at its end and whole on its hover.
-What can later be chosen here — the colour precision, the GPU itself — is a row under the
-last. The list is `render::adapter::Choice`, the enumeration `main` already made to pick the
+The list is `render::adapter::Choice`, the enumeration `main` already made to pick the
 adapter, handed to `App` beside the device: listing the adapters opens no device on any of
 them. A host that hands the app a device of its own choosing, as egui_kittest does, has
 none, and the section says *Not reported by this host*.
 
+**Two rows choose what the next start renders on**, under *Offered*. **Use GPU** is a select of
+*Automatic (the strongest)* and every adapter offered, each named with its backend —
+*Intel(R) Graphics (RPL-S) · Vulkan* — so the select never repeats a name the list above
+gives; a software adapter is offered only while a software GPU is allowed. It is kept as the
+`gpu` preference by the adapter's name, PCI ids and backend together, never by its index,
+which is the instance's order. **Allow a software GPU** is a checkbox, for a tester on a
+machine with no GPU, a virtual one most often: the `allow_software_gpu` preference. Both take
+effect at the next start, since the one device is made before the window, and both sit under
+the environment: **`SUPERSILVIA_ADAPTER` wins over Use GPU and `SUPERSILVIA_SOFTWARE_GPU` over
+the checkbox** — scripts and tests pin the integrated GPU with the first — so a row whose
+variable was set at start is disabled with a muted *Overridden by SUPERSILVIA_ADAPTER=intel*
+under it (`app::gpu::asked` is the precedence). A GPU the setting names that is not offered at
+start, or is a software one with none allowed, is passed over for Automatic, and the run says
+so the way any failure is said: the status line, a toast and the problems list — *the GPU
+chosen in Preferences, …, is not on this machine: rendering on … instead*.
+
+**Restart to apply** stands at the foot of the section, before a muted note, while either row
+differs from what the run started on; otherwise the note alone says a change takes effect at
+the next start, on a row as tall as the button, so the button arriving moves nothing. It is
+Quit: the same confirm before unsaved edits and the show going out, a Cancel restarting
+nothing, and the same close. `main` then starts the same executable again — the AppImage
+itself under `$APPIMAGE` — with the same environment and the open project's folder as its
+argument, once eframe has returned and the log's lock is let go of, so the two runs never hold
+the same thing at once (`app::restart`).
+
 `tests/ui.rs` draws both tabs whole with a preferences file and a projects folder of the
 test's own and a made-up machine of three adapters, so the snapshots do not depend on the
-GPUs of the machine they run on (`preferences_files`, `preferences_performance`); Appearance is
+GPUs of the machine they run on (`preferences_files`, `preferences_performance`, with
+`SUPERSILVIA_ADAPTER` set on that machine so the select is overridden); Appearance is
 `preferences_window` and Editing `preferences_editing`, taken by the test that holds every tab
-to the one window rect and the reopened window to the tab it closed on.
+to the one window rect and the reopened window to the tab it closed on; and
+`preferences_gpu_restart` is the section with a software GPU allowed and Restart to apply
+offered, from the test that takes it through the confirm.
 
 ## Layout
 
@@ -3144,7 +3176,9 @@ went down — a panic, a lost GPU, a start that cannot go on. The next launch re
 before writing a line of its own, keeps it as `previous.log`, and a log with no closing line
 is a run that closed unexpectedly, for the reason it wrote last. While one supersilvia runs,
 its log is locked; a second one started beside it writes `supersilvia-<pid>.log` and judges
-nothing, and the next launch to hold the main log deletes those whose process has gone.
+nothing, and the next launch to hold the main log deletes those whose process has gone. A
+Restart to apply writes `== closed` and lets go of the lock before it starts the next run, so
+that run holds the main log.
 
 **An exit before the window is up says so in a box on the desktop**, `platform::alert`: no GPU
 to render on, the window not opening, a panic on the main thread while starting. The box is

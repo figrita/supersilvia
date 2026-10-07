@@ -56,7 +56,9 @@ Vulkan adapter the app would render on, by the app's own rule (`render::adapter`
 software rasterizer, and otherwise the strongest GPU — a discrete one, NVIDIA included, before
 an integrated one — unless `SUPERSILVIA_ADAPTER` names another: `integrated`, a piece of a
 name such as `intel`, an index into `vulkaninfo --summary`'s list, or `vendor:device` in hex.
-`check.sh` runs it with `SUPERSILVIA_ADAPTER=integrated`, the GPU the tests ask for. If the only adapter left is `llvmpipe` or `lavapipe`, the GPU is not reaching the box
+`check.sh` runs it with `SUPERSILVIA_ADAPTER=integrated`, the GPU the tests ask for. The app
+itself also reads Preferences ▸ Performance ▸ Use GPU and Allow a software GPU, which
+`SUPERSILVIA_ADAPTER` and `SUPERSILVIA_SOFTWARE_GPU` each win over when set. If the only adapter left is `llvmpipe` or `lavapipe`, the GPU is not reaching the box
 and nothing about the render pipeline can be trusted — stop and fix that first.
 
 ## Working in the box

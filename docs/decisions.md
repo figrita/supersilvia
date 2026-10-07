@@ -222,7 +222,12 @@ refusing NVIDIA beside another GPU**, which made every NVIDIA owner with an iGPU
 variable to use the card they bought. **Not taken: judging NVIDIA from the hardware** (sysfs's
 display-class PCI devices, so a failed iGPU driver could not make the NVIDIA card look
 alone), which existed only for
-that rule and was machinery with no gain once the rule went. See
+that rule and was machinery with no gain once the rule went. **Preferences ▸ Performance ▸
+Use GPU** chooses another for a person with no terminal, under the variable: **not taken, the
+preference winning**, since scripts and tests pin the integrated GPU with the variable and a
+preference saved on the machine must not move them. **Not taken: switching the GPU while the
+app runs**, since every texture, pipeline and window surface lives on the one device made
+before the window; Restart to apply closes as Quit does and starts again instead. See
 [rendering.md](rendering.md#one-device).
 
 ### WGSL for wgpu, not GLSL through a translator

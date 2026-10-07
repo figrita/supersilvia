@@ -1413,7 +1413,11 @@ names one instead and wins**: an index into the list a refusal prints,
 `vendor:device` in hex, `integrated` for every integrated GPU, or a case-insensitive piece of
 the adapter's name — `intel`, `radeon`, `nvidia`, `4070`. It leaves only what it names, so one
 naming nothing refuses to start rather than fall back, and it does not lift the software rule.
-A machine with a discrete GPU renders on its iGPU with
+Under the two variables is the app's own setting, Preferences ▸ Performance ▸ Use GPU and
+Allow a software GPU ([ui.md](ui.md#the-preferences-window)), read by `main` at start and handed
+in as `Asked::pinned` and `Asked::software` wherever the variable says nothing (`app::gpu`): a
+pinned adapter is taken where it is offered and passes the software rule, and is passed over
+for the strongest — not refused — where it is not, which the run says. A machine with a discrete GPU renders on its iGPU with
 `SUPERSILVIA_ADAPTER=integrated`, and the tests, the benches and `check.sh` ask for the
 integrated GPU themselves, `adapter::Asked::integrated`
 ([testing.md](testing.md#3-the-gpu--the-actual-pixels)). `scripts/doctor.sh` applies the same rule to
