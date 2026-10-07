@@ -11,18 +11,21 @@
 //!
 //! **The carry reads by `@builtin(position)`, never by an interpolated vertex coordinate**, so
 //! it writes the same rows GL's `glBlitFramebuffer` did (`proposals/wgpu.md`, 1.15). There is
-//! no blit in wgpu: a resize is a pass into the new target sampling the old one, linearly and
-//! clamped at its edges, as the blit was.
+//! no blit in wgpu: a resize is a pass into the new target, the old frame scaled about its
+//! center to full height by the new aspect over the old, exactly as the mixer scales a deck of
+//! another shape ([`super::mixer::MIX`]) — cropped or mirrored out to the sides, never
+//! stretched, never letterboxed. The sampler mirrors for the same reason.
 
 use super::gpu::Gpu;
 use super::ring::Format;
 use crate::compile::wgsl::Sampler;
 
-/// The renderer's own stage for a resize's carry: the old frame, scaled into the new target.
+/// The renderer's own stage for a resize's carry: the old frame, scaled about its center to
+/// full height into the new target, by the new aspect over the old.
 pub const CARRY: &str = "
 @group(0) @binding(0) var old_frame: texture_2d<f32>;
 @group(0) @binding(1) var old_sampler: sampler;
-struct Carry { size: vec2f, pad: vec2f }
+struct Carry { size: vec2f, old_size: vec2f }
 @group(0) @binding(2) var<uniform> carry: Carry;
 
 @vertex
@@ -33,7 +36,11 @@ fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
 
 @fragment
 fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
-    return textureSampleLevel(old_frame, old_sampler, frag_coord.xy / carry.size, 0.0);
+    let uv = frag_coord.xy / carry.size;
+    let new_aspect = carry.size.x / carry.size.y;
+    let old_aspect = carry.old_size.x / carry.old_size.y;
+    let scaled = vec2f((uv.x - 0.5) * (new_aspect / old_aspect) + 0.5, uv.y);
+    return textureSampleLevel(old_frame, old_sampler, scaled, 0.0);
 }
 ";
 
@@ -67,8 +74,6 @@ struct Stage {
 pub struct Shared {
     /// In `Sampler::ALL` order.
     samplers: [wgpu::Sampler; 4],
-    /// Clamped and linear, as `glBlitFramebuffer` with `GL_LINEAR` read.
-    clamp_linear: wgpu::Sampler,
     /// One opaque black texel: what a sampler reads where its texture is not there.
     black: wgpu::TextureView,
     carry_half: Stage,
@@ -81,12 +86,6 @@ impl Shared {
     pub fn new(gpu: &Gpu) -> Self {
         let device = gpu.device();
         let samplers = Sampler::ALL.map(|kind| sampler(device, kind));
-        let clamp_linear = device.create_sampler(&wgpu::SamplerDescriptor {
-            label: Some("clamp_linear"),
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            ..Default::default()
-        });
         let black = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("black"),
             size: wgpu::Extent3d {
@@ -118,7 +117,6 @@ impl Shared {
         let black = black.create_view(&wgpu::TextureViewDescriptor::default());
         Self {
             samplers,
-            clamp_linear,
             black,
             carry_half: carry(device, Format::Half.texture_format()),
             carry_byte: carry(device, Format::Byte.texture_format()),
@@ -145,16 +143,19 @@ impl Shared {
         &self.black
     }
 
-    /// Record a pass scaling `from` into `to`, which is `size` and of `format`.
+    /// Record a pass carrying `from`, of `old_size`, into `to`, which is `size` and of
+    /// `format` — scaled about its center to full height, as a frame of another shape always
+    /// is.
     pub fn carry(
         &self,
         gpu: &Gpu,
         encoder: &mut wgpu::CommandEncoder,
-        from: &wgpu::TextureView,
+        from: (&wgpu::TextureView, (u32, u32)),
         to: &wgpu::TextureView,
         size: (u32, u32),
         format: Format,
     ) {
+        let (from, old_size) = from;
         let stage = match format {
             Format::Half => &self.carry_half,
             Format::Byte => &self.carry_byte,
@@ -162,6 +163,8 @@ impl Shared {
         let mut block = [0u8; 16];
         block[..4].copy_from_slice(&(size.0 as f32).to_le_bytes());
         block[4..8].copy_from_slice(&(size.1 as f32).to_le_bytes());
+        block[8..12].copy_from_slice(&(old_size.0 as f32).to_le_bytes());
+        block[12..16].copy_from_slice(&(old_size.1 as f32).to_le_bytes());
         let uniforms = gpu.device().create_buffer(&wgpu::BufferDescriptor {
             label: Some("carry"),
             size: 16,
@@ -179,7 +182,7 @@ impl Shared {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.clamp_linear),
+                    resource: wgpu::BindingResource::Sampler(self.sampler(Sampler::MirrorLinear)),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,

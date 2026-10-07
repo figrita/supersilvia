@@ -21,7 +21,7 @@ it happens:
 | shader recompile | the previous program, drawn with its own uniforms, until the new one has linked |
 | a link that fails | the previous program, and the error goes to the status line |
 | a sampler whose texture is gone — its node deleted, nothing published yet | black where it samples |
-| resolution change | the previous frame, scaled into the new target |
+| resolution change | the previous frame, scaled about its center to full height by the new aspect over the old — cropped or mirrored to the sides, never stretched |
 | an Output's node reshaped by its resolution, before a frame of the new size is published | its last frame, cropped into the new shape and never past it |
 | a GPU that cannot keep up | the newest finished frame; the tick slows |
 | a dropped frame — every target held | the previous published frame |
@@ -34,7 +34,7 @@ it happens:
 | the mix changing size | the new target is drawn on the frame it is made |
 | a drag, with the mix at *Match viewport* | the mix at the size it had, scaled, until the canvas holds still |
 | a resize with the ring at its limit | the old size stays shown until a target is free for the carry |
-| a simulation's world changing size | its old picture scaled into the new one, drawn over on the same tick |
+| a simulation's world changing size | its old picture carried the same way, drawn over on the same tick (always square, so never cropped in practice) |
 | a simulation whose kernels are still linking | its picture as it stands; the ticks wait, queued |
 
 `tests/gpu_ring.rs` asserts the property rather than the mechanism: read the published
@@ -253,9 +253,10 @@ the mix. `tests/gpu_mixer.rs` reads a 1:2 deck across the full width of a square
 makes no texture and no view: the Output's targets and the mix's are the same ones before and
 after, and the mix samples the deck on the frame it was claimed. The test asserts both sets of
 textures and the pixel. When the mix changes size, the frame that reallocates it is the
-frame that draws it, and the previous mix is scaled into the new target first for the same
-reason an Output's resize does it; its old size's targets go as an Output's do, as soon as
-nothing reads them.
+frame that draws it, and the previous mix is carried into the new target first, scaled about
+its center to full height the same way a deck of another shape is — the same resize carry an
+Output's resize uses; its old size's targets go as an Output's do, as soon as nothing reads
+them.
 
 **The mix is the size of the smallest display by default.** *Match display*
 (`mixer::Resolution::Display`) is the physical size of the connected display with the fewest

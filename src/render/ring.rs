@@ -304,7 +304,7 @@ impl Ring {
         shared.carry(
             gpu,
             encoder,
-            &self.latest().view,
+            (&self.latest().view, old),
             &slot.view,
             (width, height),
             self.format,

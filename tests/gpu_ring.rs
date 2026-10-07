@@ -12,7 +12,7 @@
 #[path = "common/gpu.rs"]
 mod gpu;
 
-use gpu::{bytes_of, drain, job, link_all, module, reading, rgba_of, solid, tick};
+use gpu::{bytes_of, drain, floats_of, job, link_all, module, reading, rgba_of, solid, tick};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -577,6 +577,162 @@ fn a_resolution_change_never_publishes_a_black_frame() {
         128 * 96,
         "and it is what is shown once finished"
     );
+}
+
+/// A horizontal gradient, its red channel the frame's own `uv.x` — a vertical stripe pattern
+/// taken to its continuous limit, so a resize carry's aspect-correct scaling (and any naive
+/// stretch it is not doing) shows up exactly, pixel by pixel, rather than only at a stripe's
+/// edge.
+fn gradient() -> Arc<supersilvia::compile::Shader> {
+    module(
+        &[],
+        &[],
+        "
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let uv = frag_coord.xy / u.u_resolution;
+    return vec4f(uv.x, 0.0, 0.0, 1.0);
+}
+",
+    )
+}
+
+/// The red channel the carry's mirrored, aspect-correct scaling predicts at `col` of a
+/// `new_w`×`new_h` target, carried from a `gradient()` frame of `old_w`×`old_h` — the same
+/// center-to-full-height scaling the mixer's `MIX` does for a deck of another shape, folded
+/// through `MirrorRepeat` where it samples past the old frame's edge.
+fn carried_red(col: u32, new_w: u32, new_h: u32, old_w: u32, old_h: u32) -> f32 {
+    let new_aspect = new_w as f32 / new_h as f32;
+    let old_aspect = old_w as f32 / old_h as f32;
+    let uv_x = (col as f32 + 0.5) / new_w as f32;
+    let mut s = (uv_x - 0.5) * (new_aspect / old_aspect) + 0.5;
+    s = s.rem_euclid(2.0);
+    if s > 1.0 {
+        s = 2.0 - s;
+    }
+    s
+}
+
+/// The red channel a naive stretch (the old `frag_coord.xy / carry.size` alone) would have
+/// put at `col` of `new_w` — what the carry must *not* match whenever the shape changed.
+fn stretched_red(col: u32, new_w: u32) -> f32 {
+    (col as f32 + 0.5) / new_w as f32
+}
+
+/// The gradient's red channel at `col`, middle row, of a `width`×`height` texture read back
+/// with `floats_of` (rows bottom first; the gradient has no vertical variation, so any row
+/// does).
+fn red_at(floats: &[f32], width: u32, col: u32) -> f32 {
+    let row = 0u32;
+    floats[((row * width + col) * 4) as usize]
+}
+
+/// **A resize carries the old frame scaled about its center to full height, by the new aspect
+/// over the old — the mixer's rule for a frame of another shape — never stretched.** A 16:9
+/// gradient carried into a 9:16 target is cropped at the sides (every sample stays inside the
+/// old frame); carried into a 21:9 target it is mirrored past the edges. Both differ sharply
+/// from the naive stretch the carry used to do, and both keep the center column unmoved.
+#[test]
+fn a_resize_carries_the_old_frame_at_its_true_shape_not_stretched() {
+    let old = (160, 90);
+
+    // A fresh renderer per case: the carry must read the one clean gradient drawn at `old`,
+    // never a frame already carried once before (which would no longer be a plain gradient to
+    // predict against).
+    for new in [(90, 160), (336, 144)] {
+        let gpu = gpu::gpu();
+        let node = NodeId(1);
+        let shader = gradient();
+        let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
+        link_all(&mut renderer, &|send, mode| {
+            vec![job(node, old, &shader, send, mode, Vec::new())]
+        });
+        renderer.draw(&tick(
+            0.0,
+            vec![job(node, old, &shader, false, DRAW, Vec::new())],
+        ));
+        renderer.draw(&tick(
+            0.0,
+            vec![job(
+                node,
+                new,
+                &shader,
+                false,
+                OutputMode::Suspended,
+                Vec::new(),
+            )],
+        ));
+        drain(&gpu);
+        let latest = renderer.texture_of(node).expect("a frame");
+        assert_eq!((latest.width(), latest.height()), new, "resized");
+        let floats = floats_of(&gpu, &latest);
+        let (new_w, new_h) = new;
+
+        let center = new_w / 2;
+        assert!(
+            (red_at(&floats, new_w, center) - 0.5).abs() < 0.03,
+            "the center column stays centered at {new:?}"
+        );
+
+        for col in [0, new_w - 1] {
+            let got = red_at(&floats, new_w, col);
+            let want = carried_red(col, new_w, new_h, old.0, old.1);
+            let naive = stretched_red(col, new_w);
+            assert!(
+                (got - want).abs() < 0.03,
+                "at {new:?} col {col}: got {got}, aspect-correct predicts {want} (naive stretch would be {naive})"
+            );
+            assert!(
+                (got - naive).abs() > 0.08,
+                "at {new:?} col {col}: {got} should differ from the naive stretch {naive}, \
+                 or the carry is still stretching"
+            );
+        }
+    }
+}
+
+/// **A same-shape resize is unchanged**: the new aspect equals the old, so the carry's scale
+/// factor is 1 and every sample lands exactly where the old naive stretch put it — a plain
+/// upscale, pixel for pixel.
+#[test]
+fn a_same_shape_resize_is_a_plain_upscale() {
+    let gpu = gpu::gpu();
+    let node = NodeId(1);
+    let old = (160, 90);
+    let new = (320, 180);
+    let shader = gradient();
+    let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
+    link_all(&mut renderer, &|send, mode| {
+        vec![job(node, old, &shader, send, mode, Vec::new())]
+    });
+    renderer.draw(&tick(
+        0.0,
+        vec![job(node, old, &shader, false, DRAW, Vec::new())],
+    ));
+    renderer.draw(&tick(
+        0.0,
+        vec![job(
+            node,
+            new,
+            &shader,
+            false,
+            OutputMode::Suspended,
+            Vec::new(),
+        )],
+    ));
+    drain(&gpu);
+    let latest = renderer.texture_of(node).expect("a frame");
+    assert_eq!((latest.width(), latest.height()), new, "resized");
+    let floats = floats_of(&gpu, &latest);
+    for col in [0, new.0 / 4, new.0 / 2, new.0 - 1] {
+        let got = red_at(&floats, new.0, col);
+        let want = stretched_red(col, new.0);
+        assert!(
+            (got - want).abs() < 0.03,
+            "col {col}: got {got}, a same-shape resize predicts {want} exactly as the old \
+             carry did"
+        );
+    }
 }
 
 /// **An Output unplugged publishes black**, not the last frame it drew: another Output's

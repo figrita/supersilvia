@@ -723,7 +723,7 @@ impl World {
             shared.carry(
                 gpu,
                 encoder,
-                &self.picture_view,
+                (&self.picture_view, (self.size, self.size)),
                 &picture_view,
                 (size, size),
                 Format::Byte,
