@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(picture.frame_at(f64::from(MIN_DELAY) * 2.5), 2);
     }
 
-    /// The option says what it takes, and it is what `image` decodes by default.
+    /// The option says what it takes, and it is the four formats `image` is built with.
     #[test]
     fn the_file_option_accepts_pictures() {
         let option = DEF.option("file").expect("the asset option");

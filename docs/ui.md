@@ -3002,8 +3002,11 @@ set), `~/Library/Application Support/supersilvia/logs/` on macOS, `%LOCALAPPDATA
 on Windows. `--check` names it at its
 foot. stderr keeps env_logger's default, errors alone; the file takes `RUST_LOG` where it is
 set and `warn,supersilvia=info` where it is not, each record with its time to the millisecond
-in UTC. A panic is written there with its backtrace, on whichever thread it happens, and a
-lost GPU with the line stderr is given. The file stops growing at 16 MB. A `--check`,
+in UTC. A panic is written there with its backtrace, on whichever thread it happens: every
+frame with its address, and after them where the binary was loaded, so a backtrace from the
+AppImage, whose binary carries no symbols, is named afterwards
+([packaging/README.md](../packaging/README.md#the-appimage)). A lost GPU is written with the
+line stderr is given. The file stops growing at 16 MB. A `--check`,
 `--version` or `--help` never touches it.
 
 **A run says how it ended.** The log's last line is `== closed` once the window has gone, or

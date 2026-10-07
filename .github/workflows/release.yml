@@ -73,6 +73,14 @@ jobs:
           name: linux
           path: target/supersilvia-*.AppImage
           if-no-files-found: error
+      # The AppImage's symbols, kept on the run for 90 days and left off the release: what
+      # packaging/appimage/symbolize.sh names a tester's backtrace with.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: symbols-linux
+          path: target/supersilvia-*.debug
+          if-no-files-found: error
+          retention-days: 90
 
   windows:
     name: Windows zip
@@ -227,6 +235,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
+          rm -f out/*.debug
           ls -l out
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" out/* --clobber

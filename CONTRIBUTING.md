@@ -68,7 +68,8 @@ cargo run --release --example editor_bench -- <project> <tab> [WxH]   # the edit
 cargo run --release --example loop_gifs -- <project> [--only name,name] [--out dir]   # every tab's Output for one loop, as a GIF
 cargo run --release --example queue_contention   # the editor's latency beside a synthetic synth
 python3 scripts/demo-time.py            # the Time Gears demo project, into <documents>/supersilvia/Time Gears
-packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-linux-x86_64.AppImage
+packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-linux-x86_64.AppImage, and its symbols beside it
+packaging/appimage/symbolize.sh <log> <symbols>   # a panic in the AppImage's log, its frames named (packaging/README.md)
 packaging/macos/build-app.sh            # macOS: dist/supersilvia.app, its .dmg and .zip
 git tag v<version> && git push origin v<version>   # all three downloads, built on GitHub into a draft release (packaging/README.md#releases)
 scripts/crate-licenses.py --target x86_64-unknown-linux-gnu > packaging/linux/rust-crates.txt   # after Cargo.lock moves

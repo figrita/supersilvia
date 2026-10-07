@@ -45,7 +45,7 @@ fall back to the desktop's unknown-window icon — which is what happened before
 | | | state |
 | --- | --- | --- |
 | [`linux/`](linux/) | desktop entries — the app, and one each for the two kinds of picture window — MIME type for `.ssw`, AppStream metadata, the crates' notices, `install.sh` into any prefix, and [the page for testers](linux/TESTERS.md) | works |
-| [`appimage/`](appimage/) | `build.sh`: the binary built on Ubuntu 24.04 in a container (`Containerfile`), its glibc and linked libraries checked, the AppDir, `AppRun`, `.DirIcon`, appimagetool | built here; unpacked, resolved and `--check`ed in clean Fedora 44, Ubuntu 24.04 and Arch containers; never opened on a tester's desktop |
+| [`appimage/`](appimage/) | `build.sh`: the binary built on Ubuntu 24.04 in a container (`Containerfile`), its glibc and linked libraries checked, its symbols split off, the AppDir, `AppRun`, `.DirIcon`, appimagetool; `symbolize.sh` names a backtrace from those symbols | built here; unpacked, resolved and `--check`ed in clean Fedora 44, Ubuntu 24.04 and Arch containers; never opened on a tester's desktop |
 | [`flatpak/`](flatpak/) | the Flathub manifest, `io.github.figrita.supersilvia` | skeleton; needs `cargo-sources.json`, a tag and a current runtime |
 | [`windows/`](windows/) | `build.sh`: cross-compiled from Linux with cargo-xwin against GStreamer's MSVC release, the relocatable folder and its `.zip`; `wine.sh` to run it; the icon and version from `build.rs` | built here; `--check`ed and opened under Wine 11; never run on Windows |
 | [`macos/`](macos/) | `build-app.sh`: the `.app` with GStreamer and Syphon inside, its `.dmg` and `.zip`, signed ad hoc or with a Developer ID, and the page for testers | works; tested on one Apple Silicon Mac |
@@ -78,6 +78,37 @@ loader and the windowing libraries, the session, the audio server, the MIDI sequ
 NDI® runtime — with a PASS, a WARN or a FAIL for each and an exit code of 1 on a FAIL.
 [`linux/TESTERS.md`](linux/TESTERS.md) is what to install on each distribution and what each
 line means.
+
+**The AppImage's binary carries no symbols; they are kept beside it.** The container builds
+`dist` with line tables added (`CARGO_PROFILE_DIST_DEBUG=line-tables-only`, nothing stripped),
+and `build.sh` splits the symbol table and the line tables off into
+`target/supersilvia-<version>-linux-<arch>.debug`, compressed, before the binary goes into the
+AppDir. That file is never shipped. A release run keeps it as the `symbols-linux` artifact for
+90 days, and it is worth keeping with the version for as long as anyone runs that version: a
+report from a binary whose symbols file is gone can be read only as far as its addresses.
+
+So a panic in the AppImage is written into the log with every frame `<unknown>` and its
+address, and a last line, `symbols: backtrace_on_panic at 0x…`, saying where the binary was
+loaded (`src/main.rs`). `appimage/symbolize.sh` reads them back:
+
+```sh
+packaging/appimage/symbolize.sh previous.log target/supersilvia-<version>-linux-x86_64.debug
+```
+
+prints the log with each frame followed by its functions, the inlined ones first, at file and
+line. It needs binutils, nothing else. The file has to be the build's own — `readelf -n` prints
+the build ID, the same in both — and a frame in glibc or a GStreamer plugin is left as it is. A
+core dump from the AppImage is read through the same file: copied to
+`/usr/lib/debug/.build-id/<first two digits of the ID>/<the rest>.debug`, gdb and
+`coredumpctl gdb` find it by the build ID on their own.
+
+**The AppImage is zstd at level 19 in 1 MB blocks**: appimagetool's own compressor, with its
+level raised from 15 and squashfs's block from 128 KB. The block is what counts. It took the
+AppImage from 12.5 MB to 11.5 MB, where level 19 over 15 was under 0.1 MB and 22 nothing past
+19. xz is not a choice: the runtime appimagetool writes, the static type2 runtime, decompresses
+zstd and zlib and nothing else, and the mksquashfs it carries writes zstd alone. The runtime
+mounts and unpacks the larger block as it does the smaller, under FUSE and with
+`--appimage-extract-and-run`.
 
 **What was tried**, on clean Fedora 44, Ubuntu 24.04 and Arch containers with the packages
 TESTERS.md names and nothing else, no display, and an Intel iGPU handed in as

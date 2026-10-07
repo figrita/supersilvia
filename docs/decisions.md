@@ -2739,7 +2739,9 @@ JPEG and a WebP — `pngdec`, `jpegdec`, `webpdec` — and for the animated GIF 
 `image/gif`, and `avdec_gif` needs the libav plugin, which is not installed on any machine this
 has run on. `decodebin` answers `not-linked` and the pipeline never prerolls. So the crate is
 in the shipping binary for the one format that cannot be got any other way, and it is the
-version `egui_kittest` already pinned for `examples/node_shots`, so the lock does not move.
+version `egui_kittest` already pinned for `examples/node_shots`. It is built with four of its
+formats, PNG, JPEG, WebP and GIF, which are what `imagegif` takes; its other defaults — AVIF,
+EXR, TIFF, BMP and the rest, and rayon — opened nothing here and were 1.5 MB of the binary.
 
 **Rejected: a GIF decoder of our own.** LZW, the frame disposal rules and a canvas to
 composite onto, for a format the crate in the lock already reads — and `nodes/` would then
@@ -5566,24 +5568,33 @@ number the row prints in circle mode sits beside the name, which silvia had no w
 showing. The divisor guard stays at `1e-9` rather than silvia's `1e-5`: the width of it is
 invisible in use, and the narrower one is the more honest answer.
 
-### Release builds keep their function names, and a panic prints its backtrace
+### A panic prints its backtrace, and the AppImage's symbols are kept beside it
 
-**Chosen.** `[profile.release]`, which `dist` inherits, is `debug = false` and
-`strip = "debuginfo"`: the debug information goes and the symbol table stays, and `main`
-installs a panic hook that prints a backtrace whether or not `RUST_BACKTRACE` is set. The one
-real crash on record, a SIGABRT, came off a binary built `strip = true` and could not be read:
-every frame was an offset. Now a panic names every function it went through on stderr, and a
-core dump does the same in `coredumpctl`, without the person having set anything first.
+**Chosen.** `main` installs a panic hook that prints a backtrace whether or not
+`RUST_BACKTRACE` is set, and writes it into the log with every frame's address and where the
+binary was loaded. `[profile.release]`, which `dist` inherits, is `debug = false` and
+`strip = "debuginfo"`: the debug information goes and the symbol table stays, so a build from
+`cargo` names every function a panic went through, on stderr and in `coredumpctl`, without the
+person having set anything first. The one real crash on record, a SIGABRT, came off a binary
+built `strip = true` and could not be read: every frame was an offset.
 
-**Rejected: line tables** (`debug = "line-tables-only"`, file:line in every frame). The release
-binary was 228 MB where it had been 35 MB, and 83 MB with its debug sections compressed; function
-names at 44 MB won over line numbers at twice to five times that.
+**The AppImage's binary carries neither**, and the symbols are not lost: its build adds line
+tables to `dist` and `packaging/appimage/build.sh` splits them and the symbol table off into a
+file kept beside the build and never shipped, from which `packaging/appimage/symbolize.sh`
+names a tester's backtrace, at file and line, inlined frames and all
+([packaging/README.md](../packaging/README.md#the-appimage)). The symbol table was 4.4 MB of the
+binary. The line tables cost no byte of what ships; they make the build half as long again,
+and the symbols file 27 MB compressed.
+
+**Rejected: line tables in the binary** (`debug = "line-tables-only"` and nothing split off).
+The release binary was 228 MB where it had been 35 MB, and 83 MB with its debug sections
+compressed.
 
 **Rejected: full debug information.** Types and locals are what a debugger stepping through
 a live process reads, and nobody reads them from a crash report.
 
-**On macOS** the symbol table stays in the binary the same way, and `packaging/macos/build-app.sh`
-strips nothing, so a backtrace names every function on any Mac.
+**On macOS** the symbol table stays in the binary, and `packaging/macos/build-app.sh` strips
+nothing, so a backtrace names every function on any Mac.
 
 ### A tester sends a log, a notice and one block to paste
 

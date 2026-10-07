@@ -1,7 +1,7 @@
 Rust crates compiled into supersilvia for x86_64-unknown-linux-gnu
 ==================================================================
 
-401 crates, each under the licence it declares. Where a crate's package
+354 crates, each under the licence it declares. Where a crate's package
 carries its licence text, the text follows under every crate that carries it.
 
   accesskit 0.24.1: MIT OR Apache-2.0
@@ -12,8 +12,6 @@ carries its licence text, the text follows under every crate that carries it.
   adler2 2.0.1: 0BSD OR MIT OR Apache-2.0
   ahash 0.8.12: MIT OR Apache-2.0
   aho-corasick 1.1.5: Unlicense OR MIT
-  aligned 0.4.3: MIT OR Apache-2.0
-  aligned-vec 0.6.4: MIT
   allocator-api2 0.2.21: MIT OR Apache-2.0
   alsa 0.11.0: Apache-2.0/MIT
   alsa-sys 0.4.0: MIT
@@ -23,10 +21,8 @@ carries its licence text, the text follows under every crate that carries it.
   anstyle-query 1.1.5: MIT OR Apache-2.0
   anyhow 1.0.104: MIT OR Apache-2.0
   arboard 3.6.1: MIT OR Apache-2.0
-  arg_enum_proc_macro 0.3.4: MIT
   arrayvec 0.7.8: MIT OR Apache-2.0
   as-raw-xcb-connection 1.0.1: MIT OR Apache-2.0
-  as-slice 0.2.1: MIT OR Apache-2.0
   ash 0.38.0+1.3.281: MIT OR Apache-2.0
   ashpd 0.11.1: MIT
   async-broadcast 0.7.2: MIT OR Apache-2.0
@@ -44,17 +40,11 @@ carries its licence text, the text follows under every crate that carries it.
   atspi 0.29.0: Apache-2.0 OR MIT
   atspi-common 0.13.0: Apache-2.0 OR MIT
   atspi-proxies 0.13.0: Apache-2.0 OR MIT
-  av-scenechange 0.14.1: MIT
-  av1-grain 0.2.5: BSD-2-Clause
-  avif-serialize 0.8.9: BSD-3-Clause
   bit-set 0.10.0: Apache-2.0 OR MIT
   bit-vec 0.9.1: Apache-2.0 OR MIT
-  bit_field 0.10.3: Apache-2.0/MIT
   bitflags 1.3.2: MIT/Apache-2.0
   bitflags 2.13.1: MIT OR Apache-2.0
-  bitstream-io 4.10.0: MIT/Apache-2.0
   blocking 1.7.0: Apache-2.0 OR MIT
-  bumpalo 3.20.3: MIT OR Apache-2.0
   byte-slice-cast 1.2.3: MIT
   bytemuck 1.25.2: Zlib OR Apache-2.0 OR MIT
   bytemuck_derive 1.12.0: Zlib OR Apache-2.0 OR MIT
@@ -73,8 +63,6 @@ carries its licence text, the text follows under every crate that carries it.
   concurrent-queue 2.5.0: Apache-2.0 OR MIT
   cpal 0.18.2: Apache-2.0
   crc32fast 1.5.1: MIT OR Apache-2.0
-  crossbeam-deque 0.8.7: MIT OR Apache-2.0
-  crossbeam-epoch 0.9.20: MIT OR Apache-2.0
   crossbeam-utils 0.8.22: MIT OR Apache-2.0
   cursor-icon 1.2.0: MIT OR Apache-2.0 OR Zlib
   dasp_sample 0.11.0: MIT OR Apache-2.0
@@ -101,14 +89,11 @@ carries its licence text, the text follows under every crate that carries it.
   env_filter 2.0.0: MIT OR Apache-2.0
   env_logger 0.11.11: MIT OR Apache-2.0
   epaint 0.36.2: MIT OR Apache-2.0
-  equator 0.4.2: MIT
-  equator-macro 0.4.2: MIT
   equivalent 1.0.2: Apache-2.0 OR MIT
   errno 0.3.14: MIT OR Apache-2.0
   euclid 0.22.14: MIT OR Apache-2.0
   event-listener 5.4.2: Apache-2.0 OR MIT
   event-listener-strategy 0.5.4: Apache-2.0 OR MIT
-  exr 1.74.2: BSD-3-Clause
   fastrand 2.5.0: Apache-2.0 OR MIT
   fax 0.2.7: MIT
   fdeflate 0.3.7: MIT OR Apache-2.0
@@ -178,12 +163,10 @@ carries its licence text, the text follows under every crate that carries it.
   idna_adapter 1.2.2: Apache-2.0 OR MIT
   image 0.25.10: MIT OR Apache-2.0
   image-webp 0.2.4: MIT OR Apache-2.0
-  imgref 1.12.3: CC0-1.0 OR Apache-2.0
   indexmap 2.14.1: Apache-2.0 OR MIT
   inotify 0.11.5: ISC
   inotify-sys 0.1.8: ISC
   is_terminal_polyfill 1.70.2: MIT OR Apache-2.0
-  itertools 0.14.0: MIT OR Apache-2.0
   itertools 0.15.0: MIT OR Apache-2.0
   itoa 1.0.18: MIT OR Apache-2.0
   jiff 0.2.35: Unlicense OR MIT
@@ -191,7 +174,6 @@ carries its licence text, the text follows under every crate that carries it.
   khronos-egl 6.0.0: MIT/Apache-2.0
   kstring 2.0.4: MIT OR Apache-2.0
   kurbo 0.13.1: Apache-2.0 OR MIT
-  lebe 0.5.3: BSD-3-Clause
   libc 0.2.189: MIT OR Apache-2.0
   libloading 0.8.9: ISC
   libloading 0.9.0: ISC
@@ -204,8 +186,6 @@ carries its licence text, the text follows under every crate that carries it.
   litrs 1.0.0: MIT OR Apache-2.0
   lock_api 0.4.14: MIT OR Apache-2.0
   log 0.4.34: MIT OR Apache-2.0
-  loop9 0.1.5: MIT
-  maybe-rayon 0.1.1: MIT
   memchr 2.8.3: Unlicense OR MIT
   memmap2 0.9.11: MIT OR Apache-2.0
   miniz_oxide 0.8.9: MIT OR Zlib OR Apache-2.0
@@ -215,15 +195,9 @@ carries its licence text, the text follows under every crate that carries it.
   muldiv 1.0.1: MIT
   naga 30.0.1: MIT OR Apache-2.0
   naga-types 30.0.1: MIT OR Apache-2.0
-  new_debug_unreachable 1.0.6: MIT
   nix 0.31.3: MIT
-  no_std_io2 0.9.4: Apache-2.0 OR MIT
   nohash-hasher 0.2.0: Apache-2.0 OR MIT
-  nom 8.0.0: MIT
-  noop_proc_macro 0.3.0: MIT
-  num-bigint 0.4.8: MIT OR Apache-2.0
   num-complex 0.4.6: MIT OR Apache-2.0
-  num-derive 0.4.2: MIT OR Apache-2.0
   num-integer 0.1.47: MIT OR Apache-2.0
   num-rational 0.4.2: MIT OR Apache-2.0
   num-traits 0.2.19: MIT OR Apache-2.0
@@ -234,8 +208,6 @@ carries its licence text, the text follows under every crate that carries it.
   parking 2.2.1: Apache-2.0 OR MIT
   parking_lot 0.12.5: MIT OR Apache-2.0
   parking_lot_core 0.9.12: MIT OR Apache-2.0
-  paste 1.0.15: MIT OR Apache-2.0
-  pastey 0.1.1: MIT OR Apache-2.0
   pastey 0.2.3: MIT OR Apache-2.0
   peniko 0.6.1: Apache-2.0 OR MIT
   percent-encoding 2.3.2: MIT OR Apache-2.0
@@ -257,11 +229,7 @@ carries its licence text, the text follows under every crate that carries it.
   proc-macro-crate 3.5.0: MIT OR Apache-2.0
   proc-macro2 1.0.107: MIT OR Apache-2.0
   profiling 1.0.18: MIT OR Apache-2.0
-  profiling-procmacros 1.0.18: MIT OR Apache-2.0
-  pulp 0.22.3: MIT
-  pulp-wasm-simd-flag 0.1.1: MIT
   pxfm 0.1.30: BSD-3-Clause OR Apache-2.0
-  qoi 0.4.1: MIT/Apache-2.0
   quick-error 2.0.1: MIT/Apache-2.0
   quick-xml 0.41.0: MIT
   quick-xml 0.42.0: MIT
@@ -269,21 +237,14 @@ carries its licence text, the text follows under every crate that carries it.
   rand 0.9.5: MIT OR Apache-2.0
   rand_chacha 0.9.0: MIT OR Apache-2.0
   rand_core 0.9.5: MIT OR Apache-2.0
-  rav1e 0.8.1: BSD-2-Clause
-  ravif 0.13.0: BSD-3-Clause
-  raw-cpuid 11.6.0: MIT
   raw-window-handle 0.6.2: MIT OR Apache-2.0 OR Zlib
-  rayon 1.12.0: MIT OR Apache-2.0
-  rayon-core 1.13.0: MIT OR Apache-2.0
   read-fonts 0.41.0: MIT OR Apache-2.0
   realfft 3.5.0: MIT
-  reborrow 0.5.5: MIT
   regex 1.13.1: MIT OR Apache-2.0
   regex-automata 0.4.18: MIT OR Apache-2.0
   regex-syntax 0.8.11: MIT OR Apache-2.0
   renderdoc-sys 1.1.0: MIT OR Apache-2.0
   rfd 0.15.4: MIT
-  rgb 0.8.53: MIT
   rustc-hash 1.1.0: Apache-2.0/MIT
   rustc-hash 2.1.3: Apache-2.0 OR MIT
   rustfft 6.4.1: MIT OR Apache-2.0
@@ -299,7 +260,6 @@ carries its licence text, the text follows under every crate that carries it.
   serde_repr 0.1.21: MIT OR Apache-2.0
   signal-hook-registry 1.4.8: MIT OR Apache-2.0
   simd-adler32 0.3.10: MIT
-  simd_helpers 0.1.0: MIT
   siphasher 1.0.3: MIT/Apache-2.0
   skrifa 0.44.0: MIT OR Apache-2.0
   slab 0.4.12: MIT
@@ -342,14 +302,9 @@ carries its licence text, the text follows under every crate that carries it.
   utf8_iter 1.0.4: Apache-2.0 OR MIT
   utf8parse 0.2.2: Apache-2.0 OR MIT
   uuid 1.26.0: Apache-2.0 OR MIT
-  v_frame 0.3.9: BSD-2-Clause
   vec_map 0.8.2: MIT/Apache-2.0
   vello_common 0.1.0: Apache-2.0 OR MIT
   vello_cpu 0.1.0: Apache-2.0 OR MIT
-  wasm-bindgen 0.2.127: MIT OR Apache-2.0
-  wasm-bindgen-macro 0.2.127: MIT OR Apache-2.0
-  wasm-bindgen-macro-support 0.2.127: MIT OR Apache-2.0
-  wasm-bindgen-shared 0.2.127: MIT OR Apache-2.0
   wayland-backend 0.3.17: MIT
   wayland-client 0.31.15: MIT
   wayland-csd-frame 0.3.0: MIT
@@ -379,7 +334,6 @@ carries its licence text, the text follows under every crate that carries it.
   xcursor 0.3.11: MIT
   xkbcommon-dl 0.4.2: MIT
   xkeysym 0.2.1: MIT OR Apache-2.0 OR Zlib
-  y4m 0.8.0: MIT
   yeslogic-fontconfig-sys 6.0.1: MIT
   yoke 0.8.3: Unicode-3.0
   yoke-derive 0.8.2: Unicode-3.0
@@ -400,7 +354,6 @@ carries its licence text, the text follows under every crate that carries it.
   zlib-rs 0.6.7: Zlib
   zmij 1.0.23: MIT
   zune-core 0.5.3: MIT OR Apache-2.0 OR Zlib
-  zune-inflate 0.2.54: MIT OR Apache-2.0 OR Zlib
   zune-jpeg 0.5.15: MIT OR Apache-2.0 OR Zlib
   zvariant 5.15.0: MIT
   zvariant_derive 5.15.0: MIT
@@ -426,12 +379,8 @@ and its standard text is at https://spdx.org/licenses/:
   epaint 0.36.2 (MIT OR Apache-2.0)
   gilrs-core 0.6.8 (Apache-2.0/MIT)
   profiling 1.0.18 (MIT OR Apache-2.0)
-  profiling-procmacros 1.0.18 (MIT OR Apache-2.0)
-  pulp-wasm-simd-flag 0.1.1 (MIT)
   realfft 3.5.0 (MIT)
-  simd_helpers 0.1.0 (MIT)
   spirv 0.4.0+sdk-1.4.341.0 (Apache-2.0)
-  zune-inflate 0.2.54 (MIT OR Apache-2.0 OR Zlib)
 
 ------------------------------------------------------------------------------
 adler2 2.0.1 (0BSD OR MIT OR Apache-2.0), LICENSE-0BSD
@@ -700,8 +649,6 @@ once_cell 1.21.4 (MIT OR Apache-2.0), LICENSE-MIT
 option-operations 0.6.1 (MIT/Apache-2.0), LICENSE-MIT
 ordered-stream 0.2.0 (MIT OR Apache-2.0), LICENSE-MIT
 parking 2.2.1 (Apache-2.0 OR MIT), LICENSE-MIT
-paste 1.0.15 (MIT OR Apache-2.0), LICENSE-MIT
-pastey 0.1.1 (MIT OR Apache-2.0), LICENSE-MIT
 pastey 0.2.3 (MIT OR Apache-2.0), LICENSE-MIT
 pin-project-lite 0.2.17 (Apache-2.0 OR MIT), LICENSE-MIT
 piper 0.2.5 (MIT OR Apache-2.0), LICENSE-MIT
@@ -758,9 +705,7 @@ DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
 ahash 0.8.12 (MIT OR Apache-2.0), LICENSE-APACHE
-aligned 0.4.3 (MIT OR Apache-2.0), LICENSE-APACHE
 arrayvec 0.7.8 (MIT OR Apache-2.0), LICENSE-APACHE
-as-slice 0.2.1 (MIT OR Apache-2.0), LICENSE-APACHE
 async-channel 2.5.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 async-executor 1.14.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 async-io 2.6.0 (Apache-2.0 OR MIT), LICENSE-APACHE
@@ -772,13 +717,9 @@ async-task 4.7.1 (Apache-2.0 OR MIT), LICENSE-APACHE
 atomic-waker 1.1.2 (Apache-2.0 OR MIT), LICENSE-APACHE
 bitflags 1.3.2 (MIT/Apache-2.0), LICENSE-APACHE
 bitflags 2.13.1 (MIT OR Apache-2.0), LICENSE-APACHE
-bitstream-io 4.10.0 (MIT/Apache-2.0), LICENSE-APACHE
 blocking 1.7.0 (Apache-2.0 OR MIT), LICENSE-APACHE
-bumpalo 3.20.3 (MIT OR Apache-2.0), LICENSE-APACHE
 cfg-if 1.0.4 (MIT OR Apache-2.0), LICENSE-APACHE
 concurrent-queue 2.5.0 (Apache-2.0 OR MIT), LICENSE-APACHE
-crossbeam-deque 0.8.7 (MIT OR Apache-2.0), LICENSE-APACHE
-crossbeam-epoch 0.9.20 (MIT OR Apache-2.0), LICENSE-APACHE
 crossbeam-utils 0.8.22 (MIT OR Apache-2.0), LICENSE-APACHE
 displaydoc 0.2.7 (MIT OR Apache-2.0), LICENSE-APACHE
 either 1.18.0 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -808,16 +749,13 @@ heck 0.5.0 (MIT OR Apache-2.0), LICENSE-APACHE
 idna 1.1.0 (MIT OR Apache-2.0), LICENSE-APACHE
 idna_adapter 1.2.2 (Apache-2.0 OR MIT), LICENSE-APACHE
 indexmap 2.14.1 (Apache-2.0 OR MIT), LICENSE-APACHE
-itertools 0.14.0 (MIT OR Apache-2.0), LICENSE-APACHE
 itertools 0.15.0 (MIT OR Apache-2.0), LICENSE-APACHE
 khronos-egl 6.0.0 (MIT/Apache-2.0), LICENSE-APACHE
 linux-raw-sys 0.12.1 (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT), LICENSE-APACHE
 linux-raw-sys 0.4.15 (Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT), LICENSE-APACHE
 lock_api 0.4.14 (MIT OR Apache-2.0), LICENSE-APACHE
 log 0.4.34 (MIT OR Apache-2.0), LICENSE-APACHE
-num-bigint 0.4.8 (MIT OR Apache-2.0), LICENSE-APACHE
 num-complex 0.4.6 (MIT OR Apache-2.0), LICENSE-APACHE
-num-derive 0.4.2 (MIT OR Apache-2.0), LICENSE-APACHE
 num-integer 0.1.47 (MIT OR Apache-2.0), LICENSE-APACHE
 num-rational 0.4.2 (MIT OR Apache-2.0), LICENSE-APACHE
 num-traits 0.2.19 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -834,8 +772,6 @@ polling 3.11.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 pollster 0.4.0 (Apache-2.0/MIT), LICENSE-APACHE
 pollster 1.0.1 (Apache-2.0/MIT), LICENSE-APACHE
 primal-check 0.3.4 (MIT OR Apache-2.0), LICENSE-APACHE
-rayon 1.12.0 (MIT OR Apache-2.0), LICENSE-APACHE
-rayon-core 1.13.0 (MIT OR Apache-2.0), LICENSE-APACHE
 regex 1.13.1 (MIT OR Apache-2.0), LICENSE-APACHE
 regex-automata 0.4.18 (MIT OR Apache-2.0), LICENSE-APACHE
 regex-syntax 0.8.11 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -854,10 +790,6 @@ unicode-segmentation 1.13.3 (MIT OR Apache-2.0), LICENSE-APACHE
 unicode-width 0.2.2 (MIT OR Apache-2.0), LICENSE-APACHE
 url 2.5.8 (MIT OR Apache-2.0), LICENSE-APACHE
 uuid 1.26.0 (Apache-2.0 OR MIT), LICENSE-APACHE
-wasm-bindgen 0.2.127 (MIT OR Apache-2.0), LICENSE-APACHE
-wasm-bindgen-macro 0.2.127 (MIT OR Apache-2.0), LICENSE-APACHE
-wasm-bindgen-macro-support 0.2.127 (MIT OR Apache-2.0), LICENSE-APACHE
-wasm-bindgen-shared 0.2.127 (MIT OR Apache-2.0), LICENSE-APACHE
 weezl 0.1.12 (MIT OR Apache-2.0), LICENSE-APACHE
 
 Apache License
@@ -1169,61 +1101,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 For more information, please refer to <http://unlicense.org/>
 
 ------------------------------------------------------------------------------
-aligned 0.4.3 (MIT OR Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2017 Jorge Aparicio
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-aligned-vec 0.6.4 (MIT), LICENSE
-reborrow 0.5.5 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2022 sarah
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
 allocator-api2 0.2.21 (MIT OR Apache-2.0), LICENSE-APACHE
 anyhow 1.0.104 (MIT OR Apache-2.0), LICENSE-APACHE
 async-trait 0.1.92 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -1231,8 +1108,6 @@ glifo 0.2.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 itoa 1.0.18 (MIT OR Apache-2.0), LICENSE-APACHE
 libc 0.2.189 (MIT OR Apache-2.0), LICENSE-APACHE
 litrs 1.0.0 (MIT OR Apache-2.0), LICENSE-APACHE
-paste 1.0.15 (MIT OR Apache-2.0), LICENSE-APACHE
-pastey 0.1.1 (MIT OR Apache-2.0), LICENSE-APACHE
 pastey 0.2.3 (MIT OR Apache-2.0), LICENSE-APACHE
 proc-macro2 1.0.107 (MIT OR Apache-2.0), LICENSE-APACHE
 quote 1.0.47 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -1685,7 +1560,6 @@ anstream 1.0.0 (MIT OR Apache-2.0), LICENSE-APACHE
 anstyle 1.0.14 (MIT OR Apache-2.0), LICENSE-APACHE
 anstyle-parse 1.0.0 (MIT OR Apache-2.0), LICENSE-APACHE
 anstyle-query 1.1.5 (MIT OR Apache-2.0), LICENSE-APACHE
-bit_field 0.10.3 (Apache-2.0/MIT), LICENSE-APACHE
 colorchoice 1.0.5 (MIT OR Apache-2.0), LICENSE-APACHE
 crc32fast 1.5.1 (MIT OR Apache-2.0), LICENSE-APACHE
 dpi 0.1.2 (Apache-2.0 AND MIT), LICENSE
@@ -1694,7 +1568,6 @@ env_logger 0.11.11 (MIT OR Apache-2.0), LICENSE-APACHE
 hex 0.4.3 (MIT OR Apache-2.0), LICENSE-APACHE
 is_terminal_polyfill 1.70.2 (MIT OR Apache-2.0), LICENSE-APACHE
 kstring 2.0.4 (MIT OR Apache-2.0), LICENSE-APACHE
-no_std_io2 0.9.4 (Apache-2.0 OR MIT), LICENSE-APACHE
 quick-error 2.0.1 (MIT/Apache-2.0), LICENSE-APACHE
 rustfft 6.4.1 (MIT OR Apache-2.0), LICENSE-APACHE
 strength_reduce 0.2.4 (MIT OR Apache-2.0), LICENSE-APACHE
@@ -1966,31 +1839,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-arg_enum_proc_macro 0.3.4 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2018 Luca Barbato
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
 arrayvec 0.7.8 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) Ulrik Sverdrup "bluss" 2015-2023
@@ -2027,7 +1875,6 @@ atspi-common 0.13.0 (Apache-2.0 OR MIT), LICENSE-APACHE2.txt
 atspi-proxies 0.13.0 (Apache-2.0 OR MIT), LICENSE-APACHE2.txt
 codespan-reporting 0.13.1 (Apache-2.0), LICENSE
 cpal 0.18.2 (Apache-2.0), LICENSE
-imgref 1.12.3 (CC0-1.0 OR Apache-2.0), LICENSE-APACHE
 kurbo 0.13.1 (Apache-2.0 OR MIT), LICENSE-APACHE
 nohash-hasher 0.2.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 peniko 0.6.1 (Apache-2.0 OR MIT), LICENSE-APACHE
@@ -2246,35 +2093,6 @@ Apache License
 as-raw-xcb-connection 1.0.1 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright 2019 as-raw-xcb-connection Contributers
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-as-slice 0.2.1 (MIT OR Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2018 Jorge Aparicio
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -2745,100 +2563,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-av-scenechange 0.14.1 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2019 Multimedia and Rust
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
-av1-grain 0.2.5 (BSD-2-Clause), LICENSE
-
-BSD 2-Clause License
-
-Copyright (c) 2022-2022, the rav1e contributors
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-- Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-- Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------
-avif-serialize 0.8.9 (BSD-3-Clause), LICENSE
-
-BSD 3-Clause License
-
-Copyright (c) 2020, Cloudflare, Inc.
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------
 bit-set 0.10.0 (Apache-2.0 OR MIT), LICENSE-APACHE
 bit-vec 0.9.1 (Apache-2.0 OR MIT), LICENSE-APACHE
 defmt 1.1.1 (MIT OR Apache-2.0), LICENSE-APACHE
 defmt-macros 1.1.1 (MIT OR Apache-2.0), LICENSE-APACHE
 downcast-rs 1.2.1 (MIT/Apache-2.0), LICENSE-APACHE
 presser 0.3.1 (MIT OR Apache-2.0), LICENSE-APACHE
-qoi 0.4.1 (MIT/Apache-2.0), LICENSE-APACHE
 vec_map 0.8.2 (MIT/Apache-2.0), LICENSE-APACHE
 
 Apache License
@@ -3102,37 +2832,10 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-bit_field 0.10.3 (Apache-2.0/MIT), LICENSE-MIT
-
-The MIT License (MIT)
-
-Copyright (c) 2016 Philipp Oppermann
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
 bitflags 1.3.2 (MIT/Apache-2.0), LICENSE-MIT
 bitflags 2.13.1 (MIT OR Apache-2.0), LICENSE-MIT
 log 0.4.34 (MIT OR Apache-2.0), LICENSE-MIT
-num-bigint 0.4.8 (MIT OR Apache-2.0), LICENSE-MIT
 num-complex 0.4.6 (MIT OR Apache-2.0), LICENSE-MIT
-num-derive 0.4.2 (MIT OR Apache-2.0), LICENSE-MIT
 num-integer 0.1.47 (MIT OR Apache-2.0), LICENSE-MIT
 num-rational 0.4.2 (MIT OR Apache-2.0), LICENSE-MIT
 num-traits 0.2.19 (MIT OR Apache-2.0), LICENSE-MIT
@@ -3141,64 +2844,6 @@ regex-automata 0.4.18 (MIT OR Apache-2.0), LICENSE-MIT
 regex-syntax 0.8.11 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) 2014 The Rust Project Developers
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-bitstream-io 4.10.0 (MIT/Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2017 Brian Langenberger
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-bumpalo 3.20.3 (MIT OR Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2019 Nick Fitzgerald
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -3429,10 +3074,6 @@ THE SOFTWARE.
 cfg-if 1.0.4 (MIT OR Apache-2.0), LICENSE-MIT
 scoped-tls 1.0.1 (MIT/Apache-2.0), LICENSE-MIT
 socket2 0.6.5 (MIT OR Apache-2.0), LICENSE-MIT
-wasm-bindgen 0.2.127 (MIT OR Apache-2.0), LICENSE-MIT
-wasm-bindgen-macro 0.2.127 (MIT OR Apache-2.0), LICENSE-MIT
-wasm-bindgen-macro-support 0.2.127 (MIT OR Apache-2.0), LICENSE-MIT
-wasm-bindgen-shared 0.2.127 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) 2014 Alex Crichton
 
@@ -3536,8 +3177,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-crossbeam-deque 0.8.7 (MIT OR Apache-2.0), LICENSE-MIT
-crossbeam-epoch 0.9.20 (MIT OR Apache-2.0), LICENSE-MIT
 crossbeam-utils 0.8.22 (MIT OR Apache-2.0), LICENSE-MIT
 
 The MIT License (MIT)
@@ -4077,7 +3716,6 @@ have been licensed under extremely permissive terms.
 
 ------------------------------------------------------------------------------
 either 1.18.0 (MIT OR Apache-2.0), LICENSE-MIT
-itertools 0.14.0 (MIT OR Apache-2.0), LICENSE-MIT
 itertools 0.15.0 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) 2015
@@ -4309,32 +3947,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-equator 0.4.2 (MIT), LICENSE
-equator-macro 0.4.2 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2023 sarah
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
 equivalent 1.0.2 (Apache-2.0 OR MIT), LICENSE-MIT
 
 Copyright (c) 2016--2023
@@ -4429,43 +4041,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-exr 1.74.2 (BSD-3-Clause), LICENSE.md
-
-# Licenses
-
-This Rust implementation of the OpenEXR image format
-and the exrs crate are not affiliated with the 
-[OpenEXR project](https://www.openexr.com/) or the 
-[ACADEMY SOFTWARE FOUNDATION](https://www.aswf.io/).
-
-
-## The OpenEXR Image Format: [BSD-3-Clause](https://github.com/AcademySoftwareFoundation/openexr/blob/master/LICENSE.md)
-Copyright (c) Contributors to the OpenEXR Project. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-## The `exrs` Project, and independent Rust implementation of the official OpenEXR Image Format: Also [BSD-3-Clause](https://github.com/AcademySoftwareFoundation/openexr/blob/master/LICENSE.md)
-Copyright (c) Contributors to the exrs Project. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------------------------------------------------------------------------------
 fax 0.2.7 (MIT), LICENSE
@@ -6551,131 +6126,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-imgref 1.12.3 (CC0-1.0 OR Apache-2.0), LICENSE-CC0
-
-Creative Commons Legal Code
-
-CC0 1.0 Universal
-
-    CREATIVE COMMONS CORPORATION IS NOT A LAW FIRM AND DOES NOT PROVIDE
-    LEGAL SERVICES. DISTRIBUTION OF THIS DOCUMENT DOES NOT CREATE AN
-    ATTORNEY-CLIENT RELATIONSHIP. CREATIVE COMMONS PROVIDES THIS
-    INFORMATION ON AN "AS-IS" BASIS. CREATIVE COMMONS MAKES NO WARRANTIES
-    REGARDING THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS
-    PROVIDED HEREUNDER, AND DISCLAIMS LIABILITY FOR DAMAGES RESULTING FROM
-    THE USE OF THIS DOCUMENT OR THE INFORMATION OR WORKS PROVIDED
-    HEREUNDER.
-
-Statement of Purpose
-
-The laws of most jurisdictions throughout the world automatically confer
-exclusive Copyright and Related Rights (defined below) upon the creator
-and subsequent owner(s) (each and all, an "owner") of an original work of
-authorship and/or a database (each, a "Work").
-
-Certain owners wish to permanently relinquish those rights to a Work for
-the purpose of contributing to a commons of creative, cultural and
-scientific works ("Commons") that the public can reliably and without fear
-of later claims of infringement build upon, modify, incorporate in other
-works, reuse and redistribute as freely as possible in any form whatsoever
-and for any purposes, including without limitation commercial purposes.
-These owners may contribute to the Commons to promote the ideal of a free
-culture and the further production of creative, cultural and scientific
-works, or to gain reputation or greater distribution for their Work in
-part through the use and efforts of others.
-
-For these and/or other purposes and motivations, and without any
-expectation of additional consideration or compensation, the person
-associating CC0 with a Work (the "Affirmer"), to the extent that he or she
-is an owner of Copyright and Related Rights in the Work, voluntarily
-elects to apply CC0 to the Work and publicly distribute the Work under its
-terms, with knowledge of his or her Copyright and Related Rights in the
-Work and the meaning and intended legal effect of CC0 on those rights.
-
-1. Copyright and Related Rights. A Work made available under CC0 may be
-protected by copyright and related or neighboring rights ("Copyright and
-Related Rights"). Copyright and Related Rights include, but are not
-limited to, the following:
-
-  i. the right to reproduce, adapt, distribute, perform, display,
-     communicate, and translate a Work;
- ii. moral rights retained by the original author(s) and/or performer(s);
-iii. publicity and privacy rights pertaining to a person's image or
-     likeness depicted in a Work;
- iv. rights protecting against unfair competition in regards to a Work,
-     subject to the limitations in paragraph 4(a), below;
-  v. rights protecting the extraction, dissemination, use and reuse of data
-     in a Work;
- vi. database rights (such as those arising under Directive 96/9/EC of the
-     European Parliament and of the Council of 11 March 1996 on the legal
-     protection of databases, and under any national implementation
-     thereof, including any amended or successor version of such
-     directive); and
-vii. other similar, equivalent or corresponding rights throughout the
-     world based on applicable law or treaty, and any national
-     implementations thereof.
-
-2. Waiver. To the greatest extent permitted by, but not in contravention
-of, applicable law, Affirmer hereby overtly, fully, permanently,
-irrevocably and unconditionally waives, abandons, and surrenders all of
-Affirmer's Copyright and Related Rights and associated claims and causes
-of action, whether now known or unknown (including existing as well as
-future claims and causes of action), in the Work (i) in all territories
-worldwide, (ii) for the maximum duration provided by applicable law or
-treaty (including future time extensions), (iii) in any current or future
-medium and for any number of copies, and (iv) for any purpose whatsoever,
-including without limitation commercial, advertising or promotional
-purposes (the "Waiver"). Affirmer makes the Waiver for the benefit of each
-member of the public at large and to the detriment of Affirmer's heirs and
-successors, fully intending that such Waiver shall not be subject to
-revocation, rescission, cancellation, termination, or any other legal or
-equitable action to disrupt the quiet enjoyment of the Work by the public
-as contemplated by Affirmer's express Statement of Purpose.
-
-3. Public License Fallback. Should any part of the Waiver for any reason
-be judged legally invalid or ineffective under applicable law, then the
-Waiver shall be preserved to the maximum extent permitted taking into
-account Affirmer's express Statement of Purpose. In addition, to the
-extent the Waiver is so judged Affirmer hereby grants to each affected
-person a royalty-free, non transferable, non sublicensable, non exclusive,
-irrevocable and unconditional license to exercise Affirmer's Copyright and
-Related Rights in the Work (i) in all territories worldwide, (ii) for the
-maximum duration provided by applicable law or treaty (including future
-time extensions), (iii) in any current or future medium and for any number
-of copies, and (iv) for any purpose whatsoever, including without
-limitation commercial, advertising or promotional purposes (the
-"License"). The License shall be deemed effective as of the date CC0 was
-applied by Affirmer to the Work. Should any part of the License for any
-reason be judged legally invalid or ineffective under applicable law, such
-partial invalidity or ineffectiveness shall not invalidate the remainder
-of the License, and in such case Affirmer hereby affirms that he or she
-will not (i) exercise any of his or her remaining Copyright and Related
-Rights in the Work or (ii) assert any associated claims and causes of
-action with respect to the Work, in either case contrary to Affirmer's
-express Statement of Purpose.
-
-4. Limitations and Disclaimers.
-
- a. No trademark or patent rights held by Affirmer are waived, abandoned,
-    surrendered, licensed or otherwise affected by this document.
- b. Affirmer offers the Work as-is and makes no representations or
-    warranties of any kind concerning the Work, express, implied,
-    statutory or otherwise, including without limitation warranties of
-    title, merchantability, fitness for a particular purpose, non
-    infringement, or the absence of latent or other defects, accuracy, or
-    the present or absence of errors, whether or not discoverable, all to
-    the greatest extent permissible under applicable law.
- c. Affirmer disclaims responsibility for clearing rights of other persons
-    that may apply to the Work or any use thereof, including without
-    limitation any person's Copyright and Related Rights in the Work.
-    Further, Affirmer disclaims responsibility for obtaining any necessary
-    consents, permissions or other rights required for any use of the
-    Work.
- d. Affirmer understands and acknowledges that Creative Commons is not a
-    party to this document and has no duty or obligation with respect to
-    this CC0 or use of the Work.
-
-------------------------------------------------------------------------------
 indexmap 2.14.1 (Apache-2.0 OR MIT), LICENSE-MIT
 
 Copyright (c) 2016--2017
@@ -6721,36 +6171,6 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS
 OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
 TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
-
-------------------------------------------------------------------------------
-lebe 0.5.3 (BSD-3-Clause), LICENSE-BSD-3-Clause
-
-Copyright (c) 2022 Contributors to the lebe Project. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without modification,
-are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice,
-this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-this list of conditions and the following disclaimer in the documentation
-and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its contributors
-may be used to endorse or promote products derived from this software without
-specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
-USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ------------------------------------------------------------------------------
 libc 0.2.189 (MIT OR Apache-2.0), LICENSE-MIT
@@ -7404,42 +6824,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-loop9 0.1.5 (MIT), LICENSE
-
-© Kornel Lesiński
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-maybe-rayon 0.1.1 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2021 Joshua Holmer
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
 memmap2 0.9.11 (MIT OR Apache-2.0), LICENSE-APACHE
 
 Apache License
@@ -8045,7 +7429,53 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ------------------------------------------------------------------------------
-new_debug_unreachable 1.0.6 (MIT), LICENSE-MIT
+nix 0.31.3 (MIT), LICENSE
+
+The MIT License (MIT)
+
+Copyright (c) 2015 Carl Lerche + nix-rust Authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+------------------------------------------------------------------------------
+nohash-hasher 0.2.0 (Apache-2.0 OR MIT), LICENSE-MIT
+
+Copyright 2018 Parity Technologies (UK) Ltd.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+------------------------------------------------------------------------------
 ordered-float 5.5.0 (MIT), LICENSE-MIT
 
 Copyright (c) 2015 Jonathan Reem
@@ -8073,125 +7503,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-nix 0.31.3 (MIT), LICENSE
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Carl Lerche + nix-rust Authors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-------------------------------------------------------------------------------
-no_std_io2 0.9.4 (Apache-2.0 OR MIT), LICENSE-MIT
-
-Copyright (c) 2020-2021  Brendan Molloy <brendan@bbqsrc.net>
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
-nohash-hasher 0.2.0 (Apache-2.0 OR MIT), LICENSE-MIT
-
-Copyright 2018 Parity Technologies (UK) Ltd.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
-OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-nom 8.0.0 (MIT), LICENSE
-
-Copyright (c) 2014-2019 Geoffroy Couprie
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-noop_proc_macro 0.3.0 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2019 Luca Barbato
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ------------------------------------------------------------------------------
 parking 2.2.1 (Apache-2.0 OR MIT), LICENSE-THIRD-PARTY
@@ -8559,60 +7870,6 @@ DEALINGS IN THE SOFTWARE.
 primal-check 0.3.4 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) 2014 Huon Wilson
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
-pulp 0.22.3 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2021 sarah
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
-qoi 0.4.1 (MIT/Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2022 Ivan Smirnov
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -9112,93 +8369,6 @@ APPENDIX: How to apply the Apache License to your work.
    identification within third-party archives.
 
 ------------------------------------------------------------------------------
-rav1e 0.8.1 (BSD-2-Clause), LICENSE
-
-BSD 2-Clause License
-
-Copyright (c) 2017-2023, the rav1e contributors
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------
-ravif 0.13.0 (BSD-3-Clause), LICENSE
-
-BSD 3-Clause License
-
-Copyright (c) 2020, Kornel
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-1. Redistributions of source code must retain the above copyright notice, this
-   list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright notice,
-   this list of conditions and the following disclaimer in the documentation
-   and/or other materials provided with the distribution.
-
-3. Neither the name of the copyright holder nor the names of its
-   contributors may be used to endorse or promote products derived from
-   this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------
-raw-cpuid 11.6.0 (MIT), LICENSE.md
-
-The MIT License (MIT)
-
-Copyright (c) 2015 Gerd Zellweger
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
-------------------------------------------------------------------------------
 raw-window-handle 0.6.2 (MIT OR Apache-2.0 OR Zlib), LICENSE-MIT.md
 
 MIT License
@@ -9239,36 +8409,6 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 
 ------------------------------------------------------------------------------
-rayon 1.12.0 (MIT OR Apache-2.0), LICENSE-MIT
-rayon-core 1.13.0 (MIT OR Apache-2.0), LICENSE-MIT
-
-Copyright (c) 2010 The Rust Project Developers
-
-Permission is hereby granted, free of charge, to any
-person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the
-Software without restriction, including without
-limitation the rights to use, copy, modify, merge,
-publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software
-is furnished to do so, subject to the following
-conditions:
-
-The above copyright notice and this permission notice
-shall be included in all copies or substantial portions
-of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
-ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
-TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
-SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-DEALINGS IN THE SOFTWARE.
-
-------------------------------------------------------------------------------
 renderdoc-sys 1.1.0 (MIT OR Apache-2.0), LICENSE-MIT
 
 Copyright (c) 2022 Eyal Kalderon
@@ -9303,31 +8443,6 @@ rfd 0.15.4 (MIT), LICENSE
 MIT License
 
 Copyright (c) 2022 Bartłomiej Maryńczak
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-------------------------------------------------------------------------------
-rgb 0.8.53 (MIT), LICENSE
-
-MIT License
-
-Copyright (c) 2019 Kornel
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -11386,35 +10501,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
 ------------------------------------------------------------------------------
-v_frame 0.3.9 (BSD-2-Clause), LICENSE
-
-BSD 2-Clause License
-
-Copyright (c) 2017-2022, the rav1e contributors
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-- Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
-
-- Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-------------------------------------------------------------------------------
 vello_common 0.1.0 (Apache-2.0 OR MIT), LICENSE-MIT
 vello_cpu 0.1.0 (Apache-2.0 OR MIT), LICENSE-MIT
 
@@ -12300,32 +11386,6 @@ Permission is granted to anyone to use this software for any purpose, including 
 2. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
 
 3. This notice may not be removed or altered from any source distribution.
-
-------------------------------------------------------------------------------
-y4m 0.8.0 (MIT), LICENSE
-
-The MIT License (MIT)
-
-Copyright (c) 2015-2019 PistonDevelopers
-Copyright (c) 2019 image-rs contributors
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ------------------------------------------------------------------------------
 zbus 5.19.0 (MIT), LICENSE

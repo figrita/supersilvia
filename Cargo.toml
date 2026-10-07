@@ -77,8 +77,11 @@ raw-window-handle = "0.6"
 # (`video/png.rs`); this is here for the one thing GStreamer cannot do on a machine with no
 # gif loader, which is every machine this has been run on: `decodebin` refuses `image/gif`.
 # It is also the dev-dependency `examples/node_shots` and the fixtures in `tests/` use, so
-# the version is kittest's own and the lock does not move.
-image = "0.25"
+# the version is kittest's own and the lock does not move. Its formats are the four
+# `nodes::Accepts::IMAGE` takes, the GIF's encoder among them, and the PNG the icon and the
+# About box decode; the rest of its defaults — AVIF, EXR, TIFF and the others, and rayon —
+# are off, since nothing here opens them.
+image = { version = "0.25", default-features = false, features = ["gif", "jpeg", "png", "webp"] }
 
 # Linux's and macOS's: the synth thread's own CPU clock, `CLOCK_THREAD_CPUTIME_ID`, for the
 # Status box's line between work and waiting on the GPU, named by `platform/linux/clock.rs`
@@ -349,10 +352,11 @@ wgpu = { version = "30", default-features = false, features = ["counters"] }
 name = "syphon"
 harness = false
 
-# Line tables and symbols, and no more debug information than that, so a panic's backtrace
-# and a core dump's both read as file:line — a crash that cannot be read cannot be fixed. Full
-# debug information would add types and locals nobody reads from a crash report. `dist`
-# inherits both. Everything that costs build time lives in `dist` instead, because
+# The symbol table and no debug information, so a panic's backtrace and a core dump's both
+# name every function they went through — a crash that cannot be read cannot be fixed. `dist`
+# inherits both. The AppImage's build adds line tables to `dist` and splits them and the
+# symbols off into a file that is never shipped (`packaging/appimage/build.sh`), so its
+# binary carries neither. Everything that costs build time lives in `dist` instead, because
 # `cargo run --release` is the performance-measurement loop and a 20x slower build in it is a
 # worse trade than a larger binary.
 [profile.release]
@@ -364,6 +368,59 @@ strip = "debuginfo"
 inherits = "release"
 lto = "fat"
 codegen-units = 1
+
+# The crates no frame waits on, optimized for size in the shipping build: the D-Bus stack the
+# portals and the screen reader speak through, the file dialogs, the clipboard, the image
+# decoders `imagegif` reads a file with on a worker, opening a link, and the log's own
+# formatting. Each runs when someone asks, not per frame, so smaller code costs nothing anyone
+# sees. Everything a frame does — wgpu, naga, egui and its text, rustfft, GStreamer, this crate
+# — and accesskit's tree, built every frame while a screen reader listens, stays at 3. The GIF
+# encoder (`gif`, `color_quant`) stays too, since a render waits on it. "s" took 1.3 MB off
+# the binary and 0.4 MB off the AppImage; "z" 0.1 MB and 30 KB more, which is not worth slower
+# decoders.
+[profile.dist.package]
+zbus = { opt-level = "s" }
+zbus_names = { opt-level = "s" }
+zvariant = { opt-level = "s" }
+ashpd = { opt-level = "s" }
+accesskit_unix = { opt-level = "s" }
+accesskit_atspi_common = { opt-level = "s" }
+atspi = { opt-level = "s" }
+atspi-common = { opt-level = "s" }
+atspi-proxies = { opt-level = "s" }
+enumflags2 = { opt-level = "s" }
+tokio = { opt-level = "s" }
+async-broadcast = { opt-level = "s" }
+async-channel = { opt-level = "s" }
+async-executor = { opt-level = "s" }
+async-io = { opt-level = "s" }
+async-lock = { opt-level = "s" }
+async-process = { opt-level = "s" }
+async-signal = { opt-level = "s" }
+async-task = { opt-level = "s" }
+blocking = { opt-level = "s" }
+event-listener = { opt-level = "s" }
+event-listener-strategy = { opt-level = "s" }
+rfd = { opt-level = "s" }
+arboard = { opt-level = "s" }
+smithay-clipboard = { opt-level = "s" }
+image = { opt-level = "s" }
+png = { opt-level = "s" }
+zune-jpeg = { opt-level = "s" }
+zune-core = { opt-level = "s" }
+image-webp = { opt-level = "s" }
+moxcms = { opt-level = "s" }
+webbrowser = { opt-level = "s" }
+url = { opt-level = "s" }
+idna = { opt-level = "s" }
+icu_collections = { opt-level = "s" }
+icu_locale_core = { opt-level = "s" }
+icu_normalizer = { opt-level = "s" }
+icu_properties = { opt-level = "s" }
+icu_provider = { opt-level = "s" }
+env_logger = { opt-level = "s" }
+env_filter = { opt-level = "s" }
+jiff = { opt-level = "s" }
 
 # Clippy above the default set. The default `-D warnings` in check.sh catches what is
 # uncontroversially wrong; `pedantic` catches idiom, and idiom is the band a reviewer who
