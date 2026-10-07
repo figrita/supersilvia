@@ -496,34 +496,20 @@ pub fn icon_font(base: f32, zoom: f32) -> eframe::egui::FontId {
     eframe::egui::FontId::proportional(font_size(base + ICON_BUMP, zoom))
 }
 
-/// A canvas font size, quantized to whole pixels.
-///
-/// egui caches glyph rasterization per size, so a continuously varying size — which is what
-/// `base * zoom` is during a smooth zoom — misses the cache every frame and re-lays-out and
-/// re-rasterizes every glyph on screen. Rounding bounds the whole zoom range to a few dozen
-/// sizes, all cached after first use. The cost is that text steps rather than glides while
-/// zooming, which is the normal behavior of every editor that does this. Text that wraps
-/// wraps at [`wrap_width`], which steps with it.
-pub fn font_size(base: f32, zoom: f32) -> f32 {
-    (base * zoom).round().max(FONT_FLOOR)
+/// Canvas font sizes to a doubling of the zoom: 1.45% apart, too close to see a step, and few
+/// enough that egui's glyph cache holds every size a zoom sweep passes through.
+pub const FONT_STEPS: f32 = 48.0;
+
+/// The scale canvas text is drawn at, at `zoom`: the nearest of [`FONT_STEPS`] geometric steps
+/// a doubling, exactly 1 at zoom 1, and never more than half a step from the zoom. See "Canvas
+/// fonts step on a 48-per-octave ladder" in `docs/decisions.md`.
+pub fn font_scale(zoom: f32) -> f32 {
+    ((FONT_STEPS * zoom.log2()).round() / FONT_STEPS).exp2()
 }
 
-/// The smallest canvas font size, in pixels. [`font_size`] holds a smaller one here.
-const FONT_FLOOR: f32 = 6.0;
-
-/// How much narrower than its room [`wrap_width`] wraps: the most [`font_size`] rounds a size
-/// up by, which is half a pixel on the smallest size it rounds to, 6 for 5.5.
-pub const WRAP_SLACK: f32 = FONT_FLOOR / (FONT_FLOOR - 0.5);
-
-/// The width canvas text of size `base` wraps at, at `zoom`, in a room `world` units wide.
-///
-/// It follows the quantized size rather than the zoom, so the width over the font size is one
-/// number at every zoom; [`crate::ui::text::wrapped`] breaks lines at it. Divided by
-/// [`WRAP_SLACK`], it is never wider than `world * zoom` wherever the size scales with the
-/// zoom; where the floor holds the size it can be, and `wrapped` clamps it to its room. See
-/// "Canvas fonts are quantized to whole pixels" in `docs/decisions.md`.
-pub fn wrap_width(world: f32, base: f32, zoom: f32) -> f32 {
-    world * font_size(base, zoom) / (base * WRAP_SLACK)
+/// A canvas font size: `base` at [`font_scale`].
+pub fn font_size(base: f32, zoom: f32) -> f32 {
+    base * font_scale(zoom)
 }
 
 /// What the editor's window is cleared to before egui paints a frame: the ground every panel
@@ -711,6 +697,47 @@ mod tests {
 
     fn hex(c: Color32) -> String {
         format!("#{:02x}{:02x}{:02x}", c.r(), c.g(), c.b())
+    }
+
+    /// The ladder: zoom 1 is the base size exactly, a size never shrinks as the zoom grows, a
+    /// step is at most 1.5%, a zoom draws the same size every time it comes back, and the size
+    /// is within half a step of the zoom's.
+    #[test]
+    fn canvas_fonts_step_on_a_fine_ladder() {
+        assert_eq!(font_size(FONT_TINY, 1.0), FONT_TINY);
+        assert_eq!(font_size(FONT_TITLE, 1.0), FONT_TITLE);
+        // Zooms on one step draw one size, to the bit, which is what egui caches by.
+        assert_eq!(font_size(FONT_TINY, 1.005).to_bits(), FONT_TINY.to_bits());
+        assert_eq!(
+            font_size(FONT_TINY, 2.01).to_bits(),
+            (FONT_TINY * 2.0).to_bits()
+        );
+        let half_step = (0.5 / FONT_STEPS).exp2();
+        let mut sizes = 0;
+        let mut zoom = crate::ui::canvas::MIN_ZOOM;
+        let mut last = font_size(FONT_BASE, zoom);
+        while zoom <= crate::ui::canvas::MAX_ZOOM {
+            let size = font_size(FONT_BASE, zoom);
+            assert_eq!(size.to_bits(), font_size(FONT_BASE, zoom).to_bits());
+            assert!(size >= last, "the size shrinks at zoom {zoom}");
+            assert!(
+                size <= last * 1.015,
+                "a step of {} at zoom {zoom}",
+                size / last
+            );
+            let ratio = size / (FONT_BASE * zoom);
+            assert!(
+                (1.0 / half_step - 1e-5..=half_step + 1e-5).contains(&ratio),
+                "{size} at zoom {zoom} is {ratio} of the zoom's size"
+            );
+            if size != last {
+                sizes += 1;
+            }
+            last = size;
+            zoom += 0.0005;
+        }
+        // 0.25 to 3 is 3.58 doublings.
+        assert!(sizes <= 175, "{sizes} sizes over the canvas's zooms");
     }
 
     #[test]

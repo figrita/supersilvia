@@ -3883,7 +3883,8 @@ pub fn tag(
         theme::icon_font(theme::FONT_TINY, zoom),
         dim(theme.tag_text(tag.ty)),
     );
-    let gap = if tag.icon.is_empty() { 0.0 } else { 3.0 * zoom };
+    let gap_world = if tag.icon.is_empty() { 0.0 } else { 3.0 };
+    let gap = gap_world * zoom;
     // The name's room in world units, with the icon at its width at zoom 1, so a long name
     // breaks into the same lines at every zoom.
     let icon_world = ui
@@ -3895,14 +3896,13 @@ pub fn tag(
         )
         .size()
         .x;
-    let room = (theme::TAG_MAX_WIDTH - theme::TAG_PAD * 2.0 - icon_world - gap / zoom).max(1.0);
+    let room = (theme::TAG_MAX_WIDTH - theme::TAG_PAD * 2.0 - icon_world - gap_world).max(1.0);
     let ink = dim(theme.tag_text(tag.ty));
     let galley = crate::ui::text::wrapped(
         ui.ctx(),
         tag.label,
         theme::FONT_TINY,
         room,
-        room * zoom,
         zoom,
         |text, font, wrap| eframe::egui::text::LayoutJob::simple(text.to_owned(), font, ink, wrap),
     );

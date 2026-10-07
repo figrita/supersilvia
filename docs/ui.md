@@ -1297,18 +1297,19 @@ The UI must never make the render miss a frame. Three rules keep it cheap:
   project needs. **The rule has no exception**, a node in hand included: a drag is run from
   the pointer rather than from the dragged node's widget, so a node carried out over a side
   panel is culled like any other and comes back with the cursor all the same.
-- **Canvas font sizes are quantized to whole pixels** by `theme::font_size`. egui caches
-  glyph rasterization per size, and `base * zoom` is a new size every frame during a smooth
-  zoom, so every glyph on screen was being re-laid-out and re-rasterized continuously.
-  Measured: a zoom sweep cost 5x idle CPU before, and nothing after the first pass once
-  sizes are bounded. The cost is that text steps rather than glides while zooming. **Text that
-  wraps keeps its line breaks at every zoom**: a note's box, the Text node's and a tag's
-  workspace name wrap at `theme::wrap_width`, a width that follows the quantized size rather
-  than the zoom, and `text::wrapped` breaks the lines once at zoom 1's size and lays each out
-  alone at the zoom's, so a glyph placed on a whole pixel cannot move a word to the next line
-  either. The width is the room over `theme::WRAP_SLACK`, 12/11, the most rounding enlarges a
-  size, so the text stays inside its box at every zoom where the size scales. Below that,
-  where the 6 px floor holds the size, the text wraps at the box instead.
+- **Canvas font sizes step on a ladder** of 48 sizes a doubling of the zoom,
+  `theme::font_scale`, 1.45% apart: too fine a step to see, so text glides with the zoom, and
+  few enough that a sweep back over a range draws sizes egui has already rasterized. egui
+  caches glyph rasterization per size, and a size that followed the zoom exactly would be new
+  on every frame of a smooth zoom, laying out and rasterizing every glyph on screen again each
+  frame. The first sweep through a range still rasterizes each new size once, and a long zoom
+  can fill the font atlas, which egui clears and refills. **Text that wraps keeps its line
+  breaks at every zoom**: a note's box, the Text node's and a tag's workspace name go through
+  `text::wrapped`, which breaks the lines once at zoom 1's size and lays each out alone at the
+  zoom's, so neither the ladder's step nor a glyph snapped to the pixel grid can move a word to
+  the next line. The breaks are at the room over half a step, less a unit, so the text stays
+  inside its box at every zoom. See
+  [decisions.md](decisions.md#canvas-fonts-step-on-a-48-per-octave-ladder).
 - **The grid's world pitch steps up as you zoom out**, so the dot count stays bounded. A
   fixed pitch produced ~25,000 circles at zoom 0.35 and grew without limit.
 - **Nothing the canvas asks per port rescans the whole graph.** Port slots are laid out once
@@ -1889,8 +1890,8 @@ once and read the same wherever on the node the pointer landed.
   **A text box is the height it was given, never the height of its text.** Its definition's
   lines until a hand drags it, and what is typed past the bottom scrolls inside it. A height
   that is the document's own does not move with the zoom, and does not wait a frame for the
-  text to be measured. Its text breaks into the same lines at every zoom where the font scales,
-  with the box's right edge a few percent clear of the longest line ([Cost](#cost)).
+  text to be measured. Its text breaks into the same lines at every zoom, with the box's right
+  edge about 1% of its room and a point clear of the longest line ([Cost](#cost)).
 
 - **Collapsed, a node is its header and nothing else.** `canvas::rows` yields nothing, so the
   body and the port bands follow from that one early return. The height has exactly one term
@@ -2410,7 +2411,7 @@ Every `UniformNumber` output draws what it published this frame, right-aligned a
 dot with the port's label pushed left of it, in `theme::readout` — the uniform number port's
 hue at a label's weight, so a number reads as belonging to the dot it is measured at without
 competing with it. A port that has published nothing draws nothing: that is a node which has
-not run, not a node reading zero. It is laid out at the same quantized size as the port
+not run, not a node reading zero. It is laid out at the same ladder size as the port
 labels beside it and leaves at the same zoom they do.
 
 **A `UniformColor` output fills the same slot with a swatch.** The color itself is the
@@ -2530,8 +2531,8 @@ Input, has nothing to show either in.
 **The cost rule for text that changes every frame.** A readout misses egui's galley cache by
 construction, because its text is different on most frames. What bounds it is that there are
 few of them and each is short: they are formatted into one buffer per node rather than a
-`String` per port per frame, they are laid out at the quantized font size so the glyph atlas
-is untouched, and they are drawn from the same row walk the labels are — so a culled node, a
+`String` per port per frame, they are laid out at a font size on the ladder so the glyph
+atlas is untouched, and they are drawn from the same row walk the labels are — so a culled node, a
 collapsed node and a row a tick hides cost nothing, because none of them reach that
 walk.
 

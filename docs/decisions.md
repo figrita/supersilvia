@@ -396,7 +396,7 @@ product; the editor is how you steer it. An editor interaction that costs the re
 is a bug even when the editor itself feels fine.
 
 Three mechanisms follow from it, all described in [ui.md](ui.md): off-screen culling,
-quantized font sizes, and a grid pitch that steps with zoom. Each was found the same way —
+font sizes on a ladder, and a grid pitch that steps with zoom. Each was found the same way —
 zoom out on a real graph and watch the editor's worst frame.
 
 **Rejected: running the UI at a lower rate than the output.** Decoupling them means a second
@@ -404,39 +404,54 @@ frame loop, and silvia's 45 independent ones are what this rewrite exists to fix
 does not address the actual failure, which was one UI frame costing several milliseconds, not
 UI frames being too frequent.
 
-### Canvas fonts are quantized to whole pixels
+### Canvas fonts step on a 48-per-octave ladder
 
-**Chosen.** egui caches glyph rasterization per font size, so `base * zoom` misses that cache
-for every glyph on screen on every frame of a smooth zoom. `theme::font_size` rounds to whole
-pixels, which bounds the number of distinct sizes. Measured on an 8-node graph: idle 0.94 ms,
-first zoom sweep 2.61 ms, a second sweep over the same range 0.53 ms.
+**Chosen.** egui caches glyph rasterization per font size, so a size that follows the zoom
+exactly is a new size on every frame of a smooth zoom and misses that cache for every glyph on
+screen. `theme::font_scale` rounds the zoom to the nearest of `theme::FONT_STEPS`, 48,
+geometric steps a doubling: sizes 1.45% apart, about 0.2 px on a 13 px title, too fine to see,
+so text glides with the zoom. The canvas's zooms, 0.25 to 3, are about 170 steps, so a sweep
+back over a range draws sizes egui has already rasterized. Zoom 1 is the base size exactly.
+The view's zoom is continuous; only the text's size steps. There is no floor: at the farthest
+zooms the smallest text is a few pixels tall, unreadable, and still inside its box.
 
 **Chosen: text that wraps keeps its line breaks at every zoom.** A note's box, the Text
-node's and a tag's workspace name wrap at `theme::wrap_width`: the room in world units times
-the *quantized* size over the base, so the wrap width over the font size is one number at
-every zoom. `text::wrapped` takes the line breaks once, at zoom 1's size and that width less a
-pixel, and lays each line out alone at the zoom's size, and a `TextEdit` lays its text out
+node's and a tag's workspace name go through `text::wrapped`, which breaks the lines once, at
+zoom 1's size, and lays each line out alone at the zoom's size; a `TextEdit` lays its text out
 through the same function, so typing and reading break alike and the caret lands on the rows
-drawn.
+drawn. The lines break at the room over half a ladder step — the most the size runs ahead of
+the zoom, 0.72% — less a unit for egui's pixel grid (`text::SNAP_SLACK`), in whole units, and
+a box's padding rounds down to a whole point; so no line passes the box at any zoom.
 
-**The cost is real and accepted:** text steps rather than glides while zooming, and only
-while the zoom is moving. And wrapped text keeps clear of the right of its box by up to a
-twelfth of the room: `theme::WRAP_SLACK` divides the width by 12/11, the most rounding enlarges
-a size (5.5 px to 6), so no line runs past the box at any zoom where the size scales. Below
-that zoom the 6 px floor holds the size while the box goes on shrinking, the same lines cannot
-fit, and the text wraps at the box.
+**The cost is real and accepted.** The ladder is more sizes than whole pixels were: about 170
+for each base font across the zooms, where whole pixels were a few dozen. The first sweep
+through a range rasterizes every glyph on screen at each new size, which measured 2 to 3 ms
+of CPU a frame on an 8-node graph while the zoom moved, against 0.94 ms idle, and once the
+sizes are cached a sweep back costs nothing extra; those figures were taken with whole pixels,
+and the ladder has not been measured. The font atlas holds each size's glyphs, so a long zoom
+across the whole range can fill it, and egui clears and refills it. Wrapped text keeps clear
+of the right of its box by about 1% of the room and a unit. The owner's ruling: bounding the
+sizes harder was an optimization before it was needed, and text that glides is worth it.
+
+**Rejected: whole pixels**, `(base * zoom).round()` with a 6 px floor, the first design. Text
+stepped a pixel at a time, as much as a twelfth of its size at the small end, and jittered
+while zooming. The gap between a whole-pixel size and a box scaling smoothly needed its own
+workarounds to keep line breaks: a wrap width shrunk by 12/11, the most rounding enlarges a
+size, and a separate path below the zoom where the floor held the size, where the text was
+larger than its box and wrapped at the box instead.
+
+**Rejected: exact sizes**, `base * zoom`. Every frame of a zoom is a new size and none is
+ever drawn twice, so every glyph on screen is laid out and rasterized again on every frame
+the zoom moves, and the atlas fills with sizes that are never used again.
 
 **Rejected: caching scaled `FontDefinitions` ourselves.** That is the cache egui already has,
 one layer up.
 
-**Rejected: wrapping at the box's own width.** The size is a whole pixel and the box scales
-smoothly, so at each zoom a different number of words fit a line and the text jumped between
-line breaks mid-zoom.
-
-**Rejected: wrapping at `theme::wrap_width` alone.** The ratio is right, but egui places each
-glyph on a whole pixel, so a line's width at one size is not exactly its width at another
-scaled: a line ending within a pixel of the wrap width broke one way at one zoom and the other
-at the next. Breaking once and laying each line out alone has no such edge.
+**Rejected: wrapping at the box's own width, or at a width that follows the ladder.** The size
+steps while the box scales smoothly, and egui snaps each glyph to its pixel grid, so a line's
+width at one size is not exactly its width at another scaled. Tried on a paragraph in a note,
+both moved words between lines at a third or more of the zooms at some widths. Breaking once
+and laying each line out alone has no such edge.
 
 egui coalesces scroll events within a frame, so input rate was never the problem — but it
 *smooths* them across frames, so one trackpad flick yields distinct zoom values for many
@@ -2369,7 +2384,7 @@ is a meter without a label saying so.
 
 **The cost is real and bounded.** A readout's text changes on most frames, so it misses
 egui's galley cache by construction; what keeps it off the frame budget is that the strings
-are short, formatted into a reused buffer, laid out at the quantized font size, and drawn
+are short, formatted into a reused buffer, laid out at a font size on the ladder, and drawn
 from the same row walk as the port labels — so a culled node, a collapsed node and a row a
 tick hides never reach it. See [ui.md](ui.md#the-value-on-the-row).
 
@@ -2803,7 +2818,7 @@ a heavy visible tab would show as late ticks.
 [ui.md](ui.md) for what each does.
 
 **Why silvia had no zoom, which is the argument for keeping the strip.** A node looks right
-at one scale — this codebase concedes it in the quantized font sizes and in the three
+at one scale — this codebase concedes it in the font sizes' ladder and in the three
 `t.zoom` thresholds at which the node widget drops its icon, its title and its controls.
 Moving something on a plane costs zoom-out, pan, zoom-in. A mouse wheel is one axis, and a
 left-to-right dataflow graph is a one-dimensional document that a plane presents as two.
@@ -5923,9 +5938,8 @@ of a canvas, and that is the one thing only the person writing it knows.
 
 **Rejected: a box that grows to fit its text.** It was the first design, and it moved under
 zoom: the node gained or lost a line's height mid-gesture, pushing everything under it. Its
-height was measured by the field as it painted, a frame late, and below the zoom where the
-font stops shrinking the text still wraps at the box, so it would move there yet. A height
-that is the document's own does not depend on the zoom or the text at all.
+height was measured by the field as it painted, a frame late. A height that is the document's
+own does not depend on the zoom or the text at all.
 
 **Rejected: a size that is session state.** It is not about this run of the app: reopening a
 patch to a paragraph reflowed into a column is reopening a different canvas. So it goes in the

@@ -19,14 +19,12 @@
 //! the digits on the way to 128 are sizes nobody asked for.
 //!
 //! A box of lines — the note's, the Text node's — breaks its text into the same lines at every
-//! zoom, through [`wrapped`]. The font is a whole pixel size while the box scales smoothly, so
-//! a box that wrapped at its own width fit a different number of words on a line at each zoom
-//! and the text jumped between line breaks mid-zoom. A wrap width that follows the quantized
-//! size ([`theme::wrap_width`]) fixes the ratio, but egui places each glyph on a whole pixel,
-//! so a line ending within a pixel of the edge still broke one way at one size and the other
-//! at the next. So the lines are broken once, at zoom 1's size, and each is laid out alone at
-//! the zoom's. The `TextEdit` lays its text out the same way, so typing and reading break
-//! alike and the caret sits on the rows drawn.
+//! zoom, through [`wrapped`]: the lines are broken once, at zoom 1's size, and each is laid out
+//! alone at the zoom's. Wrapping at the box's own width at each zoom moves words between lines
+//! while the zoom moves, both because the font steps on its ladder while the box scales
+//! smoothly ([`theme::font_scale`]) and because egui places each glyph on a whole pixel. The
+//! `TextEdit` lays its text out the same way, so typing and reading break alike and the caret
+//! sits on the rows drawn.
 
 use crate::ui::theme::{self, Hsl, Theme};
 
@@ -52,19 +50,17 @@ fn points(v: f32) -> i8 {
     i8::try_from(v.round().clamp(0.0, 127.0) as i32).unwrap_or(i8::MAX)
 }
 
-/// What a box of lines keeps clear inside each side's [`PAD_X`], in world units: room for
-/// [`points`] rounding the padding by up to half a point, and for a glyph [`wrapped`] lays out
-/// landing up to an eighth of a pixel right of its place, at every zoom whose font size scales.
-const PAD_SLACK: f32 = 1.0;
-
-/// The room inside a box of lines' padding, on screen, for a box `width` points wide.
-fn box_room(width: f32, zoom: f32) -> f32 {
-    (width - 2.0 * f32::from(points(PAD_X * zoom))).max(0.0)
+/// A field's padding left and right, on screen: [`PAD_X`] rounded down to a whole point, so
+/// the room inside a box of lines is never narrower than the padding at its exact size leaves.
+fn pad_x(zoom: f32) -> i8 {
+    points((PAD_X * zoom).floor())
 }
 
 /// The text of a box of lines `width` points wide: [`wrapped`] inside its padding, as
 /// `TextEdit`'s own layouter lays out a multi-line field, with trailing spaces kept and each
-/// row a row of the font plus `spacing` tall.
+/// row a row of the font plus `spacing` tall. The box's width in world units is rounded down
+/// to a whole unit past a float's error, so a width that comes back from the screen a little
+/// apart at two zooms breaks its lines in the same places.
 fn box_galley(
     ctx: &Context,
     text: &str,
@@ -73,14 +69,12 @@ fn box_galley(
     color: Color32,
     spacing: f32,
 ) -> Arc<Galley> {
-    let world = width / zoom - 2.0 * (PAD_X + PAD_SLACK);
-    let room = box_room(width, zoom);
+    let world = (width / zoom + 1e-3).floor() - 2.0 * PAD_X;
     wrapped(
         ctx,
         text,
         theme::FONT_TINY,
         world,
-        room,
         zoom,
         |text, font, wrap| {
             let line_height = ctx.fonts_mut(|f| f.row_height(&font)) + spacing;
@@ -94,37 +88,35 @@ fn box_galley(
     )
 }
 
-/// Canvas text of size `base` at `zoom`, wrapped in a room `world` units wide, never wider than
-/// `room` on screen, and broken into the same lines at every zoom. `job` lays a text out in a
-/// font at a wrap width.
+/// How much narrower than its room [`wrapped`] breaks a text's lines at zoom 1, in world units,
+/// beyond the half step [`theme::font_scale`] can enlarge it by: room for egui snapping each
+/// glyph to its pixel grid, at zoom 1 and again at the zoom's own size.
+const SNAP_SLACK: f32 = 1.0;
+
+/// Canvas text of size `base` at `zoom`, in a room `world` units wide, broken into the same
+/// lines at every zoom: the lines it breaks into at zoom 1, each laid out alone at this zoom's
+/// size. `job` lays a text out in a font at a wrap width.
 ///
-/// The lines are the ones the text breaks into at zoom 1's size and [`theme::wrap_width`] less
-/// a pixel, and each is laid out alone at this zoom's size. Where the floor holds the size and
-/// that would be wider than `room`, the text wraps at `room` instead.
+/// The lines break at the room over half a step of the font ladder, less [`SNAP_SLACK`], in
+/// whole units since egui rounds a wrap width to one; so at any zoom no line is wider than
+/// `world * zoom`.
 pub fn wrapped(
     ctx: &Context,
     text: &str,
     base: f32,
     world: f32,
-    room: f32,
     zoom: f32,
     job: impl Fn(&str, FontId, f32) -> LayoutJob,
 ) -> Arc<Galley> {
     let layout = |job: LayoutJob| ctx.fonts_mut(|f| f.layout_job(job));
-    let font = FontId::proportional(theme::font_size(base, zoom));
-    let wrap = theme::wrap_width(world, base, zoom);
-    if wrap > room {
-        return layout(job(text, font, room));
-    }
-    let at_one = FontId::proportional(theme::font_size(base, 1.0));
-    let lines = layout(job(
-        text,
-        at_one.clone(),
-        (theme::wrap_width(world, base, 1.0) - 1.0).max(0.0),
-    ));
-    if at_one == font {
+    let half_step = (0.5 / theme::FONT_STEPS).exp2();
+    let wrap = (world / half_step - SNAP_SLACK).floor().max(0.0);
+    let lines = layout(job(text, FontId::proportional(base), wrap));
+    let scale = theme::font_scale(zoom);
+    if scale == 1.0 {
         return lines;
     }
+    let font = FontId::proportional(base * scale);
     let mut chars = text.chars();
     let rows: Vec<Arc<Galley>> = lines
         .rows
@@ -140,7 +132,7 @@ pub fn wrapped(
     // `concat` joins galleys as paragraphs, so it ends each one's last row with a newline; a
     // line here ends with one only where the text has one.
     let mut galley = Galley::concat(
-        Arc::new(job(text, font, wrap)),
+        Arc::new(job(text, font, wrap * scale)),
         &rows,
         ctx.pixels_per_point(),
     );
@@ -220,7 +212,7 @@ pub fn edit(
     // field draws egui's own frame; hand it one of your own — which this does, because the
     // background and border above are painted by hand — and the margin is dropped on the
     // floor. It silently did nothing here until a note made the gap worth looking at.
-    let pad = Margin::symmetric(points(PAD_X * zoom), points(pad_y.max(0.0)));
+    let pad = Margin::symmetric(pad_x(zoom), points(pad_y.max(0.0)));
     // A box of lines lays its text out as `box_galley` does rather than at the width
     // `TextEdit` offers, and the caret and a selection are placed on that same galley.
     let color = theme.text_primary();
@@ -575,6 +567,11 @@ mod tests {
         canvas::row_block(body, canvas::Row::Value(0), 0.0, 100.0).width()
     }
 
+    /// The room inside a box of lines' padding, on screen, for a box `width` points wide.
+    fn box_room(width: f32, zoom: f32) -> f32 {
+        (width - 2.0 * f32::from(pad_x(zoom))).max(0.0)
+    }
+
     /// Each row's length in characters, newline included, which is where the lines break,
     /// and how wide the widest row is.
     fn breaks(ctx: &Context, width: f32, zoom: f32) -> (Vec<usize>, f32) {
@@ -592,9 +589,8 @@ mod tests {
         (rows, galley.size().x)
     }
 
-    /// A box of lines breaks its text in the same places at every zoom whose font size scales
-    /// with it, from where the floor lets go up to the canvas's closest, and the text is never
-    /// wider than the room inside the box's padding at any zoom at all.
+    /// A box of lines breaks its text in the same places at every zoom of the canvas, and the
+    /// text is never wider than the room inside the box's padding.
     #[test]
     fn a_box_of_lines_breaks_in_the_same_places_at_every_zoom() {
         let ctx = Context::default();
@@ -606,10 +602,12 @@ mod tests {
             output.textures_delta.clear();
         }
 
-        // Where `font_size` stops holding the floor: 5.5 px rounds up to 6.
-        let scales = 5.5 / theme::FONT_TINY;
-        // The note's own box, the Text node's, and a note dragged wide.
-        for width in [box_width("note"), box_width("text"), 480.0] {
+        // The note's own box, the Text node's, and notes dragged to other widths.
+        let widths = [box_width("note"), box_width("text")];
+        for width in widths
+            .into_iter()
+            .chain((0..30).map(|i| 150.0 + i as f32 * 11.7))
+        {
             let (at_one, _) = breaks(&ctx, width, 1.0);
             assert!(at_one.len() > 3, "the paragraph wraps in a {width} box");
             let mut zoom = canvas::MIN_ZOOM;
@@ -621,12 +619,10 @@ mod tests {
                     painted <= room + eframe::emath::GUI_ROUNDING,
                     "at zoom {zoom} a {width} box's text is {painted} wide in {room} of room",
                 );
-                if zoom >= scales {
-                    assert_eq!(
-                        rows, at_one,
-                        "a {width} box breaks elsewhere at zoom {zoom}"
-                    );
-                }
+                assert_eq!(
+                    rows, at_one,
+                    "a {width} box breaks elsewhere at zoom {zoom}"
+                );
                 zoom += 0.0025;
             }
         }
