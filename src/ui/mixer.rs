@@ -550,7 +550,7 @@ enum Hold {
 }
 
 /// One press: the press button's field, lit in the accent with a `●` before its name while it
-/// holds — a glyph and the accent, since the palette carries no red for an alarm. A real
+/// holds — a painted dot and the accent, since the palette carries no red for an alarm. A real
 /// `Response` named `Blackout` or `Freeze`, selected while it holds.
 fn hold(
     ui: &mut Ui,
@@ -582,16 +582,29 @@ fn hold(
     if switch.learning {
         crate::ui::learning_ring(ui, rect, 1.0, theme);
     }
-    let caption = if switch.on {
-        format!("\u{25cf} {name}")
-    } else {
-        name.to_string()
-    };
-    ui.painter().text(
-        rect.center(),
-        Align2::CENTER_CENTER,
-        caption,
+    let galley = ui.painter().layout_no_wrap(
+        name.to_string(),
         FontId::proportional(theme::FONT_BASE),
+        ink,
+    );
+    let size = theme::FONT_BASE;
+    let lead = if switch.on { size + 2.0 } else { 0.0 };
+    let content = lead + galley.size().x;
+    let left = rect.center().x - content * 0.5;
+    if switch.on {
+        crate::ui::icon::paint(
+            ui.painter(),
+            Rect::from_center_size(
+                eframe::egui::pos2(left + size * 0.5, rect.center().y),
+                vec2(size, size),
+            ),
+            crate::ui::icon::Icon::Dot,
+            ink,
+        );
+    }
+    ui.painter().galley(
+        eframe::egui::pos2(left + lead, rect.center().y - galley.size().y * 0.5),
+        galley,
         ink,
     );
     let label = if switch.learning {

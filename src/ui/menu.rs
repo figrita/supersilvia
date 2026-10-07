@@ -802,7 +802,7 @@ fn draw_items(ui: &mut Ui, items: &[Item], actions: &mut Vec<MenuAction>) {
                 ui.separator();
             }
             Item::Submenu { title, items } => {
-                ui.menu_button(*title, |ui| draw_items(ui, items, actions));
+                crate::ui::icon::submenu_button(ui, title, |ui| draw_items(ui, items, actions));
             }
             Item::Entry(entry) => {
                 if draw_entry(ui, entry) {

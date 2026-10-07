@@ -847,7 +847,7 @@ fn a_failure_toasts_beside_what_was_said_before_it() {
     assert!(toasts[0].starts_with("snapped "), "{toasts:?}");
     assert!(toasts[1].starts_with("open failed"), "{toasts:?}");
     assert!(
-        h.query_by_label("⚠").is_some(),
+        h.query_by_label("warning").is_some(),
         "the failure wears its mark"
     );
     assert!(
@@ -1725,8 +1725,8 @@ fn a_new_workspace_opens_in_the_preferred_layout() {
     h.get_by_label_contains("Close").click();
     h.run_steps(2);
 
-    // The `+` beside the tabs, and the one kind under it.
-    h.get_by_label("+").click();
+    // The add button beside the tabs, and the one kind under it.
+    h.get_by_label("add workspace").click();
     h.run_steps(2);
     h.get_by_label("Video").click();
     h.run_steps(2);
@@ -7524,9 +7524,9 @@ fn tab_key(h: &mut Harness<'_, App>, key: egui::Key) {
     h.run_steps(2);
 }
 
-/// A second workspace, added the way a person adds one: the `+` at the end of the bar.
+/// A second workspace, added the way a person adds one: the add button at the end of the bar.
 fn add_workspace(h: &mut Harness<'_, App>) {
-    h.get_by_label("+").click();
+    h.get_by_label("add workspace").click();
     h.run_steps(2);
     h.get_by_label("Video").click();
     h.run_steps(2);
@@ -7890,18 +7890,6 @@ fn tabs_that_do_not_fit_leave_the_bar_and_the_one_showing_stays() {
     h.run_steps(2);
     assert_eq!(h.state().active(), Active::Workspace(last));
     assert!(h.query_by_label("tab Workspace 15").is_some());
-}
-
-/// The list's mark is a glyph the fonts have, not a box.
-#[test]
-fn the_lists_mark_has_a_glyph() {
-    let mut h = harness();
-    h.step();
-    let c = supersilvia::ui::tabs::OVERFLOW.chars().next().unwrap();
-    let width = h
-        .ctx
-        .fonts_mut(|f| f.glyph_width(&egui::FontId::proportional(14.0), c));
-    assert!(width > 0.0, "U+{:04X} draws as a box", c as u32);
 }
 
 #[test]

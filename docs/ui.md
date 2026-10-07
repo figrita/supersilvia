@@ -93,8 +93,8 @@ canvas it shows.
 | click | show that tab |
 | double-click | rename inline |
 | right-click | Rename · Duplicate · Close |
-| `+` | one entry per `WorkspaceKind` with a UI — Video, today |
-| `▾` | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
+| `+` (*add workspace*) | one entry per `WorkspaceKind` with a UI — Video, today |
+| the chevron (*all workspaces*) | every workspace in the project, in project order, the closed ones dimmed; a click opens it and shows it |
 | `Ctrl`+T | a video workspace, opened and shown |
 | `Ctrl`+1..9 | the tab in that position, the project tab first |
 | `Ctrl`+Tab, `Ctrl`+Shift+Tab | the next tab and the one before, wrapping at the ends |
@@ -103,9 +103,10 @@ canvas it shows.
 **The bar never runs off the window.** The tabs that fit are drawn in project order and the
 rest leave the bar, the one showing always among those drawn: where it is further along than
 the room reaches, it takes the last place, because the lit tab is what says which canvas this
-is. Nothing is out of reach, since `▾` lists every workspace — the tabs that left the bar and
-the ones that have no tab — and a closed one chosen there is opened. `▾` and `+` stand after
-the last tab drawn, and the bar keeps room for them (`tabs::fitting`).
+is. Nothing is out of reach, since the chevron lists every workspace — the tabs that left the
+bar and the ones that have no tab — and a closed one chosen there is opened. The `+` and the
+chevron stand after the last tab drawn, and the bar keeps room for them (`tabs::fitting`).
+Both are painted ([design-system.md](design-system.md#component-rules-worth-stating)).
 
 **`Ctrl`+Tab walks the tabs `Ctrl`+1..9 counts**, the project tab first, and `Ctrl`+Shift+Tab
 walks back; both wrap. `Ctrl` on a Mac as well as on Linux, as every browser binds it, rather
@@ -113,8 +114,8 @@ than the command key. A text field does not take the chord, so it is read whatev
 keyboard, but not while a picture window does. Both are `menu::keys::NEXT_TAB` and
 `PREVIOUS_TAB`, rows of the shortcuts window's Global group.
 
-**A closed workspace comes back from the Project tab or from the ▾ list at the end of the
-bar**, which names every workspace in the project, the closed ones dimmed. There is no
+**A closed workspace comes back from the Project tab or from the chevron's list at the end of
+the bar**, which names every workspace in the project, the closed ones dimmed. There is no
 history of closed tabs to walk back through: two ways to every workspace are enough.
 
 **Duplicate copies the workspace whole**, beside it in project order, as `<name> copy` —

@@ -16,6 +16,7 @@
 
 use crate::graph::{Graph, NodeId};
 use crate::midi::{Kind, Message, Target, Trigger};
+use crate::ui::icon::{self, Icon};
 use crate::ui::theme::Theme;
 use eframe::egui::{Context, Modifiers, RichText, ScrollArea, Ui, Window};
 
@@ -192,19 +193,15 @@ fn devices(ui: &mut Ui, view: &MidiView<'_>, theme: &Theme) {
         } else {
             theme.text_muted()
         };
-        ui.label(
-            RichText::new(format!(
-                "{} {}",
-                if source.connected {
-                    '\u{25cf}'
-                } else {
-                    '\u{25cb}'
-                },
-                source.name
-            ))
-            .color(ink)
-            .monospace(),
-        );
+        ui.horizontal(|ui| {
+            let (mark, state) = if source.connected {
+                (Icon::Dot, "connected")
+            } else {
+                (Icon::Ring, "not connected")
+            };
+            icon::label(ui, mark, ink, state);
+            ui.label(RichText::new(&source.name).color(ink).monospace());
+        });
     }
 }
 
@@ -282,12 +279,8 @@ fn monitor(ui: &mut Ui, view: &MidiView<'_>, theme: &Theme) {
         });
 }
 
-/// The button that forgets a binding: an `✕` **drawn**, not typed.
-///
-/// The glyph is not in the fonts this ships with, so a `"✕"` button is a tofu box. Every
-/// other cross in the editor is its own geometry for the same reason — see
-/// `node_widget::close_mark`, which is silvia's `close.svg` — and this is the plain two-bar
-/// version of it, at the size a table row can carry.
+/// The button that forgets a binding: the painted [`Icon::Close`], at the size a table row
+/// can carry.
 fn unbind_button(ui: &mut Ui, theme: &Theme) -> eframe::egui::Response {
     let size = eframe::egui::vec2(18.0, 18.0);
     let (rect, response) = ui.allocate_exact_size(size, eframe::egui::Sense::click());
@@ -304,13 +297,7 @@ fn unbind_button(ui: &mut Ui, theme: &Theme) -> eframe::egui::Response {
             theme.bg_hover(),
         );
     }
-    // Two bars through the middle, inset so the cross has air inside its own box.
-    let arm = rect.shrink(5.0);
-    let stroke = eframe::egui::Stroke::new(1.5, ink);
-    ui.painter()
-        .line_segment([arm.left_top(), arm.right_bottom()], stroke);
-    ui.painter()
-        .line_segment([arm.right_top(), arm.left_bottom()], stroke);
+    icon::paint(ui.painter(), rect, Icon::Close, ink);
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, "unbind");
     response.on_hover_text("Unbind")
 }

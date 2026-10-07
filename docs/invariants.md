@@ -183,7 +183,7 @@ the table below is that the second list is short, and that you know exactly what
 
 ## What only a person catches
 
-Five rules, and nothing but attention stands behind them. They are the ones to spend review
+Six rules, and nothing but attention stands behind them. They are the ones to spend review
 on, because everything above is already spent.
 
 **A `tick` never waits.** Not for a lock, not for a device, not for the GPU. Device threads
@@ -224,6 +224,13 @@ that does not answer is waited for through the kernel's timeouts — so it runs 
 Input's `devices` thread, never the synth's, and both lists are handed in once it has answered.
 *Read for: `capture_devices`, `audio::device::list`, or any `DeviceMonitor` reachable from a
 `ui::` show function or from `Synth::step`.*
+
+**No text glyph is an icon.** A `+`, a chevron, a triangle, a cross, a warning or a dot in the
+chrome is painted by `ui::icon`, centered on its rect, and its widget is named for what it
+does. A glyph typed in its place renders, and passes every test that finds the widget by its
+text, while sitting off-center in a proportional face. *Read for: a `button`, `menu_button`,
+`selectable_value` or `painter().text` whose text is a lone symbol, or a symbol before a word
+— words, numbers, a key cap's legend and the Status box's grid excepted.*
 
 ## Reading a change without reading Rust
 

@@ -32,11 +32,12 @@
 //! itself, with no ▶, and a click or `Enter` adds it.
 
 use crate::nodes::{Category, NodeDef, REGISTRY};
+use crate::ui::icon::{self, Icon};
 use crate::ui::theme::{self, Theme};
 use crate::ui::{browse, popup};
 use eframe::egui::{
-    Align2, Area, CornerRadius, FontId, Id, Key, Modifiers, Order, Pos2, Rect, Response,
-    ScrollArea, Sense, Stroke, Ui, UiBuilder, vec2,
+    Area, CornerRadius, FontId, Id, Key, Modifiers, Order, Pos2, Rect, Response, ScrollArea, Sense,
+    Stroke, Ui, UiBuilder, vec2,
 };
 
 /// How long the pointer has to rest on a category before its submenu opens.
@@ -49,6 +50,12 @@ const WIDTH: f32 = 220.0;
 /// The button, and how far it floats off the canvas's bottom-left corner.
 const BUTTON_HEIGHT: f32 = 18.0;
 const BUTTON_PAD: f32 = 10.0;
+/// The square the button's triangle is painted in, and the space between it and the word.
+const BUTTON_ICON: f32 = 12.0;
+const BUTTON_ICON_GAP: f32 = 4.0;
+/// The square a category's submenu triangle is painted in, and its margin from the row's end.
+const MORE_ICON: f32 = 12.0;
+const MORE_MARGIN: f32 = 6.0;
 const MARGIN: f32 = 8.0;
 /// The popup frame's own padding, which the panel's height has to be known without measuring.
 const FRAME_PAD: f32 = 4.0;
@@ -437,11 +444,13 @@ fn category_row(
         theme,
     );
     if leaf.is_none() {
-        ui.painter().text(
-            rect.right_center() - vec2(8.0, 0.0),
-            Align2::RIGHT_CENTER,
-            "▶",
-            FontId::proportional(theme::FONT_TINY),
+        icon::paint(
+            ui.painter(),
+            Rect::from_center_size(
+                rect.right_center() - vec2(MORE_MARGIN + MORE_ICON * 0.5, 0.0),
+                vec2(MORE_ICON, MORE_ICON),
+            ),
+            Icon::TriangleRight,
             theme.primary_muted(),
         );
     }
@@ -465,11 +474,16 @@ const BUTTON: &str = "nodes-button";
 /// place on the frame the window changes size.
 fn button(ui: &mut Ui, menu: &StartMenu, within: Rect, theme: &Theme) -> (Response, Rect) {
     let font = FontId::proportional(theme::FONT_BASE);
-    let label = if menu.open { "▼ Nodes" } else { "▲ Nodes" };
+    let mark = if menu.open {
+        Icon::TriangleDown
+    } else {
+        Icon::TriangleUp
+    };
     let galley = ui
         .painter()
-        .layout_no_wrap(label.to_owned(), font.clone(), theme.text_primary());
-    let size = vec2(galley.size().x + BUTTON_PAD * 2.0, BUTTON_HEIGHT);
+        .layout_no_wrap("Nodes".to_owned(), font, theme.text_primary());
+    let lead = BUTTON_ICON + BUTTON_ICON_GAP;
+    let size = vec2(lead + galley.size().x + BUTTON_PAD * 2.0, BUTTON_HEIGHT);
     let at = Pos2::new(within.min.x + MARGIN, within.max.y - MARGIN - BUTTON_HEIGHT);
     let response = Area::new(Id::new(BUTTON))
         // **`Background`: above the canvas this is furniture for, below anything floating
@@ -520,11 +534,20 @@ fn button(ui: &mut Ui, menu: &StartMenu, within: Rect, theme: &Theme) -> (Respon
                 ),
                 eframe::egui::StrokeKind::Inside,
             );
-            ui.painter().text(
-                rect.center(),
-                Align2::CENTER_CENTER,
-                label,
-                font,
+            let content = lead + galley.size().x;
+            let left = rect.center().x - content * 0.5;
+            icon::paint(
+                ui.painter(),
+                Rect::from_center_size(
+                    Pos2::new(left + BUTTON_ICON * 0.5, rect.center().y),
+                    vec2(BUTTON_ICON, BUTTON_ICON),
+                ),
+                mark,
+                theme.text_primary(),
+            );
+            ui.painter().galley(
+                Pos2::new(left + lead, rect.center().y - galley.size().y * 0.5),
+                galley,
                 theme.text_primary(),
             );
             crate::ui::accessible(&response, eframe::egui::WidgetType::Button, "Nodes");

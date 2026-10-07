@@ -25,6 +25,7 @@
 use crate::graph::{ControlRange, NodeId};
 use crate::render::Fit;
 use crate::ui::Thumbnail;
+use crate::ui::icon::{self, Icon};
 use crate::ui::number::{self, NumberAction, NumberSpec};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{
@@ -37,6 +38,9 @@ pub const SPINE: f32 = 20.0;
 /// How tall an open panel's header bar is, and the width of the arrow's own box at its outer
 /// end.
 const HEADER: f32 = 22.0;
+
+/// The square the fold arrow is painted in, on the header and on the spine.
+const ARROW: f32 = 14.0;
 
 /// The label column of a [`row`]: wide enough for the longest label either panel has, so the
 /// controls beside them line up.
@@ -57,18 +61,18 @@ pub enum Side {
 
 impl Side {
     /// The arrow that folds the panel away: it points at the edge the panel goes to.
-    fn fold(self) -> &'static str {
+    fn fold(self) -> Icon {
         match self {
-            Self::Left => "‹",
-            Self::Right => "›",
+            Self::Left => Icon::ChevronLeft,
+            Self::Right => Icon::ChevronRight,
         }
     }
 
     /// The arrow that brings it back, which points the other way.
-    fn unfold(self) -> &'static str {
+    fn unfold(self) -> Icon {
         match self {
-            Self::Left => "›",
-            Self::Right => "‹",
+            Self::Left => Icon::ChevronRight,
+            Self::Right => Icon::ChevronLeft,
         }
     }
 }
@@ -112,11 +116,10 @@ pub fn header(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
             Pos2::new(rect.left() + gap, rect.center().y),
         ),
     };
-    ui.painter().text(
-        arrow,
-        Align2::CENTER_CENTER,
+    icon::paint(
+        ui.painter(),
+        Rect::from_center_size(arrow, vec2(ARROW, ARROW)),
         side.fold(),
-        theme::ui_font(theme::FONT_TITLE),
         theme.text_muted(),
     );
     // Clipped clear of the arrow, so dragging the panel narrow runs the name under its own
@@ -170,11 +173,10 @@ pub fn spine(ui: &mut Ui, title: &str, side: Side, theme: &Theme) -> bool {
     ));
     // The arrow that brings it back, at the top of the strip: the same affordance the header
     // has, pointing the other way.
-    ui.painter().text(
-        rect.center_top() + vec2(0.0, 10.0),
-        Align2::CENTER_CENTER,
+    icon::paint(
+        ui.painter(),
+        Rect::from_center_size(rect.center_top() + vec2(0.0, 10.0), vec2(ARROW, ARROW)),
         side.unfold(),
-        FontId::proportional(theme::FONT_TINY),
         ink,
     );
     response.clicked()

@@ -12,11 +12,12 @@
 //! and to the agent-driven layer.
 //!
 //! **The bar never runs off the window.** The tabs that fit are drawn in project order, the
-//! one showing always among them, and the [`OVERFLOW`] list at the end names every workspace
+//! one showing always among them, and the list at the end names every workspace
 //! in the project — the closed ones dimmed — so a tab that did not fit is one click away.
 
 use crate::graph::{Workspace, WorkspaceId, WorkspaceKind};
 use crate::project::Active;
+use crate::ui::icon::{self, Icon};
 use crate::ui::theme::{self, Theme};
 use eframe::egui::{Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use std::collections::BTreeSet;
@@ -32,9 +33,8 @@ const TAB_GAP: f32 = 2.0;
 const TAB_MAX: f32 = 180.0;
 /// How wide the inline rename editor is.
 const RENAME_WIDTH: f32 = 140.0;
-/// The list at the end of the bar of every workspace in the project.
-pub const OVERFLOW: &str = "▾";
-/// What the bar keeps free past the last tab, for the `+` and the [`OVERFLOW`] list.
+/// What the bar keeps free past the last tab, for the add button and the list of every
+/// workspace.
 const TRAILING: f32 = 64.0;
 
 /// What the tab bar asked for.
@@ -132,6 +132,7 @@ impl TabBar<'_> {
 /// whatever text happens to fit in it.
 fn tab(
     ui: &mut Ui,
+    icon: Option<Icon>,
     label: &str,
     name: &str,
     active: bool,
@@ -139,7 +140,8 @@ fn tab(
     theme: &Theme,
 ) -> eframe::egui::Response {
     let galley = tab_galley(ui, label, theme);
-    let width = (galley.size().x + TAB_PAD * 2.0).min(TAB_MAX);
+    let lead = icon.map_or(0.0, |_| TAB_ICON + TAB_ICON_GAP);
+    let width = (lead + galley.size().x + TAB_PAD * 2.0).min(TAB_MAX);
     let (rect, response) = ui.allocate_exact_size(vec2(width, TAB_HEIGHT), Sense::click());
     crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
     let owned = name.to_string();
@@ -200,20 +202,35 @@ fn tab(
         },
         StrokeKind::Inside,
     );
+    let ink = if active {
+        theme.text_primary()
+    } else {
+        theme.text_secondary()
+    };
+    let content = lead + galley.size().x;
+    let left = rect.center().x - content * 0.5;
+    if let Some(icon) = icon {
+        icon::paint(
+            painter,
+            eframe::egui::Rect::from_min_size(
+                pos2(left, rect.center().y - TAB_ICON * 0.5),
+                vec2(TAB_ICON, TAB_ICON),
+            ),
+            icon,
+            ink,
+        );
+    }
     painter.galley(
-        pos2(
-            rect.center().x - galley.size().x * 0.5,
-            rect.center().y - galley.size().y * 0.5,
-        ),
+        pos2(left + lead, rect.center().y - galley.size().y * 0.5),
         galley,
-        if active {
-            theme.text_primary()
-        } else {
-            theme.text_secondary()
-        },
+        ink,
     );
     response
 }
+
+/// The square a tab's icon is painted in, and the space between it and the tab's name.
+const TAB_ICON: f32 = 12.0;
+const TAB_ICON_GAP: f32 = 4.0;
 
 /// A tab's label, laid out as the tab draws it: one line, ending in `…` where it does not fit.
 fn tab_galley(ui: &Ui, label: &str, theme: &Theme) -> std::sync::Arc<eframe::egui::Galley> {
@@ -227,8 +244,9 @@ fn tab_galley(ui: &Ui, label: &str, theme: &Theme) -> std::sync::Arc<eframe::egu
 }
 
 /// How wide a tab is drawn, as [`tab`] draws it.
-fn tab_width(ui: &Ui, label: &str, theme: &Theme) -> f32 {
-    (tab_galley(ui, label, theme).size().x + TAB_PAD * 2.0).min(TAB_MAX)
+fn tab_width(ui: &Ui, icon: Option<Icon>, label: &str, theme: &Theme) -> f32 {
+    let lead = icon.map_or(0.0, |_| TAB_ICON + TAB_ICON_GAP);
+    (lead + tab_galley(ui, label, theme).size().x + TAB_PAD * 2.0).min(TAB_MAX)
 }
 
 /// Which of the open tabs fit in `room`, in project order, `active` always among them.
@@ -308,11 +326,11 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 
         // Which tabs fit, worked out before any is drawn, so the one showing is never the one
         // pushed off the end.
-        let project_label = "◫ Project";
+        let project_label = "Project";
         let room = ui.available_width()
             - bar.reserve
             - TRAILING
-            - tab_width(ui, project_label, theme)
+            - tab_width(ui, Some(Icon::Project), project_label, theme)
             - TAB_GAP;
         let widths: Vec<(WorkspaceId, f32)> = bar
             .workspaces
@@ -322,7 +340,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
                 let width = if state.renaming() == Some(w.id) {
                     RENAME_WIDTH
                 } else {
-                    tab_width(ui, &w.name, theme)
+                    tab_width(ui, None, &w.name, theme)
                 };
                 (w.id, width)
             })
@@ -338,6 +356,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
         // itself as a drop.
         let project = tab(
             ui,
+            Some(Icon::Project),
             project_label,
             "tab project",
             bar.active == Active::Project,
@@ -361,6 +380,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 
             let response = tab(
                 ui,
+                None,
                 &workspace.name,
                 &format!("tab {}", workspace.name),
                 bar.active == Active::Workspace(id),
@@ -394,7 +414,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 
         // One entry per kind that has a UI, which is one today. A menu rather than a plain
         // button, because the second kind is a proposal away and the gesture should not move.
-        ui.menu_button("+", |ui| {
+        icon::menu_button(ui, Icon::Plus, "add workspace", |ui| {
             for kind in [WorkspaceKind::Video] {
                 if ui.button(label_of(kind)).clicked() {
                     actions.push(TabAction::Add(kind));
@@ -405,7 +425,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 
         // Every workspace in project order, open or not, the closed ones dimmed: the tabs
         // that did not fit, and the ones that have no tab, in one list.
-        let list = ui.menu_button(OVERFLOW, |ui| {
+        icon::menu_button(ui, Icon::ChevronDown, "all workspaces", |ui| {
             for workspace in bar.workspaces {
                 let open = bar.open.contains(&workspace.id);
                 let text = eframe::egui::RichText::new(workspace.name.as_str()).color(if open {
@@ -430,11 +450,6 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
                 }
             }
         });
-        crate::ui::accessible(
-            &list.response,
-            eframe::egui::WidgetType::Button,
-            "all workspaces",
-        );
     });
     actions
 }
