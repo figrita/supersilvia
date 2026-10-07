@@ -334,6 +334,10 @@ pub enum Told {
     Fullscreen(Shown, bool),
     /// The window could not be opened, with a sentence for the toast.
     Failed(Shown, String),
+    /// Every display connected now, each its physical size in pixels as it is turned: sent
+    /// once the window system has said what there is, and again whenever that changes. What
+    /// the mix's default resolution is read from ([`crate::mixer::smallest_display`]).
+    Displays(Vec<(u32, u32)>),
     /// **The thread itself is gone**, and no window will open again this run. Sent once, on
     /// the way out or instead of ever starting, so the editor latches the reason rather than
     /// discovering it one silently-dropped ask at a time.
@@ -421,6 +425,8 @@ impl Wall {
                 self.open.retain(|p| p.picture != picture);
                 Some(why)
             }
+            // About the screens, not about any window.
+            Told::Displays(_) => None,
             // Every window is gone with the thread that held it.
             Told::Gone(why) => {
                 let had = !self.open.is_empty();

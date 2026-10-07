@@ -9082,7 +9082,7 @@ fn the_mixer_panel_sets_the_fade_and_the_method() {
     h.step();
     assert_eq!(h.state().mixer().method, Method::RadialWipe);
 
-    h.get_by_value("Match viewport").click();
+    h.get_by_value("Match display").click();
     h.run_steps(2);
     h.get_by_label("9:16 (720x1280)").click();
     h.step();

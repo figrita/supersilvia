@@ -256,6 +256,18 @@ frame that draws it, and the previous mix is scaled into the new target first fo
 reason an Output's resize does it; its old size's targets go as an Output's do, as soon as
 nothing reads them.
 
+**The mix is the size of the smallest display by default.** *Match display*
+(`mixer::Resolution::Display`) is the physical size of the connected display with the fewest
+pixels (`mixer::smallest_display`) — on a laptop and a projector, the projector, so the mix
+the audience sees is drawn at the pixels it is shown at rather than scaled up to them. The
+displays come from the pictures thread, which is the one place that can see them: on Linux its
+Wayland outputs, each one's current mode, turned with the output; on macOS and Windows winit's
+monitors, read again at most once a second on the event loop's own turns. Each reaches the
+editor as `Told::Displays` whenever the list changes, so a projector plugged in mid-show resizes
+a mix still at its default. Until a list arrives, and in a run with no window system, *Match
+display* is *Match viewport*'s size. The mixer is not saved, so the default is back on every
+launch, Open and New, and a resolution picked from the menu holds until then.
+
 **A mix at *Match viewport* takes the canvas's size once the canvas has held it for a quarter
 of a second** (`app::frame::MIX_SETTLE_S`). A window or panel drag changes the canvas's size in
 pixels on every frame, and a mix that followed it would reallocate on every frame and replan

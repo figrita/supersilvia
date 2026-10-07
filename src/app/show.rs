@@ -347,6 +347,9 @@ impl App {
     }
 
     fn picture_told(&mut self, told: Told) {
+        if let Told::Displays(displays) = &told {
+            self.mix_display = crate::mixer::smallest_display(displays);
+        }
         if let Some(why) = self.wall.told(told) {
             self.say(why);
         }
@@ -359,7 +362,11 @@ impl App {
     /// at [`DEFAULT_SIZE`] — the thread caps either against the output the window lands on.
     fn picture_size(&self, picture: crate::ui::PopOut) -> (u32, u32) {
         match picture {
-            crate::ui::PopOut::Mix => self.project.mixer().resolution.pixels(self.mix_viewport),
+            crate::ui::PopOut::Mix => self
+                .project
+                .mixer()
+                .resolution
+                .pixels(self.mix_viewport, self.mix_display),
             crate::ui::PopOut::Node { node, port } => self
                 .link
                 .published()

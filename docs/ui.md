@@ -3479,7 +3479,8 @@ width so lighting moves nothing. Each is a named `Response`, *Blackout* and *Fre
 while it holds. They are rig controls, as the fade is: not saved, not undo steps, off at every
 launch and on every Open and New, and `Alt` + click binds one to a MIDI note — it learns, wears
 the learning ring and then the dot on its top-left corner, and does not press on the way. Then **Projection**: the mix's
-resolution, *Match viewport* or one of the Output's own presets, *Project to background*,
+resolution — *Match display*, the default, which names the smallest display's size beside it
+([rendering.md](rendering.md#the-mixer)), *Match viewport* or one of the Output's own presets — *Project to background*,
 **Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
 the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
 asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still

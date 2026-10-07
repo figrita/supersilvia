@@ -90,6 +90,9 @@ pub struct MixerView<'a> {
     pub freeze: SwitchView,
     pub method: Method,
     pub resolution: Resolution,
+    /// The smallest connected display's physical size, which *Match display* names, where
+    /// one has been reported.
+    pub display: Option<(u32, u32)>,
     /// Whether the mix has a window of its own, and whether that window is fullscreen.
     pub popped: Option<bool>,
     /// Why there are no picture windows in this session — no Wayland, no GPU, a
@@ -173,17 +176,15 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
     panel::row(ui, "Resolution", theme, |ui| {
         let mut resolution = view.resolution;
         ComboBox::from_id_salt("mix-resolution")
-            .selected_text(resolution.label())
+            .selected_text(resolution.label(view.display))
             .width(ui.available_width())
             .show_ui(ui, |ui| {
-                ui.selectable_value(
-                    &mut resolution,
-                    Resolution::Viewport,
-                    Resolution::Viewport.label(),
-                );
+                for r in [Resolution::Display, Resolution::Viewport] {
+                    ui.selectable_value(&mut resolution, r, r.label(view.display));
+                }
                 for (w, h) in Resolution::PRESETS {
                     let r = Resolution::Fixed(w, h);
-                    ui.selectable_value(&mut resolution, r, r.label());
+                    ui.selectable_value(&mut resolution, r, r.label(view.display));
                 }
             })
             .response
