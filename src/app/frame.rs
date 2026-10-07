@@ -195,10 +195,12 @@ impl App {
         let problem = projects
             .as_deref()
             .and_then(|dir| crate::project::projects_dir_problem(dir, false));
+        let recordings = self.recordings_dir();
         let view = crate::ui::prefs::PrefsView {
             prefs: self.prefs.get(),
             projects: projects.as_deref(),
             projects_problem: problem.as_deref(),
+            recordings: &recordings,
             file: self.prefs.path(),
             file_busy: self.media.file_busy(),
             gpu: self.gpu_choice.as_ref(),
@@ -226,6 +228,12 @@ impl App {
                 crate::ui::prefs::PrefAction::ShowProjects => self.show_projects_folder(),
                 crate::ui::prefs::PrefAction::ChangeProjects => {
                     self.ask_for_file(FileAsk::ProjectsFolder);
+                }
+                crate::ui::prefs::PrefAction::ChooseRecordings => {
+                    self.ask_for_file(FileAsk::RecordingsFolder);
+                }
+                crate::ui::prefs::PrefAction::RecordingsInProject => {
+                    self.prefs.set_recordings_dir(None);
                 }
                 crate::ui::prefs::PrefAction::ShowPreferencesFile => {
                     self.prefs.write_if_missing();

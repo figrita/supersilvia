@@ -667,6 +667,7 @@ the same thing.
 | `interface_size` | `Percent90` to `Percent150`: how large the whole editor is drawn — see [the Preferences window](#the-preferences-window) |
 | `windows` | where each of the editor's own windows was left, by title — the Status box, Preferences, MIDI, About, Licences, Keyboard shortcuts and Undo History: the outer top-left corner, and the outer size of the two that resize |
 | `projects_dir` | the projects folder, where New project makes a project, Untitled is made and Open project… starts — chosen in [the Preferences window](#the-preferences-window). Absent is the default, `supersilvia` in the documents folder |
+| `recordings_dir` | the folder every project's [live recordings](rendering.md#live-recording) go into, each file's name led by its project's — chosen in [the Preferences window](#the-preferences-window). Absent is the default, `recordings/` in the project |
 | `recent` | project folders opened or saved, most recent first, deduplicated, capped at ten |
 
 Which things belong here rather than in the project or a workspace is [the tier
@@ -857,7 +858,7 @@ preference. It is here rather than under View because it is about the machine, a
 rate is, and the View menu keeps what changes what the canvas shows — the time readout and
 the cost strip.
 
-**Where things are kept, on the Files tab.** Two rows, each a caption with its buttons on the
+**Where things are kept, on the Files tab.** Three rows, each a caption with its buttons on the
 right and its path on the line under it:
 
 - **Projects folder**, with **Show in Files** — **Show in Finder** on the Mac — which makes
@@ -868,6 +869,13 @@ right and its path on the line under it:
   not read the projects folder … : Permission denied*, and on the Mac what to allow in System
   Settings ▸ Privacy & Security ▸ Files and Folders, which is where a *Don't Allow* on the
   Documents question leaves it.
+- **Recordings folder**, with **Choose…**, a folder dialog starting at the folder chosen last,
+  and **In the project**, which puts recordings back in `recordings/` in the project and is off
+  while they are there. The folder chosen is the `recordings_dir` preference, and the path under
+  the row is wherever an Output's Record row writes now: the folder chosen, or this project's
+  `recordings/`. Choosing this project's own `recordings/` stores no choice. A folder chosen
+  takes every project's recordings, so each file's name starts with its project's —
+  `friday-output3-20261005-134501.mp4` — where in the project it is `output3-…` alone.
 - **Preferences file**, with **Show**, which opens the folder holding `preferences.json` with
   the file selected where the file manager can, and **Open**, which opens it in the desktop's
   editor for it — `open -t` on the Mac, so a text editor rather than whatever claims `.json`.
@@ -2856,8 +2864,8 @@ other two; not `record`, which is the Record button's name.) Under it, two rows:
   from the Render section's FPS, so a film rendered at one rate and a set recorded at another
   are each set once. It is read once, at Record, so it goes inert while this Output records,
   and while any render runs, as every Render number does.
-- **The Record row**, which records the Output live, to a video in `recordings/`, while the
-  show plays — the [live recording](rendering.md#live-recording). It is a way out's row in
+- **The Record row**, which records the Output live, to a video in `recordings/` — or the
+  folder Preferences ▸ Files names — while the show plays — the [live recording](rendering.md#live-recording). It is a way out's row in
   shape and size: its label, a dot and one line, and one button at its right.
 
 | the line | the dot | the button |

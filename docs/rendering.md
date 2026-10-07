@@ -1060,12 +1060,16 @@ picture premultiplied, its alpha dropped by the encoder, which is the picture ov
 
 **Where it goes**: `recordings/` in the project, beside `renders/` and made by the first
 recording, named for the Output and the moment in UTC as a Snap is —
-`output3-20261005-134501.mp4` — written as `.part` and renamed when it closes. **What ends
+`output3-20261005-134501.mp4` — written as `.part` and renamed when it closes. A folder chosen
+in Preferences ▸ Files takes every project's recordings instead, the project's name leading
+each file's, `friday-output3-20261005-134501.mp4`, so two projects' takes sit side by side
+without a clash ([ui.md](ui.md#the-preferences-window)). **What ends
 one**, each closing the file under its name with what was recorded: **Stop**; the Output
 deleted; its **resolution changed**, since a file is one size from its first frame to its last;
 its tab closed, which suspends it; another project; the app quitting, which waits for each file
 to close. Every one but Stop is said on the status line with the file — *recorded 0:12 to
-recordings/output3-….mp4 — stopped: the resolution changed*. A stop lets the reads still on the
+recordings/output3-….mp4 — stopped: the resolution changed*, the file under the name of the
+folder it is in. A stop lets the reads still on the
 GPU land, for at most two seconds of the clock, then closes the queue; the writer finishes the
 file on its own thread and the synth polls it. A crash leaves the `.part`. A writer that fails —
 no encoder, a full disk — ends the recording, and its reason is the row's.

@@ -175,6 +175,11 @@ pub struct Preferences {
     /// [`crate::project::default_projects_dir`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub projects_dir: Option<PathBuf>,
+    /// Where an Output's Record row writes, chosen in the Preferences window. Absent is the
+    /// default, `recordings/` in the project; a folder chosen here takes every project's
+    /// recordings, each file's name starting with its project's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recordings_dir: Option<PathBuf>,
     /// Project folders opened or saved, most recent first, capped at ten and deduplicated.
     pub recent: Vec<PathBuf>,
 }
@@ -206,6 +211,7 @@ impl Default for Preferences {
             interface_size: InterfaceSize::default(),
             windows: Placements::new(),
             projects_dir: None,
+            recordings_dir: None,
             recent: Vec::new(),
         }
     }
@@ -619,6 +625,11 @@ impl Store {
     pub fn set_projects_dir(&mut self, dir: PathBuf) {
         let chosen = (Some(&dir) != crate::project::default_projects_dir().as_ref()).then_some(dir);
         set(&mut self.prefs.projects_dir, chosen, &mut self.dirty);
+    }
+
+    /// Choose the recordings folder, or `None` for `recordings/` in the project.
+    pub fn set_recordings_dir(&mut self, dir: Option<PathBuf>) {
+        set(&mut self.prefs.recordings_dir, dir, &mut self.dirty);
     }
 
     pub fn push_recent(&mut self, path: PathBuf) {

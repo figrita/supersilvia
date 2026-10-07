@@ -568,7 +568,8 @@ fn fake_gpus() -> adapter::Choice {
 /// **Where things are kept, and what it draws on**, the Preferences window's Files and
 /// Performance tabs.
 ///
-/// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the preferences file with Open
+/// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the
+/// recordings folder with Choose… and In the project, the preferences file with Open
 /// and Show, each path one line in monospace and cut in the middle where it is long, and the
 /// line saying when an edit to the file takes effect. GPU: the adapter in use, how it was
 /// picked, and every adapter offered with the one in use marked. Each tab is drawn whole, in a
@@ -576,7 +577,8 @@ fn fake_gpus() -> adapter::Choice {
 ///
 /// The preferences are a file under `/tmp` of this test's own, so the row shows a path and the
 /// snapshot is the same on every run; the projects folder is a preference naming a folder
-/// nobody makes, long enough to be cut; and the GPUs are [`fake_gpus`].
+/// nobody makes, long enough to be cut, and the recordings folder another; and the GPUs are
+/// [`fake_gpus`].
 #[test]
 fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     let dir = std::path::PathBuf::from("/tmp/supersilvia-ui-files");
@@ -588,6 +590,7 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     let store = {
         let mut store = supersilvia::preferences::Store::load(Some(file.clone()));
         store.set_projects_dir(projects.clone());
+        store.set_recordings_dir(Some(std::path::PathBuf::from("/home/tester/Videos/takes")));
         store
     };
     let store = std::sync::Mutex::new(Some(store));
@@ -610,6 +613,10 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         "Projects folder",
         "Change…",
         show_in.as_str(),
+        "Recordings folder",
+        "Choose…",
+        "In the project",
+        "/home/tester/Videos/takes",
         "Preferences file",
         "Open",
         "Show",
@@ -665,6 +672,51 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     #[cfg(target_os = "linux")]
     h.snapshot("preferences_performance");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// **Recordings go into the project until a folder is chosen**, on the Files tab's Recordings
+/// folder row: its path is the project's `recordings/` and In the project is off; Choose… takes
+/// the folder the dialog answers, which the path then shows; and In the project puts it back.
+#[test]
+fn the_recordings_folder_is_the_projects_until_one_is_chosen() {
+    let mut h = harness();
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
+    let own = h.state().project().root().join("recordings");
+    assert!(
+        h.query_by_label_contains(&own.display().to_string())
+            .is_some(),
+        "the path is the project's recordings/"
+    );
+    assert!(
+        h.get_by_label("In the project")
+            .accesskit_node()
+            .is_disabled()
+    );
+
+    let takes = std::env::temp_dir().join(format!("ssw-ui-takes-{}", std::process::id()));
+    h.state_mut().answer_file_dialogs(Some(takes.clone()));
+    h.get_by_label("Choose…").click();
+    h.run_steps(3);
+    assert_eq!(
+        h.state().preferences().recordings_dir.as_deref(),
+        Some(takes.as_path())
+    );
+    assert!(
+        h.query_by_label_contains(&takes.display().to_string())
+            .is_some(),
+        "the path is the folder chosen"
+    );
+
+    h.get_by_label("In the project").click();
+    h.run_steps(2);
+    assert_eq!(h.state().preferences().recordings_dir, None);
+    assert!(
+        h.get_by_label("In the project")
+            .accesskit_node()
+            .is_disabled()
+    );
 }
 
 /// **A projects folder that cannot be read says so beside its path**, in the Preferences window

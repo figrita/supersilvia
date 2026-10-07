@@ -98,6 +98,10 @@ pub enum PrefAction {
     ShowProjects,
     /// A folder dialog for another projects folder.
     ChangeProjects,
+    /// A folder dialog for a recordings folder of its own.
+    ChooseRecordings,
+    /// Recordings back into `recordings/` in the project.
+    RecordingsInProject,
     /// `preferences.json` in the file manager.
     ShowPreferencesFile,
     /// `preferences.json` in the text editor.
@@ -113,6 +117,8 @@ pub struct PrefsView<'a> {
     pub projects: Option<&'a Path>,
     /// Why the projects folder cannot be read, where it cannot.
     pub projects_problem: Option<&'a str>,
+    /// The folder a recording goes into now: the one chosen, or the project's `recordings/`.
+    pub recordings: &'a Path,
     /// Where the preferences are written, or `None` where they live for this run only.
     pub file: Option<&'a Path>,
     /// A file dialog is already up, so Change… would open nothing.
@@ -524,8 +530,8 @@ fn performance(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) 
     }
 }
 
-/// Where things are kept: the projects folder and the preferences file, each a caption with its
-/// buttons on the right and its path whole on the line under it.
+/// Where things are kept: the projects folder, the recordings folder and the preferences file,
+/// each a caption with its buttons on the right and its path whole on the line under it.
 ///
 /// **A path is one line whatever it is.** It is drawn in monospace, cut in the middle with `…`
 /// where it is longer than the line — the start says which disk and the end which folder, and
@@ -555,6 +561,24 @@ fn files(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<Pre
     if let Some(problem) = view.projects_problem {
         ui.add(Label::new(RichText::new(problem).color(ui.visuals().error_fg_color)).truncate());
     }
+    ui.add_space(6.0);
+    let chosen = view.prefs.recordings_dir.is_some();
+    file_row(ui, "Recordings folder", |ui| {
+        if ui.add(Button::new("Choose…")).clicked() && !view.file_busy {
+            actions.push(PrefAction::ChooseRecordings);
+        }
+        let entry = ui.add_enabled(chosen, Button::new("In the project"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
+            actions.push(PrefAction::RecordingsInProject);
+        }
+    })
+    .on_hover_text(
+        "Where an Output's Record row writes. In the project is recordings/ in the project's \
+         folder; a folder chosen here takes every project's recordings, each file's name \
+         starting with its project's.",
+    );
+    path_line(ui, Some(view.recordings), "", theme);
     ui.add_space(6.0);
     file_row(ui, "Preferences file", |ui| {
         let there = view.file.is_some();

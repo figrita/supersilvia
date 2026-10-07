@@ -15,7 +15,7 @@ use crate::graph::NodeId;
 use crate::synth::{RecordEnd, Recorded};
 use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The editor's bookkeeping of recordings: those asked for that the synth has not shown yet,
 /// and how each Output's last one ended.
@@ -183,7 +183,7 @@ impl App {
             }
             match end.result {
                 Ok(recorded) => {
-                    let said = said(&recorded, &self.project.root().join(RECORDINGS));
+                    let said = said(&recorded, &self.recordings_dir());
                     self.say_written(said.clone(), recorded.destination.clone());
                     self.media.set_status_showing(said, recorded.destination);
                 }
@@ -192,45 +192,83 @@ impl App {
         }
     }
 
-    /// Where a recording of `output` started now goes: `recordings/output3-20261005-134501.mp4`,
-    /// the Output and the time, with a counter where that name is taken.
+    /// Where a recording of `output` started now goes: see [`destination`].
     fn record_destination(&self, output: NodeId) -> PathBuf {
         let slug = self
             .doc
             .graph()
             .get(output)
             .map_or("output", |n| n.def.slug);
-        let stem = format!(
-            "{slug}{output}-{}",
-            super::files::stamp(std::time::SystemTime::now())
-        );
-        let dir = self.project.root().join(RECORDINGS);
-        let taken = |p: &PathBuf| p.exists() || p.with_extension("part").exists();
-        let first = dir.join(format!("{stem}.mp4"));
-        if !taken(&first) {
-            return first;
-        }
-        // Two recordings of one Output in one second is a hand on the button twice.
-        (2..=RECORDS_PER_SECOND)
-            .map(|n| dir.join(format!("{stem}-{n}.mp4")))
-            .find(|p| !taken(p))
-            .unwrap_or(first)
+        destination(
+            self.prefs.get().recordings_dir.as_deref(),
+            &self.project,
+            slug,
+            output,
+            std::time::SystemTime::now(),
+        )
+    }
+
+    /// The folder recordings go into now: the one chosen in Preferences, or `recordings/` in
+    /// the project.
+    pub(super) fn recordings_dir(&self) -> PathBuf {
+        recordings_dir(
+            self.prefs.get().recordings_dir.as_deref(),
+            self.project.root(),
+        )
     }
 }
 
+/// The folder recordings go into: `chosen`, or `recordings/` in the project at `root`.
+fn recordings_dir(chosen: Option<&Path>, root: &Path) -> PathBuf {
+    chosen.map_or_else(|| root.join(RECORDINGS), Path::to_path_buf)
+}
+
+/// Where a recording of `output` started at `now` goes, with no recordings folder chosen:
+/// `recordings/output3-20261005-134501.mp4` in the project, the Output and the time. In a
+/// folder `chosen` in Preferences, the project's name leads it, `friday-output3-….mp4`, since
+/// that folder holds every project's. A counter follows the time where that name is taken.
+fn destination(
+    chosen: Option<&Path>,
+    project: &crate::project::Project,
+    slug: &str,
+    output: NodeId,
+    now: std::time::SystemTime,
+) -> PathBuf {
+    let stamp = super::files::stamp(now);
+    let stem = match chosen {
+        Some(_) => format!("{}-{slug}{output}-{stamp}", project.name()),
+        None => format!("{slug}{output}-{stamp}"),
+    };
+    let dir = recordings_dir(chosen, project.root());
+    let taken = |p: &PathBuf| p.exists() || p.with_extension("part").exists();
+    let first = dir.join(format!("{stem}.mp4"));
+    if !taken(&first) {
+        return first;
+    }
+    // Two recordings of one Output in one second is a hand on the button twice.
+    (2..=RECORDS_PER_SECOND)
+        .map(|n| dir.join(format!("{stem}-{n}.mp4")))
+        .find(|p| !taken(p))
+        .unwrap_or(first)
+}
+
 /// The folder in the project a recording goes into, beside `renders/`.
-const RECORDINGS: &str = "recordings";
+pub(super) const RECORDINGS: &str = "recordings";
 
 /// How many recordings of one Output one second's stamp may name before the counter stops.
 const RECORDS_PER_SECOND: u32 = 999;
 
 /// What the status line says of a finished recording: how long, where, what was dropped, and
-/// why it stopped where it was not the button.
-fn said(recorded: &Recorded, recordings: &std::path::Path) -> String {
-    let name = recorded.destination.strip_prefix(recordings).map_or_else(
-        |_| recorded.destination.display().to_string(),
-        |p| format!("{RECORDINGS}/{}", p.display()),
-    );
+/// why it stopped where it was not the button. Where is the file under the name of the folder
+/// `recordings` it is in, `recordings/output3-….mp4`, or its whole path where it is elsewhere.
+fn said(recorded: &Recorded, recordings: &Path) -> String {
+    let folder = recordings
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned());
+    let name = match (recorded.destination.strip_prefix(recordings), folder) {
+        (Ok(p), Some(folder)) => format!("{folder}/{}", p.display()),
+        _ => recorded.destination.display().to_string(),
+    };
     let mut line = format!(
         "recorded {} to {name}",
         crate::nodes::output::clock(recorded.seconds)
@@ -246,4 +284,45 @@ fn said(recorded: &Recorded, recordings: &std::path::Path) -> String {
         let _ = write!(line, " — stopped: {why}");
     }
     line
+}
+
+#[cfg(test)]
+mod tests {
+    use super::destination;
+    use crate::graph::NodeId;
+    use crate::project::Project;
+    use std::time::{Duration, UNIX_EPOCH};
+
+    /// 5 October 2026, 13:45:01 UTC.
+    const AT: u64 = 1_791_207_901;
+
+    /// With no folder chosen a recording goes to `recordings/` in the project under the
+    /// Output and the time; in a folder chosen in Preferences, under the project's name first,
+    /// with a counter where the name is taken.
+    #[test]
+    fn a_recording_goes_into_the_project_or_the_folder_chosen() {
+        let base = std::env::temp_dir().join(format!("ssw-record-dest-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let project = Project::new(base.join("friday"));
+        let now = UNIX_EPOCH + Duration::from_secs(AT);
+
+        let here = destination(None, &project, "output", NodeId(3), now);
+        assert_eq!(
+            here,
+            base.join("friday/recordings/output3-20261005-134501.mp4")
+        );
+
+        let takes = base.join("takes");
+        let there = destination(Some(&takes), &project, "output", NodeId(3), now);
+        assert_eq!(there, takes.join("friday-output3-20261005-134501.mp4"));
+
+        std::fs::create_dir_all(&takes).unwrap();
+        std::fs::write(&there, b"").unwrap();
+        assert_eq!(
+            destination(Some(&takes), &project, "output", NodeId(3), now),
+            takes.join("friday-output3-20261005-134501-2.mp4"),
+            "a name taken in that second takes a counter"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }
