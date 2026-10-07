@@ -3514,11 +3514,11 @@ the Output on it — a slot the panel reserves and `App` fills with a paint call
 as a node's on-body render is filled — with the name of the workspace it lives on at the far
 end of the channel's heading, which is a link to that workspace centerd on that Output; or,
 in the box, *No Output assigned*, named `Channel A: no Output assigned` for the tree. Then
-**Mix**: the balance as an `s-number` from −1 to +1, `A` and `B` at its two ends and no
-caption of its own — the tree names it `A / B balance`, and a binding's dot stands after the
-*Mix* heading — because the fade is a control and gets
-what every control gets — `Alt` + click binds it to a MIDI knob, see [the MIDI
-window](#the-midi-window) — then **Blackout** and **Freeze**, and the **Crossfade** method.
+**Mix**: the **Crossfade** method first, above the fade it governs, then the balance as an
+`s-number` from −1 to +1, `A` and `B` at its two ends and no caption of its own — the tree
+names it `A / B balance`, and a binding's dot stands after the *Mix* heading — because the
+fade is a control and gets what every control gets — `Alt` + click binds it to a MIDI knob,
+see [the MIDI window](#the-midi-window) — then **Blackout** and **Freeze**.
 
 **Blackout and Freeze are two presses side by side under the fade**, each half the panel and
 an `s-number`'s height. **Blackout** takes the mix to black until it is pressed again;
