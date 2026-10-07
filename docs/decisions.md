@@ -5028,7 +5028,7 @@ are session state, set tonight, which is what the question is about.
 
 ### Soft takeover is a preference, off by default
 
-**Chosen.** Preferences ▸ Performance ▸ **MIDI soft takeover**, off by default. On, a CC whose value disagrees with its control's moves nothing until the fader
+**Chosen.** Preferences ▸ Editing ▸ **MIDI soft takeover**, off by default. On, a CC whose value disagrees with its control's moves nothing until the fader
 passes the control's value, and the control wears a ghost mark where the fader is meanwhile;
 see [media.md](media.md#the-map). Off, a CC writes straight onto its control.
 

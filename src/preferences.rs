@@ -355,7 +355,7 @@ impl TickRate {
     }
 }
 
-/// How large the whole editor is drawn: Preferences ▸ Editing ▸ Interface size, the one
+/// How large the whole editor is drawn: Preferences ▸ Appearance ▸ Interface size, the one
 /// control that scales it — for a display whose own scale is not the one wanted, and for
 /// eyes that want everything larger.
 ///

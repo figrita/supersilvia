@@ -718,6 +718,22 @@ The canvas is painted by hand because it is an instrument. This is a settings sc
 ordinary egui widgets. That means it lands in the accessibility tree on its own, with no
 hand-written `widget_info` anywhere in it.
 
+**Four tabs: Appearance, Editing, Performance and Files.** The strip along the top is the
+Licences window's, a row of egui's selectable labels, the tab showing lit. Appearance holds the
+interface size, the four colors, the presets and how nodes and cables are drawn; Editing, how
+the editor answers a hand and a controller; Performance, the tick rate, the two frame-pacing
+readouts and the GPU; Files, where things are kept.
+
+**Every tab is as tall as the tallest**, so a click on the strip never moves the window's foot.
+The heights are measured when the window opens, and again when the interface size changes:
+each tab is laid out once in an invisible child that takes no room in the window and answers
+no pointer, and the area under the strip is fixed at the greatest. A shorter tab leaves room at
+its foot. Where the screen is shorter than that height, the tab scrolls inside the window under
+the strip.
+
+**The window opens on the tab it was closed on**, for the rest of the run; a new run opens on
+Appearance. The tab is not a preference.
+
 **The four colors are four `s-color` swatches.**
 
 They are the real control, the same one a color port carries: same popup, same hex field,
@@ -750,7 +766,8 @@ And the preference is written to disk.
 There is nothing to confirm and nothing to roll back. The way back to where you started is the
 `vapor` preset, which is exactly what the editor ships with.
 
-**Seven more answers, under Editing.**
+**Appearance also holds the interface size and, under *Nodes and cables*, three answers about
+how the canvas is drawn.**
 
 *Interface size* is **90%**, **100%**, **110%**, **125%** or **150%**: egui's zoom factor, the
 one control over how large the whole editor is drawn, for a display whose own scale is not the
@@ -765,13 +782,19 @@ picture window is not egui and is untouched. **There is no key for it**: `Ctrl` 
 `-` zoom the canvas, and a size that is set once for a screen and a pair of eyes does not need
 one. It is applied at start-up and is not project data and not undoable.
 
-*Lock the cursor while scrubbing* is here and nowhere else. It is taste rather than something
-toggled for an evening, and taste is what somebody opens this window for.
+*Nodes cast a shadow* puts the editor's own `window_shadow` under every node body — the
+shadow the Status box and the Preferences window already cast, so the canvas and the windows
+over it agree about where the light is. It is one rounded rect with a wide feather per drawn
+node, scaled by the zoom so it stays fixed to the body, painted immediately before that
+body's fill: under its own node, over the cables, and over any node drawn before it, so an
+overlap reads as a stack. On by default. Off is the flat canvas, where the graph sits in the
+mix rather than floating over it.
 
-*Light cables and ports on hover* works from either end: a hovered port brightens every cable
-it carries and the port at the far end of each, and a hovered cable brightens the ports at
-both of its own ends. On by default. It does not touch the highlight on the cable nearest the
-pointer, which is the click-to-delete affordance and stays either way.
+*Droopy cables* lets a cable sag between its ports. silvia's `droopyCables`, and its sag:
+fifteen points plus a seventh of the span, stopping at eighty. Only a forward cable sags. One
+that runs backwards already bows downward to clear the node bodies, and a second reason for
+the same curve would fight the first. An action cable stays straight, because a dashed line
+means *event* and a sagging one would read as the cable a data port uses.
 
 *Phi-spaced cable colors* gives every cable a hue of its own, walked around the circle by the
 golden angle so that neighbours are as unlike as they can be, and outlines each connected
@@ -781,19 +804,15 @@ along the wire. What phi spacing buys instead is telling two cables in a bundle 
 is worth more the denser a patch gets and nothing at all on a small one — so it is offered
 rather than assumed. See [cables](#cables) for what it does to a port.
 
-*Droopy cables* lets a cable sag between its ports. silvia's `droopyCables`, and its sag:
-fifteen points plus a seventh of the span, stopping at eighty. Only a forward cable sags. One
-that runs backwards already bows downward to clear the node bodies, and a second reason for
-the same curve would fight the first. An action cable stays straight, because a dashed line
-means *event* and a sagging one would read as the cable a data port uses.
+**Five answers on the Editing tab.**
 
-*Nodes cast a shadow* puts the editor's own `window_shadow` under every node body — the
-shadow the Status box and the Preferences window already cast, so the canvas and the windows
-over it agree about where the light is. It is one rounded rect with a wide feather per drawn
-node, scaled by the zoom so it stays fixed to the body, painted immediately before that
-body's fill: under its own node, over the cables, and over any node drawn before it, so an
-overlap reads as a stack. On by default. Off is the flat canvas, where the graph sits in the
-mix rather than floating over it.
+*Lock the cursor while scrubbing* is on the Editing tab and nowhere else. It is taste rather
+than something toggled for an evening, and taste is what somebody opens this window for.
+
+*Light cables and ports on hover* works from either end: a hovered port brightens every cable
+it carries and the port at the far end of each, and a hovered cable brightens the ports at
+both of its own ends. On by default. It does not touch the highlight on the cable nearest the
+pointer, which is the click-to-delete affordance and stays either way.
 
 *Invert scrolling along a strip* flips which way the wheel moves a Linear workspace. It is a
 preference because Linear mode is the one place the wheel means *x*, and which way that should
@@ -803,6 +822,12 @@ go is a property of the hand rather than of the workspace.
 nothing about the ones that exist: a workspace's mode is its own document data, saved in its
 own file, and opens the way whoever made it left it.
 
+*MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
+with its control moves nothing until it passes the control's value, then takes over, so the
+picture never jumps when a knob is first touched after an undo, a reload or a hand on the
+control. Meanwhile the control wears [a ghost mark](#alt--click-to-bind) where the fader is.
+Off, the first message writes. See [media.md](media.md#the-map).
+
 Changing the theme is not a `Command` and never enters the undo history, like every other
 preference.
 
@@ -811,7 +836,7 @@ system's headline claim, as two pictures: the same graph under two presets. Any 
 differs, differs because of those four colors — so a hardcoded color anywhere in the editor
 shows up as a pixel that refused to move.
 
-**Four answers under Performance.**
+**Three answers on the Performance tab, over the GPU.**
 
 *Tick rate* is how often the graph advances, in ticks a second: **Display**, 60 or 30.
 Display — the default — follows the monitor the editor is on. The synth keeps its own time on
@@ -831,14 +856,8 @@ preference. It is here rather than under View because it is about the machine, a
 rate is, and the View menu keeps what changes what the canvas shows — the time readout and
 the cost strip.
 
-*MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
-with its control moves nothing until it passes the control's value, then takes over, so the
-picture never jumps when a knob is first touched after an undo, a reload or a hand on the
-control. Meanwhile the control wears [a ghost mark](#alt--click-to-bind) where the fader is.
-Off, the first message writes. See [media.md](media.md#the-map).
-
-**Where things are kept, under Files.** Two rows, each a caption with its buttons on the right
-and its path on the line under it:
+**Where things are kept, on the Files tab.** Two rows, each a caption with its buttons on the
+right and its path on the line under it:
 
 - **Projects folder**, with **Show in Files** — **Show in Finder** on the Mac — which makes
   the folder if nobody has yet and opens it, and **Change…**, a folder dialog starting there.
@@ -857,11 +876,10 @@ and its path on the line under it:
 
 **A path is one line whatever it is**: monospace, cut in the middle with `…` where it is
 longer than the window is wide — the start says which disk and the end which folder — and
-whole on its hover, so no path moves a row. The window's sections scroll inside it under the
-title bar where the screen is shorter than they are.
+whole on its hover, so no path moves a row.
 
-**What it draws on, under GPU**, read-only: a grid of a caption and its value. *In use* is the
-adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
+**What it draws on, under GPU** at the foot of the Performance tab, read-only: a grid of a
+caption and its value. *In use* is the adapter the editor and the synth draw on — its name, then its kind (*integrated*, *discrete*,
 *software* or *other*) and backend, then its driver and the driver's own version string, as
 wgpu reports them. *Picked by* is one line: `SUPERSILVIA_ADAPTER=…` when the variable named it,
 or *the strongest: a discrete GPU before an integrated one*. *Offered* is every adapter the
@@ -873,9 +891,11 @@ adapter, handed to `App` beside the device: listing the adapters opens no device
 them. A host that hands the app a device of its own choosing, as egui_kittest does, has
 none, and the section says *Not reported by this host*.
 
-`tests/ui.rs` draws both sections whole with a preferences file and a projects folder of the
-test's own and a made-up machine of three adapters, so the snapshot does not depend on the
-GPUs of the machine it runs on (`preferences_files_and_gpu`).
+`tests/ui.rs` draws both tabs whole with a preferences file and a projects folder of the
+test's own and a made-up machine of three adapters, so the snapshots do not depend on the
+GPUs of the machine they run on (`preferences_files`, `preferences_performance`); Appearance is
+`preferences_window` and Editing `preferences_editing`, taken by the test that holds every tab
+to the one window rect and the reopened window to the tab it closed on.
 
 ## Layout
 
