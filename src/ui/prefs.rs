@@ -90,6 +90,10 @@ pub enum PrefAction {
     SetFlag(Flag, bool),
     /// The mode a new workspace opens in.
     SetDefaultLayout(crate::graph::LayoutMode),
+    /// The width and height a new Output is made at.
+    SetOutputResolution(u32, u32),
+    /// How far the canvas zooms out and in.
+    SetZoomRange(f32, f32),
     /// How often the synth ticks: the display's rate, or a fixed one.
     SetTickRate(crate::preferences::TickRate),
     /// How large the whole editor is drawn.
@@ -98,6 +102,12 @@ pub enum PrefAction {
     ShowProjects,
     /// A folder dialog for another projects folder.
     ChangeProjects,
+    /// A folder dialog for a recordings folder of its own.
+    ChooseRecordings,
+    /// Recordings back into `recordings/` in the project.
+    RecordingsInProject,
+    /// Empty Project ▸ Recent.
+    ClearRecent,
     /// `preferences.json` in the file manager.
     ShowPreferencesFile,
     /// `preferences.json` in the text editor.
@@ -113,6 +123,8 @@ pub struct PrefsView<'a> {
     pub projects: Option<&'a Path>,
     /// Why the projects folder cannot be read, where it cannot.
     pub projects_problem: Option<&'a str>,
+    /// The folder a recording goes into now: the one chosen, or the project's `recordings/`.
+    pub recordings: &'a Path,
     /// Where the preferences are written, or `None` where they live for this run only.
     pub file: Option<&'a Path>,
     /// A file dialog is already up, so Change… would open nothing.
@@ -159,6 +171,8 @@ impl PrefsTab {
 #[derive(Debug, Default)]
 pub struct PrefsState {
     picking: Option<Anchor>,
+    /// The new Outputs' resolution picker has its popover up.
+    sizing: bool,
     tab: PrefsTab,
     /// The tallest tab's height in points, and the pixels per point it was measured at.
     tallest: Option<(f32, f32)>,
@@ -209,6 +223,7 @@ pub fn show(
                 if ui.selectable_label(state.tab == tab, tab.label()).clicked() {
                     state.tab = tab;
                     state.picking = None;
+                    state.sizing = false;
                 }
             }
         });
@@ -235,6 +250,7 @@ pub fn show(
     if !open {
         // Re-opening the window does not bring back a picker nobody asked for.
         state.picking = None;
+        state.sizing = false;
         actions.push(PrefAction::Close);
     }
     actions
@@ -303,7 +319,7 @@ fn body(
                 flag(ui, prefs, row, actions);
             }
         }
-        PrefsTab::Editing => editing(ui, prefs, actions),
+        PrefsTab::Editing => editing(ui, state, theme, prefs, actions),
         PrefsTab::Performance => {
             performance(ui, prefs, actions);
             rule(ui);
@@ -480,7 +496,13 @@ fn interface_size(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction
 
 /// The Editing tab: a handful of answers about how the editor behaves, each independent of
 /// the others.
-fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
+fn editing(
+    ui: &mut Ui,
+    state: &mut PrefsState,
+    theme: &Theme,
+    prefs: &Preferences,
+    actions: &mut Vec<PrefAction>,
+) {
     for row in EDITING {
         flag(ui, prefs, row, actions);
     }
@@ -498,6 +520,97 @@ fn editing(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
             }
         }
     });
+    output_resolution(ui, state, theme, prefs, actions);
+    zoom_range(ui, theme, prefs, actions);
+}
+
+/// How far the canvas zooms out and in: two typed percentages, each held to its bounds.
+fn zoom_range(ui: &mut Ui, theme: &Theme, prefs: &Preferences, actions: &mut Vec<PrefAction>) {
+    use crate::preferences::{ZOOM_LEAST, ZOOM_MOST};
+    let (least, most) = prefs.zoom_range();
+    let field = |(min, max): (f32, f32)| crate::nodes::NumberField {
+        min: min * 100.0,
+        max: max * 100.0,
+        integer: true,
+        unit: "%",
+    };
+    let percent = |v: f32| format!("{}", (v * 100.0).round());
+    // Each field is drawn in a child over the room taken for it, so the field's own layout of
+    // its text leaves the row's cursor past the field rather than inside it.
+    let typed = |ui: &mut Ui, name: &str, value: f32, bounds| {
+        let size = vec2(64.0, ui.spacing().interact_size.y);
+        let (rect, _) = ui.allocate_exact_size(size, Sense::hover());
+        let mut child = ui.new_child(UiBuilder::new().id_salt(name).max_rect(rect));
+        super::text::number(
+            &mut child,
+            rect,
+            name,
+            &percent(value),
+            bounds,
+            super::text::Chrome::Row,
+            theme,
+            1.0,
+        )
+    };
+    ui.horizontal(|ui| {
+        ui.label("Canvas zoom from");
+        let out = typed(ui, "Least canvas zoom", least, field(ZOOM_LEAST));
+        ui.label("to");
+        let into = typed(ui, "Greatest canvas zoom", most, field(ZOOM_MOST));
+        if let Some(v) = out {
+            actions.push(PrefAction::SetZoomRange(v / 100.0, most));
+        }
+        if let Some(v) = into {
+            actions.push(PrefAction::SetZoomRange(least, v / 100.0));
+        }
+    })
+    .response
+    .on_hover_text(
+        "How far the wheel and the zoom keys take the canvas out and in: from 5% to 100% \
+         at the far end, from 100% to 800% at the near one.",
+    );
+}
+
+/// The size a new Output is made at: a caption and the resolution picker an Output's own row
+/// draws, its popover under the closed row while it is up.
+fn output_resolution(
+    ui: &mut Ui,
+    state: &mut PrefsState,
+    theme: &Theme,
+    prefs: &Preferences,
+    actions: &mut Vec<PrefAction>,
+) {
+    use super::resolution;
+    const NAME: &str = "New Outputs";
+    let (w, h) = prefs
+        .output_resolution
+        .unwrap_or(crate::nodes::output::DEFAULT_RESOLUTION);
+    let shown = resolution::Shown::Size(w, h);
+    let row = ui.horizontal(|ui| {
+        ui.label("New Outputs render at");
+        let width = resolution::closed_width(ui.ctx(), shown, 1.0) + 12.0;
+        let (rect, _) =
+            ui.allocate_exact_size(vec2(width, ui.spacing().interact_size.y), Sense::hover());
+        let response = resolution::closed(ui, rect, NAME, shown, state.sizing, theme, 1.0);
+        if response.clicked() {
+            state.sizing = !state.sizing;
+        }
+        (rect, response.clicked())
+    });
+    let (rect, clicked) = row.inner;
+    row.response.on_hover_text(
+        "The resolution an Output is made at, from the Nodes menu, the browser or a new \
+         workspace. Outputs already made, and every project opened, keep their own.",
+    );
+    if state.sizing {
+        let popped = resolution::popover(ui, rect.left_bottom(), NAME, Some((w, h)), &[], theme);
+        if let Some(resolution::Pick::Size(w, h)) = popped.picked {
+            actions.push(PrefAction::SetOutputResolution(w, h));
+        }
+        if popped.dismissed && !clicked {
+            state.sizing = false;
+        }
+    }
 }
 
 /// The synth's rate. One row: the display it is on, or a number.
@@ -524,8 +637,9 @@ fn performance(ui: &mut Ui, prefs: &Preferences, actions: &mut Vec<PrefAction>) 
     }
 }
 
-/// Where things are kept: the projects folder and the preferences file, each a caption with its
-/// buttons on the right and its path whole on the line under it.
+/// Where things are kept: the projects folder, the recordings folder, the recent projects and
+/// the preferences file, each a caption with its buttons on the right and its path, or what it
+/// holds, on the line under it.
 ///
 /// **A path is one line whatever it is.** It is drawn in monospace, cut in the middle with `…`
 /// where it is longer than the line — the start says which disk and the end which folder, and
@@ -555,6 +669,39 @@ fn files(ui: &mut Ui, view: &PrefsView<'_>, theme: &Theme, actions: &mut Vec<Pre
     if let Some(problem) = view.projects_problem {
         ui.add(Label::new(RichText::new(problem).color(ui.visuals().error_fg_color)).truncate());
     }
+    ui.add_space(6.0);
+    let chosen = view.prefs.recordings_dir.is_some();
+    file_row(ui, "Recordings folder", |ui| {
+        if ui.add(Button::new("Choose…")).clicked() && !view.file_busy {
+            actions.push(PrefAction::ChooseRecordings);
+        }
+        let entry = ui.add_enabled(chosen, Button::new("In the project"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
+            actions.push(PrefAction::RecordingsInProject);
+        }
+    })
+    .on_hover_text(
+        "Where an Output's Record row writes. In the project is recordings/ in the project's \
+         folder; a folder chosen here takes every project's recordings, each file's name \
+         starting with its project's.",
+    );
+    path_line(ui, Some(view.recordings), "", theme);
+    ui.add_space(6.0);
+    let recent = view.prefs.recent.len();
+    file_row(ui, "Recent projects", |ui| {
+        let entry = ui.add_enabled(recent > 0, Button::new("Clear"));
+        crate::ui::pointing(&entry);
+        if entry.clicked() {
+            actions.push(PrefAction::ClearRecent);
+        }
+    });
+    let held = match recent {
+        0 => "Project ▸ Recent is empty".to_string(),
+        1 => "1 project in Project ▸ Recent".to_string(),
+        n => format!("{n} projects in Project ▸ Recent"),
+    };
+    ui.label(RichText::new(held).color(theme.text_muted()));
     ui.add_space(6.0);
     file_row(ui, "Preferences file", |ui| {
         let there = view.file.is_some();

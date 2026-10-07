@@ -354,7 +354,8 @@ least one workspace.* The reasons are `menu::why`, and the Mac's bar shows the s
 the entry's tooltip.
 
 **View ▸ Zoom in, Zoom out and Actual size zoom the canvas**, about its middle, a quarter
-in and out at a time between `canvas::MIN_ZOOM` and `MAX_ZOOM`, and Actual size is a world unit
+in and out at a time between the least and greatest zoom Preferences ▸ Editing names, 25% and
+300% unless it names others, and Actual size is a world unit
 to a point; View ▸ Reset view puts the pan back too. The keys are `Ctrl` with `+`, `-` and `0`,
 as in every node editor. They are egui's own, but egui's `zoom_with_keyboard` is off and
 `menu::shortcuts` consumes them as the entries: egui's would scale the whole editor, and how
@@ -665,6 +666,8 @@ the same thing.
 | `node_shadow` | cast the window shadow under every node body. On |
 | `scroll_x_inverted` | which way the wheel moves a Linear workspace along its strip |
 | `default_layout` | the mode a new workspace opens in. A workspace's own mode is saved with it |
+| `output_resolution` | the width and height a new Output is made at, `[1920, 1080]`. Absent is the Output's own, 1280x720. An Output's own size is saved with it |
+| `zoom_min`, `zoom_max` | how far the canvas zooms out and in, as a scale: 0.25 and 3.0 by default, the first held to 0.05–1 and the second to 1–8 whatever the file says |
 | `main_input_collapsed`, `mixer_collapsed` | the Main Input panel folded to the left edge and the Main Mixer to the right, each to its spine. The Main Input starts folded and the Mixer open |
 | `main_input_width`, `mixer_width` | the width each panel's edge was last dragged to. Absent is the panel's own, 300 and 380 — see [the two side panels](#the-two-side-panels) |
 | `tick_rate` | how often the synth ticks: the editor's display, 60 or 30 — see [below](#the-preferences-window) |
@@ -673,6 +676,7 @@ the same thing.
 | `interface_size` | `Percent90` to `Percent150`: how large the whole editor is drawn — see [the Preferences window](#the-preferences-window) |
 | `windows` | where each of the editor's own windows was left, by title — the Status box, Preferences, MIDI, About, Licences, Keyboard shortcuts and Undo History: the outer top-left corner, and the outer size of the two that resize |
 | `projects_dir` | the projects folder, where New project makes a project, Untitled is made and Open project… starts — chosen in [the Preferences window](#the-preferences-window). Absent is the default, `supersilvia` in the documents folder |
+| `recordings_dir` | the folder every project's [live recordings](rendering.md#live-recording) go into, each file's name led by its project's — chosen in [the Preferences window](#the-preferences-window). Absent is the default, `recordings/` in the project |
 | `recent` | project folders opened or saved, most recent first, deduplicated, capped at ten |
 
 Which things belong here rather than in the project or a workspace is [the tier
@@ -811,7 +815,7 @@ along the wire. What phi spacing buys instead is telling two cables in a bundle 
 is worth more the denser a patch gets and nothing at all on a small one — so it is offered
 rather than assumed. See [cables](#cables) for what it does to a port.
 
-**Five answers on the Editing tab.**
+**Seven answers on the Editing tab.**
 
 *Lock the cursor while scrubbing* is on the Editing tab and nowhere else. It is taste rather
 than something toggled for an evening, and taste is what somebody opens this window for.
@@ -828,6 +832,19 @@ go is a property of the hand rather than of the workspace.
 *New workspaces open as* picks Canvas or Linear for the next workspace made. It changes
 nothing about the ones that exist: a workspace's mode is its own document data, saved in its
 own file, and opens the way whoever made it left it.
+
+*New Outputs render at* is the [resolution picker](#options-and-the-file-button) an Output's
+own row draws, its popover under the row while it is up, and names the size a new Output is
+made at — from the Nodes menu, the browser, a dropped cable or a new video workspace. It
+changes nothing about the Outputs that exist or a project opened, which keep the size each
+holds ([nodes.md](nodes.md#option-kinds)). Picking 1280x720, the Output's own, stores no choice.
+
+*Canvas zoom from … to …* is two typed percentages, 25% and 300% by default: how far the wheel,
+View ▸ Zoom in and Zoom out and their keys take a Canvas workspace out and in. The first is held
+to 5–100% and the second to 100–800%, so Actual size is always inside them, and a number past
+an end is taken as that end, the field's own rule (`text::number`). Framing the content zooms
+out no further than the first. A view already past a new end stays where it is until the next
+zoom.
 
 *MIDI soft takeover*, **off by default**: on, a bound fader or knob whose position disagrees
 with its control moves nothing until it passes the control's value, then takes over, so the
@@ -863,8 +880,8 @@ preference. It is here rather than under View because it is about the machine, a
 rate is, and the View menu keeps what changes what the canvas shows — the time readout and
 the cost strip.
 
-**Where things are kept, on the Files tab.** Two rows, each a caption with its buttons on the
-right and its path on the line under it:
+**Where things are kept, on the Files tab.** Four rows, each a caption with its buttons on the
+right and its path, or what it holds, on the line under it:
 
 - **Projects folder**, with **Show in Files** — **Show in Finder** on the Mac — which makes
   the folder if nobody has yet and opens it, and **Change…**, a folder dialog starting there.
@@ -874,6 +891,16 @@ right and its path on the line under it:
   not read the projects folder … : Permission denied*, and on the Mac what to allow in System
   Settings ▸ Privacy & Security ▸ Files and Folders, which is where a *Don't Allow* on the
   Documents question leaves it.
+- **Recordings folder**, with **Choose…**, a folder dialog starting at the folder chosen last,
+  and **In the project**, which puts recordings back in `recordings/` in the project and is off
+  while they are there. The folder chosen is the `recordings_dir` preference, and the path under
+  the row is wherever an Output's Record row writes now: the folder chosen, or this project's
+  `recordings/`. Choosing this project's own `recordings/` stores no choice. A folder chosen
+  takes every project's recordings, so each file's name starts with its project's —
+  `friday-output3-20261005-134501.mp4` — where in the project it is `output3-…` alone.
+- **Recent projects**, with **Clear**, which empties `recent` — Project ▸ Recent, and with it
+  the project the next launch opens, which is then a new `Untitled`. It is off while the list is
+  empty, and the line under it says how many projects the list holds.
 - **Preferences file**, with **Show**, which opens the folder holding `preferences.json` with
   the file selected where the file manager can, and **Open**, which opens it in the desktop's
   editor for it — `open -t` on the Mac, so a text editor rather than whatever claims `.json`.
@@ -1003,7 +1030,7 @@ snapshot as everything else and round-trips through that workspace's own file.
 
 | | `Canvas` | `Linear` |
 | --- | --- | --- |
-| zoom | 0.25–3.0, about the pointer | pinned at 1.0 |
+| zoom | 0.25–3.0 or Preferences ▸ Editing's, about the pointer | pinned at 1.0 |
 | the wheel | zooms | scrolls along the strip |
 | background drag | pans freely | pans, clamped to the content |
 | node y | anywhere | clamped to the viewport |
@@ -2701,7 +2728,8 @@ Which options are ticks and which are headings is **the definition's** —
 row, and which are left to draw as selects. `Row::Option(i)` counts only the selects.
 
 **A fixed width and height is the resolution picker, not a select** (`ui/resolution.rs`): an
-Output's **Resolution**, the Text node's **Texture Size** and the Main Mixer's resolution.
+Output's **Resolution**, the Text node's **Texture Size**, the Main Mixer's resolution and
+Preferences ▸ Editing's size for new Outputs.
 `OptionDef::resolution` says so, and the value is any `WIDTHxHEIGHT` with both sides from 16
 to 16384 — stored as its text, `option_is_valid` holding a file to that range rather than to
 the choices, which are only the default's home. Closed, it is a select's box and chevron
@@ -2878,8 +2906,8 @@ other two; not `record`, which is the Record button's name.) Under it, two rows:
   from the Render section's FPS, so a film rendered at one rate and a set recorded at another
   are each set once. It is read once, at Record, so it goes inert while this Output records,
   and while any render runs, as every Render number does.
-- **The Record row**, which records the Output live, to a video in `recordings/`, while the
-  show plays — the [live recording](rendering.md#live-recording). It is a way out's row in
+- **The Record row**, which records the Output live, to a video in `recordings/` — or the
+  folder Preferences ▸ Files names — while the show plays — the [live recording](rendering.md#live-recording). It is a way out's row in
   shape and size: its label, a dot and one line, and one button at its right.
 
 | the line | the dot | the button |

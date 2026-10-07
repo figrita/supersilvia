@@ -1098,6 +1098,8 @@ pub struct CanvasPrefs {
     pub phi_cables: bool,
     /// Cast a shadow under every node body.
     pub node_shadow: bool,
+    /// How far the canvas zooms out and in.
+    pub zoom: (f32, f32),
 }
 
 /// Draw the canvas and return everything the interaction asked for.
@@ -2778,7 +2780,13 @@ fn keys(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut Effects) {
     }
     let rect = pass.view.rect;
     if frame_all && let Some(world) = content_bounds(pass.layouts) {
-        state.pan_target = Some(framed(world, rect, pass.view.linear, state.bounds));
+        state.pan_target = Some(framed(
+            world,
+            rect,
+            pass.view.linear,
+            state.bounds,
+            pass.frame.prefs.zoom.0,
+        ));
     }
     if frame_selected
         && let Some(world) = here
@@ -2787,7 +2795,13 @@ fn keys(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut Effects) {
             .reduce(Rect::union)
     {
         let world = world.expand(STRIP_MARGIN);
-        state.pan_target = Some(framed(world, rect, pass.view.linear, state.bounds));
+        state.pan_target = Some(framed(
+            world,
+            rect,
+            pass.view.linear,
+            state.bounds,
+            pass.frame.prefs.zoom.0,
+        ));
     }
 }
 
@@ -2817,19 +2831,19 @@ fn keys_free(ui: &Ui, state: &CanvasState, pass: &Pass<'_>) -> bool {
 
 /// The view that fits `world` into `rect`: centred, at the zoom that shows all of it, and
 /// never past actual size, since a frame is for seeing where things are rather than for
-/// reading one up close.
+/// reading one up close, nor below `least`, the canvas's own least zoom.
 ///
 /// A strip has one zoom and one height, so there it is the pan along the strip alone, held to
 /// the strip's ends as any pan is; and where `world` is longer than the view, its start, for
 /// the reason a drop's reveal shows the near edge of something too big to show.
-fn framed(world: Rect, rect: Rect, linear: bool, bounds: Option<Rect>) -> Transform {
+fn framed(world: Rect, rect: Rect, linear: bool, bounds: Option<Rect>, least: f32) -> Transform {
     let size = rect.size();
     let zoom = if linear {
         1.0
     } else {
         (size.x / world.width())
             .min(size.y / world.height())
-            .clamp(canvas::MIN_ZOOM, 1.0)
+            .clamp(least.min(1.0), 1.0)
     };
     let mut t = Transform {
         pan: size * 0.5 - world.center().to_vec2() * zoom,
@@ -3063,9 +3077,12 @@ fn wheel(ui: &Ui, state: &mut CanvasState, pass: &Pass<'_>) {
     {
         let scroll = ui.ctx().input(|i| i.smooth_scroll_delta.y);
         if scroll.abs() > 0.0 {
-            state
-                .transform
-                .zoom_about(pass.view.origin, p, (scroll * 0.002).exp());
+            state.transform.zoom_about(
+                pass.view.origin,
+                p,
+                (scroll * 0.002).exp(),
+                pass.frame.prefs.zoom,
+            );
             // A hand on the view outranks a glide, the zoom of a frame included.
             state.pan_target = None;
         }

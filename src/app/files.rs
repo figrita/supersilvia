@@ -43,6 +43,8 @@ pub(super) enum FileAsk {
     ExportAsset(String),
     /// Another projects folder, from the Preferences window.
     ProjectsFolder,
+    /// A folder for every project's recordings, from the Preferences window.
+    RecordingsFolder,
     /// A clip or a sound for the Main Input panel. Not an option on a node, so it does not
     /// go through `SetOption` and does not enter the undo history — which source the rig is
     /// pointed at is the mixer's kind of state, not an edit.
@@ -59,7 +61,8 @@ impl FileAsk {
             | Self::SaveAs
             | Self::ExportWorkspace(_)
             | Self::ExportAsset(_)
-            | Self::ProjectsFolder => Pick::Folder,
+            | Self::ProjectsFolder
+            | Self::RecordingsFolder => Pick::Folder,
             Self::Option { accepts, .. } => Pick::File(accepts.label, accepts.extensions),
             Self::MainInput { audio } => {
                 let accepts = if *audio {
@@ -287,6 +290,7 @@ pub(super) fn start_dir(
             project.parent().map(std::path::Path::to_path_buf)
         }
         FileAsk::Option { .. }
+        | FileAsk::RecordingsFolder
         | FileAsk::MainInput { .. }
         | FileAsk::ImportWorkspace
         | FileAsk::ImportAsset => Some(project.to_path_buf()),
@@ -319,6 +323,13 @@ impl App {
         }
         let start = match (&ask, &projects) {
             (FileAsk::OpenProject | FileAsk::NewProject, None) => None,
+            // The folder chosen last, where it is there.
+            (FileAsk::RecordingsFolder, _) => {
+                let dir = self.recordings_dir();
+                dir.is_dir()
+                    .then_some(dir)
+                    .or_else(|| start_dir(&ask, self.project.root(), None))
+            }
             _ => start_dir(&ask, self.project.root(), projects.as_deref()),
         };
         match self.dialog_answer.clone() {
@@ -365,6 +376,14 @@ impl App {
                 self.media
                     .set_status(format!("projects folder: {}", path.display()));
                 self.prefs.set_projects_dir(path);
+            }
+            FileAsk::RecordingsFolder => {
+                self.media
+                    .set_status(format!("recordings folder: {}", path.display()));
+                // The project's own `recordings/` chosen by hand is no folder of its own.
+                let own = self.project.root().join(super::record::RECORDINGS);
+                let chosen = (path != own).then_some(path);
+                self.prefs.set_recordings_dir(chosen);
             }
             FileAsk::MainInput { audio } => {
                 // Every way a file reaches the rig copies it into the project, exactly as a

@@ -568,7 +568,9 @@ fn fake_gpus() -> adapter::Choice {
 /// **Where things are kept, and what it draws on**, the Preferences window's Files and
 /// Performance tabs.
 ///
-/// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the preferences file with Open
+/// Files: the projects folder with Show in Files (Show in Finder on the Mac) and Change…, the
+/// recordings folder with Choose… and In the project, the recent projects with Clear, the
+/// preferences file with Open
 /// and Show, each path one line in monospace and cut in the middle where it is long, and the
 /// line saying when an edit to the file takes effect. GPU: the adapter in use, how it was
 /// picked, and every adapter offered with the one in use marked. Each tab is drawn whole, in a
@@ -576,7 +578,8 @@ fn fake_gpus() -> adapter::Choice {
 ///
 /// The preferences are a file under `/tmp` of this test's own, so the row shows a path and the
 /// snapshot is the same on every run; the projects folder is a preference naming a folder
-/// nobody makes, long enough to be cut; and the GPUs are [`fake_gpus`].
+/// nobody makes, long enough to be cut, and the recordings folder another; and the GPUs are
+/// [`fake_gpus`].
 #[test]
 fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     let dir = std::path::PathBuf::from("/tmp/supersilvia-ui-files");
@@ -588,6 +591,7 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     let store = {
         let mut store = supersilvia::preferences::Store::load(Some(file.clone()));
         store.set_projects_dir(projects.clone());
+        store.set_recordings_dir(Some(std::path::PathBuf::from("/home/tester/Videos/takes")));
         store
     };
     let store = std::sync::Mutex::new(Some(store));
@@ -610,6 +614,12 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
         "Projects folder",
         "Change…",
         show_in.as_str(),
+        "Recordings folder",
+        "Choose…",
+        "In the project",
+        "/home/tester/Videos/takes",
+        "Recent projects",
+        "Project ▸ Recent is empty",
         "Preferences file",
         "Open",
         "Show",
@@ -665,6 +675,72 @@ fn the_preferences_window_says_where_things_are_kept_and_what_it_draws_on() {
     #[cfg(target_os = "linux")]
     h.snapshot("preferences_performance");
     std::fs::remove_dir_all(&dir).ok();
+}
+
+/// **Recordings go into the project until a folder is chosen**, on the Files tab's Recordings
+/// folder row: its path is the project's `recordings/` and In the project is off; Choose… takes
+/// the folder the dialog answers, which the path then shows; and In the project puts it back.
+#[test]
+fn the_recordings_folder_is_the_projects_until_one_is_chosen() {
+    let mut h = harness();
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
+    let own = h.state().project().root().join("recordings");
+    assert!(
+        h.query_by_label_contains(&own.display().to_string())
+            .is_some(),
+        "the path is the project's recordings/"
+    );
+    assert!(
+        h.get_by_label("In the project")
+            .accesskit_node()
+            .is_disabled()
+    );
+
+    let takes = std::env::temp_dir().join(format!("ssw-ui-takes-{}", std::process::id()));
+    h.state_mut().answer_file_dialogs(Some(takes.clone()));
+    h.get_by_label("Choose…").click();
+    h.run_steps(3);
+    assert_eq!(
+        h.state().preferences().recordings_dir.as_deref(),
+        Some(takes.as_path())
+    );
+    assert!(
+        h.query_by_label_contains(&takes.display().to_string())
+            .is_some(),
+        "the path is the folder chosen"
+    );
+
+    h.get_by_label("In the project").click();
+    h.run_steps(2);
+    assert_eq!(h.state().preferences().recordings_dir, None);
+    assert!(
+        h.get_by_label("In the project")
+            .accesskit_node()
+            .is_disabled()
+    );
+}
+
+/// **Preferences ▸ Files ▸ Recent projects ▸ Clear empties Project ▸ Recent**, and is off while
+/// there is nothing in it.
+#[test]
+fn clear_empties_the_recent_projects() {
+    let mut h = harness_with(supersilvia::preferences::Preferences {
+        recent: vec!["/tmp/friday".into(), "/tmp/saturday".into()],
+        ..Default::default()
+    });
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Files");
+    assert!(h.query_by_label("2 projects in Project ▸ Recent").is_some());
+    assert!(!h.get_by_label("Clear").accesskit_node().is_disabled());
+
+    h.get_by_label("Clear").click();
+    h.run_steps(2);
+    assert!(h.state().preferences().recent.is_empty());
+    assert!(h.query_by_label("Project ▸ Recent is empty").is_some());
+    assert!(h.get_by_label("Clear").accesskit_node().is_disabled());
 }
 
 /// **A projects folder that cannot be read says so beside its path**, in the Preferences window
@@ -11338,6 +11414,102 @@ fn an_outputs_resolution_is_picked_by_shape_and_short_side() {
         h.query_by_label(&format!("{name} 1080")).is_none(),
         "a click away closes it"
     );
+}
+
+/// **A new Output is made at Preferences ▸ Editing's resolution, and an old one keeps its own.**
+/// The row is the resolution picker an Output's own row is; a size picked there is the
+/// preference, and only the Outputs made after it take it.
+#[test]
+fn a_new_output_takes_the_preferences_resolution_and_an_old_one_keeps_its_own() {
+    use supersilvia::nodes::output::{DEFAULT_RESOLUTION, resolution_of};
+    let mut h = harness();
+    h.step();
+    add_node(&mut h, ADD_OUTPUT);
+    let old = h.state().graph().iter().next().expect("one node").0;
+
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
+    h.get_by_label("New Outputs 16:9 · 720").click();
+    // The popover is an `Area`: its first frame is a sizing pass.
+    h.run_steps(2);
+    h.get_by_label("New Outputs 1080").click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().preferences().output_resolution,
+        Some((1920, 1080))
+    );
+    assert!(h.query_by_label("New Outputs 16:9 · 1080").is_some());
+    h.get_by_label("Close window").click();
+    h.run_steps(2);
+
+    add_node(&mut h, ADD_OUTPUT);
+    let new = h.state().graph().iter().map(|(id, _)| id).last().unwrap();
+    assert_ne!(new, old);
+    let size = |h: &Harness<'_, App>, id| resolution_of(h.state().graph().get(id).unwrap());
+    assert_eq!(size(&h, new), (1920, 1080), "the new Output takes it");
+    assert_eq!(
+        size(&h, old),
+        DEFAULT_RESOLUTION,
+        "the old one keeps its own"
+    );
+
+    // And the Output a new video workspace is born holding.
+    h.state_mut()
+        .apply(Command::AddWorkspace {
+            name: "Second".to_owned(),
+            kind: supersilvia::graph::WorkspaceKind::Video,
+            layout: supersilvia::graph::LayoutMode::Canvas,
+            seed: supersilvia::command::Seed::SourceToOutput { width: 800.0 },
+        })
+        .unwrap();
+    let born = h.state().graph().iter().map(|(id, _)| id).last().unwrap();
+    assert!(h.state().graph().get(born).unwrap().def.is_output);
+    assert_eq!(
+        size(&h, born),
+        (1920, 1080),
+        "a new workspace's Output takes it"
+    );
+}
+
+/// **Preferences ▸ Editing's canvas zoom is how far the canvas zooms out and in**: two typed
+/// percentages, each held to its bounds, which the zoom keys then stop at.
+#[test]
+fn the_canvas_zoom_stops_where_the_preferences_say() {
+    let mut h = harness();
+    h.step();
+    open_preferences(&mut h);
+    preferences_tab(&mut h, "Editing");
+    for (field, typed) in [("Least canvas zoom", "10"), ("Greatest canvas zoom", "900")] {
+        h.get_by_label_contains(field).click();
+        h.step();
+        key(&mut h, egui::Key::End);
+        for _ in 0..4 {
+            key(&mut h, egui::Key::Backspace);
+        }
+        type_text(&mut h, typed);
+        key(&mut h, egui::Key::Enter);
+        h.run_steps(2);
+    }
+    assert_eq!(
+        h.state().preferences().zoom_range(),
+        (0.1, 8.0),
+        "900% is past the greatest the row allows"
+    );
+    assert!(h.query_by_label("Greatest canvas zoom 800").is_some());
+    h.get_by_label("Close window").click();
+    h.run_steps(2);
+
+    for (shortcut, end) in [(egui::Key::Minus, 0.1), (egui::Key::Plus, 8.0)] {
+        for _ in 0..40 {
+            h.key_press_modifiers(egui::Modifiers::COMMAND, shortcut);
+            h.step();
+        }
+        let zoom = h.state().canvas_transform().zoom;
+        assert!(
+            (zoom - end).abs() < 1e-4,
+            "{shortcut:?} stops at {end}: {zoom}"
+        );
+    }
 }
 
 /// **An Output's Record section**, under a heading of its own between Render and Send, closed

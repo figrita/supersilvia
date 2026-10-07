@@ -195,10 +195,12 @@ impl App {
         let problem = projects
             .as_deref()
             .and_then(|dir| crate::project::projects_dir_problem(dir, false));
+        let recordings = self.recordings_dir();
         let view = crate::ui::prefs::PrefsView {
             prefs: self.prefs.get(),
             projects: projects.as_deref(),
             projects_problem: problem.as_deref(),
+            recordings: &recordings,
             file: self.prefs.path(),
             file_busy: self.media.file_busy(),
             gpu: self.gpu_choice.as_ref(),
@@ -219,6 +221,12 @@ impl App {
                 crate::ui::prefs::PrefAction::SetDefaultLayout(mode) => {
                     self.prefs.set_default_layout(mode);
                 }
+                crate::ui::prefs::PrefAction::SetOutputResolution(w, h) => {
+                    self.prefs.set_output_resolution((w, h));
+                }
+                crate::ui::prefs::PrefAction::SetZoomRange(least, most) => {
+                    self.prefs.set_zoom_range(least, most);
+                }
                 crate::ui::prefs::PrefAction::SetTickRate(rate) => self.prefs.set_tick_rate(rate),
                 crate::ui::prefs::PrefAction::SetInterfaceSize(size) => {
                     self.prefs.set_interface_size(size);
@@ -227,6 +235,13 @@ impl App {
                 crate::ui::prefs::PrefAction::ChangeProjects => {
                     self.ask_for_file(FileAsk::ProjectsFolder);
                 }
+                crate::ui::prefs::PrefAction::ChooseRecordings => {
+                    self.ask_for_file(FileAsk::RecordingsFolder);
+                }
+                crate::ui::prefs::PrefAction::RecordingsInProject => {
+                    self.prefs.set_recordings_dir(None);
+                }
+                crate::ui::prefs::PrefAction::ClearRecent => self.prefs.clear_recent(),
                 crate::ui::prefs::PrefAction::ShowPreferencesFile => {
                     self.prefs.write_if_missing();
                     if let Some(file) = self.prefs.path() {
@@ -489,6 +504,7 @@ impl eframe::App for App {
             editor_hidden: self.show.hidden,
             fullscreen: ui.input(|i| i.viewport().fullscreen.unwrap_or(false)),
             zoom: self.canvas.transform.zoom,
+            zoom_range: self.prefs.get().zoom_range(),
             // The readout's reading, off the last tick, while the preference shows it.
             time: self.prefs.get().show_time.then(|| menu::Time {
                 report: self.transport_state(),
@@ -843,6 +859,7 @@ impl eframe::App for App {
                     cable_droop: prefs.cable_droop,
                     phi_cables: prefs.phi_cables,
                     node_shadow: prefs.node_shadow,
+                    zoom: prefs.zoom_range(),
                 },
             };
             let effects = crate::ui::show(ui, &mut self.canvas, &frame);
