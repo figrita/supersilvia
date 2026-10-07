@@ -146,9 +146,7 @@ pub fn show(
             Some(_) => theme.wire(ty).gamma_multiply(1.5),
             None => theme.wire(ty),
         };
-        let clear = layouts.clearance(c.from.node, c.to.node, &mini, origin);
-        crate::ui::cable::Curve::new(from, to, ty, clear, droop)
-            .paint(&painter, Stroke::new(1.0, color));
+        crate::ui::cable::Curve::new(from, to, ty, droop).paint(&painter, Stroke::new(1.0, color));
     }
 
     // --- nodes ------------------------------------------------------------------------------

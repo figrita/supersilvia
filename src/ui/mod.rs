@@ -1427,8 +1427,6 @@ struct Pass<'a> {
     frame: &'a CanvasFrame<'a>,
     view: View,
     layouts: &'a canvas::Layouts,
-    /// The pan and zoom every place on screen here was worked out for.
-    transform: Transform,
     /// Every port on screen, each node's the span its layout says, in the layout's order.
     slots: Vec<PortSlot>,
     /// Every node's body on screen, in the layout's order, which is the order they are
@@ -1518,7 +1516,6 @@ impl<'a> Pass<'a> {
             frame,
             view,
             layouts,
-            transform: t,
             slots,
             bodies,
             fed,
@@ -1537,12 +1534,6 @@ impl<'a> Pass<'a> {
     /// One port's place on screen.
     fn find(&self, port: PortRef) -> Option<PortSlot> {
         self.layouts.slot(port).map(|i| self.slots[i])
-    }
-
-    /// How far below both ends' bodies a cable between these two nodes passes, on screen.
-    fn clearance(&self, a: NodeId, b: NodeId) -> f32 {
-        self.layouts
-            .clearance(a, b, &self.transform, self.view.origin)
     }
 
     /// The one hit test the canvas makes of its own: what the pointer is on.
@@ -1575,7 +1566,6 @@ impl<'a> Pass<'a> {
                                 from.center,
                                 to.center,
                                 from.ty,
-                                self.clearance(c.from.node, c.to.node),
                                 self.frame.prefs.cable_droop,
                             )
                             .distance_to(p);
@@ -1734,8 +1724,7 @@ fn cables(state: &mut CanvasState, pass: &Pass<'_>) -> Cables {
                 wire
             },
         );
-        let clear = pass.clearance(connection.from.node, connection.to.node);
-        let curve = cable::Curve::new(from.center, to.center, from.ty, clear, prefs.cable_droop);
+        let curve = cable::Curve::new(from.center, to.center, from.ty, prefs.cable_droop);
         curve.paint(&pass.view.painter, stroke);
 
         // A cable is a real widget, sitting on the curve's midpoint — a hand-painted thing a
@@ -1748,16 +1737,13 @@ fn cables(state: &mut CanvasState, pass: &Pass<'_>) -> Cables {
     // --- the cable being dragged --------------------------------------------------------
     let dragging = state.dragging.and_then(|p| pass.find(p));
     if let (Some(anchor), Some(p)) = (dragging, pass.pointer) {
-        let clear = state
-            .dragging
-            .map_or(0.0, |src| pass.clearance(src.node, src.node));
         // The color it will keep. Reserved when the drag armed rather than picked now, so
         // the wire does not change color on the frame it lands — see `drag_hue`.
         let ink = match state.drag_hue.filter(|_| prefs.phi_cables) {
             Some(step) => phi_cable(step),
             None => theme.port(anchor.ty),
         };
-        cable::Curve::new(anchor.center, p, anchor.ty, clear, prefs.cable_droop)
+        cable::Curve::new(anchor.center, p, anchor.ty, prefs.cable_droop)
             .paint(&pass.view.painter, Stroke::new(2.0, ink));
     }
     // A cable let go in the open stays drawn to where it was let go while the browser asks
@@ -1766,8 +1752,7 @@ fn cables(state: &mut CanvasState, pass: &Pass<'_>) -> Cables {
         && let Some(anchor) = pass.find(loose.end)
     {
         let at = state.transform.to_screen(pass.view.origin, loose.at);
-        let clear = pass.clearance(loose.end.node, loose.end.node);
-        cable::Curve::new(anchor.center, at, anchor.ty, clear, prefs.cable_droop)
+        cable::Curve::new(anchor.center, at, anchor.ty, prefs.cable_droop)
             .paint(&pass.view.painter, Stroke::new(2.0, theme.port(anchor.ty)));
     }
     drawn
@@ -2714,7 +2699,6 @@ fn insert_target(
                 from.center,
                 to.center,
                 from.ty,
-                pass.clearance(c.from.node, c.to.node),
                 pass.frame.prefs.cable_droop,
             )
             .distance_to(p);

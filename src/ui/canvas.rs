@@ -127,9 +127,6 @@ impl Transform {
     }
 }
 
-/// How far below the deeper node a backward cable passes, in world units.
-pub const CABLE_CLEARANCE: f32 = 24.0;
-
 /// A row holding an s-number or s-color: the control's height and three points either side.
 pub const CONTROL_ROW_PITCH: f32 = 26.0;
 
@@ -1121,20 +1118,6 @@ impl Layouts {
     /// Where a port is in [`Self::ports`], where it is on this workspace.
     pub fn slot(&self, port: crate::graph::PortRef) -> Option<usize> {
         self.index.get(&port).copied()
-    }
-
-    /// How far down the screen a cable between two nodes has to bow to pass under both bodies
-    /// rather than behind them: the lower of their bottom edges under `t`, plus
-    /// [`CABLE_CLEARANCE`] so it reads as passing under rather than grazing. The canvas and the
-    /// minimap each ask it under their own transform.
-    pub fn clearance(&self, a: NodeId, b: NodeId, t: &Transform, origin: Pos2) -> f32 {
-        let edge = |id| self.find(id).map(|l| l.rect.max.y);
-        let bottom = match (edge(a), edge(b)) {
-            (Some(a), Some(b)) => Some(a.max(b)),
-            (a, b) => a.or(b),
-        };
-        let bottom = bottom.map_or(0.0, |y| t.to_screen(origin, Pos2::new(0.0, y)).y);
-        bottom + CABLE_CLEARANCE * t.zoom
     }
 }
 

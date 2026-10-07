@@ -805,10 +805,10 @@ overlap reads as a stack. On by default. Off is the flat canvas, where the graph
 mix rather than floating over it.
 
 *Droopy cables* lets a cable sag between its ports. silvia's `droopyCables`, and its sag:
-fifteen points plus a seventh of the span, stopping at eighty. Only a forward cable sags. One
-that runs backwards already bows downward to clear the node bodies, and a second reason for
-the same curve would fight the first. An action cable stays straight, because a dashed line
-means *event* and a sagging one would read as the cable a data port uses.
+fifteen points plus a seventh of the span, stopping at eighty. Every data cable sags the same
+way regardless of which way it runs — there is one curve, not a forward one and a backward
+one. An action cable stays straight, because a dashed line means *event* and a sagging one
+would read as the cable a data port uses.
 
 *Phi-spaced cable colors* gives every cable a hue of its own, walked around the circle by the
 golden angle so that neighbours are as unlike as they can be, and outlines each connected
@@ -2099,24 +2099,29 @@ around a square would undo half of why the square is a square. An output with se
 wears the first in graph order, so the outline on a fanned-out port does not change for
 reasons that have nothing to do with it.
 
-**A backward cable sags, if you want it to.** `cable_droop` drops both control points of a
-forward cable by silvia's own sag — fifteen points plus a seventh of the span, stopping at
-eighty. It is on by default, as in silvia. A backward cable ignores it, and so does an action
-cable; see [the Preferences window](#the-preferences-window) for why.
+**One curve, whichever way the cable runs.** `cable::bezier_points` has no special case for a
+cable whose input sits to the left of its output — the kind a feedback loop makes. Both
+control points reach sideways from their own port by the same amount, found from the
+*distance* between the ports (`dx.abs()`) rather than the signed `dx`: a port to the right
+reaches right, a port to the left reaches left, so the curve is continuous as a cable's target
+crosses from one side of its source to the other — no jump in shape at the moment the nodes
+cross, and nothing to say which way is "backward". The reach is clamped between 24 and 140
+points either way.
 
-**A backward cable routes around, not through.** A feedback loop runs right to left, and a
-forward cable's control points pull *inward* — so the curve cut back through exactly the space
-the two node bodies occupy, and cables are drawn before nodes, so it vanished behind them.
-Such a cable now reaches further sideways and bows downward instead.
+Earlier builds gave a cable running right to left a second curve, bowed downward to pass under
+both node bodies rather than through the space between them, sized from the bottom edge of
+the nodes at each end. It was dropped: the switch between the two curves was a visible jump as
+a dragged node crossed its neighbor, and the second curve moved whenever a node's height
+changed even though neither port had. One curve, judged only by the two ports, has neither
+problem.
 
-The bow is sized from **the bottom edge of the nodes at both ends**, not from the horizontal
-distance. That distinction is the whole fix: sizing it from the gap between the ports looks
-right on small nodes and dives straight into an Output, which is tall because it carries its
-own render. `ui::show` measures both bodies and hands the clearance to `cable::bezier_points`;
-click-to-delete samples the same curve, so hit-testing follows the loop.
+**Droop sags every cable the same way.** `cable_droop` drops both control points by silvia's
+own sag — fifteen points plus a seventh of the span, stopping at eighty — regardless of which
+way the cable runs. It is on by default, as in silvia. An action cable ignores it; see
+[the Preferences window](#the-preferences-window) for why.
 
-Downward always, rather than picking a side per cable: one predictable shape is easier to
-follow across a dense graph than a field of individually-optimal ones.
+Click-to-delete samples the same curve the cable is painted along, so hit-testing follows it
+wherever it runs.
 
 **A cable let go over empty canvas asks what it lands on.** Not on a port and not on a
 node's body, it opens [the node browser](#three-ways-to-the-library) at the pointer, holding
