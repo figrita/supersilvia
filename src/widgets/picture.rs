@@ -28,16 +28,19 @@ pub const RENDER: RegionDef = RegionDef {
 /// The frame's own aspect, not a fixed 16:9: silvia's `.output-canvas` is the body's full
 /// width with no letterboxing, so the band is exactly as tall as the width divided by whatever
 /// the `resolution` option currently names — recomputed every frame rather than cached, so
-/// picking a taller resolution reshapes the node on the spot instead of leaving black bars.
+/// picking a taller resolution reshapes the node on the spot instead of leaving black bars,
+/// a tick or two before the picture of that shape is published.
 fn render_size(node: &Node) -> f32 {
     let (w, h) = crate::nodes::output::resolution_of(node);
     canvas::node_width(node) * h as f32 / w as f32
 }
 
 fn render_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
-    // The slot is sized to the Output's own resolution, so the two already agree — `Cover` is
-    // what keeps a rounding error at an odd zoom a cropped hairline of the picture rather than
-    // a hairline of the ground showing through.
+    // The slot is sized to the Output's own resolution, so the two agree — `Cover` is what
+    // keeps a rounding error at an odd zoom a cropped hairline of the picture rather than a
+    // hairline of the ground showing through. They disagree for the ticks between a resolution
+    // change and the first frame of the new size, and the last frame is cropped into the new
+    // slot for those, never drawn past it.
     vec![ground(r, Picture::Render, crate::render::Fit::Cover)]
 }
 

@@ -769,6 +769,62 @@ fn a_blit_fits_its_rect_and_the_clip_cuts_it_rather_than_shrinking_it() {
     assert_eq!(pixel(&empty, SIDE, SIDE / 2, SIDE / 2), RED);
 }
 
+/// **A cover is cropped inside its rect and draws nothing past it**, whatever the picture's
+/// shape: a 2:1 picture covering a tall rect in the middle of a window whose clip is the whole
+/// window — the canvas, for a node's picture — fills the rect and leaves every column either
+/// side of it as it was. An Output's node holds the old frame in its new shape this way for
+/// the ticks after its resolution changes.
+#[test]
+fn a_cover_is_cropped_inside_its_rect_and_draws_nothing_past_it() {
+    const SIDE: u32 = 128;
+    let gpu = gpu::gpu();
+    let viewer = Arc::new(Viewer::new(&gpu, wgpu::TextureFormat::Rgba8Unorm).expect("viewer"));
+    let node = NodeId(1);
+    let published = holding(node, uploaded(&gpu, &columns(64, 32, 32, GREEN, BLUE)));
+    let window = square(SIDE as f32);
+    for (rect, what) in [
+        (
+            egui::Rect::from_min_size(egui::pos2(48.0, 16.0), egui::vec2(32.0, 96.0)),
+            "a tall rect",
+        ),
+        (
+            egui::Rect::from_min_size(egui::pos2(16.0, 48.0), egui::vec2(96.0, 32.0)),
+            "a wider one",
+        ),
+    ] {
+        for corner in [0.0, 8.0] {
+            let callback = viewer.node_callback(&published, rect, node, None, Fit::Cover, corner);
+            let painted = in_egui(&gpu, SIDE, 1.0, vec![(window, callback)]);
+            for y in 0..SIDE {
+                for x in 0..SIDE {
+                    let inside = rect.contains(egui::pos2(x as f32 + 0.5, y as f32 + 0.5));
+                    if !inside {
+                        assert_eq!(
+                            pixel(&painted, SIDE, x, y),
+                            RED,
+                            "{what}, corner {corner}: ({x}, {y}) is outside the rect and was drawn"
+                        );
+                    }
+                }
+            }
+            let middle = rect.center();
+            let (cx, cy) = (middle.x as u32, middle.y as u32);
+            assert!(
+                near(pixel(&painted, SIDE, cx - 3, cy), GREEN)
+                    && near(pixel(&painted, SIDE, cx + 3, cy), BLUE),
+                "{what}: the picture is cropped about its middle, its two halves either side"
+            );
+            assert!(
+                near(
+                    pixel(&painted, SIDE, rect.min.x as u32 + 1, rect.min.y as u32 + 1),
+                    GREEN
+                ),
+                "{what}: the rect is covered to its corner"
+            );
+        }
+    }
+}
+
 /// The corner is in points and the rect is in points: at two pixels a point both scale, so a
 /// 64-point body with a 16-point corner is the 128-pixel blit with a 32-pixel one.
 #[test]

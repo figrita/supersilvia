@@ -752,7 +752,8 @@ Every user-visible mutation is a `Command` applied by `App::apply`. The UI only 
 - Tests build graphs with three `apply` calls instead of thirty simulated drags.
 - **A command that fails never reaches the history**, and leaves no undo step. Neither does
   one that would change nothing: a cable that is already there is refused, so it is not
-  logged, not handed to the synth and rebuilds no Output.
+  logged, not handed to the synth and rebuilds no Output, and an option set to the value it
+  already holds is passed over the same way, so it builds no plan either.
 - Consecutive `MoveNodes` for the same **set** of nodes, and consecutive writes to the same
   **control**, coalesce. A drag is one undo step, not sixty — and one snapshot, not sixty.
   Anything a gesture writes together goes in one command for that reason: `MoveNodes` takes a

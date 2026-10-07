@@ -107,6 +107,61 @@ fn an_unchanged_frame_builds_and_sends_no_plan() {
     );
 }
 
+/// **An option set to the value it holds is no edit**: no undo step, no graph handed to the
+/// synth, no plan built and no Output rebuilt. An Output's resolution set again to its own size
+/// is the case, as a picker or a select chosen twice sends it; a new size is one plan and no
+/// rebuild, since the shader does not read the size.
+#[test]
+fn an_option_set_to_the_value_it_holds_builds_nothing() {
+    let (mut app, _, out) = patch();
+    frame(&mut app);
+    let (steps, generation, built, sent) = (
+        app.undo_len(),
+        app.graph_generation(),
+        app.plans_built(),
+        app.sources_sent(),
+    );
+    let held = app.graph().get(out).unwrap().options["resolution"].clone();
+    for _ in 0..3 {
+        app.apply(Command::SetOption {
+            node: out,
+            key: "resolution",
+            value: held.clone(),
+        })
+        .unwrap();
+        frame(&mut app);
+    }
+    assert_eq!(app.undo_len(), steps, "no undo step");
+    assert_eq!(app.graph_generation(), generation, "no graph handed over");
+    assert_eq!(app.plans_built(), built, "no plan built");
+    assert!(!app.needs_recompile(out), "and nothing to rebuild");
+
+    app.apply(Command::SetOption {
+        node: out,
+        key: "resolution",
+        value: "1920x1080".to_string(),
+    })
+    .unwrap();
+    assert!(
+        !app.needs_recompile(out),
+        "a new size rebuilds no shader: the program draws at any size"
+    );
+    frame(&mut app);
+    frame(&mut app);
+    assert_eq!(app.undo_len(), steps + 1, "a new size is one step");
+    assert_eq!(app.plans_built(), built + 1, "and one plan");
+    assert_eq!(app.sources_sent(), sent, "with no source sent");
+    assert_eq!(
+        app.build_frame_job()
+            .outputs
+            .iter()
+            .find(|o| o.node == out)
+            .map(|o| o.resolution),
+        Some((1920, 1080)),
+        "which carries the size to the renderer"
+    );
+}
+
 /// The fade and the crossfade method cross on their own: every frame of a fade is a new
 /// balance, and nothing a plan works out reads it.
 #[test]

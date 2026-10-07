@@ -22,6 +22,7 @@ it happens:
 | a link that fails | the previous program, and the error goes to the status line |
 | a sampler whose texture is gone — its node deleted, nothing published yet | black where it samples |
 | resolution change | the previous frame, scaled into the new target |
+| an Output's node reshaped by its resolution, before a frame of the new size is published | its last frame, cropped into the new shape and never past it |
 | a GPU that cannot keep up | the newest finished frame; the tick slows |
 | a dropped frame — every target held | the previous published frame |
 | a frame still on the GPU | the newest one that has finished |
@@ -1891,11 +1892,17 @@ node's own picture, whose slot `widgets::picture::RENDER` already sizes to the O
 aspect, so nothing is cropped or barred and no black ground can show at an edge — and the fit
 is computed against the **whole** rect the caller asked for, which may reach past the window on
 any side. The scissor egui_wgpu set from the callback's clip rect is what cuts the picture off;
-the renderer never fits a picture to it. The callbacks `render::viewer` builds convert the
-callback's rect to pixels themselves (`viewport_of`), with nothing clamped, because
-`PaintCallbackInfo::viewport_in_pixels` clamps to the window and a clamped rect makes an Output
-at the edge of the canvas shrink its render to fit the part still on screen — see [paint
-callbacks](#paint-callbacks-and-the-viewport-they-are-given).
+the renderer never fits a picture to it. **A blit never draws outside its rect**, though: a
+letterbox shrinks the quad, and a cover crops the texture coordinates inside the rect rather
+than growing the quad past it, since the scissor is the clip rect of whatever holds the rect —
+the whole canvas, for a node. That matters on an Output's node for a tick or two after its
+resolution changes: the node takes the new shape on the next frame, from the option, while the
+picture published is still the last one drawn at the old size, and it is cropped into the new
+slot rather than spilling over the node's rows and the canvas around it. The callbacks
+`render::viewer` builds convert the callback's rect to pixels themselves (`viewport_of`), with
+nothing clamped, because `PaintCallbackInfo::viewport_in_pixels` clamps to the window and a
+clamped rect makes an Output at the edge of the canvas shrink its render to fit the part still
+on screen — see [paint callbacks](#paint-callbacks-and-the-viewport-they-are-given).
 
 **An Output node's picture is flush with its body**, sides and bottom, as silvia's
 `.output-canvas` is, and the body's bottom corners are round. The blit rounds the picture's

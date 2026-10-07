@@ -392,6 +392,13 @@ impl Document {
                 key,
                 ref value,
             } => {
+                // The value the option already holds is not an edit: nothing to log, publish,
+                // replan or rebuild. Asked of the graph as it stands, before a write copies it.
+                let held = self.graph.get(node).and_then(|n| n.options.get(key));
+                if held == Some(value) {
+                    out.nothing = true;
+                    return Ok(out);
+                }
                 let n = self
                     .graph_mut()
                     .get_mut(node)

@@ -26,6 +26,13 @@
 //! clip rect is what cuts it off. egui_wgpu's own viewport, `viewport_in_pixels`, clamps to the
 //! window; [`ViewerCallback`]'s `paint` replaces it.
 //!
+//! **And it never leaves that rect.** A cover crops the picture's texture coordinates rather
+//! than growing the quad past the rect, because the scissor is the clip rect of whatever the
+//! rect sits in — the canvas, for a node's picture — and not the rect. A picture of another
+//! shape than its rect is drawn inside it: an Output's frame for the ticks between its
+//! resolution changing, which reshapes its node at once, and the first frame of the new size
+//! being published.
+//!
 //! **Orientation.** A texture keeps GL's rows: an Output's frame and the mix have their bottom
 //! row first, an upload its top row first ([`Picture::flip`]). NDC is y-up under both
 //! backends, so the texture coordinate the vertex stage hands on is GL's. What differs is the
@@ -56,7 +63,9 @@ pub enum Fit {
 }
 
 /// The blit. The rect is placed against the whole target in the vertex stage, and the picture
-/// scaled about the rect's center by `scale`: below one letterboxes, above one covers.
+/// scaled about the rect's center by `scale`, per axis: below one letterboxes, shrinking the
+/// quad, and above one covers, cropping the texture coordinates inside the rect. The quad is
+/// never larger than the rect, so a blit draws nothing outside it whatever the picture's shape.
 ///
 /// `flip` is 1 for a texture whose first row is the **top** of the picture — everything a CPU
 /// node uploads — and 0 for an Output's frame or the mix, whose first row is the bottom.
@@ -92,11 +101,12 @@ fn vs_main(@builtin(vertex_index) i: u32) -> Varying {
     );
     let c = corners[i];
     let center = blit.rect.xy + 0.5 * blit.rect.zw;
-    let half = 0.5 * blit.rect.zw * blit.scale;
+    let half = 0.5 * blit.rect.zw * min(blit.scale, vec2f(1.0));
     let px = vec2f(center.x + (c.x * 2.0 - 1.0) * half.x, center.y - (c.y * 2.0 - 1.0) * half.y);
+    let t = (c - 0.5) / max(blit.scale, vec2f(1.0)) + 0.5;
     var out: Varying;
     out.position = vec4f(px.x / blit.size.x * 2.0 - 1.0, 1.0 - px.y / blit.size.y * 2.0, 0.0, 1.0);
-    out.uv = vec2f(c.x, mix(c.y, 1.0 - c.y, blit.flip));
+    out.uv = vec2f(t.x, mix(t.y, 1.0 - t.y, blit.flip));
     return out;
 }
 

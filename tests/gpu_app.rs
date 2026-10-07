@@ -2414,6 +2414,149 @@ fn the_editor_times_its_own_painting_while_the_status_box_is_open() {
     assert_eq!(app.paint_gpu(), None, "closed, the reading is forgotten");
 }
 
+/// **An Output's node holds its picture inside itself while its resolution changes.** The
+/// node takes the new shape on the frame after the change, from the option, and the picture
+/// published is the last one drawn at the old size for a tick or two after that: on every one
+/// of those frames the band shows a picture, cropped into the new shape, and every pixel of the
+/// canvas outside the band is what it is once the new picture has landed — the node's rows,
+/// the other node, the cable and the ground untouched by a picture of the old shape.
+///
+/// The real `App` with its renderer, painted by hand frame by frame the way eframe paints it,
+/// through a tall shape, back to a wide one and to a square.
+#[test]
+fn an_outputs_picture_stays_inside_its_node_while_its_resolution_changes() {
+    use eframe::App as _;
+    use supersilvia::graph::PortRef;
+    use supersilvia::ui::canvas::{Layouts, Region};
+    use supersilvia::{App, Command};
+    const SIZE: [u32; 2] = [1200, 900];
+
+    let gpu = gpu::gpu();
+    let mut app = App::headless();
+    app.attach_gpu_on(gpu.clone());
+    app.attach_viewer_on(&gpu, wgpu::TextureFormat::Rgba8Unorm);
+    let ctx = egui::Context::default();
+    supersilvia::ui::theme::apply(&ctx, &supersilvia::ui::theme::Theme::default());
+    let mut renderer = egui_wgpu::Renderer::new(
+        gpu.device(),
+        wgpu::TextureFormat::Rgba8Unorm,
+        egui_wgpu::RendererOptions::PREDICTABLE,
+    );
+    let ws = app.graph().default_workspace();
+    let mut add = |slug, at| {
+        app.apply(Command::AddNode {
+            slug,
+            at,
+            workspace: ws,
+        })
+        .unwrap();
+        app.graph().iter().map(|(id, _)| id).max().unwrap()
+    };
+    let checks = add("checkerboard", emath::pos2(20.0, 40.0));
+    let out = add("output", emath::pos2(260.0, 40.0));
+    app.apply(Command::Connect {
+        from: PortRef::new(checks, "output"),
+        to: PortRef::new(out, "input"),
+    })
+    .unwrap();
+
+    let mut frame = eframe::Frame::_new_kittest();
+    let mut time = 0.0;
+    let mut paint = |app: &mut App| {
+        time += 1.0 / 60.0;
+        let raw = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(SIZE[0] as f32, SIZE[1] as f32),
+            )),
+            time: Some(time),
+            ..Default::default()
+        };
+        let mut out = ctx.run_ui(raw, |ui| app.ui(ui, &mut frame));
+        let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+        let bytes = paint_egui(
+            &gpu,
+            &mut renderer,
+            SIZE,
+            out.pixels_per_point,
+            &primitives,
+            &mut out.textures_delta,
+        );
+        gpu::drain(&gpu);
+        bytes
+    };
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !(app.snapshot().published.outputs.contains_key(&out)
+        && app.snapshot().render.linking.is_empty())
+    {
+        paint(&mut app);
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the Output's program never linked"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    // Long enough for the chrome's own fades to have finished, so only a picture differs.
+    for _ in 0..60 {
+        paint(&mut app);
+    }
+
+    let at = |bytes: &[u8], x: u32, y: u32| {
+        let i = ((y * SIZE[0] + x) * 4) as usize;
+        [bytes[i], bytes[i + 1], bytes[i + 2]]
+    };
+    for (size, wanted) in [
+        ("720x1280", (720, 1280)),
+        ("1920x1080", (1920, 1080)),
+        ("1080x1080", (1080, 1080)),
+    ] {
+        app.apply(Command::SetOption {
+            node: out,
+            key: "resolution",
+            value: size.to_string(),
+        })
+        .unwrap();
+        let frames: Vec<Vec<u8>> = (0..5).map(|_| paint(&mut app)).collect();
+        let shown = &app.snapshot().published.outputs[&out];
+        assert_eq!(
+            (shown.width, shown.height),
+            wanted,
+            "{size}: the picture of the new size has landed by the last frame"
+        );
+
+        let (t, origin) = (app.canvas_transform(), app.canvas_origin());
+        let laid = Layouts::one(app.graph(), out);
+        let band = t
+            .to_screen_rect(origin, laid.find(out).unwrap().region(Region::Declared(0)))
+            .expand(1.0);
+        let canvas =
+            egui::Rect::from_min_size(origin, egui::vec2(app.canvas_width(), app.canvas_height()));
+        let settled = frames.last().unwrap();
+        for (i, bytes) in frames[..frames.len() - 1].iter().enumerate() {
+            let mut lit = false;
+            for y in canvas.min.y as u32..(canvas.max.y as u32).min(SIZE[1]) {
+                for x in canvas.min.x as u32..(canvas.max.x as u32).min(SIZE[0]) {
+                    let p = egui::pos2(x as f32 + 0.5, y as f32 + 0.5);
+                    if band.contains(p) {
+                        lit |= at(bytes, x, y).iter().all(|c| *c > 200);
+                        continue;
+                    }
+                    assert_eq!(
+                        at(bytes, x, y),
+                        at(settled, x, y),
+                        "{size}, frame {i} after the change: ({x}, {y}) is outside the band \
+                         {band:?} and was drawn over"
+                    );
+                }
+            }
+            assert!(
+                lit,
+                "{size}, frame {i} after the change: the band shows a picture, not the ground"
+            );
+        }
+    }
+}
+
 // -------------------------------------------------------------------------- the painting
 
 /// **What is painted is what the patch gets.** A `drawingcanvas` cabled into an Output: its
