@@ -14,6 +14,11 @@
 # the host's podman through flatpak-spawn from inside a distrobox. appimagetool
 # (https://github.com/AppImage/appimagetool/releases) is found on PATH or at APPIMAGETOOL.
 #
+# The AppImage's binary carries no symbols. They are split off into
+# target/supersilvia-<version>-linux-<arch>.debug, with the line tables the container's build
+# adds to the `dist` profile, and that file is kept and never shipped: symbolize.sh beside this
+# names a tester's backtrace with it.
+#
 # GStreamer, the Vulkan driver, ALSA, udev, fontconfig and the windowing libraries are
 # deliberately NOT bundled: they are the machine's, the way a video app on Linux has to take
 # them, and packaging/linux/TESTERS.md says what a tester installs. So the binary may link
@@ -46,6 +51,7 @@ version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
 arch=$(uname -m)
 appdir=${APPDIR:-$root/target/AppDir}
 out=$root/target/supersilvia-$version-linux-$arch.AppImage
+symbols=$root/target/supersilvia-$version-linux-$arch.debug
 
 # ------------------------------------------------------------------------------ the binary
 
@@ -69,10 +75,20 @@ if [[ -z $binary ]]; then
   "${runtime[@]}" run --rm ${user[@]+"${user[@]}"} --security-opt label=disable \
     -v "$root:/src" -w /src \
     -e CARGO_HOME=/src/target/appimage/cargo-home -e CARGO_TARGET_DIR=/src/target/appimage \
+    -e CARGO_PROFILE_DIST_DEBUG=line-tables-only -e CARGO_PROFILE_DIST_STRIP=none \
     "$IMAGE" cargo build --locked --profile dist
   binary=$root/target/appimage/dist/supersilvia
 fi
 [[ -x $binary ]] || die "no binary at $binary"
+
+# The symbols and line tables into a file of their own, compressed, and the binary that ships
+# without them or the symbol table.
+say "splitting the symbols into $symbols"
+mkdir -p "$root/target/appimage"
+objcopy --only-keep-debug --compress-debug-sections=zlib "$binary" "$symbols"
+objcopy --strip-all "$binary" "$root/target/appimage/supersilvia"
+binary=$root/target/appimage/supersilvia
+du -h "$symbols"
 
 say "checking what $binary links"
 glibc=$(objdump -T "$binary" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -Vu | tail -n 1)

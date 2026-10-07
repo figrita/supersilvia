@@ -348,10 +348,11 @@ wgpu = { version = "30", default-features = false, features = ["counters"] }
 name = "syphon"
 harness = false
 
-# Line tables and symbols, and no more debug information than that, so a panic's backtrace
-# and a core dump's both read as file:line — a crash that cannot be read cannot be fixed. Full
-# debug information would add types and locals nobody reads from a crash report. `dist`
-# inherits both. Everything that costs build time lives in `dist` instead, because
+# The symbol table and no debug information, so a panic's backtrace and a core dump's both
+# name every function they went through — a crash that cannot be read cannot be fixed. `dist`
+# inherits both. The AppImage's build adds line tables to `dist` and splits them and the
+# symbols off into a file that is never shipped (`packaging/appimage/build.sh`), so its
+# binary carries neither. Everything that costs build time lives in `dist` instead, because
 # `cargo run --release` is the performance-measurement loop and a 20x slower build in it is a
 # worse trade than a larger binary.
 [profile.release]

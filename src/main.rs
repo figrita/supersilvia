@@ -124,10 +124,14 @@ fn main() -> eframe::Result {
     ran
 }
 
-/// A panic prints its backtrace, each frame named by the symbols the release build keeps,
-/// whether or not `RUST_BACKTRACE` is set; where it is set, the standard hook does as it says.
-/// Either way the panic and its backtrace are written into the log, and one on the main
-/// thread before the window is up says so in a box on the desktop.
+/// A panic prints its backtrace whether or not `RUST_BACKTRACE` is set; where it is set, the
+/// standard hook does as it says. Either way the panic and its backtrace are written into the
+/// log, every frame with its address, then where this function was loaded, and one on the
+/// main thread before the window is up says so in a box on the desktop.
+///
+/// The AppImage's binary carries no symbols, so there a frame reads `<unknown>`: the
+/// addresses and that last line are what `packaging/appimage/symbolize.sh` names the frames
+/// from, with the symbols file its build kept.
 fn backtrace_on_panic() {
     let standard = std::panic::take_hook();
     let asked = std::env::var_os("RUST_BACKTRACE").is_some();
@@ -140,7 +144,14 @@ fn backtrace_on_panic() {
         } else {
             eprintln!("\nthread '{name}' {info}\nstack backtrace:\n{backtrace}");
         }
-        crashlog::panicked(&format!("thread '{name}' {info}"), &backtrace.to_string());
+        let loaded = backtrace_on_panic as fn() as usize;
+        crashlog::panicked(
+            &format!("thread '{name}' {info}"),
+            &format!(
+                "{}\nsymbols: backtrace_on_panic at {loaded:#x}",
+                format!("{backtrace:#}").trim_end()
+            ),
+        );
         if name == "main" && !crashlog::window_is_open() {
             crashlog::cannot_start(&format!("It stopped while starting.\n\n{info}"));
         }
