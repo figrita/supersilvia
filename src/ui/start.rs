@@ -27,17 +27,25 @@
 //! moves the keyboard into it with nothing selected, so `Down` then walks its entries — that
 //! is silvia's `onSubmenuShown`, and it is why hovering and typing compose.
 //!
-//! **A category of one node is that node.** Output is the only one: a submenu holding a
-//! single entry of the same name is a step that chooses nothing, so its row is the node
-//! itself, with no ▶, and a click or `Enter` adds it.
+//! **A category of one node is that node.** A submenu holding a single entry of the same name
+//! is a step that chooses nothing, so the Output's row is the node itself, with no ▶, and a
+//! click or `Enter` adds it.
+//!
+//! **The menu is a tree, and its shape is the workspace's kind** ([`library::menu`]): on a
+//! video workspace Solids is a category whose submenu holds Render 3D and the solid families,
+//! each a submenu of its own, and on a solids workspace the families stand at the top and
+//! Video holds the video categories. Every column past the first is a submenu, and the rules
+//! above hold in each: an entry that opens one opens it on the same timer, and the keyboard is
+//! in one column at a time.
 
-use crate::nodes::{Category, NodeDef, REGISTRY};
+use crate::graph::WorkspaceKind;
+use crate::nodes::library::{self, Entry};
 use crate::ui::icon::{self, Icon};
 use crate::ui::theme::{self, Theme};
 use crate::ui::{browse, popup};
 use eframe::egui::{
-    Area, CornerRadius, FontId, Id, Key, Modifiers, Order, Pos2, Rect, Response, ScrollArea, Sense,
-    Stroke, Ui, UiBuilder, vec2,
+    Align, Area, CornerRadius, FontId, Id, Key, Modifiers, Order, Pos2, Rect, Response, ScrollArea,
+    Sense, Stroke, Ui, UiBuilder, vec2,
 };
 
 /// How long the pointer has to rest on a category before its submenu opens.
@@ -63,41 +71,36 @@ const FRAME_PAD: f32 = 4.0;
 /// What the pointer was over at the end of last frame.
 ///
 /// The whole point of this type: a crossing is *this* frame's answer differing from last
-/// frame's. `Submenu(None)` is the submenu's padding and scrollbar — inside it, on no entry.
+/// frame's. A column is the categories at 0 and each submenu one further; an entry of `None`
+/// is a submenu's padding and scrollbar — inside it, on no entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum Over {
     #[default]
     Nothing,
-    Category(usize),
-    Submenu(Option<usize>),
-}
-
-impl Over {
-    fn in_submenu(self) -> bool {
-        matches!(self, Self::Submenu(_))
-    }
+    Entry(usize, Option<usize>),
 }
 
 /// The Nodes menu, across frames. Every field is session state: nothing here is in the file.
-// Five independent questions the menu asks itself, and none of them is a mode the others
+// Four independent questions the menu asks itself, and none of them is a mode the others
 // belong to.
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Default)]
 pub struct StartMenu {
     open: bool,
-    /// The category whose submenu is up.
-    submenu: Option<usize>,
-    /// A category the pointer has entered, and when its submenu is due.
-    pending: Option<(usize, f64)>,
-    /// When the open submenu is due to close, unless the pointer comes back first.
-    closing: Option<f64>,
-    /// Which category is selected, `None` being the "nothing selected" a Windows menu opens
-    /// in — the state that makes `Down` mean *first* and `Up` mean *last*.
-    cursor: Option<usize>,
-    /// Which entry of the open submenu is selected.
-    item: Option<usize>,
-    /// The keyboard is in the submenu rather than in the category column.
-    inside: bool,
+    /// The open submenus as a chain: in each column from the categories on, the entry whose
+    /// submenu is up.
+    path: Vec<usize>,
+    /// An entry the pointer has entered, by column and index, and when its submenu is due.
+    pending: Option<(usize, usize, f64)>,
+    /// When every submenu past the first `keep` is due to close, unless the pointer comes back
+    /// first.
+    closing: Option<(usize, f64)>,
+    /// The column the keyboard is in: 0 is the categories, 1 the submenu they opened.
+    depth: usize,
+    /// Which entry is selected in each column up to the keyboard's, `None` being the "nothing
+    /// selected" a Windows menu opens in — the state that makes `Down` mean *first* and `Up`
+    /// mean *last*.
+    cursor: Vec<Option<usize>>,
     /// The selection moved by key, so the list scrolls to it.
     follow: bool,
     /// The frame it opened on: the click that opened it is not also the click that shuts it.
@@ -133,60 +136,58 @@ impl StartMenu {
         self.just_opened = true;
     }
 
-    /// silvia's `hideSubmenu`, with the `onSubmenuHidden` that follows it: the submenu goes,
-    /// the keyboard comes back to the categories, and the category selection stays where it
-    /// was.
-    fn hide_submenu(&mut self) {
-        self.submenu = None;
-        self.item = None;
-        self.inside = false;
+    /// The entry selected in `column`.
+    fn selected(&self, column: usize) -> Option<usize> {
+        self.cursor.get(column).copied().flatten()
+    }
+
+    fn select(&mut self, column: usize, entry: Option<usize>) {
+        if self.cursor.len() <= column {
+            self.cursor.resize(column + 1, None);
+        }
+        self.cursor[column] = entry;
+    }
+
+    /// silvia's `hideSubmenu`, with the `onSubmenuHidden` that follows it, for every submenu
+    /// past the first `keep`: they go, the keyboard comes back to the deepest column left, and
+    /// the selection there stays where it was.
+    fn hide_from(&mut self, keep: usize) {
+        self.path.truncate(keep);
+        self.depth = self.depth.min(keep);
+        self.cursor.truncate(self.depth + 1);
         self.pending = None;
         self.closing = None;
     }
 
-    /// silvia's `showSubmenu` with its `onSubmenuShown`: opening a submenu with the pointer
-    /// takes the keyboard into it with nothing selected, so `Down` walks its entries.
-    fn show_submenu(&mut self, index: usize) {
-        self.submenu = Some(index);
+    /// silvia's `showSubmenu` with its `onSubmenuShown`, for the entry `index` of `column`:
+    /// whatever that column had open goes, and opening a submenu with the pointer takes the
+    /// keyboard into it with nothing selected, so `Down` walks its entries.
+    fn show_submenu(&mut self, column: usize, index: usize) {
+        self.path.truncate(column);
+        self.path.push(index);
         self.pending = None;
         self.closing = None;
-        self.inside = true;
-        self.item = None;
+        self.depth = column + 1;
+        self.cursor.resize(column + 1, None);
+        self.cursor.push(None);
     }
 }
 
-/// The categories that have members, with them. Driven by the registry, so a new node file
-/// reaches the menu without this function knowing it exists — and only what this machine
-/// offers (`NodeDef::offered`).
-fn categories() -> Vec<(Category, Vec<&'static NodeDef>)> {
-    Category::ALL
-        .iter()
-        .filter_map(|category| {
-            let members: Vec<&'static NodeDef> = REGISTRY
-                .iter()
-                .filter(|d| d.category == *category && (d.offered)())
-                .copied()
-                .collect();
-            (!members.is_empty()).then_some((*category, members))
-        })
-        .collect()
-}
-
-/// The node a category of one member stands for, which its row adds directly.
-fn leaf(members: &[&'static NodeDef]) -> Option<&'static NodeDef> {
-    match members {
-        [only] => Some(*only),
-        _ => None,
-    }
+/// The entries of the column `path` leads to: the categories for an empty path, and each index
+/// one submenu further.
+fn column<'a>(tree: &'a [Entry], path: &[usize]) -> Option<&'a [Entry]> {
+    path.iter()
+        .try_fold(tree, |entries, i| entries.get(*i)?.entries())
 }
 
 /// Draw the start button in `within`'s bottom-left corner and, while it is open, the menu
-/// above it. Returns a node kind to add.
+/// above it, shaped for a workspace of `kind`. Returns a node kind to add.
 pub fn show(
     ui: &mut Ui,
     menu: &mut StartMenu,
     within: Rect,
     theme: &Theme,
+    kind: WorkspaceKind,
 ) -> Option<&'static str> {
     let (button, button_rect) = button(ui, menu, within, theme);
     let toggled = button.clicked()
@@ -204,12 +205,12 @@ pub fn show(
         return None;
     }
 
-    let cats = categories();
+    let tree = library::menu(kind);
     let now = ui.input(|i| i.time);
     let pointer = ui.ctx().pointer_latest_pos();
     let mut chosen = None;
 
-    keys(ui, menu, &cats, &mut chosen);
+    keys(ui, menu, &tree, &mut chosen);
     if !menu.open {
         return chosen;
     }
@@ -218,41 +219,47 @@ pub fn show(
     // Before, not after: a submenu whose delay expired during this frame belongs on screen in
     // this frame. Checked after the drawing it opens a frame late, which is exactly the
     // sixteen milliseconds these delays exist to spend well.
-    if let Some((index, due)) = menu.pending {
+    if let Some((at, index, due)) = menu.pending {
         if now >= due {
-            // A leaf has no submenu of its own, but resting on it still puts away the one
-            // that is up, as resting on any other category would.
-            if cats.get(index).is_some_and(|(_, m)| leaf(m).is_some()) {
-                menu.hide_submenu();
+            // A node has no submenu of its own, but resting on it still puts away the one
+            // its column has up, as resting on any other entry would.
+            let opens = at <= menu.path.len()
+                && column(&tree, &menu.path[..at])
+                    .and_then(|c| c.get(index))
+                    .is_some_and(|e| e.entries().is_some());
+            if opens {
+                menu.show_submenu(at, index);
             } else {
-                menu.show_submenu(index);
+                menu.hide_from(at.min(menu.path.len()));
             }
         } else {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_secs_f64(due - now));
         }
     }
-    if let Some(due) = menu.closing {
+    if let Some((keep, due)) = menu.closing {
         if now >= due {
-            menu.hide_submenu();
+            menu.hide_from(keep);
         } else {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_secs_f64(due - now));
         }
     }
 
-    // --- the categories and the submenu, in one area ---------------------------------------
-    // One `Area`, not two. An `Area` reports the rect it had when it was last laid out, so a
-    // second one placed from the first lands a frame behind — visibly, on the frame a submenu
+    // --- the categories and the submenus, in one area --------------------------------------
+    // One `Area`, not one each. An `Area` reports the rect it had when it was last laid out, so
+    // a second one placed from the first lands a frame behind — visibly, on the frame a submenu
     // opens, which is the flash the timers exist to prevent. A child `Ui` placed beside the
-    // category's own row is laid out now.
+    // row that owns it is laid out now.
     //
     // The height is computed rather than measured for the same reason: the menu stands on the
     // button, so it is positioned by its bottom edge, and a height that is last frame's would
     // put this frame's menu in the wrong place.
-    let height = (cats.len() as f32).mul_add(ROW, FRAME_PAD * 2.0 + 2.0);
+    let height = (tree.len() as f32).mul_add(ROW, FRAME_PAD * 2.0 + 2.0);
     let top = (button_rect.min.y - height).max(within.min.y);
     let mut over = Over::Nothing;
+    // An entry with a submenu that was clicked: it opens at once rather than on the timer.
+    let mut opened = None;
     // The first time an `Area` is shown egui lays it out once to measure it — a *sizing
     // pass*, at a position it has not worked out yet, which it then discards and runs again.
     // The geometry of that pass is not where anything will be drawn, so the mouse model must
@@ -267,7 +274,8 @@ pub fn show(
         .constrain(false)
         .show(ui.ctx(), |ui| {
             sizing = ui.is_sizing_pass();
-            let mut rows: Vec<Rect> = Vec::with_capacity(cats.len());
+            let mut rows: Vec<Vec<Rect>> = Vec::with_capacity(menu.path.len() + 1);
+            let mut first: Vec<Rect> = Vec::with_capacity(tree.len());
             popup::frame(ui.style(), theme, Theme::border_strong)
                 .inner_margin(FRAME_PAD)
                 .show(ui, |ui| {
@@ -275,73 +283,115 @@ pub fn show(
                     // Flush, like every menu: the height above is computed from the rows, and
                     // a gap between them would put the panel's bottom edge over the button.
                     ui.spacing_mut().item_spacing.y = 0.0;
-                    for (index, (category, members)) in cats.iter().enumerate() {
-                        let leaf = leaf(members);
-                        let (rect, clicked) = category_row(ui, *category, leaf, index, menu, theme);
-                        rows.push(rect);
-                        if clicked && let Some(def) = leaf {
-                            chosen = Some(def.slug);
+                    for (index, entry) in tree.iter().enumerate() {
+                        let selected = menu.depth == 0 && menu.selected(0) == Some(index);
+                        let (rect, clicked) =
+                            category_row(ui, entry, WIDTH, selected, false, theme);
+                        first.push(rect);
+                        if clicked {
+                            match entry {
+                                Entry::Node(def) => chosen = Some(def.slug),
+                                Entry::Group(_) => opened = Some((0, index)),
+                            }
                         }
                     }
                 });
             if let Some(p) = pointer
-                && let Some(index) = rows.iter().position(|r| r.contains(p))
+                && let Some(index) = first.iter().position(|r| r.contains(p))
             {
-                over = Over::Category(index);
+                over = Over::Entry(0, Some(index));
             }
+            rows.push(first);
 
-            // The submenu, level with the category that owns it and pushed up when it would
-            // run off the bottom.
-            if let Some(index) = menu.submenu
-                && let (Some(anchor), Some((_, members))) = (rows.get(index), cats.get(index))
-            {
-                let screen = ui.ctx().content_rect();
-                let tall = (members.len() as f32)
+            // Each submenu, level with the row that owns it and pushed up when it would run
+            // off the bottom.
+            let screen = ui.ctx().content_rect();
+            for at in 1..=menu.path.len() {
+                let (Some(anchor), Some(entries)) = (
+                    rows[at - 1].get(menu.path[at - 1]).copied(),
+                    column(&tree, &menu.path[..at]),
+                ) else {
+                    break;
+                };
+                let tall = (entries.len() as f32)
                     .mul_add(ROW, FRAME_PAD * 2.0 + 2.0)
                     .min(screen.height() - MARGIN * 2.0);
-                let at = Rect::from_min_size(
+                let wide = browse::WIDTH + FRAME_PAD * 2.0;
+                // Beside its row, or as far right as the window lets it be: a submenu two deep
+                // in a narrow window covers part of the one it came from rather than running
+                // off the edge.
+                let place = Rect::from_min_size(
                     Pos2::new(
-                        anchor.max.x + FRAME_PAD,
+                        (anchor.max.x + FRAME_PAD).min(screen.max.x - wide - MARGIN),
                         anchor
                             .min
                             .y
                             .min(screen.max.y - tall - MARGIN)
                             .max(screen.min.y + MARGIN),
                     ),
-                    vec2(browse::WIDTH + FRAME_PAD * 2.0, tall),
+                    vec2(wide, tall),
                 );
-                if pointer.is_some_and(|p| at.contains(p)) {
-                    over = Over::Submenu(None);
+                if pointer.is_some_and(|p| place.contains(p)) {
+                    over = Over::Entry(at, None);
                 }
-                ui.scope_builder(UiBuilder::new().max_rect(at), |ui| {
+                let mut these: Vec<Rect> = Vec::with_capacity(entries.len());
+                ui.scope_builder(UiBuilder::new().max_rect(place), |ui| {
                     popup::frame(ui.style(), theme, Theme::border_strong)
                         .inner_margin(FRAME_PAD)
                         .show(ui, |ui| {
                             ui.set_width(browse::WIDTH);
                             ScrollArea::vertical()
+                                .id_salt(("nodes-menu-submenu", at))
                                 .max_height(tall)
                                 .auto_shrink([false, true])
                                 .show(ui, |ui| {
                                     ui.spacing_mut().item_spacing.y = 0.0;
-                                    for (i, def) in members.iter().enumerate() {
-                                        let selected = menu.inside && menu.item == Some(i);
-                                        let row =
-                                            browse::row(ui, def, selected, menu.follow, theme);
-                                        if pointer.is_some_and(|p| row.rect.contains(p)) {
-                                            over = Over::Submenu(Some(i));
+                                    for (i, entry) in entries.iter().enumerate() {
+                                        let selected =
+                                            menu.depth == at && menu.selected(at) == Some(i);
+                                        let (rect, clicked) = match entry {
+                                            Entry::Node(def) => {
+                                                let row = browse::row(
+                                                    ui,
+                                                    def,
+                                                    selected,
+                                                    menu.follow,
+                                                    theme,
+                                                );
+                                                (row.rect, row.clicked)
+                                            }
+                                            Entry::Group(_) => category_row(
+                                                ui,
+                                                entry,
+                                                ui.available_width(),
+                                                selected,
+                                                menu.follow,
+                                                theme,
+                                            ),
+                                        };
+                                        if pointer.is_some_and(|p| rect.contains(p)) {
+                                            over = Over::Entry(at, Some(i));
                                         }
-                                        if row.clicked {
-                                            chosen = Some(def.slug);
+                                        these.push(rect);
+                                        if clicked {
+                                            match entry {
+                                                Entry::Node(def) => chosen = Some(def.slug),
+                                                Entry::Group(_) => opened = Some((at, i)),
+                                            }
                                         }
                                     }
                                 });
                         });
                 });
+                rows.push(these);
             }
         });
 
     if !sizing {
         crossings(menu, over, now);
+    }
+    if let Some((at, index)) = opened {
+        menu.show_submenu(at, index);
     }
 
     // Clicked away, the rule every popup here follows.
@@ -362,17 +412,17 @@ pub fn show(
 
 /// What the pointer crossed between last frame and this one, and what silvia does about it.
 ///
-/// Every rule here is a DOM handler in `menu.js`, in the same order:
+/// Every rule here is a DOM handler in `menu.js`, in the same order, and each holds in every
+/// column:
 ///
 /// - `categoryItemEl.mouseenter` — cancel the close, cancel any *other* pending open, and
 ///   start this one's 200 ms unless its submenu is already up.
 /// - `categoryItemEl.mouseleave` — cancel this one's pending open, and start the 300 ms close
 ///   if its submenu is up.
 /// - `submenuEl.mouseenter` / `mouseleave` — cancel the close; start the close.
-/// - `KeyboardNavigationManager.handleMouseOver` — the pointer moving onto a category moves
-///   the selection there, but **only while the keyboard is in the category column**, and the
-///   pointer moving onto an entry moves it there **only while the keyboard is in the
-///   submenu**. Crossing, not resting: a still pointer never takes the selection back.
+/// - `KeyboardNavigationManager.handleMouseOver` — the pointer moving onto an entry moves the
+///   selection there, but **only in the column the keyboard is in**. Crossing, not resting: a
+///   still pointer never takes the selection back.
 fn crossings(menu: &mut StartMenu, over: Over, now: f64) {
     let was = menu.over;
     if was == over {
@@ -380,70 +430,62 @@ fn crossings(menu: &mut StartMenu, over: Over, now: f64) {
     }
     menu.over = over;
 
-    // Left a category.
-    if let Over::Category(index) = was {
-        if menu.pending.map(|(p, _)| p) == Some(index) {
+    // Left an entry.
+    if let Over::Entry(at, Some(index)) = was {
+        if menu.pending.is_some_and(|(c, i, _)| (c, i) == (at, index)) {
             menu.pending = None;
         }
-        if menu.submenu == Some(index) && menu.closing.is_none() {
-            menu.closing = Some(now + CLOSE_DELAY);
+        if menu.path.get(at) == Some(&index) && menu.closing.is_none() {
+            menu.closing = Some((at, now + CLOSE_DELAY));
         }
     }
-    // Left the submenu.
-    if was.in_submenu() && !over.in_submenu() && menu.closing.is_none() {
-        menu.closing = Some(now + CLOSE_DELAY);
+    // Left a submenu for outside the menu.
+    if let Over::Entry(at, _) = was
+        && at > 0
+        && over == Over::Nothing
+        && menu.closing.is_none()
+    {
+        menu.closing = Some((0, now + CLOSE_DELAY));
     }
 
-    match over {
-        Over::Category(index) => {
-            menu.closing = None;
-            if menu.pending.map(|(p, _)| p) != Some(index) {
+    if let Over::Entry(at, entry) = over {
+        menu.closing = None;
+        if let Some(index) = entry {
+            if menu.pending.is_some_and(|(c, i, _)| (c, i) != (at, index)) {
                 menu.pending = None;
             }
-            if menu.submenu != Some(index) && menu.pending.is_none() {
-                menu.pending = Some((index, now + OPEN_DELAY));
+            if menu.path.get(at) != Some(&index) && menu.pending.is_none() {
+                menu.pending = Some((at, index, now + OPEN_DELAY));
             }
-            if !menu.inside {
-                menu.cursor = Some(index);
-            }
-        }
-        Over::Submenu(entry) => {
-            menu.closing = None;
-            if menu.inside
-                && let Some(i) = entry
-            {
-                menu.item = Some(i);
+            if menu.depth == at {
+                menu.select(at, Some(index));
             }
         }
-        Over::Nothing => {}
     }
 }
 
-/// One category: icon, name, and the ▶ that says it has a submenu — or, for a category of
-/// one, the node it stands for, named by the node and with no ▶. Returns its rect, and
-/// whether it was clicked, which only a leaf answers.
+/// One row that is not a node's shape: an icon, a name, and the ▶ that says it has a submenu
+/// — a category, a family — or, for a node that stands among them, the node with no ▶.
+/// Returns its rect, and whether it was clicked.
 fn category_row(
     ui: &mut Ui,
-    category: Category,
-    leaf: Option<&'static NodeDef>,
-    index: usize,
-    menu: &StartMenu,
+    entry: &Entry,
+    width: f32,
+    selected: bool,
+    follow: bool,
     theme: &Theme,
 ) -> (Rect, bool) {
-    let (rect, response) = ui.allocate_exact_size(vec2(WIDTH, ROW), Sense::click());
+    let (rect, response) = ui.allocate_exact_size(vec2(width, ROW), Sense::click());
     crate::ui::cursor(&response, eframe::egui::CursorIcon::PointingHand);
-    let selected = menu.cursor == Some(index) && !menu.inside;
-    let label = leaf.map_or(category.label(), |def| def.label);
-    browse::paint_row(
-        ui,
-        rect,
-        selected,
-        response.hovered(),
-        category.icon(),
-        label,
-        theme,
-    );
-    if leaf.is_none() {
+    if selected && follow {
+        ui.scroll_to_rect(rect, Some(Align::Center));
+    }
+    let (icon, label, more) = match entry {
+        Entry::Node(def) => (def.icon, def.label, false),
+        Entry::Group(group) => (group.icon, group.label, true),
+    };
+    browse::paint_row(ui, rect, selected, response.hovered(), icon, label, theme);
+    if more {
         icon::paint(
             ui.painter(),
             Rect::from_center_size(
@@ -454,11 +496,11 @@ fn category_row(
             theme.primary_muted(),
         );
     }
-    let name = format!("{} {label}", category.icon());
+    let name = format!("{icon} {label}");
     response.widget_info(|| {
         eframe::egui::WidgetInfo::labeled(eframe::egui::WidgetType::Button, true, &name)
     });
-    (rect, leaf.is_some() && response.clicked())
+    (rect, response.clicked())
 }
 
 /// The start button's area.
@@ -574,49 +616,33 @@ fn button(ui: &mut Ui, menu: &StartMenu, within: Rect, theme: &Theme) -> (Respon
 ///
 /// Nothing here reads the pointer, and nothing the pointer does while it is still can undo
 /// what this decided — that is the half of the menu people notice when it is missing.
-fn keys(
-    ui: &Ui,
-    menu: &mut StartMenu,
-    cats: &[(Category, Vec<&'static NodeDef>)],
-    chosen: &mut Option<&'static str>,
-) {
+fn keys(ui: &Ui, menu: &mut StartMenu, tree: &[Entry], chosen: &mut Option<&'static str>) {
     let frame = ui.ctx().cumulative_frame_nr();
     if menu.keys_at == Some(frame) {
         return;
     }
     menu.keys_at = Some(frame);
-    let members = menu
-        .submenu
-        .and_then(|i| cats.get(i))
-        .map_or(0, |(_, m)| m.len());
+    let len = |menu: &StartMenu| column(tree, &menu.path[..menu.depth]).map_or(0, <[Entry]>::len);
     let mut enter = false;
     let mut right = false;
     ui.input_mut(|i| {
         if i.consume_key(Modifiers::NONE, Key::Escape) {
-            if menu.inside {
-                menu.hide_submenu();
+            if menu.depth > 0 {
+                menu.hide_from(menu.depth - 1);
             } else {
                 menu.close();
             }
         }
-        if i.consume_key(Modifiers::NONE, Key::ArrowDown) {
-            menu.follow = true;
-            if menu.inside {
-                menu.item = Some(step(menu.item, members, 1));
-            } else {
-                menu.cursor = Some(step(menu.cursor, cats.len(), 1));
+        for (key, by) in [(Key::ArrowDown, 1), (Key::ArrowUp, -1)] {
+            if i.consume_key(Modifiers::NONE, key) {
+                menu.follow = true;
+                let at = menu.depth;
+                let to = step(menu.selected(at), len(menu), by);
+                menu.select(at, Some(to));
             }
         }
-        if i.consume_key(Modifiers::NONE, Key::ArrowUp) {
-            menu.follow = true;
-            if menu.inside {
-                menu.item = Some(step(menu.item, members, -1));
-            } else {
-                menu.cursor = Some(step(menu.cursor, cats.len(), -1));
-            }
-        }
-        if i.consume_key(Modifiers::NONE, Key::ArrowLeft) && menu.inside {
-            menu.hide_submenu();
+        if i.consume_key(Modifiers::NONE, Key::ArrowLeft) && menu.depth > 0 {
+            menu.hide_from(menu.depth - 1);
         }
         enter = i.consume_key(Modifiers::NONE, Key::Enter);
         right = i.consume_key(Modifiers::NONE, Key::ArrowRight);
@@ -624,29 +650,28 @@ fn keys(
     if !(enter || right) || !menu.open {
         return;
     }
-    if menu.inside {
-        // Nothing selected takes nothing: a submenu opened by hovering has no entry under the
-        // keyboard until `Down` puts one there.
-        if let Some(def) = menu
-            .submenu
-            .and_then(|i| cats.get(i))
-            .and_then(|(_, m)| menu.item.and_then(|k| m.get(k)))
-        {
-            *chosen = Some(def.slug);
-        }
-    } else if let Some(index) = menu.cursor {
-        // A leaf has nothing to go into: `Enter` takes it, and `Right` does nothing, as on
-        // a Windows menu entry with no submenu.
-        if let Some(def) = cats.get(index).and_then(|(_, m)| leaf(m)) {
-            if enter {
+    // Nothing selected takes nothing: a submenu opened by hovering has no entry under the
+    // keyboard until `Down` puts one there.
+    let at = menu.depth;
+    let Some(index) = menu.selected(at) else {
+        return;
+    };
+    match column(tree, &menu.path[..at]).and_then(|c| c.get(index)) {
+        // A node among the categories has nothing to go into: `Enter` takes it, and `Right`
+        // does nothing, as on a Windows menu entry with no submenu. In a submenu either takes
+        // it.
+        Some(Entry::Node(def)) => {
+            if enter || at > 0 {
                 *chosen = Some(def.slug);
             }
-            return;
         }
         // Going in by key selects the first entry, where going in by pointer selects none.
-        menu.show_submenu(index);
-        menu.item = Some(0);
-        menu.follow = true;
+        Some(Entry::Group(_)) => {
+            menu.show_submenu(at, index);
+            menu.select(at + 1, Some(0));
+            menu.follow = true;
+        }
+        None => {}
     }
 }
 
@@ -686,24 +711,40 @@ mod tests {
         assert_eq!(step(Some(0), 0, -1), 0);
     }
 
+    /// The one node among the categories on a video workspace is the Output; on a solids one,
+    /// Render 3D beside it.
     #[test]
-    fn every_category_with_members_is_offered() {
-        let cats = categories();
-        assert_eq!(cats.len(), Category::ALL.len(), "a category has no nodes");
-        assert!(cats.iter().all(|(_, m)| !m.is_empty()));
+    fn the_nodes_at_the_top_are_the_output_and_on_solids_the_render() {
+        for (kind, want) in [
+            (WorkspaceKind::Video, vec!["output"]),
+            (WorkspaceKind::Solids, vec!["solidrender", "output"]),
+        ] {
+            let leaves: Vec<_> = library::menu(kind)
+                .iter()
+                .filter_map(|e| match e {
+                    Entry::Node(def) => Some(def.slug),
+                    Entry::Group(_) => None,
+                })
+                .collect();
+            assert_eq!(leaves, want, "{kind:?}");
+        }
     }
 
-    /// Output, a category of one, is offered as the node; every other category opens.
+    /// A path names a column whatever its depth, and a path through a node names none.
     #[test]
-    fn only_output_is_a_leaf() {
-        for (category, members) in categories() {
-            assert_eq!(
-                leaf(&members).map(|d| d.slug),
-                (category == Category::Output).then_some("output"),
-                "{}",
-                category.label()
-            );
-        }
+    fn a_path_leads_to_its_column() {
+        let tree = library::menu(WorkspaceKind::Video);
+        let solids = tree
+            .iter()
+            .position(|e| matches!(e, Entry::Group(g) if g.label == "Solids"))
+            .expect("Solids");
+        let shapes = column(&tree, &[solids, 1]).expect("the first family");
+        assert!(
+            shapes
+                .iter()
+                .any(|e| matches!(e, Entry::Node(d) if d.slug == "sphere"))
+        );
+        assert_eq!(column(&tree, &[solids, 0]), None, "Render 3D opens nothing");
     }
 
     /// A pointer that has not moved says nothing, so no timer starts and no selection moves.
@@ -712,13 +753,13 @@ mod tests {
     fn a_still_pointer_crosses_nothing() {
         let mut menu = StartMenu {
             open: true,
-            over: Over::Category(2),
-            cursor: Some(4),
+            over: Over::Entry(0, Some(2)),
+            cursor: vec![Some(4)],
             ..StartMenu::default()
         };
-        crossings(&mut menu, Over::Category(2), 10.0);
+        crossings(&mut menu, Over::Entry(0, Some(2)), 10.0);
         assert_eq!(
-            menu.cursor,
+            menu.selected(0),
             Some(4),
             "a still pointer took the selection back"
         );
@@ -731,16 +772,16 @@ mod tests {
     fn the_keyboard_never_starts_a_close() {
         let mut menu = StartMenu {
             open: true,
-            cursor: Some(1),
+            cursor: vec![Some(1)],
             ..StartMenu::default()
         };
-        menu.show_submenu(1);
-        menu.item = Some(0);
+        menu.show_submenu(0, 1);
+        menu.select(1, Some(0));
         for t in 0..10 {
             crossings(&mut menu, Over::Nothing, f64::from(t));
         }
         assert_eq!(menu.closing, None, "the keyboard armed the close timer");
-        assert_eq!(menu.submenu, Some(1), "the submenu closed itself");
+        assert_eq!(menu.path, [1], "the submenu closed itself");
     }
 
     /// Crossing onto another category does not close the open submenu: entering one cancels
@@ -750,16 +791,16 @@ mod tests {
     fn crossing_another_category_does_not_close_the_open_one() {
         let mut menu = StartMenu {
             open: true,
-            over: Over::Category(1),
-            submenu: Some(1),
+            over: Over::Entry(0, Some(1)),
+            path: vec![1],
             ..StartMenu::default()
         };
-        crossings(&mut menu, Over::Category(2), 1.0);
+        crossings(&mut menu, Over::Entry(0, Some(2)), 1.0);
         assert_eq!(menu.closing, None, "passing over one closed the other");
-        assert_eq!(menu.submenu, Some(1), "it closed on the way past");
+        assert_eq!(menu.path, [1], "it closed on the way past");
         assert_eq!(
             menu.pending,
-            Some((2, 1.0 + OPEN_DELAY)),
+            Some((0, 2, 1.0 + OPEN_DELAY)),
             "the category crossed on the way did not wait its turn"
         );
     }
@@ -770,20 +811,20 @@ mod tests {
     fn the_diagonal_to_a_submenu_keeps_it_open() {
         let mut menu = StartMenu {
             open: true,
-            over: Over::Category(1),
-            submenu: Some(1),
+            over: Over::Entry(0, Some(1)),
+            path: vec![1],
             ..StartMenu::default()
         };
         crossings(&mut menu, Over::Nothing, 1.0);
         assert_eq!(
             menu.closing,
-            Some(1.0 + CLOSE_DELAY),
+            Some((0, 1.0 + CLOSE_DELAY)),
             "leaving the menu armed nothing"
         );
 
-        crossings(&mut menu, Over::Submenu(Some(0)), 1.1);
+        crossings(&mut menu, Over::Entry(1, Some(0)), 1.1);
         assert_eq!(menu.closing, None, "reaching the submenu did not disarm it");
-        assert_eq!(menu.submenu, Some(1), "it closed on the way");
+        assert_eq!(menu.path, [1], "it closed on the way");
     }
 
     /// The pointer moves the selection only in the half the keyboard is in.
@@ -791,21 +832,45 @@ mod tests {
     fn the_pointer_moves_the_selection_only_where_the_keyboard_is() {
         let mut menu = StartMenu {
             open: true,
-            submenu: Some(0),
-            inside: true,
-            item: Some(3),
-            cursor: Some(0),
+            path: vec![0],
+            depth: 1,
+            cursor: vec![Some(0), Some(3)],
             ..StartMenu::default()
         };
         // In the submenu, a category the pointer crosses does not take the selection.
-        crossings(&mut menu, Over::Category(2), 1.0);
-        assert_eq!(menu.item, Some(3));
-        assert_eq!(menu.cursor, Some(0), "the pointer stole the selection");
+        crossings(&mut menu, Over::Entry(0, Some(2)), 1.0);
+        assert_eq!(menu.selected(1), Some(3));
+        assert_eq!(menu.selected(0), Some(0), "the pointer stole the selection");
 
         // Out of it, one does.
-        menu.inside = false;
+        menu.hide_from(0);
         menu.over = Over::Nothing;
-        crossings(&mut menu, Over::Category(2), 2.0);
-        assert_eq!(menu.cursor, Some(2));
+        crossings(&mut menu, Over::Entry(0, Some(2)), 2.0);
+        assert_eq!(menu.selected(0), Some(2));
+    }
+
+    /// A submenu's entry that opens one of its own waits its turn as a category does, and
+    /// leaving the menu from the deepest column closes every submenu, not only that one.
+    #[test]
+    fn a_submenu_inside_a_submenu_keeps_the_same_timers() {
+        let mut menu = StartMenu {
+            open: true,
+            path: vec![10],
+            depth: 1,
+            cursor: vec![Some(10), None],
+            ..StartMenu::default()
+        };
+        crossings(&mut menu, Over::Entry(1, Some(3)), 1.0);
+        assert_eq!(menu.pending, Some((1, 3, 1.0 + OPEN_DELAY)));
+        assert_eq!(menu.selected(1), Some(3), "the keyboard is in that column");
+        menu.show_submenu(1, 3);
+        assert_eq!((menu.path.as_slice(), menu.depth), (&[10, 3][..], 2));
+
+        crossings(&mut menu, Over::Entry(2, Some(0)), 1.5);
+        crossings(&mut menu, Over::Nothing, 2.0);
+        assert_eq!(menu.closing, Some((0, 2.0 + CLOSE_DELAY)));
+        menu.hide_from(0);
+        assert!(menu.path.is_empty());
+        assert_eq!((menu.depth, menu.selected(0)), (0, Some(10)));
     }
 }

@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Fold",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A box folded like a kaleidoscope into a fractal of its own copies",
   "layout": "linear",
   "nodes": [

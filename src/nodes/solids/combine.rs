@@ -6,7 +6,7 @@
 use super::{SDF, fill, num, out, solid};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, InputDef, NodeDef};
+use crate::nodes::{Category, Family, InputDef, NodeDef};
 use std::fmt::Write as _;
 
 const SMOOTH: InputDef = num("smooth", "Smooth", 0.0, 0.0, 2.0, 0.01, "⬓");
@@ -29,6 +29,7 @@ fn fold(node: NodeId, ctx: &mut CompileContext, op: &str, keys: &[&'static str])
 pub static UNION: NodeDef = NodeDef {
     slug: "union",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "⊕",
     label: "Union",
     tooltip: "Up to four solids as one. Smooth melts them together over that distance.",
@@ -49,6 +50,7 @@ pub static UNION: NodeDef = NodeDef {
 pub static SUBTRACT: NodeDef = NodeDef {
     slug: "solidsubtract",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "⊖",
     label: "Subtract",
     tooltip: "A with B carved out of it. The cut takes B's color.",
@@ -63,6 +65,7 @@ pub static SUBTRACT: NodeDef = NodeDef {
 pub static INTERSECT: NodeDef = NodeDef {
     slug: "intersect",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "⊗",
     label: "Intersect",
     tooltip: "Only where A and B overlap.",

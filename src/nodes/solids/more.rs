@@ -24,7 +24,7 @@ pub mod fractals;
 use super::{SDF, color, fill, num, num_log, out, solid, tint};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, InputDef, NodeDef, OptionDef};
+use crate::nodes::{Category, Family, InputDef, NodeDef, OptionDef};
 
 pub(crate) const X: InputDef = num("x", "X", 0.0, -10.0, 10.0, 0.01, "⬓");
 pub(crate) const Y: InputDef = num("y", "Y", 0.0, -10.0, 10.0, 0.01, "⬓");
@@ -53,6 +53,7 @@ fn primitive(node: NodeId, ctx: &mut CompileContext, prelude: &str, dist: &str) 
 pub static CONE: NodeDef = NodeDef {
     slug: "cone",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "🔺",
     label: "Cone",
     tooltip: "An upright cone, capped, at its center: Bottom and Top are the radii of its two \
@@ -92,6 +93,7 @@ pub static CONE: NodeDef = NodeDef {
 pub static HEX_PRISM: NodeDef = NodeDef {
     slug: "hexprism",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "⬢",
     label: "Hex Prism",
     tooltip: "An upright six-sided column, at its center. Radius is from the middle to the \
@@ -127,6 +129,7 @@ pub static HEX_PRISM: NodeDef = NodeDef {
 pub static PYRAMID: NodeDef = NodeDef {
     slug: "pyramid",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "△",
     label: "Pyramid",
     tooltip: "A pyramid on a square base Base wide, Height tall, placed by the point halfway up.",
@@ -172,6 +175,7 @@ pub static PYRAMID: NodeDef = NodeDef {
 pub static LINK: NodeDef = NodeDef {
     slug: "link",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "🔗",
     label: "Link",
     tooltip: "A chain link standing upright: a ring of Ring radius pulled apart by Length, \
@@ -202,6 +206,7 @@ pub static LINK: NodeDef = NodeDef {
 pub static GYROID: NodeDef = NodeDef {
     slug: "gyroid",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "≋",
     label: "Gyroid",
     tooltip: "A curved lattice that fills all of space, Scale the size of one cell, its sheet \
@@ -233,6 +238,7 @@ pub static GYROID: NodeDef = NodeDef {
 pub static ELONGATE: NodeDef = NodeDef {
     slug: "elongate",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "⟷",
     label: "Elongate",
     tooltip: "Pulls a solid apart through its center and fills the gap, adding X, Y and Z to \
@@ -265,6 +271,7 @@ pub static ELONGATE: NodeDef = NodeDef {
 pub static MORPH: NodeDef = NodeDef {
     slug: "morph",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "◐",
     label: "Morph",
     tooltip: "Blends solid A into solid B by Amount, shape and color both. The blend is a safe \
@@ -290,6 +297,7 @@ pub static MORPH: NodeDef = NodeDef {
 pub static STRIPES: NodeDef = NodeDef {
     slug: "stripes3d",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "▤",
     label: "Stripes 3D",
     tooltip: "Paints a solid in bands of two colors, each Width thick, across the chosen axis. \
@@ -336,6 +344,7 @@ pub static STRIPES: NodeDef = NodeDef {
 pub static HEIGHT_GRADIENT: NodeDef = NodeDef {
     slug: "heightgradient",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "🌅",
     label: "Height Gradient",
     tooltip: "Paints a solid from Bottom Color at the height Bottom to Top Color at the height \

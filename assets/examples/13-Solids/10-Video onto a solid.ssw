@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Video onto a solid",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A video patch worn by a box, a cylinder and a ball through three Textures",
   "layout": "linear",
   "nodes": [

@@ -42,7 +42,7 @@ use super::more::{X, Y, Z, placed};
 use super::{SDF, color, num, num_log, out, tint, turn};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, NodeDef};
+use crate::nodes::{Category, Family, NodeDef};
 
 /// A primitive's body: `prelude` over `q`, then the distance `dist` and the node's Color.
 fn primitive(node: NodeId, ctx: &mut CompileContext, prelude: &str, dist: &str) -> String {
@@ -125,6 +125,7 @@ fn sd_spring_helix(q: vec3f, radius: f32, pitch: f32, tube: f32) -> f32 {
 pub static BOX_FRAME: NodeDef = NodeDef {
     slug: "boxframe",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "⬚",
     label: "Box Frame",
     tooltip: "The twelve edges of a box, at its center, each a bar Edge thick.",
@@ -162,6 +163,7 @@ pub static BOX_FRAME: NodeDef = NodeDef {
 pub static SUPERELLIPSOID: NodeDef = NodeDef {
     slug: "superellipsoid",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "▢",
     label: "Superellipsoid",
     tooltip: "A shape between a star, a ball and a box, its radii along each axis. Exponent 2 \
@@ -195,6 +197,7 @@ pub static SUPERELLIPSOID: NodeDef = NodeDef {
 pub static ELLIPSOID: NodeDef = NodeDef {
     slug: "ellipsoid",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "🏉",
     label: "Ellipsoid",
     tooltip: "A ball with its own radius along each axis, at its center. Its distance is a \
@@ -229,6 +232,7 @@ pub static ELLIPSOID: NodeDef = NodeDef {
 pub static HELIX: NodeDef = NodeDef {
     slug: "helix",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "➰",
     label: "Helix",
     tooltip: "An upright spring, at its center: a tube Tube in radius wound Radius from the axis, \
@@ -261,6 +265,7 @@ pub static HELIX: NodeDef = NodeDef {
 pub static SLAB: NodeDef = NodeDef {
     slug: "slab",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "▬",
     label: "Slab",
     tooltip: "A flat layer at any angle. Its top face is a plane through X, Y and Z, tipped by \
@@ -298,6 +303,7 @@ pub static SLAB: NodeDef = NodeDef {
 pub static DODECAHEDRON: NodeDef = NodeDef {
     slug: "dodecahedron",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "⬠",
     label: "Dodecahedron",
     tooltip: "Twelve pentagon faces, its corners Size from the center. Exact inside and across \
@@ -328,6 +334,7 @@ pub static DODECAHEDRON: NodeDef = NodeDef {
 pub static ICOSAHEDRON: NodeDef = NodeDef {
     slug: "icosahedron",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "◬",
     label: "Icosahedron",
     tooltip: "Twenty triangle faces, its corners Size from the center. Exact inside and across \

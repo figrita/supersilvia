@@ -1877,7 +1877,11 @@ mod fuzz {
                 }
                 73..=74 => Command::AddWorkspace {
                     name: format!("W{}", self.rng.below(1000)),
-                    kind: WorkspaceKind::Video,
+                    kind: if self.rng.chance(0.5) {
+                        WorkspaceKind::Video
+                    } else {
+                        WorkspaceKind::Solids
+                    },
                     layout: if self.rng.chance(0.5) {
                         LayoutMode::Canvas
                     } else {
@@ -1886,7 +1890,7 @@ mod fuzz {
                     seed: if self.rng.chance(0.5) {
                         Seed::Empty
                     } else {
-                        Seed::SourceToOutput { width: 1200.0 }
+                        Seed::Starter { width: 1200.0 }
                     },
                 },
                 75 => Command::RemoveWorkspace(self.ws(g)),

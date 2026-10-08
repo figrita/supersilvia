@@ -6,8 +6,9 @@ file under `assets/examples/<NN-Category>/`, the folder replaced whole.
     scripts/examples/make.py [--only module,module] [--registry registry.json] [--preview folder]
 
 A category module is `cat_<name>.py` holding `ORDER` (its place in the menu), `CATEGORY` (its
-title there) and `examples(new)`, which returns its examples in menu order; `new(title, blurb)`
-makes one (`lib.Example`). `--only` rewrites just those modules' folders. `--preview` also
+title there), `KIND` where its examples are not video workspaces (`"solids"`), and
+`examples(new)`, which returns its examples in menu order; `new(title, blurb)` makes one
+(`lib.Example`), and `new(title, blurb, "solids")` makes one of that kind in any category. `--only` rewrites just those modules' folders. `--preview` also
 writes a project holding every example written, one tab each, for the app or for
 
     cargo run --release --example loop_gifs -- <folder>
@@ -59,7 +60,8 @@ def main():
         folder = OUT / f"{m.ORDER:02d}-{m.CATEGORY}"
         shutil.rmtree(folder, ignore_errors=True)
         folder.mkdir()
-        made = m.examples(lambda title, blurb: lib.Example(reg, title, blurb))
+        kind = getattr(m, "KIND", "video")
+        made = m.examples(lambda title, blurb, kind=kind: lib.Example(reg, title, blurb, kind))
         titles = [e.title for e in made]
         assert len(set(titles)) == len(titles), f"{m.CATEGORY}: two examples share a title"
         for i, e in enumerate(made, 1):

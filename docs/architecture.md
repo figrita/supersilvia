@@ -159,13 +159,22 @@ thing that turns a frame into a texture or a simulation into a world on the GPU.
 ### Workspaces
 
 A **workspace is a view**, not a unit. There is one `Graph`, one `NodeId` space, and a
-workspace is a `WorkspaceId`, a name, a one-line blurb, a `WorkspaceKind` — `Video`, the only
-kind there is — and a `LayoutMode`. `Graph.workspaces` is every one of them in project order, and a node
+workspace is a `WorkspaceId`, a name, a one-line blurb, a `WorkspaceKind` — `Video` or
+`Solids` — and a `LayoutMode`. `Graph.workspaces` is every one of them in project order, and a node
 carries `workspaces: BTreeSet<WorkspaceId>` beside its `pos`.
 
-**Solids have no workspace kind.** The Solids category groups their nodes in the menu, and a
-solid graph sits on any workspace, beside the video nodes its render feeds and the CPU nodes
-that drive its numbers.
+**A kind decides the library's shape and the seed, and nothing else.** On a video workspace
+the Nodes menu leads with the video categories and holds the solids under one Solids
+category; on a solids workspace it leads with the solid families and holds the video
+categories under one Video category; the browser searches the workspace's own library first
+([ui.md](ui.md#three-ways-to-the-library)). A new workspace is born holding its kind's starter
+patch — a Main Input into an Output, or a Sphere into Render 3D into an Output
+(`nodes::library::starter`, carried by `Seed::Starter`). **A kind never restricts the
+canvas**: every node is placed and cabled on either kind, a solid graph on a video workspace
+renders as it would on a solids one, and the compiler, the renderer and the tick never read
+the kind. It is saved by its lowercase name in the workspace's own file and in the manifest,
+so an export carries it. Why it shapes the menu rather than the canvas is
+[in decisions.md](decisions.md#a-workspace-kind-shapes-the-library-never-the-canvas).
 
 **The layout mode belongs to the workspace**, not to the graph: one canvas is a plane while
 the one next to it is a strip, and each one's mode rides in its own file. `SetLayout` and
@@ -1068,9 +1077,9 @@ report is already the whole answer when `midi/` lands. Silence about the glue wo
 wrong answer, not a shorter one.
 
 **A kind that means nothing on its own is refused by name.** `WorkspaceKind::is_portable` is
-where that lives: a `Video` workspace is nodes and cables and travels whole, and a timeline
-will be every reference into other workspaces, so it travels with the project instead. No such
-kind exists yet; this is the branch it lands in.
+where that lives: a `Video` or a `Solids` workspace is nodes and cables and travels whole, and
+a timeline will be every reference into other workspaces, so it travels with the project
+instead. No such kind exists yet; this is the branch it lands in.
 
 **Import remaps.** Every node arrives through `insert_node` under an id from *this* project's
 counter and every cable inside the file is re-pointed to match, because a file's ids are

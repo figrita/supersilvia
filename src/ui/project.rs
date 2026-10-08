@@ -171,7 +171,7 @@ pub fn show(
             ui.label("Workspaces");
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 ui.menu_button("New workspace", |ui| {
-                    for kind in [WorkspaceKind::Video] {
+                    for kind in WorkspaceKind::ALL.iter().copied() {
                         if ui.button(tabs::label_of(kind)).clicked() {
                             actions.push(ProjectAction::Add(kind));
                             ui.close();
@@ -271,7 +271,9 @@ fn card(
                                 ui.label(workspace.name.as_str());
                             }
                             ui.label(format!(
-                                "{} · {} · {}",
+                                "{}{} · {} · {}",
+                                tabs::glyph_of(workspace.kind)
+                                    .map_or(String::new(), |g| format!("{g} ")),
                                 tabs::label_of(workspace.kind),
                                 if is_open { "open" } else { "closed" },
                                 node_count((page.counts)(id)),

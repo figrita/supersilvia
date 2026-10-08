@@ -51,6 +51,7 @@ pub mod glitch;
 pub mod gradients;
 pub mod hsla;
 pub mod imagegif;
+pub mod library;
 pub mod macros;
 pub mod maininput;
 pub mod math;
@@ -118,7 +119,7 @@ pub use sim::{Domain, Kernel, Pass, Simulation};
 
 use crate::compile::CompileContext;
 use crate::graph::{
-    ControlRange, ControlValue, Graph, Node, NodeId, PortDef, PortType, WorkspaceId,
+    ControlRange, ControlValue, Graph, Node, NodeId, PortDef, PortType, WorkspaceId, WorkspaceKind,
 };
 use emath::Pos2;
 
@@ -369,6 +370,88 @@ impl Category {
             Self::Gear => "⚙",
             Self::Solid => "🧊",
             Self::Output => "📺",
+        }
+    }
+
+    /// The kind of workspace whose library this category is, or `None` for one that serves
+    /// either: the numbers and events that drive a picture and a solid alike, and the Output
+    /// both end in. What the Nodes menu leads with and what the browser searches before it is
+    /// widened ([`library`]); never where a node may be placed.
+    pub fn kind(self) -> Option<WorkspaceKind> {
+        match self {
+            Self::Source
+            | Self::Generate
+            | Self::Color
+            | Self::Convert
+            | Self::Tap
+            | Self::Transform
+            | Self::Effect => Some(WorkspaceKind::Video),
+            Self::Solid => Some(WorkspaceKind::Solids),
+            Self::Math | Self::Control | Self::Gear | Self::Output => None,
+        }
+    }
+}
+
+/// A submenu inside a category, for a category too long to be one list. Only Solids has them;
+/// each solid node declares its own, and Render 3D, which turns a solid into a picture rather
+/// than making or changing one, declares none and stands beside the families.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Family {
+    /// A shape at its center: the primitives, the polyhedra, the gyroid.
+    Shapes,
+    /// Shapes whose detail comes from repeating a rule on itself.
+    Fractals,
+    /// A picture made into a solid: pushed out, turned on a lathe, raised into terrain.
+    Profiles,
+    /// Two solids into one.
+    Combine,
+    /// What moves, bends or folds the point a solid is asked about.
+    Space,
+    /// One solid as many copies.
+    Repeat,
+    /// What changes a surface where it already is: rounds it, hollows it, ripples it, colors
+    /// it whole or puts a picture on it.
+    Surface,
+    /// A color laid over a solid by where a point is, leaving its shape alone.
+    Color,
+}
+
+impl Family {
+    /// Menu order: what makes a shape, what combines and moves it, and what lies on it.
+    pub const ALL: &'static [Self] = &[
+        Self::Shapes,
+        Self::Fractals,
+        Self::Profiles,
+        Self::Combine,
+        Self::Space,
+        Self::Repeat,
+        Self::Surface,
+        Self::Color,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Shapes => "Shapes",
+            Self::Fractals => "Fractals",
+            Self::Profiles => "Profiles",
+            Self::Combine => "Combine",
+            Self::Space => "Space",
+            Self::Repeat => "Repeat",
+            Self::Surface => "Surface",
+            Self::Color => "Color",
+        }
+    }
+
+    pub fn icon(self) -> &'static str {
+        match self {
+            Self::Shapes => "🔺",
+            Self::Fractals => "❄",
+            Self::Profiles => "🏺",
+            Self::Combine => "⊕",
+            Self::Space => "🌀",
+            Self::Repeat => "▦",
+            Self::Surface => "🌊",
+            Self::Color => "🖌",
         }
     }
 }
@@ -992,6 +1075,9 @@ pub struct NodeDef {
     pub resizable: bool,
     /// Which group of the Nodes menu this belongs to.
     pub category: Category,
+    /// Which submenu inside its category, where the category has them. `None` for every node
+    /// outside Solids, and for Render 3D.
+    pub family: Option<Family>,
     /// How this node keeps time, for a node that moves with it: its pace, whether a new one
     /// stands still, its period and its axes, from which its time rows, its Timing heading and its mode are
     /// expanded. `None` for every node that does not move with time. See [`timing`].
@@ -1044,6 +1130,7 @@ impl NodeDef {
         resizable: false,
         // Overridden by every shipping node, and held to it by a registry test.
         category: Category::Effect,
+        family: None,
         timing: None,
         cpu: None,
         measure_wgsl: None,
@@ -2334,6 +2421,29 @@ mod tests {
                 REGISTRY.iter().any(|d| d.category == *category),
                 "{}: a menu group with no nodes in it",
                 category.label(),
+            );
+        }
+    }
+
+    /// Every solid node declares the family its submenu is, but Render 3D, which stands beside
+    /// the families; no node outside Solids declares one; and no family is empty.
+    #[test]
+    fn every_solid_but_the_render_declares_a_family() {
+        for def in REGISTRY {
+            let wanted = def.category == Category::Solid && def.slug != "solidrender";
+            assert_eq!(
+                def.family.is_some(),
+                wanted,
+                "{}: family {:?}",
+                def.slug,
+                def.family
+            );
+        }
+        for family in Family::ALL {
+            assert!(
+                REGISTRY.iter().any(|d| d.family == Some(*family)),
+                "{}: a family with no nodes in it",
+                family.label()
             );
         }
     }

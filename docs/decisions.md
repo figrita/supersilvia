@@ -6727,6 +6727,27 @@ for it, and its picture would reach a video node only through its frame. The nod
 that a video effect after a render re-marches it at every tap, and an Output between the two
 answers that.
 
+### A workspace kind shapes the library, never the canvas
+
+**Chosen.** `WorkspaceKind::Solids` beside `Video`, and a kind decides two things: the shape
+of the library — what the Nodes menu leads with and what the browser searches before its box
+is ticked — and what a new workspace is born holding. On a solids workspace the solid
+families, Render 3D and the Output are the top of the menu and the video categories are one
+Video category; on a video workspace it is the other way round, with Solids holding Render 3D
+and a submenu per family ([ui.md](ui.md#the-nodes-menu-a-start-button-two-timers-and-a-mouse-that-speaks-in-crossings)).
+Math, Control and Gears are at the top of both, because numbers and events drive a shape and
+a picture alike. **The kind restricts nothing**: every node is placed and cabled on either, and
+the compiler, the renderer and the tick never read it. A solid wears a picture made on its
+own workspace, a render goes on into video effects beside it, and one gear drives both — a
+wall between the two kinds would cut exactly the patches solids are for.
+
+**What lost: no kind at all**, the solids one category of the video menu. Fifty-seven nodes in
+one submenu is a list nobody reads, and a workspace that is all solids led with seven
+categories of picture nodes before the one it wanted. **A kind that restricts the canvas** —
+solid nodes only on a solids workspace — lost too: Render 3D's picture would reach a video
+node only across a tab, and an imported or hand-edited file could hold a node its own
+workspace refuses, a state with no good answer.
+
 ### A solid compiles to two functions, not one
 
 **Chosen.** Every solid node's generator runs twice: once for the whole solid, distance and

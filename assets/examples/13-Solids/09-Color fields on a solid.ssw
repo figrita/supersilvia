@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Color fields on a solid",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "Checker 3D, Facing, Height Gradient and Stripes 3D painting four shapes",
   "layout": "linear",
   "nodes": [

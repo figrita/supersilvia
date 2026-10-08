@@ -1106,16 +1106,11 @@ impl App {
             format!("Workspace {n}")
         };
         let layout = self.prefs.get().default_layout;
-        // A video tab is born with the shortest patch that shows a picture: the Main Input on
-        // the left, an Output on the right, cabled. An empty plane is a worse first thing to
-        // meet than two nodes you can delete. The canvas as of last frame is what the Output
-        // is placed against, and it rides in the command so redo puts it back there.
-        let seed = match kind {
-            crate::graph::WorkspaceKind::Video => crate::command::Seed::SourceToOutput {
-                width: self.canvas.width(),
-            },
-            #[allow(unreachable_patterns)]
-            _ => crate::command::Seed::Empty,
+        // A tab is born with its kind's shortest patch that shows a picture. The canvas as of
+        // last frame is what the Output is placed against, and it rides in the command so
+        // redo puts it back there.
+        let seed = crate::command::Seed::Starter {
+            width: self.canvas.width(),
         };
         if self
             .apply(Command::AddWorkspace {

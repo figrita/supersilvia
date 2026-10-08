@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Seams",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "Stairs Union, Columns Union and Exclusive, each joining two solids",
   "layout": "linear",
   "nodes": [

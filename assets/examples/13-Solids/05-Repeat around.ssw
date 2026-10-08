@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Repeat around",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A ring, an arch and a spiral staircase from Repeat Around",
   "layout": "linear",
   "nodes": [

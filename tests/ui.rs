@@ -6579,6 +6579,236 @@ fn escape_leaves_the_submenu_before_it_leaves_the_menu() {
     assert!(h.state().graph().is_empty(), "nothing was added");
 }
 
+/// A workspace of a kind, added the way a person adds one: the add button at the end of the
+/// bar, then the kind.
+fn add_workspace_of(h: &mut Harness<'_, App>, kind: &str) {
+    h.get_by_label("add workspace").click();
+    h.run_steps(2);
+    h.get_by_label(kind).click();
+    h.run_steps(2);
+}
+
+/// The families of the solids, as the menu names them.
+const FAMILIES: [&str; 8] = [
+    "🔺 Shapes",
+    "❄ Fractals",
+    "🏺 Profiles",
+    "⊕ Combine",
+    "🌀 Space",
+    "▦ Repeat",
+    "🌊 Surface",
+    "🖌 Color",
+];
+
+/// **On a video workspace the Output is a row of its own and Solids is a category of
+/// families.** The video categories lead, as they always did; Solids holds Render 3D first
+/// and then one submenu per family, and a node chosen two submenus deep lands like any other.
+#[test]
+fn on_a_video_workspace_solids_is_a_category_of_families() {
+    let mut h = harness();
+    h.step();
+    h.get_by_label("Nodes").click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("📺 Output").is_some(),
+        "the Output is a row of its own"
+    );
+    assert!(h.query_by_label("🎨 Generate").is_some());
+    assert!(
+        h.query_by_label("🎬 Video").is_none(),
+        "a video workspace has no Video category"
+    );
+    assert!(
+        h.query_by_label("🔺 Shapes").is_none(),
+        "the families are inside Solids, not beside it"
+    );
+
+    h.get_by_label("🧊 Solids").click();
+    h.run_steps(2);
+    let render = h.get_by_label("add solidrender").rect();
+    for family in FAMILIES {
+        let row = h.get_by_label(family).rect();
+        assert!(
+            row.min.y >= render.max.y - 1.0,
+            "Render 3D heads Solids: {family}"
+        );
+    }
+
+    h.get_by_label("🔺 Shapes").click();
+    h.run_steps(2);
+    h.get_by_label("add sphere").click();
+    h.run_steps(2);
+    let slugs: Vec<_> = h.state().graph().iter().map(|(_, n)| n.def.slug).collect();
+    assert_eq!(slugs, ["sphere"], "a node two submenus deep is added");
+    assert!(
+        h.query_by_label("🧊 Solids").is_none(),
+        "and the menu closes"
+    );
+}
+
+/// The keyboard walks a submenu inside a submenu as it walks the first: `Right` goes in with
+/// the first entry selected, `Left` comes back out.
+#[test]
+fn the_keys_go_two_submenus_deep() {
+    let mut h = harness();
+    h.step();
+    h.get_by_label("Nodes").click();
+    h.run_steps(2);
+    // Up twice: past the Output to Solids. Right: into it, on Render 3D. Down: Shapes.
+    for key in [
+        egui::Key::ArrowUp,
+        egui::Key::ArrowUp,
+        egui::Key::ArrowRight,
+        egui::Key::ArrowDown,
+        egui::Key::ArrowRight,
+    ] {
+        h.key_press(key);
+        h.step();
+    }
+    assert!(
+        h.query_by_label("add sphere").is_some(),
+        "Right did not go into Shapes"
+    );
+    h.key_press(egui::Key::ArrowLeft);
+    h.step();
+    assert!(
+        h.query_by_label("add sphere").is_none(),
+        "Left did not come out of Shapes"
+    );
+    assert!(
+        h.query_by_label("add solidrender").is_some(),
+        "and back in Solids"
+    );
+    h.key_press(egui::Key::ArrowRight);
+    h.step();
+    h.key_press(egui::Key::Enter);
+    h.run_steps(2);
+    let added: Vec<_> = h
+        .state()
+        .graph()
+        .iter()
+        .map(|(_, n)| n.def.family)
+        .collect();
+    assert_eq!(added, [Some(supersilvia::nodes::Family::Shapes)]);
+}
+
+/// **On a solids workspace the families, Render 3D and the Output are the top of the menu**,
+/// with Math, Control and Gears as on a video one, and Video is a category whose submenu
+/// holds the video categories — whose nodes land on a solids workspace like any other, since
+/// a kind shapes the menu and never the canvas.
+#[test]
+fn on_a_solids_workspace_the_families_render_and_output_are_top_level() {
+    let mut h = harness();
+    h.step();
+    add_workspace_of(&mut h, "Solids");
+    let solids = h.state().graph().workspaces()[1].id;
+    h.get_by_label("Nodes").click();
+    h.run_steps(2);
+    for top in FAMILIES.iter().chain(&[
+        "🎥 Render 3D",
+        "📺 Output",
+        "🧮 Math",
+        "🎛 Control",
+        "⚙ Gears",
+    ]) {
+        assert!(h.query_by_label(top).is_some(), "{top} is at the top");
+    }
+    for inside in ["🧊 Solids", "🎨 Generate", "📥 Source"] {
+        assert!(
+            h.query_by_label(inside).is_none(),
+            "{inside} is not at the top"
+        );
+    }
+
+    h.get_by_label("🎬 Video").click();
+    h.run_steps(2);
+    for category in [
+        "📥 Source",
+        "🎨 Generate",
+        "🌈 Color",
+        "✨ Effect",
+        "🩺 Tap",
+    ] {
+        assert!(
+            h.query_by_label(category).is_some(),
+            "Video holds {category}"
+        );
+    }
+    h.get_by_label("🎨 Generate").click();
+    h.run_steps(2);
+    let before = h.state().graph().len();
+    h.get_by_label("add checkerboard").click();
+    h.run_steps(2);
+    assert_eq!(h.state().graph().len(), before + 1);
+    let (_, added) = h.state().graph().iter().last().expect("the node");
+    assert_eq!(added.def.slug, "checkerboard");
+    assert!(
+        added.workspaces.contains(&solids),
+        "on the solids workspace"
+    );
+}
+
+/// **`+` offers a solids workspace, born holding a Sphere into Render 3D into an Output**,
+/// cabled left to right with none on top of another, in one undo step; its card in the
+/// project tab says what kind it is.
+#[test]
+fn the_plus_tab_makes_a_solids_workspace_born_holding_a_render() {
+    let mut h = harness();
+    h.step();
+    add_workspace_of(&mut h, "Solids");
+
+    let made = h
+        .state()
+        .graph()
+        .workspaces()
+        .last()
+        .expect("added")
+        .clone();
+    assert_eq!(made.kind, supersilvia::graph::WorkspaceKind::Solids);
+    assert_eq!(h.state().active(), Active::Workspace(made.id));
+    let graph = h.state().graph();
+    let born: Vec<_> = graph.on_workspace(made.id).collect();
+    let slugs: Vec<_> = born.iter().map(|(_, n)| n.def.slug).collect();
+    assert_eq!(slugs, ["sphere", "solidrender", "output"]);
+    let ids: Vec<_> = born.iter().map(|(id, _)| *id).collect();
+    let mut cables: Vec<_> = graph
+        .connections()
+        .iter()
+        .map(|c| ((c.from.node, c.from.key), (c.to.node, c.to.key)))
+        .collect();
+    cables.sort_unstable();
+    assert_eq!(
+        cables,
+        [
+            ((ids[0], "solid"), (ids[1], "solid")),
+            ((ids[1], "output"), (ids[2], "input"))
+        ]
+    );
+    for pair in ids.windows(2) {
+        let (a, b) = (node_rect(&h, pair[0]), node_rect(&h, pair[1]));
+        assert!(
+            a.min.x + 100.0 < b.min.x,
+            "left to right, a step apart: {a:?} then {b:?}"
+        );
+    }
+
+    h.get_by_label("tab project").click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label_contains("🧊 Solids · open · 3 nodes")
+            .is_some(),
+        "the card says its kind"
+    );
+
+    h.state_mut().undo();
+    h.run_steps(2);
+    assert_eq!(
+        h.state().graph().workspaces().len(),
+        1,
+        "the tab and all it was born holding are one step"
+    );
+}
+
 // ---------------------------------------------------------------- the node browser
 
 /// `/` opens the browser at the top of the canvas, typing narrows it, and Enter takes the
@@ -6611,6 +6841,61 @@ fn the_quake_bar_searches_and_enter_adds_the_best_match() {
         h.query_by_label("add output").is_none(),
         "the browser stayed open after adding"
     );
+}
+
+/// **The browser searches this workspace's own library until the box beside the search field
+/// is ticked**: no solid on a video workspace, no video node on a solids one, the shared ones
+/// on both. The box stays as it was left for the session, on every workspace.
+#[test]
+fn the_browser_searches_this_kinds_nodes_until_its_box_is_ticked() {
+    use supersilvia::graph::WorkspaceKind;
+    use supersilvia::ui::browse::every_kind_name;
+    let mut h = harness();
+    h.run_steps(2);
+
+    h.key_press(egui::Key::Slash);
+    h.run_steps(2);
+    type_text(&mut h, "sphere");
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("add sphere").is_none(),
+        "a solid is found on a video workspace"
+    );
+    let tick = every_kind_name(WorkspaceKind::Video);
+    h.get_by_label(&tick).click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("add sphere").is_some(),
+        "the box did not widen the search"
+    );
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+
+    add_workspace_of(&mut h, "Solids");
+    h.key_press(egui::Key::Slash);
+    h.run_steps(2);
+    type_text(&mut h, "checker");
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("add checkerboard").is_some(),
+        "the box was forgotten between two opens"
+    );
+    h.get_by_label(&every_kind_name(WorkspaceKind::Solids))
+        .click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label("add checkerboard").is_none(),
+        "a video node is found on a solids workspace"
+    );
+    assert!(h.query_by_label("add checker3d").is_some());
+    // The shared nodes are on both.
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+    h.key_press(egui::Key::Slash);
+    h.run_steps(2);
+    type_text(&mut h, "master");
+    h.run_steps(2);
+    assert!(h.query_by_label("add mastergear").is_some());
 }
 
 /// Escape closes it, and nothing was added.
@@ -11850,7 +12135,7 @@ fn a_new_output_takes_the_preferences_resolution_and_an_old_one_keeps_its_own() 
             name: "Second".to_owned(),
             kind: supersilvia::graph::WorkspaceKind::Video,
             layout: supersilvia::graph::LayoutMode::Canvas,
-            seed: supersilvia::command::Seed::SourceToOutput { width: 800.0 },
+            seed: supersilvia::command::Seed::Starter { width: 800.0 },
         })
         .unwrap();
     let born = h.state().graph().iter().map(|(id, _)| id).last().unwrap();

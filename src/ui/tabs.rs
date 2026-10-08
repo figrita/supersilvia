@@ -343,7 +343,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
                 let width = if state.renaming() == Some(w.id) {
                     RENAME_WIDTH
                 } else {
-                    tab_width(ui, None, &w.name, theme)
+                    tab_width(ui, icon_of(w.kind), &w.name, theme)
                 };
                 (w.id, width)
             })
@@ -393,7 +393,7 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 
             let response = tab(
                 ui,
-                None,
+                icon_of(workspace.kind),
                 &workspace.name,
                 &format!("tab {}", workspace.name),
                 bar.active == Active::Workspace(id),
@@ -425,10 +425,9 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
             });
         }
 
-        // One entry per kind that has a UI, which is one today. A menu rather than a plain
-        // button, because the second kind is a proposal away and the gesture should not move.
+        // One entry per kind.
         icon::menu_button(ui, Icon::Plus, "add workspace", |ui| {
-            for kind in [WorkspaceKind::Video] {
+            for kind in WorkspaceKind::ALL.iter().copied() {
                 if ui.button(label_of(kind)).clicked() {
                     actions.push(TabAction::Add(kind));
                     ui.close();
@@ -467,6 +466,24 @@ pub fn show(ui: &mut Ui, state: &mut TabState, bar: &TabBar<'_>, theme: &Theme) 
 pub fn label_of(kind: WorkspaceKind) -> &'static str {
     match kind {
         WorkspaceKind::Video => "Video",
+        WorkspaceKind::Solids => "Solids",
+    }
+}
+
+/// The mark a kind's tab wears before its name. A video tab wears none, since most are.
+pub fn icon_of(kind: WorkspaceKind) -> Option<Icon> {
+    match kind {
+        WorkspaceKind::Video => None,
+        WorkspaceKind::Solids => Some(Icon::Cube),
+    }
+}
+
+/// The glyph a kind's card in the project tab wears beside the kind's name, as the menu's
+/// category wears it: the Solids category's cube. A video card wears none.
+pub fn glyph_of(kind: WorkspaceKind) -> Option<&'static str> {
+    match kind {
+        WorkspaceKind::Video => None,
+        WorkspaceKind::Solids => Some(crate::nodes::Category::Solid.icon()),
     }
 }
 

@@ -12,7 +12,7 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use supersilvia::examples::{EXAMPLES, Example};
-use supersilvia::graph::{Graph, LayoutMode, NodeId, WorkspaceId};
+use supersilvia::graph::{Graph, LayoutMode, NodeId, WorkspaceId, WorkspaceKind};
 use supersilvia::project::Project;
 use supersilvia::ui::layout::{HORIZONTAL_MARGIN, VERTICAL_MARGIN};
 use supersilvia::{App, Command, workspace};
@@ -166,6 +166,27 @@ fn the_list_is_the_folder_in_order_with_titles_unique_in_a_category() {
             assert!(seen.insert(named(example)), "{} twice", named(example));
         }
     }
+}
+
+/// An example keeps the kind it was written as: every Solids example is a solids workspace,
+/// and adding one makes a solids tab.
+#[test]
+fn a_solids_example_is_a_solids_workspace_and_stays_one_when_added() {
+    for e in EXAMPLES.iter().filter(|e| e.category == "Solids") {
+        let file = workspace::parse(e.file).expect("a workspace file");
+        assert_eq!(file.kind, WorkspaceKind::Solids, "{}", named(e));
+    }
+    let index = EXAMPLES
+        .iter()
+        .position(|e| e.category == "Solids")
+        .expect("a Solids example");
+    let mut app = App::headless();
+    app.add_example(index);
+    let id = app.active_workspace().expect("a workspace is showing");
+    assert_eq!(
+        app.graph().workspace(id).map(|w| w.kind),
+        Some(WorkspaceKind::Solids)
+    );
 }
 
 /// Adding an example puts it on a tab of its own, shown, in the project that was open, as one

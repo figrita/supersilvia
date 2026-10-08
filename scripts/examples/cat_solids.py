@@ -7,6 +7,7 @@ from lib import HEAVY
 
 ORDER = 13
 CATEGORY = "Solids"
+KIND = "solids"
 
 
 def first_solid(new):
@@ -431,10 +432,10 @@ def glow(new):
     e.note(
         40,
         40,
-        "With Render 3D's Glow on, every ray that passes close to a surface without hitting it "
-        "picks up Glow Color, more the closer and longer it grazes. Thin shapes on a dark "
-        "ground show it best: a Box Frame turning round a Helix. Try the Glow port on Render "
-        "3D, and Glow Reach and Glow Color in its Light section.",
+        "With Render 3D's Glow above zero, every ray that passes close to a surface without "
+        "hitting it picks up Glow Color, more the closer and longer it grazes. Thin shapes on a "
+        "dark ground show it best: a Box Frame turning round a Helix. Try the Glow port on "
+        "Render 3D, and Glow Reach and Glow Color in its Light section.",
     )
     master = e.master(0, 0)
     frame = e.shape("boxframe", 0, 0, width=2.0, height=2.0, depth=2.0, edge=0.05, color="#2a2a3a", turn={"pitch": 0.1})
@@ -445,7 +446,7 @@ def glow(new):
         0,
         spring,
         controls={"distance": 5.0, "tilt": 0.05, "orbit": 0.08, "fog": 0.0, "background": "#07060c", "glowAmount": 0.5, "glowReach": 0.12, "glowColor": "#59d8ff"},
-        options={"floor": "none", "glow": "on"},
+        options={"floor": "none"},
     )
     return e
 

@@ -30,7 +30,7 @@ use super::{color, fill, num, num_log, out, tint};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
-use crate::nodes::{Category, Control, InputDef, NodeDef, OptionDef};
+use crate::nodes::{Category, Control, Family, InputDef, NodeDef, OptionDef};
 
 /// The picture's frame, 16/9 wide each side of the center and one unit tall each side: the
 /// signed distance from a picture-space `uv` to its edge, and the nearest point of it to `uv`,
@@ -121,6 +121,7 @@ fn ask(
 pub static EXTRUDE: NodeDef = NodeDef {
     slug: "extrude",
     category: Category::Solid,
+    family: Some(Family::Profiles),
     icon: "⬛",
     label: "Extrude",
     tooltip: "Pushes a picture out into a slab Depth deep: a Text, a shape, an Output's Frame, \
@@ -184,6 +185,7 @@ pub static EXTRUDE: NodeDef = NodeDef {
 pub static REVOLVE: NodeDef = NodeDef {
     slug: "revolve",
     category: Category::Solid,
+    family: Some(Family::Profiles),
     icon: "🏺",
     label: "Revolve",
     tooltip: "Spins a picture around the upright axis, as a lathe turns a vase: the picture's \
@@ -234,6 +236,7 @@ pub static REVOLVE: NodeDef = NodeDef {
 pub static HEIGHTFIELD: NodeDef = NodeDef {
     slug: "heightfield",
     category: Category::Solid,
+    family: Some(Family::Profiles),
     icon: "⛰",
     label: "Heightfield",
     tooltip: "Raises a picture into terrain: the ground stands at Base plus Height times the \

@@ -27,7 +27,7 @@
 //! weight, so the bound is exact for one octave and loose for many.
 
 use super::{SDF, fill, num, out, solid, turn};
-use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
+use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
 /// Iteration counts 1 to 12, for an option whose loop length is written into the code.
 const COUNTS: &[(&str, &str)] = &[
@@ -57,6 +57,7 @@ fn count(value: &str, max: u32, fallback: u32) -> u32 {
 pub static FOLD: NodeDef = NodeDef {
     slug: "fold",
     category: Category::Solid,
+    family: Some(Family::Fractals),
     icon: "❄",
     label: "Fold",
     tooltip: "Folds space like a kaleidoscope, turns it and scales it about Offset, Iterations \
@@ -150,6 +151,7 @@ pub static FOLD: NodeDef = NodeDef {
 pub static SCATTER_SPHERE: NodeDef = NodeDef {
     slug: "scattersphere",
     category: Category::Solid,
+    family: Some(Family::Repeat),
     icon: "🦠",
     label: "Scatter on Sphere",
     tooltip: "Spreads Copies of a solid evenly over a sphere of Radius, each standing on it with \
@@ -241,6 +243,7 @@ fn sd_fibonacci_nearest(v: vec3f, n: f32) -> f32 {
 pub static NOISE_DISPLACE: NodeDef = NodeDef {
     slug: "noisedisplace",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "🪨",
     label: "Noise Displace",
     tooltip: "Roughens a solid's surface with noise, for rocks and terrain: Amount is about the \

@@ -13,11 +13,12 @@
 //! comes back the same when a project is opened.
 
 use super::{SDF, fill, num, out, solid, turn};
-use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
+use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
 pub static GRID: NodeDef = NodeDef {
     slug: "repeatgrid",
     category: Category::Solid,
+    family: Some(Family::Repeat),
     icon: "▦",
     label: "Repeat",
     tooltip: "Copies a solid on a grid, Spacing apart on each axis; a spacing of 0 leaves that \
@@ -82,6 +83,7 @@ pub static GRID: NodeDef = NodeDef {
 pub static AROUND: NodeDef = NodeDef {
     slug: "repeataround",
     category: Category::Solid,
+    family: Some(Family::Repeat),
     icon: "🎡",
     label: "Repeat Around",
     tooltip: "Copies a solid round an axis, Radius out from it. Spread is how much of a turn \

@@ -30,7 +30,7 @@
 use super::{SDF, fill, num, num_log, out, solid, turn};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, NodeDef};
+use crate::nodes::{Category, Family, NodeDef};
 
 /// The seam helpers and the warp's noise.
 const BLENDS: &str = "// Seams and warps.
@@ -98,6 +98,7 @@ fn seam(node: NodeId, ctx: &mut CompileContext, count: &str, call: &str) -> Stri
 pub static STAIRS_UNION: NodeDef = NodeDef {
     slug: "stairsunion",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "📶",
     label: "Stairs Union",
     tooltip: "A and B as one, joined by a flight of Steps stairs Radius wide.",
@@ -117,6 +118,7 @@ pub static STAIRS_UNION: NodeDef = NodeDef {
 pub static COLUMNS_UNION: NodeDef = NodeDef {
     slug: "columnsunion",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "🏛",
     label: "Columns Union",
     tooltip: "A and B as one, the seam filled Radius wide and fluted with a row of Columns \
@@ -137,6 +139,7 @@ pub static COLUMNS_UNION: NodeDef = NodeDef {
 pub static XOR: NodeDef = NodeDef {
     slug: "solidxor",
     category: Category::Solid,
+    family: Some(Family::Combine),
     icon: "⊻",
     label: "Exclusive",
     tooltip: "Where exactly one of A and B is: their overlap is hollowed out. Each part keeps \
@@ -163,6 +166,7 @@ pub static XOR: NodeDef = NodeDef {
 pub static WARP: NodeDef = NodeDef {
     slug: "warp",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "🌊",
     label: "Warp",
     tooltip: "Pushes space around by a smooth noise, up to Amount on each axis, Frequency cells \
@@ -196,6 +200,7 @@ pub static WARP: NodeDef = NodeDef {
 pub static FOLD_PLANE: NodeDef = NodeDef {
     slug: "foldplane",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "📐",
     label: "Fold Plane",
     tooltip: "Mirrors space across a plane, so the side its normal points to is drawn on both. \
@@ -228,6 +233,7 @@ pub static FOLD_PLANE: NodeDef = NodeDef {
 pub static WRAP: NodeDef = NodeDef {
     slug: "wrap",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "🍩",
     label: "Wrap",
     tooltip: "Bends the X axis into a ring of Radius round Y; the ring's circumference is 2π × \

@@ -556,7 +556,7 @@ impl Document {
                 self.graph_mut().set_layout(id, layout);
                 // A workspace is a view: no node moved, so no shader changed — unless it was
                 // born holding something, and then the Output it was born holding has one.
-                if let crate::command::Seed::SourceToOutput { width } = seed {
+                if let crate::command::Seed::Starter { width } = seed {
                     self.seed_workspace(&mut out, id, width, env);
                 }
             }
@@ -985,15 +985,16 @@ impl Document {
         }
     }
 
-    /// Fill a brand-new workspace with the shortest patch that shows a picture: the Main
-    /// Input on the left, an Output on the right, one cable between them.
+    /// Fill a brand-new workspace with its kind's starter patch, `nodes::library::starter`:
+    /// the first node at the left, an Output at the right, anything between them centered in
+    /// the gap, each cabled into the next.
     ///
     /// Inside the `AddWorkspace` command rather than beside it, so the whole tab — nodes,
-    /// cable and all — is one undo step.
+    /// cables and all — is one undo step.
     ///
     /// The Output is placed against `width`, the canvas as it was when the tab was asked for.
-    /// A window narrower than the two nodes side by side falls back to a fixed gap rather
-    /// than stacking them on top of each other.
+    /// A window narrower than the nodes side by side falls back to a fixed step between each
+    /// rather than stacking them on top of each other.
     fn seed_workspace(
         &mut self,
         out: &mut Applied,
@@ -1003,31 +1004,62 @@ impl Document {
     ) {
         use crate::ui::canvas;
         use crate::ui::layout::{HORIZONTAL_MARGIN, VERTICAL_MARGIN};
-        let at = |x: f32| Pos2::new(x, VERTICAL_MARGIN);
-        let Some(source) = crate::nodes::add_to_graph_on(
-            self.graph_mut(),
-            "maininput",
-            at(HORIZONTAL_MARGIN),
-            workspace,
-        ) else {
+        let Some(kind) = self.graph.workspace(workspace).map(|w| w.kind) else {
             return;
         };
-        let right = width - canvas::OUTPUT_NODE_WIDTH - HORIZONTAL_MARGIN;
-        // Never to the left of the source, and never on top of it.
-        let right = right.max(HORIZONTAL_MARGIN + canvas::NODE_WIDTH + HORIZONTAL_MARGIN);
-        let Some(output) = add_node(self.graph_mut(), "output", at(right), workspace, env) else {
-            return;
-        };
-        // A refusal here would mean the two definitions had drifted apart, which the registry
-        // tests would have caught first; there is nothing useful to do about it at run time
-        // beyond leaving the two nodes uncabled.
-        if let Err(e) = self.graph_mut().connect(
-            crate::graph::PortRef::new(source, "frame"),
-            crate::graph::PortRef::new(output, "input"),
-        ) {
-            log::debug!("a new workspace could not be cabled up: {e}");
+        let starter = crate::nodes::library::starter(kind);
+        let mut placed: Vec<(NodeId, f32)> = Vec::new();
+        for slug in starter.nodes {
+            let Some(id) = add_node(self.graph_mut(), slug, Pos2::ZERO, workspace, env) else {
+                return;
+            };
+            let w = self
+                .graph
+                .get(id)
+                .map_or(canvas::NODE_WIDTH, canvas::node_width);
+            placed.push((id, w));
         }
-        self.mark(out, output);
+        // A fixed step apart from the left, which is where everything stands on a narrow
+        // canvas, overlapping where a node is wider than the step; the last pushed to the
+        // right edge, and the middle centered between.
+        let step = canvas::NODE_WIDTH + HORIZONTAL_MARGIN;
+        let packed: Vec<f32> = (0..placed.len())
+            .map(|i| (i as f32).mul_add(step, HORIZONTAL_MARGIN))
+            .collect();
+        let mut xs = packed.clone();
+        if let Some(last) = xs.len().checked_sub(1).filter(|l| *l > 0) {
+            xs[last] = (width - canvas::OUTPUT_NODE_WIDTH - HORIZONTAL_MARGIN).max(packed[last]);
+            let (left, right) = (packed[0] + placed[0].1, xs[last]);
+            let middle: f32 = placed[1..last].iter().map(|(_, w)| w).sum();
+            let gap = (right - left - middle) / last as f32;
+            let mut at = left;
+            for i in 1..last {
+                at += gap;
+                xs[i] = at.max(packed[i]);
+                at += placed[i].1;
+            }
+        }
+        for ((id, _), x) in placed.iter().zip(xs) {
+            if let Some(node) = self.graph_mut().get_mut(*id) {
+                node.pos = Pos2::new(x, VERTICAL_MARGIN);
+            }
+        }
+        // A refusal here would mean the definitions had drifted apart, which the registry
+        // tests would have caught first; there is nothing useful to do about it at run time
+        // beyond leaving those nodes uncabled.
+        for (pair, (from, into)) in placed.windows(2).zip(starter.cables) {
+            if let Err(e) = self.graph_mut().connect(
+                crate::graph::PortRef::new(pair[0].0, from),
+                crate::graph::PortRef::new(pair[1].0, into),
+            ) {
+                log::debug!("a new workspace could not be cabled up: {e}");
+            }
+        }
+        for (id, _) in &placed {
+            if self.graph.get(*id).is_some_and(|n| n.def.is_output) {
+                self.mark(out, *id);
+            }
+        }
     }
 }
 

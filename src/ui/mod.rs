@@ -2590,7 +2590,20 @@ fn browser(ui: &mut Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut Effec
     let Some(browser) = state.browser.as_mut() else {
         return;
     };
-    let outcome = browse::show(ui, browser, rect, pass.frame.theme, pass.frame.clipboard);
+    let kind = pass
+        .frame
+        .graph
+        .workspace(pass.frame.workspace)
+        .map(|w| w.kind)
+        .unwrap_or_default();
+    let outcome = browse::show(
+        ui,
+        browser,
+        rect,
+        pass.frame.theme,
+        pass.frame.clipboard,
+        kind,
+    );
     if let Some(slug) = outcome.chosen {
         let (at, workspace) = (browser.landing(), pass.frame.workspace);
         // A loose cable's browser lands the node wired, in the one step a bridge is.

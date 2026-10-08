@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Turning and scaling a shape",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A shape's own Yaw, Pitch, Roll and Scale under its Transform heading",
   "layout": "linear",
   "nodes": [

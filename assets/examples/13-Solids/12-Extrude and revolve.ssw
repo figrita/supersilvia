@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Extrude and revolve",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A word pushed out into letters and a pentagon turned on a lathe",
   "layout": "linear",
   "nodes": [

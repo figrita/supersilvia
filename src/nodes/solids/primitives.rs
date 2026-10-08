@@ -5,7 +5,7 @@
 //! a bound, from Inigo Quilez's catalogue of distance functions.
 
 use super::{SDF, color, fill, num, out, tint};
-use crate::nodes::{Category, InputDef, NodeDef};
+use crate::nodes::{Category, Family, InputDef, NodeDef};
 
 const X: InputDef = num("x", "X", 0.0, -10.0, 10.0, 0.01, "⬓");
 const Y: InputDef = num("y", "Y", 0.0, -10.0, 10.0, 0.01, "⬓");
@@ -32,6 +32,7 @@ fn primitive(
 pub static SPHERE: NodeDef = NodeDef {
     slug: "sphere",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "⚪",
     label: "Sphere",
     tooltip: "A ball, at its center.",
@@ -54,6 +55,7 @@ pub static SPHERE: NodeDef = NodeDef {
 pub static BOX: NodeDef = NodeDef {
     slug: "box",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "📦",
     label: "Box",
     tooltip: "A box, at its center, with its edges rounded by Rounding.",
@@ -87,6 +89,7 @@ pub static BOX: NodeDef = NodeDef {
 pub static TORUS: NodeDef = NodeDef {
     slug: "torus",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "🍩",
     label: "Torus",
     tooltip: "A ring lying flat: Ring is the distance to the middle of the tube, Tube its radius.",
@@ -115,6 +118,7 @@ pub static TORUS: NodeDef = NodeDef {
 pub static CYLINDER: NodeDef = NodeDef {
     slug: "cylinder",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "🥫",
     label: "Cylinder",
     tooltip: "An upright cylinder, capped, at its center.",
@@ -143,6 +147,7 @@ pub static CYLINDER: NodeDef = NodeDef {
 pub static CAPSULE: NodeDef = NodeDef {
     slug: "capsule",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "💊",
     label: "Capsule",
     tooltip: "An upright pill: a cylinder of Length with a half ball on each end.",
@@ -171,6 +176,7 @@ pub static CAPSULE: NodeDef = NodeDef {
 pub static OCTAHEDRON: NodeDef = NodeDef {
     slug: "octahedron",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "💎",
     label: "Octahedron",
     tooltip: "Eight faces, its points Size from the center along each axis.",
@@ -198,6 +204,7 @@ pub static OCTAHEDRON: NodeDef = NodeDef {
 pub static GROUND: NodeDef = NodeDef {
     slug: "ground",
     category: Category::Solid,
+    family: Some(Family::Shapes),
     icon: "▁",
     label: "Ground",
     tooltip: "A level plane that goes on forever, at Height. Everything below it is inside.",

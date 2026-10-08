@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Skydome",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A glowing green grid wrapped round the whole scene through Render 3D's Sky, turning",
   "layout": "linear",
   "nodes": [

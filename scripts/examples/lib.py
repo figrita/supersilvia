@@ -66,11 +66,13 @@ TRANSFORM_KEYS = {"yaw": "tYaw", "pitch": "tPitch", "roll": "tRoll", "scale": "t
 class Workspace:
     """One workspace file's nodes and cables, checked against the registry as they are added."""
 
-    def __init__(self, project, name, blurb):
+    def __init__(self, project, name, blurb, kind):
         self.project = project
         self.reg = project.reg
         self.name = name
         self.blurb = blurb
+        # "video" or "solids": which library the workspace's menu leads with.
+        self.kind = kind
         self.nodes = []
         self.connections = []
         self.loop = LOOP
@@ -346,7 +348,7 @@ class Workspace:
             "format": "supersilvia-workspace",
             "version": 1,
             "name": self.name,
-            "kind": "video",
+            "kind": self.kind,
             "blurb": self.blurb,
             "layout": "linear",
             "nodes": self.nodes,
@@ -372,8 +374,8 @@ class Project:
         self._workspace += 1
         return self._workspace
 
-    def workspace(self, name, blurb):
-        ws = Workspace(self, name, blurb)
+    def workspace(self, name, blurb, kind="video"):
+        ws = Workspace(self, name, blurb, kind)
         self.workspaces.append(ws)
         return ws
 
@@ -456,7 +458,7 @@ class Project:
             name = f"{ws.name}.ssw"
             (root / "workspaces" / name).write_text(json.dumps(ws.file(), indent=2) + "\n")
             manifest["workspaces"].append(
-                {"id": ws.id, "name": ws.name, "kind": "video", "file": name, "view": {"pan": [0.0, 0.0], "zoom": 0.8}}
+                {"id": ws.id, "name": ws.name, "kind": ws.kind, "file": name, "view": {"pan": [0.0, 0.0], "zoom": 0.8}}
             )
         (root / "project.ssp").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -465,10 +467,10 @@ class Project:
 class Example:
     """One example: a workspace of its own, in a project of one, so every id is its own."""
 
-    def __init__(self, reg, title, blurb):
+    def __init__(self, reg, title, blurb, kind="video"):
         self.title = title
         self.project = Project(reg)
-        self.ws = self.project.workspace(title, blurb)
+        self.ws = self.project.workspace(title, blurb, kind)
 
     def __getattr__(self, name):
         return getattr(self.ws, name)

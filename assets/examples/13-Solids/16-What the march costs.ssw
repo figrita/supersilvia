@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "What the march costs",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A bar twisting harder each loop, Lit on the left and in Steps shading on the right",
   "layout": "linear",
   "nodes": [
@@ -143,7 +143,7 @@
       "slug": "solidrender",
       "pos": {
         "x": 1160.0,
-        "y": 1540.0
+        "y": 1520.0
       },
       "controls": {
         "distance": {
@@ -195,7 +195,7 @@
       "slug": "translate",
       "pos": {
         "x": 1480.0,
-        "y": 1540.0
+        "y": 1520.0
       },
       "controls": {
         "x": {

@@ -14,11 +14,12 @@
 //!   distance-only variant, so the normal costs four distances and no color.
 
 use super::{SDF, color, fill, num, num_log, out, solid};
-use crate::nodes::{Category, NodeDef, OptionDef};
+use crate::nodes::{Category, Family, NodeDef, OptionDef};
 
 pub static CHECKER: NodeDef = NodeDef {
     slug: "checker3d",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "🏁",
     label: "Checker 3D",
     tooltip: "Paints a solid in a checkerboard of cubes Size wide, in two colors. Mix is how \
@@ -55,6 +56,7 @@ pub static CHECKER: NodeDef = NodeDef {
 pub static PROXIMITY: NodeDef = NodeDef {
     slug: "proximity",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "◎",
     label: "Proximity",
     tooltip: "Paints solid A with Color wherever it comes within Reach of solid B, fading out \
@@ -91,6 +93,7 @@ pub static PROXIMITY: NodeDef = NodeDef {
 pub static FACING: NodeDef = NodeDef {
     slug: "facing",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "⇅",
     label: "Facing",
     tooltip: "Paints a solid by which way its surface faces: Up Color on top, Side Color on \
@@ -154,6 +157,7 @@ const FACING_NORMAL: &str = "fn sd_facing_normal(a: f32, b: f32, c: f32, d: f32)
 pub static CONTOURS: NodeDef = NodeDef {
     slug: "distancebands",
     category: Category::Solid,
+    family: Some(Family::Color),
     icon: "🗺",
     label: "Contours",
     tooltip: "Paints solid A in bands of two colors by how far each point is from solid B, \

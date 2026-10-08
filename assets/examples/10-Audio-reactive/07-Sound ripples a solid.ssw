@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Sound ripples a solid",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "The bass band sets how far a ball's surface ripples",
   "layout": "linear",
   "nodes": [

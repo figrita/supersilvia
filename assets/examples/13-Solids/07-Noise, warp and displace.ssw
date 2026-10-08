@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Noise, warp and displace",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A ball roughened into a rock, a torus pushed about, a ball rippling",
   "layout": "linear",
   "nodes": [

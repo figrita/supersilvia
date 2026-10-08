@@ -693,10 +693,40 @@ fn the_report_lists_exactly_what_stayed_behind() {
 }
 
 #[test]
-fn a_timeline_kind_would_be_refused_and_video_is_not() {
-    // Only `Video` exists, so this is the assertion that the refusal is keyed on the kind
+fn a_timeline_kind_would_be_refused_and_video_and_solids_are_not() {
+    // No kind is refused yet, so this is the assertion that the refusal is keyed on the kind
     // rather than on nothing: the day a timeline lands it takes the other branch.
     assert!(WorkspaceKind::Video.is_portable());
+    assert!(WorkspaceKind::Solids.is_portable());
+}
+
+/// A workspace's kind is in its own file and in the manifest, and comes back from both: a
+/// solids workspace opens as one, beside the video one it was saved with.
+#[test]
+fn a_solids_workspace_round_trips_its_kind() {
+    let root = dir("kind").join("friday");
+    let mut graph = Graph::new();
+    let solids = graph.add_workspace("Shapes".to_string(), WorkspaceKind::Solids);
+    let ball = add(&mut graph, "sphere", Pos2::new(10.0, 20.0));
+    graph.get_mut(ball).unwrap().workspaces = BTreeSet::from([solids]);
+    save(&root, &graph);
+
+    let file = workspace_file(&root, "Shapes.ssw");
+    assert_eq!(file["kind"], "solids", "written by its lowercase name");
+    let (_, back, warnings) = Project::open(root.clone()).unwrap();
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let kinds: Vec<WorkspaceKind> = back.workspaces().iter().map(|w| w.kind).collect();
+    assert_eq!(kinds, [WorkspaceKind::Video, WorkspaceKind::Solids]);
+
+    // And an export carries it to another project, as it carries the name.
+    let project = Project::new(root.clone());
+    let elsewhere = dir("kind-export");
+    let exported = project.export_workspace(&back, solids, &elsewhere).unwrap();
+    let mut into = Graph::new();
+    let (id, _) = Project::new(dir("kind-import").join("saturday"))
+        .import_workspace(&exported.file, &mut into)
+        .unwrap();
+    assert_eq!(into.workspace(id).unwrap().kind, WorkspaceKind::Solids);
 }
 
 #[test]

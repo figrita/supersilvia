@@ -23,11 +23,12 @@
 
 use super::{X, Y, Z, placed};
 use crate::nodes::solids::{SDF, color, num, num_log, out, tint};
-use crate::nodes::{Category, NodeDef, OptionDef};
+use crate::nodes::{Category, Family, NodeDef, OptionDef};
 
 pub static MENGER: NodeDef = NodeDef {
     slug: "menger",
     category: Category::Solid,
+    family: Some(Family::Fractals),
     icon: "🧽",
     label: "Menger Sponge",
     tooltip: "A cube with a cross cut through it, and through each smaller cube left, \
@@ -95,6 +96,7 @@ pub static MENGER: NodeDef = NodeDef {
 pub static MANDELBULB: NodeDef = NodeDef {
     slug: "mandelbulb",
     category: Category::Solid,
+    family: Some(Family::Fractals),
     icon: "🥦",
     label: "Mandelbulb",
     tooltip: "The three-dimensional Mandelbrot set, scaled by Size, Power its order. \

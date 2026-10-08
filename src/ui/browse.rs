@@ -9,9 +9,17 @@
 //!
 //! A cable let go over empty canvas opens it a third way: at the pointer, holding only the
 //! kinds that can take the cable ([`Cable`]), and the kind chosen lands wired.
+//!
+//! **It searches the workspace's own library first.** On a video workspace the list is the
+//! video nodes and those that serve either kind — Math, Control, Gears, the Output — and on a
+//! solids workspace the solids, Render 3D and the same shared ones ([`library::belongs`]). A
+//! checkbox to the right of the search field widens it to every node, and stays as it was left
+//! for the rest of the session: it is the editor's memory, not the document's. A cable's list
+//! is its takers whatever the workspace, since the cable has already said what it wants.
 
-use crate::graph::PortRef;
+use crate::graph::{PortRef, WorkspaceKind};
 use crate::nodes::attach::Taker;
+use crate::nodes::library;
 use crate::nodes::{NodeDef, REGISTRY};
 use crate::ui::popup;
 use crate::ui::theme::{self, Theme};
@@ -191,16 +199,22 @@ fn subsequence(pattern: &str, text: &str) -> u32 {
 /// The sort is stable and the list starts in label order, so nodes that score the same come
 /// out alphabetically rather than in registry order.
 pub fn matches(query: &str) -> Vec<&'static NodeDef> {
-    matches_within(query, None)
+    matches_within(query, None, None)
 }
 
-/// [`matches`], narrowed to the kinds in `only` where it is given: a cable's takers.
-pub fn matches_within(query: &str, only: Option<&[Taker]>) -> Vec<&'static NodeDef> {
+/// [`matches`], narrowed to the kinds in `only` where it is given — a cable's takers — and to
+/// the library of a workspace of `kind` where that is.
+pub fn matches_within(
+    query: &str,
+    only: Option<&[Taker]>,
+    kind: Option<WorkspaceKind>,
+) -> Vec<&'static NodeDef> {
     let mut all: Vec<&'static NodeDef> = REGISTRY
         .iter()
         .copied()
         .filter(|d| (d.offered)())
         .filter(|d| only.is_none_or(|takers| takers.iter().any(|t| t.slug == d.slug)))
+        .filter(|d| kind.is_none_or(|k| library::belongs(d, k)))
         .collect();
     all.sort_by_key(|d| d.label);
     let query = query.trim();
@@ -218,8 +232,26 @@ pub fn matches_within(query: &str, only: Option<&[Taker]>) -> Vec<&'static NodeD
     scored.into_iter().map(|(_, d)| d).collect()
 }
 
+/// Where the browser keeps whether it searches every node, in the editor's memory.
+fn every_kind_id() -> Id {
+    Id::new("node-browser-every-kind")
+}
+
+/// The accessible name of the checkbox that widens the search on a workspace of `kind`.
+pub fn every_kind_name(kind: WorkspaceKind) -> String {
+    format!("search {} nodes too", other(kind))
+}
+
+/// The kind whose nodes the checkbox adds, as the checkbox names it.
+fn other(kind: WorkspaceKind) -> &'static str {
+    match kind {
+        WorkspaceKind::Video => "Solids",
+        WorkspaceKind::Solids => "Video",
+    }
+}
+
 /// Draw the browser and return what it asked for. `within` is the canvas, which the panel
-/// is kept inside.
+/// is kept inside, and `kind` the kind of the workspace it is open on.
 pub fn show(
     ui: &mut Ui,
     browser: &mut Browser,
@@ -227,10 +259,16 @@ pub fn show(
     theme: &Theme,
     // Whether the clipboard holds anything, which is the whole of what the Paste row needs.
     clipboard: bool,
+    kind: WorkspaceKind,
 ) -> Outcome {
+    let mut every = ui
+        .ctx()
+        .data(|d| d.get_temp::<bool>(every_kind_id()))
+        .unwrap_or(false);
     let hits = matches_within(
         &browser.query,
         browser.cable.as_ref().map(|c| &c.takers[..]),
+        (browser.cable.is_none() && !every).then_some(kind),
     );
     // A loose cable asks for a node to land on, and a paste is not one.
     let clipboard = clipboard && browser.cable.is_none();
@@ -291,25 +329,38 @@ pub fn show(
                 }
                 ui.add_space(4.0);
             }
-            let field = ui.add(
-                TextEdit::singleline(&mut browser.query)
-                    .id(Id::new("node-browser-search"))
-                    .hint_text(if browser.cable.is_some() {
-                        "Search what takes this cable…"
-                    } else {
-                        "Search nodes…"
-                    })
-                    .font(FontId::proportional(theme::FONT_BASE))
-                    .desired_width(f32::INFINITY),
-            );
-            if browser.fresh {
+            let cable = browser.cable.is_some();
+            let (field, widened) = ui
+                .horizontal(|ui| {
+                    let field = ui.add(
+                        TextEdit::singleline(&mut browser.query)
+                            .id(Id::new("node-browser-search"))
+                            .hint_text(if cable {
+                                "Search what takes this cable…"
+                            } else {
+                                "Search nodes…"
+                            })
+                            .font(FontId::proportional(theme::FONT_BASE))
+                            .desired_width(if cable { f32::INFINITY } else { CHECK_ROOM }),
+                    );
+                    // Beside the field, and only where the list is the library: a cable's
+                    // list is its takers on any workspace.
+                    let widened = !cable && every_kind(ui, &mut every, kind);
+                    (field, widened)
+                })
+                .inner;
+            if browser.fresh || widened {
                 field.request_focus();
             }
             // A keystroke changes the order, so the row the selection names is a
-            // different node: back to the best match, which is what was wanted.
-            if field.changed() {
+            // different node: back to the best match, which is what was wanted. Widening
+            // the search changes the list the same way.
+            if field.changed() || widened {
                 browser.selected = 0;
                 browser.follow = true;
+            }
+            if widened {
+                ui.ctx().data_mut(|d| d.insert_temp(every_kind_id(), every));
             }
             ui.add_space(4.0);
             if hits.is_empty() {
@@ -343,6 +394,26 @@ pub fn show(
     browser.fresh = false;
     browser.follow = false;
     out
+}
+
+/// How wide the search field is beside the checkbox.
+const CHECK_ROOM: f32 = WIDTH - 84.0;
+
+/// The checkbox that widens the search to the other kind's nodes, named for that kind. Returns
+/// whether it was toggled.
+fn every_kind(ui: &mut Ui, every: &mut bool, kind: WorkspaceKind) -> bool {
+    let label = other(kind);
+    let response = ui.checkbox(every, label).on_hover_text(format!(
+        "Search the {label} nodes too, not only this workspace's own and those that drive \
+             either kind."
+    ));
+    crate::ui::pointing(&response);
+    let name = every_kind_name(kind);
+    let on = *every;
+    response.widget_info(|| {
+        eframe::egui::WidgetInfo::selected(eframe::egui::WidgetType::Checkbox, true, on, &name)
+    });
+    response.changed()
 }
 
 /// What a row answered: the click, and where it was drawn. The Nodes menu decides what the
@@ -549,16 +620,36 @@ mod tests {
                 key: "input",
             },
         ];
-        let all: Vec<_> = matches_within("", Some(&only))
+        let all: Vec<_> = matches_within("", Some(&only), None)
             .iter()
             .map(|d| d.slug)
             .collect();
         assert_eq!(all, ["invert", "output"], "label order, and only these");
-        let hits: Vec<_> = matches_within("out", Some(&only))
+        let hits: Vec<_> = matches_within("out", Some(&only), None)
             .iter()
             .map(|d| d.slug)
             .collect();
         assert_eq!(hits, ["output"]);
+    }
+
+    /// A workspace's own library and the shared one: a solid is not found on a video
+    /// workspace, a video node is not found on a solids one, and the Output is on both.
+    #[test]
+    fn a_kind_narrows_the_search_to_its_own_library() {
+        let slugs = |query, kind| -> Vec<&str> {
+            matches_within(query, None, Some(kind))
+                .iter()
+                .map(|d| d.slug)
+                .collect()
+        };
+        assert!(!slugs("sphere", WorkspaceKind::Video).contains(&"sphere"));
+        assert!(slugs("sphere", WorkspaceKind::Solids).contains(&"sphere"));
+        assert!(!slugs("checker", WorkspaceKind::Solids).contains(&"checkerboard"));
+        assert!(slugs("checker", WorkspaceKind::Solids).contains(&"checker3d"));
+        for kind in WorkspaceKind::ALL {
+            assert!(slugs("output", *kind).contains(&"output"));
+            assert!(slugs("master", *kind).contains(&"mastergear"));
+        }
     }
 
     #[test]

@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "A first solid",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A sphere into Render 3D into an Output",
   "layout": "linear",
   "nodes": [

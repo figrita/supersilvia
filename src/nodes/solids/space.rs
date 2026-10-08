@@ -8,11 +8,12 @@
 //! from the axis they turn about.
 
 use super::{SDF, fill, num, num_log, out, solid, turn};
-use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
+use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
 pub static PLACE: NodeDef = NodeDef {
     slug: "place",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "📍",
     label: "Place",
     tooltip: "Moves, turns and scales a solid. Turns are in turns; Scale is the same on every axis.",
@@ -46,6 +47,7 @@ pub static PLACE: NodeDef = NodeDef {
 pub static STRETCH: NodeDef = NodeDef {
     slug: "stretch",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "⇔",
     label: "Stretch",
     tooltip: "Scales a solid by a different amount on each axis. The distance is divided by the \
@@ -77,6 +79,7 @@ pub static STRETCH: NodeDef = NodeDef {
 pub static MIRROR: NodeDef = NodeDef {
     slug: "solidmirror",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "🪞",
     label: "Mirror Space",
     tooltip: "Folds space across the planes through the center, so one side is drawn on both.",
@@ -112,6 +115,7 @@ pub static MIRROR: NodeDef = NodeDef {
 pub static TWIST: NodeDef = NodeDef {
     slug: "twist",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "🌀",
     label: "Twist",
     tooltip: "Turns a solid about its upright axis by Rate turns for every unit up. Far from the \
@@ -141,6 +145,7 @@ pub static TWIST: NodeDef = NodeDef {
 pub static BEND: NodeDef = NodeDef {
     slug: "bend",
     category: Category::Solid,
+    family: Some(Family::Space),
     icon: "⌒",
     label: "Bend",
     tooltip: "Bends a solid along X into an arc. Curvature is one over the arc's radius.",

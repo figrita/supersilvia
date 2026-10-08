@@ -54,6 +54,8 @@ pub enum Icon {
     Project,
     /// A loopback: an arc that comes round to an arrowhead.
     Loopback,
+    /// A solid: a cube seen corner on, its outline a hexagon and its near corner three edges.
+    Cube,
 }
 
 /// The stroke weight, as a fraction of the icon's box, before it is rounded to whole pixels.
@@ -129,6 +131,18 @@ pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
             painter.line_segment([pos2(c.x, frame.min.y), pos2(c.x, frame.max.y)], stroke);
         }
         Icon::Loopback => loopback(painter, rect.center(), s, stroke),
+        Icon::Cube => {
+            let r = 0.4 * s;
+            let corner = |turn: f32| {
+                let a = std::f32::consts::TAU * turn;
+                pos2(c.x + r * a.sin(), c.y - r * a.cos())
+            };
+            let rim: Vec<Pos2> = (0..6).map(|i| corner(i as f32 / 6.0)).collect();
+            painter.add(Shape::closed_line(rim, stroke));
+            for turn in [0.5, 1.0 / 6.0, 5.0 / 6.0] {
+                painter.line_segment([c, corner(turn)], stroke);
+            }
+        }
     }
 }
 

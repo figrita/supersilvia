@@ -889,7 +889,14 @@ impl eframe::App for App {
                 self.canvas.origin(),
                 egui::vec2(self.canvas.width(), self.canvas.height()),
             );
-            if let Some(slug) = crate::ui::start::show(ui, &mut self.start, canvas, &self.theme) {
+            let kind = self
+                .active_workspace()
+                .and_then(|id| self.doc.graph().workspace(id))
+                .map(|w| w.kind)
+                .unwrap_or_default();
+            if let Some(slug) =
+                crate::ui::start::show(ui, &mut self.start, canvas, &self.theme, kind)
+            {
                 self.add_node_at_drop(slug);
             }
             // One menu at a time: whichever opened last closes the other.

@@ -21,27 +21,36 @@ impl std::fmt::Display for WorkspaceId {
     }
 }
 
-/// What a workspace holds, and therefore what its tab shows.
+/// What a workspace is for: which library its Nodes menu and browser lead with, and what a new
+/// one is born holding.
+///
+/// A kind never restricts the canvas. Every node can be placed and cabled on a workspace of
+/// either kind, and a solid graph on a video workspace renders as it would on a solids one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum WorkspaceKind {
-    /// Nodes and cables on a canvas.
+    /// Nodes and cables on a canvas, its library the picture nodes.
     #[default]
     Video,
+    /// Nodes and cables on a canvas, its library the solids and Render 3D.
+    Solids,
 }
 
 impl WorkspaceKind {
+    /// Every kind, in the order a menu offers them.
+    pub const ALL: &'static [Self] = &[Self::Video, Self::Solids];
+
     /// Does a workspace of this kind mean anything on its own?
     ///
-    /// A `Video` workspace is nodes and cables: it is self-contained, and exporting one
-    /// hands somebody a file that works. A timeline will not be — everything in one is a
-    /// reference into other workspaces — so exporting one alone is refused with the reason
-    /// and it travels with the project instead. This is the branch that kind lands in; there
-    /// is no such kind yet.
+    /// A `Video` or `Solids` workspace is nodes and cables: it is self-contained, and
+    /// exporting one hands somebody a file that works. A timeline will not be — everything in
+    /// one is a reference into other workspaces — so exporting one alone is refused with the
+    /// reason and it travels with the project instead. This is the branch that kind lands in;
+    /// there is no such kind yet.
     pub fn is_portable(self) -> bool {
         match self {
-            Self::Video => true,
+            Self::Video | Self::Solids => true,
         }
     }
 }

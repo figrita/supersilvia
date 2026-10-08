@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Building with a chain",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "Shapes in a row, each landing on the ones before by Union, Subtract or Intersect",
   "layout": "linear",
   "nodes": [

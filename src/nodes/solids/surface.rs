@@ -13,11 +13,12 @@
 
 use super::{SDF, color, fill, num, num_log, out, solid, turn};
 use crate::graph::PortType::VaryingColor;
-use crate::nodes::{Category, Control, InputDef, NodeDef, OptionDef};
+use crate::nodes::{Category, Control, Family, InputDef, NodeDef, OptionDef};
 
 pub static ROUND: NodeDef = NodeDef {
     slug: "inflate",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "◍",
     label: "Round",
     tooltip: "Grows a solid outward by Radius, rounding every edge and corner by as much.",
@@ -40,6 +41,7 @@ pub static ROUND: NodeDef = NodeDef {
 pub static SHELL: NodeDef = NodeDef {
     slug: "shell",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "🥚",
     label: "Shell",
     tooltip: "Hollows a solid into a skin Thickness thick. Cut it open with Subtract to see in.",
@@ -64,6 +66,7 @@ pub static SHELL: NodeDef = NodeDef {
 pub static PAINT: NodeDef = NodeDef {
     slug: "paint",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "🖌",
     label: "Paint",
     tooltip: "Gives a whole solid one color.",
@@ -89,6 +92,7 @@ pub static PAINT: NodeDef = NodeDef {
 pub static DISPLACE: NodeDef = NodeDef {
     slug: "displace",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "〰",
     label: "Displace",
     tooltip: "Ripples a solid's surface in and out by Amount. Cable a gear's Cycles into Phase to \
@@ -121,6 +125,7 @@ pub static DISPLACE: NodeDef = NodeDef {
 pub static TEXTURE: NodeDef = NodeDef {
     slug: "surfacetexture",
     category: Category::Solid,
+    family: Some(Family::Surface),
     icon: "🖼",
     label: "Texture",
     tooltip: "Puts a picture on a solid's surface: an Output's Frame from another workspace, a \

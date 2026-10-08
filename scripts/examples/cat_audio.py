@@ -221,7 +221,7 @@ def waveform(new):
 
 
 def solid(new):
-    e = new("Sound ripples a solid", "The bass band sets how far a ball's surface ripples")
+    e = new("Sound ripples a solid", "The bass band sets how far a ball's surface ripples", "solids")
     e.note(
         40,
         40,

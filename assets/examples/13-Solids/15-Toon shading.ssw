@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Toon shading",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "Render 3D's Shading on Toon: flat bands of light and dark outlines",
   "layout": "linear",
   "nodes": [

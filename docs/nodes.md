@@ -1085,7 +1085,11 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Output` | `output` |
 
 The left column is the node's own `Category`, not a heading invented here: the Nodes menu is
-`Category::ALL` crossed with `REGISTRY` and nothing else.
+`Category::ALL` crossed with `REGISTRY`, each solid's `Family` inside Solids, and the
+workspace's kind deciding which categories lead and which are gathered under one
+(`nodes::library::menu`). `Category::kind` says whose library a category is — the video
+categories a video workspace's, Solids a solids one's, and Math, Control, Gears and Output
+both — and that is all the browser filters by.
 
 The `Convert` nodes are one macro over one table: a `VaryingColor` in, a `VaryingNumber`
 out, eleven ways of asking a picture for a number per pixel. `decompose::CONVERSIONS` holds
@@ -1938,20 +1942,28 @@ step as steep as the edge, so the surface speckles.
 
 ### The library
 
+**Every solid node but Render 3D declares a family**, `NodeDef::family`, a `nodes::Family`
+written in its own file under `solids/`, and the family is its submenu in the Nodes menu
+([`nodes::library`](ui.md#the-nodes-menu-a-start-button-two-timers-and-a-mouse-that-speaks-in-crossings)).
+Render 3D declares none: it turns a solid into a picture rather than making or changing one, so
+it stands beside the families — at the head of the Solids submenu on a video workspace, and
+at the top of the menu on a solids one. A registry test holds every solid but the render to a
+family and no other node to one.
+
 | Family | Nodes |
 | --- | --- |
-| Primitives | Sphere, Box, Torus, Cylinder, Capsule, Octahedron, Ground, Cone, Hex Prism, Pyramid, Link, Box Frame, Ellipsoid, Superellipsoid, Helix, Slab, Dodecahedron, Icosahedron |
-| Lattices and fractals | Gyroid, a sheet that fills all of space, for intersecting with something finite; Menger Sponge and Mandelbulb, whose Iterations is a `Code` option because it multiplies everything a render does |
+| Shapes | Sphere, Box, Torus, Cylinder, Capsule, Octahedron, Ground, Cone, Hex Prism, Pyramid, Link, Box Frame, Ellipsoid, Superellipsoid, Helix, Slab, Dodecahedron, Icosahedron; Gyroid, a sheet that fills all of space, for intersecting with something finite |
+| Fractals | Menger Sponge and Mandelbulb, whose Iterations is a `Code` option because it multiplies everything a render does; Fold, a kaleidoscope of the solid's copies |
 | Profiles | Extrude, Revolve, Heightfield |
-| Booleans | Union, Subtract, Intersect; Stairs Union and Columns Union, two shaped seams; Exclusive, the overlap hollowed out; Morph, A into B by Amount |
+| Combine | Union, Subtract, Intersect; Stairs Union and Columns Union, two shaped seams; Exclusive, the overlap hollowed out; Morph, A into B by Amount |
 | Space | Place, Stretch, Mirror Space, Fold Plane, Twist, Bend, Wrap, Elongate, Warp |
-| Repeats | Repeat, Repeat Around, Scatter on Sphere, and Fold, a kaleidoscope of the solid's copies |
+| Repeat | Repeat, Repeat Around, Scatter on Sphere |
 | Surface | Round, Shell, Displace, Noise Displace, Paint, Texture |
-| Color fields | Stripes 3D, Height Gradient, Checker 3D, Facing, and Proximity and Contours, which paint by the distance to a second solid that is not drawn |
-| Render | Render 3D |
+| Color | Stripes 3D, Height Gradient, Checker 3D, Facing, and Proximity and Contours, which paint by the distance to a second solid that is not drawn |
+| — | Render 3D |
 
-Every shape in the first three rows is in the chain. A color field changes only color, so a
-march reads its input through it untouched. Each node's tooltip names its knobs.
+Every shape in the first three rows but Fold is in the chain. A color field changes only
+color, so a march reads its input through it untouched. Each node's tooltip names its knobs.
 
 ### Thumbnails
 

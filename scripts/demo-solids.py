@@ -9,6 +9,8 @@ The folder defaults to "Solids" in the projects folder the app makes Untitled in
 scripts/demo-time.py finds it, and is replaced whole, except for its
 renders/ and assets/, which are kept. Each workspace is one idea into one Output, with a note
 saying what to look at and which knob to turn, and a Master Gear whose loop the render takes.
+Every workspace whose scene is a solid is a solids workspace; the one video patch the solids
+wear is a video workspace.
 
 **A scene is a chain.** Every shape node takes the solid built so far on its first row, Onto,
 and lands its own shape on it by its Mode — Union, Subtract or Intersect — melted in by Blend;
@@ -90,11 +92,13 @@ TRANSFORM_KEYS = {"yaw": "tYaw", "pitch": "tPitch", "roll": "tRoll", "scale": "t
 class Workspace:
     """One workspace file's nodes and cables, checked against the registry as they are added."""
 
-    def __init__(self, project, name, blurb):
+    def __init__(self, project, name, blurb, kind):
         self.project = project
         self.reg = project.reg
         self.name = name
         self.blurb = blurb
+        # "video" or "solids": which library the workspace's menu leads with.
+        self.kind = kind
         self.nodes = []
         self.connections = []
         self.loop = LOOP
@@ -334,7 +338,7 @@ class Workspace:
             "format": "supersilvia-workspace",
             "version": 1,
             "name": self.name,
-            "kind": "video",
+            "kind": self.kind,
             "blurb": self.blurb,
             "layout": "canvas",
             "nodes": self.nodes,
@@ -360,8 +364,8 @@ class Project:
         self._workspace += 1
         return self._workspace
 
-    def workspace(self, name, blurb):
-        ws = Workspace(self, name, blurb)
+    def workspace(self, name, blurb, kind="solids"):
+        ws = Workspace(self, name, blurb, kind)
         self.workspaces.append(ws)
         return ws
 
@@ -426,7 +430,7 @@ class Project:
             name = f"{ws.name}.ssw"
             (root / "workspaces" / name).write_text(json.dumps(ws.file(), indent=2) + "\n")
             manifest["workspaces"].append(
-                {"id": ws.id, "name": ws.name, "kind": "video", "file": name, "view": {"pan": [0.0, 0.0], "zoom": 0.8}}
+                {"id": ws.id, "name": ws.name, "kind": ws.kind, "file": name, "view": {"pan": [0.0, 0.0], "zoom": 0.8}}
             )
         (root / "project.ssp").write_text(json.dumps(manifest, indent=2) + "\n")
 
@@ -882,7 +886,7 @@ def color_fields(p):
 
 def video_source(p):
     """A video workspace of generators only, its Output's Frame for the solids to wear."""
-    ws = p.workspace("Video for solids", "A kaleidoscope of checkers whose Output's Frame the solids wear")
+    ws = p.workspace("Video for solids", "A kaleidoscope of checkers whose Output's Frame the solids wear", kind="video")
     ws.note(
         40,
         40,
@@ -1142,11 +1146,11 @@ def render_glow(p):
     ws.note(
         40,
         40,
-        "Render 3D's Glow, On: every ray that passes close to a surface without hitting it "
+        "Render 3D's Glow, above zero: every ray that passes close to a surface without hitting it "
         "picks up Glow Color, more the closer and the longer it grazes, Glow Reach the width "
         "of the halo. Thin shapes on a dark ground show it best — a Box Frame round a Helix, "
         "turning by their own Yaw.\n\n"
-        "Try: Glow Amount, Glow Reach, Glow Color, and Glow Off to compare.",
+        "Try: Glow Amount, Glow Reach, Glow Color, and Glow Amount at zero to compare.",
     )
     master = ws.master(C[0], 700)
     frame = ws.shape("boxframe", C[0], 40, width=2.0, height=2.0, depth=2.0, edge=0.05, color="#2a2a3a", turn={"pitch": 0.1})
@@ -1157,7 +1161,7 @@ def render_glow(p):
         40,
         spring,
         controls={"distance": 5.0, "tilt": 0.05, "orbit": 0.08, "fog": 0.0, "background": "#07060c", "glowAmount": 0.5, "glowReach": 0.12, "glowColor": "#59d8ff"},
-        options={"floor": "none", "glow": "on"},
+        options={"floor": "none"},
     )
 
 

@@ -67,14 +67,15 @@ pub enum Seed {
     /// Nothing. What an imported or restored workspace gets.
     #[default]
     Empty,
-    /// A Main Input on the left, an Output on the right, and a cable between them: the
-    /// shortest patch that shows a picture, so a new tab is something to play with rather
-    /// than an empty plane.
+    /// The starter patch of the workspace's kind, `nodes::library::starter`: on a video
+    /// workspace a Main Input on the left, an Output on the right and a cable between them; on
+    /// a solids one a Sphere into Render 3D into an Output. The shortest patch that shows a
+    /// picture, so a new tab is something to play with rather than an empty plane.
     ///
     /// `width` is the canvas the Output is placed against, carried in the command for the
     /// reason `AutoArrange` carries its height: redo has to put the node back where the first
     /// run put it, whatever the window is doing by then.
-    SourceToOutput { width: f32 },
+    Starter { width: f32 },
 }
 
 /// A user-visible mutation.

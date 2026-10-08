@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "A solid into video effects",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "A Render 3D picture folded by a Kaleidoscope and shifted in hue",
   "layout": "linear",
   "nodes": [

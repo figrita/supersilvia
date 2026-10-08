@@ -2,7 +2,7 @@
   "format": "supersilvia-workspace",
   "version": 1,
   "name": "Glow",
-  "kind": "video",
+  "kind": "solids",
   "blurb": "Render 3D's Glow: a halo where rays pass near a surface",
   "layout": "linear",
   "nodes": [
@@ -17,7 +17,7 @@
       "options": {},
       "values": {
         "text": {
-          "Text": "With Render 3D's Glow on, every ray that passes close to a surface without hitting it picks up Glow Color, more the closer and longer it grazes. Thin shapes on a dark ground show it best: a Box Frame turning round a Helix. Try the Glow port on Render 3D, and Glow Reach and Glow Color in its Light section."
+          "Text": "With Render 3D's Glow above zero, every ray that passes close to a surface without hitting it picks up Glow Color, more the closer and longer it grazes. Thin shapes on a dark ground show it best: a Box Frame turning round a Helix. Try the Glow port on Render 3D, and Glow Reach and Glow Color in its Light section."
         }
       },
       "width": 380.0
@@ -149,8 +149,7 @@
         }
       },
       "options": {
-        "floor": "none",
-        "glow": "on"
+        "floor": "none"
       }
     },
     {

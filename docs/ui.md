@@ -84,6 +84,18 @@ menu bar.
 `Ctrl+2` and a click on a tab are the same gesture to a test and to the agent-driven layer.
 The name in the tree is the workspace's name, not whatever text fits in the tab.
 
+**A solids tab wears a cube before its name**, painted as the project tab's mark is
+(`Icon::Cube`, a hexagon and the three edges of its near corner), and a video tab wears none,
+since most tabs are video. The kind is what decides the Nodes menu and the browser on that
+canvas ([Three ways to the library](#three-ways-to-the-library)).
+
+**A new workspace is born holding its kind's starter patch**, cabled, in the same undo step
+as the tab (`Seed::Starter`): a video one a Main Input at the left and an Output at the right,
+a solids one a Sphere at the left, an Output at the right and Render 3D centered between them
+(`nodes::library::starter`). The Output is placed against the
+canvas as it was; on a canvas narrower than the nodes side by side they stand a fixed step
+apart, a node's width and a margin, and a wider node overlaps the next.
+
 **A tab's name is one line.** A tab is at most `TAB_MAX` wide, and a name longer than that
 ends in `…` rather than wrapping: a wrapped name makes its tab two lines tall in a bar one line
 tall. The whole name is under the pointer. The bar has no margin under it: a tab sits on the
@@ -94,7 +106,7 @@ canvas it shows.
 | click | show that tab |
 | double-click | rename inline |
 | right-click | Rename · Duplicate · Close |
-| `+` (*add workspace*) | one entry per `WorkspaceKind` with a UI — Video, today |
+| `+` (*add workspace*) | one entry per `WorkspaceKind` — Video and Solids — each opened and shown, born holding its kind's starter patch |
 | the chevron (*all workspaces*), only once some open tab does not fit | exactly the tabs that do not fit, never one already on the bar; a click shows it |
 | `Ctrl`+T | a video workspace, opened and shown |
 | `Ctrl`+1..9 | the tab in that position, the project tab first |
@@ -213,7 +225,9 @@ showing, is reachable by `Ctrl`+1, and is what an empty project shows. Why the o
 lost is in [decisions.md](decisions.md#the-project-tab-is-a-pinned-first-tab).
 
 A **Workspaces** section: one card per workspace in project order, **open or not**, with its
-picture, its name, kind, open-or-closed state and node count, and its blurb. Each card is a
+picture, its name, kind — `🧊 Solids` on a solids one, as the Solids category wears it, and
+`Video` bare — open-or-closed state and node count, and its blurb. Its **New workspace** menu
+offers each kind, as the tab bar's `+` does. Each card is a
 `Response` with `widget_info` named `workspace card Workspace 1`; `UiBuilder::sense` registers
 the card's own sense *below* the buttons on it, so a button takes its own click and the rest
 of the card takes the rest.
@@ -379,7 +393,7 @@ therefore matches a `Ctrl+Shift+Z` press, and consuming undo first made redo ste
 
 **The Workspace menu exists only while a workspace is active.** On the project tab there is
 none, because there is nothing for it to act on — `MenuState::workspace` is `None` and the
-menu is not drawn. It holds New (`Ctrl`+T, the tab bar's `+`) · Rename… · Close · Export… ·
+menu is not drawn. It holds New (`Ctrl`+T, a video workspace; the tab bar's `+` offers either kind) · Rename… · Close · Export… ·
 Layout ▸ Canvas / Linear · Auto-arrange. Rename… starts the tab bar's inline editor rather than
 putting up a dialog, so there is one rename gesture and it is on the tab. Export… writes the
 active workspace out on its own — see [architecture.md](architecture.md#export-and-import) for
@@ -532,9 +546,9 @@ does rather than what the instrument is made of
 | **right-click the canvas** | at the pointer, one searchable list | under the pointer |
 | **`/`, `~` or `` ` ``** | at the top of the canvas | in the middle of the view |
 
-The last two are one thing shown twice: `ui/browse.rs` draws a search field over every node
-in the registry, and the only difference between them is where the panel sits and where the
-node lands. That pairing is silvia's — its quick menu and its quake bar are the same DOM
+The last two are one thing shown twice: `ui/browse.rs` draws a search field over the
+registry, and the only difference between them is where the panel sits and where the node
+lands. That pairing is silvia's — its quick menu and its quake bar are the same DOM
 node — and it is why the browser holds both positions itself rather than being told them.
 
 **The rows are the nodes' shapes, not their names.** Each carries the icon, the label, and
@@ -551,9 +565,24 @@ because the list starts sorted and the sort is stable. `Enter` takes the top of 
 which is what makes typing three letters and pressing `Enter` the fastest way to place a
 node.
 
+**All three lead with the workspace's own library.** On a video workspace that is the video
+nodes, on a solids workspace the solids and Render 3D, and on both the nodes that drive
+either kind — Math, Control, Gears, and the Output both end in (`Category::kind`,
+`nodes::library`). The Nodes menu holds the other kind under one category, Solids or Video,
+and the browser leaves it out of the search until **the checkbox to the right of the search
+field** is ticked — named for the other kind, `Solids` or `Video`, its accessible name `search
+Solids nodes too` or `search Video nodes too` — which searches every node. The box is the
+editor's memory for the session, not the document's and not a preference: it stays as it was
+left on every workspace and every opening of the browser until the app quits, and a toggle
+gives the search field the keyboard back. The kind never decides what can be placed: a node
+from the other library lands and cables as on its own kind's workspace.
+
 **A cable let go over empty canvas opens the same browser** at the pointer, narrowed to the
 kinds that can take the cable, and the kind chosen lands wired: see
-[Cables](#cables). It is the library asked a narrower question rather than a fourth way to it.
+[Cables](#cables). It is the library asked a narrower question rather than a fourth way to it,
+and it holds every taker whatever the workspace's kind, with no checkbox: the cable has
+already said what it wants, and a solid's cable let go on a video workspace still finds the
+solids.
 
 **The browser carries a Paste row when the clipboard holds something**, above the search
 field and outside the list. A right-click on the background means *something here*, and what
@@ -578,14 +607,29 @@ hover, while the menu is shut, names the two keys that reach the library without
 toggles it, which is silvia's Windows key. It is drawn after the canvas and only where there
 is one: on the project tab there is nothing for a node to land on.
 
-**The categories are `Category::ALL`, in roughly signal order**: Source, Generate, Color,
-Transform, Effect, Convert, Tap, Math, Control, **Gears**, **Solids** and Output. Gears, under `⚙`, holds
-the Master Gear, the Ratio Gear and Time — the clocks, the one place a rate is set, changed
-or divided — between the values that change over time and what a picture ends in. Solids,
-under `🧊`, holds the shapes in three dimensions and Render 3D, which turns one into a picture
-([nodes.md](nodes.md#solids)). **A
-category of one node is that node**: Output's row has no ▶ and no submenu, and a click or
-`Enter` adds the Output, since a submenu holding one entry of the same name chooses nothing.
+**The menu is a tree whose shape is the workspace's kind** (`nodes::library::menu`), in
+roughly signal order. **On a video workspace** it is `Category::ALL`: Source, Generate, Color,
+Transform, Effect, Convert, Tap, Math, Control, **Gears**, **Solids** and the Output. Gears,
+under `⚙`, holds the Master Gear, the Ratio Gear and Time — the clocks, the one place a rate
+is set, changed or divided — between the values that change over time and what a picture
+ends in. Solids, under `🧊`, holds Render 3D first, which turns a solid into a picture, and
+then a submenu per solid family — Shapes, Fractals, Profiles, Combine, Space, Repeat, Surface
+and Color ([nodes.md](nodes.md#the-library-1)). **On a solids workspace** the families are
+the top of the menu, then Math, Control and Gears, then **Video**, under `🎬`, whose submenu
+holds the seven video categories, each a submenu of its own, then Render 3D and the Output.
+**A node among the categories is a row of its own**: the Output on both kinds and Render 3D on
+a solids one have no ▶ and no submenu, and a click or `Enter` adds the node, since a submenu
+holding one entry of the same name chooses nothing. A category, a family and Video are one kind
+of row, wherever they stand, named by icon and label — `🧊 Solids`, `🔺 Shapes`, `🎬 Video` —
+and a node in a submenu is the browser's row, named `add <slug>`.
+
+**A submenu can hold submenus**, and every rule below holds in each column. An entry that opens
+one opens it on the pointer's timer or at once on a click, beside the row that owns it — or,
+in a window too narrow for that, as far right as it fits, over part of the column it came from.
+Leaving the menu from any column closes every submenu after the close delay. The keyboard is
+in one column at a time: `Right` or `Enter` on an entry that opens a submenu goes into it with
+the first entry selected, `Left` or `Escape` comes back out one column, and `Right` takes a
+node only inside a submenu, as on a Windows menu.
 
 **The button is canvas furniture and a window is not**, so a window covers it. The button is
 an `Area` — it has to be, for the menu to stand on it — at `Order::Background`, which is
