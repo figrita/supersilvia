@@ -71,6 +71,7 @@ cargo run --release --example editor_bench -- <project> <tab> [WxH]   # the edit
 cargo run --release --example loop_gifs -- <project> [--only name,name] [--out dir]   # every tab's Output for one loop, as a GIF
 cargo run --release --example queue_contention   # the editor's latency beside a synthetic synth
 python3 scripts/demo-time.py            # the Time Gears demo project, into <documents>/supersilvia/Time Gears
+python3 scripts/demo-solids.py          # the Solids demo project, what solids do and where they stop, into <documents>/supersilvia/Solids
 packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-linux-x86_64.AppImage, and its symbols beside it
 packaging/appimage/symbolize.sh <log> <symbols>   # a panic in the AppImage's log, its frames named (packaging/README.md)
 packaging/macos/build-app.sh            # macOS: dist/supersilvia.app, its .dmg and .zip
