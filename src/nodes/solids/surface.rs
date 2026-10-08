@@ -11,9 +11,9 @@
 //! primitive's own point and moves with it; after a transform it sees the transform's input
 //! space, and near the render it is a projector the solid moves through.
 
-use super::{SDF, color, fill, num, num_log, out, solid};
-use crate::graph::PortType::{UniformNumber, VaryingColor};
-use crate::nodes::{Category, Control, InputDef, NodeDef, OptionDef, TURNS};
+use super::{SDF, color, fill, num, num_log, out, solid, turn};
+use crate::graph::PortType::VaryingColor;
+use crate::nodes::{Category, Control, InputDef, NodeDef, OptionDef};
 
 pub static ROUND: NodeDef = NodeDef {
     slug: "inflate",
@@ -97,12 +97,7 @@ pub static DISPLACE: NodeDef = NodeDef {
         solid("input", "Solid"),
         num("amount", "Amount", 0.08, 0.0, 1.0, 0.001, "⬓"),
         num("frequency", "Frequency", 4.0, 0.1, 30.0, 0.01, "/⬓"),
-        InputDef {
-            key: "phase",
-            label: "Phase",
-            ty: UniformNumber,
-            control: Control::num(0.0, 0.0, 1.0, 0.001, TURNS),
-        },
+        turn("phase", "Phase", 0.0, 0.0, 1.0, 0.001),
     ],
     outputs: &[out(|node, ctx, _| {
         let inner = ctx.input(node, "input", "p");

@@ -37,7 +37,7 @@ node! {
     inputs: [
         VaryingColor "startColor" "Start Color" = Control::color("#ffffffff"),
         VaryingColor "endColor" "End Color" = Control::color("#000000ff"),
-        VaryingNumber "angle" "Angle" = Control::num(0.25, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "angle" "Angle" = Control::turn(0.25, -2.0, 2.0, 0.001),
         VaryingNumber "frequency" "Frequency" = Control::num(1.0, 0.1, 20.0, 0.1, "/⬓"),
         VaryingNumber "offset" "Shift" = Control::num(0.0, -5.0, 5.0, 0.01, "⬓"),
         VaryingNumber "center" "Center" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),

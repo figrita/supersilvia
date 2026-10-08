@@ -272,7 +272,8 @@ fn autoexposure_brings_a_dark_input_to_its_target() {
         if let Some((_, words)) = renderer.take_passes().pop() {
             let s = stats(words);
             measured = Some(s.mean);
-            gain = autoexposure::next_gain(gain, s.mean, 0.5, 0.0, 0.05, 8.0, 1.0 / 60.0);
+            let wanted = autoexposure::wanted_gain(s.mean, 0.5, 0.05, 8.0);
+            gain = autoexposure::next_gain(gain, wanted, None, 0.0, 0.05, 8.0, 1.0 / 60.0);
         }
     }
     let measured = measured.expect("a reading came back");

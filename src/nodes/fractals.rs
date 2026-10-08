@@ -70,6 +70,8 @@ const ESCAPE_COLOR: &str = "    return mix({background}, {foreground}, smoothT);
 
 const ESCAPE_MASK: &str = "    return inside;";
 
+/// The smooth escape count as a fraction of the iterations, 0 inside the set and 0 to 1 out
+/// of it: near 1 where a point escapes on the last iterations, at the set's edge.
 const ESCAPE_SMOOTH: &str = "    return smoothT;";
 
 /// Orbit-trap texture mapping: an escaped point reads the input at its final angle and
@@ -91,8 +93,11 @@ node! {
     icon: "🗺",
     label: "Mandelbrot",
     category: Generate,
-    tooltip: "The Mandelbrot set. Its mask is the set itself, its smooth output the escape \
-              count as a field, and its map reads the input picture along each orbit.",
+    tooltip: "The Mandelbrot set. Mask is the set itself. Smooth is how late each point \
+              escapes, its escape count over Iterations from 0 to 1, so more Iterations darkens \
+              it and Color, which ramps Background to Foreground along it. Map reads the input \
+              picture along each orbit, and it alone moves with Timing, turning the input \
+              around the orbits; the set holds still unless Center or Zoom moves.",
     // "Map Strength" does not fit the default 200.
     width: 216.0,
     timing: Timing::periodic(0.5),
@@ -118,9 +123,9 @@ node! {
     },
     outputs: [
         VaryingColor "color" "Color" = ESCAPE_COLOR,
-        VaryingNumber "smooth" "Smooth" = ESCAPE_SMOOTH,
+        VaryingNumber "smooth" "Smooth" in "[0, 1]" = ESCAPE_SMOOTH,
         VaryingColor "map" "Map" = ESCAPE_MAP_WGSL,
-        VaryingNumber "mask" "Mask" = ESCAPE_MASK,
+        VaryingNumber "mask" "Mask" in "[0, 1]" = ESCAPE_MASK,
     ],
 }
 
@@ -131,8 +136,9 @@ node! {
     icon: "🌀",
     label: "Julia Set",
     category: Generate,
-    tooltip: "The Julia set of one complex constant. Move c and the whole picture changes \
-              shape; its mask, smooth and map are the Mandelbrot's.",
+    tooltip: "The Julia set of one complex constant. Move C and the whole picture changes \
+              shape; its mask, smooth and map are the Mandelbrot's. Only Map moves with \
+              Timing: Color and Smooth hold still unless C, Center or Zoom moves.",
     // "Map Strength" does not fit the default 200.
     width: 216.0,
     timing: Timing::periodic(0.5),
@@ -160,9 +166,9 @@ node! {
     },
     outputs: [
         VaryingColor "color" "Color" = ESCAPE_COLOR,
-        VaryingNumber "smooth" "Smooth" = ESCAPE_SMOOTH,
+        VaryingNumber "smooth" "Smooth" in "[0, 1]" = ESCAPE_SMOOTH,
         VaryingColor "map" "Map" = ESCAPE_MAP_WGSL,
-        VaryingNumber "mask" "Mask" = ESCAPE_MASK,
+        VaryingNumber "mask" "Mask" in "[0, 1]" = ESCAPE_MASK,
     ],
 }
 

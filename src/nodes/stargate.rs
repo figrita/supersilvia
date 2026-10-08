@@ -72,7 +72,7 @@ node! {
     inputs: [
         VaryingColor "input" "Input" at "zoomedUV" = Control::None,
         VaryingColor "lastFrame" "Last Frame" at "lastFrameUV" = Control::None,
-        VaryingNumber "angle" "Angle" = Control::num(0.25, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "angle" "Angle" = Control::turn(0.25, -2.0, 2.0, 0.001),
         VaryingNumber "offset" "Position" = Control::num(0.0, -1.0, 1.0, 0.001, "⬓"),
         VaryingNumber "width" "Slit Width" = Control::num(0.02, 0.0, 0.5, 0.001, "⬓"),
         VaryingNumber "speed" "Drift" = Control::num(1.0, -10.0, 10.0, 0.01, "px"),

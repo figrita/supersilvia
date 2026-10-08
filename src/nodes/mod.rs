@@ -176,6 +176,14 @@ pub enum Control {
         /// It follows the *control*, so a cable into the named input leaves the range where
         /// it was rather than tracking a number the node no longer reads.
         capped_by: Option<&'static str>,
+        /// The node reads this number as an angle in turns that draws the same picture a
+        /// whole turn on: through a sine, a cosine or a rotation, and never scaled by anything
+        /// that varies across the picture. So a gear's Cycles in it comes back every cycle of
+        /// the gear (`nodes::chain`), and a uniform cabled into it reaches the shader as its
+        /// fraction (`compile`), which is what makes a loop through it close to the bit.
+        /// [`Control::turn`] makes one; `false` everywhere else, a turn included — a whirl, a
+        /// twist's Rate, a spread, a random spin, the Wave's Phase, whose Noise hashes it.
+        turn: bool,
     },
     /// Stored as `#rrggbbaa`; converted to a `vec4` at the uniform boundary.
     Color { default: &'static str },
@@ -199,6 +207,7 @@ impl Control {
             unit,
             log: false,
             capped_by: None,
+            turn: false,
         }
     }
 
@@ -220,6 +229,7 @@ impl Control {
             unit,
             log: false,
             capped_by: Some(capped_by),
+            turn: false,
         }
     }
 
@@ -233,6 +243,23 @@ impl Control {
             unit,
             log: true,
             capped_by: None,
+            turn: false,
+        }
+    }
+
+    /// An angle in turns that the node reads round a whole turn: see
+    /// [`Control::Number::turn`]. Declared only where the body reads it through a sine, a
+    /// cosine or a rotation alone.
+    pub const fn turn(default: f32, min: f32, max: f32, step: f32) -> Self {
+        Self::Number {
+            default,
+            min,
+            max,
+            step,
+            unit: TURNS,
+            log: false,
+            capped_by: None,
+            turn: true,
         }
     }
 
@@ -393,6 +420,14 @@ pub struct InputDef {
     pub label: &'static str,
     pub ty: PortType,
     pub control: Control,
+}
+
+impl InputDef {
+    /// Whether the node reads this input as an angle that comes back every whole turn
+    /// ([`Control::Number::turn`]).
+    pub const fn turns(&self) -> bool {
+        matches!(self.control, Control::Number { turn: true, .. })
+    }
 }
 
 pub struct OutputDef {
@@ -2804,6 +2839,46 @@ mod tests {
                 (default - want).abs() < 1e-6,
                 "{slug}.{key} opens at {default}"
             );
+        }
+    }
+
+    /// **An angle read round a whole turn is one the body only turns by**: every input
+    /// `Control::turn` declares is a number in turns, and the angles a whole turn on draws
+    /// differently are not declared — the Wave's Phase, which its Noise hashes; a whirl,
+    /// scaled by the distance out; a twist's Rate, scaled by the height; a Repeat Around's
+    /// Spread, clamped; a scatter's Spin, scaled by a random number a copy.
+    #[test]
+    fn only_an_angle_the_body_turns_by_is_read_round_a_turn() {
+        for def in REGISTRY {
+            for input in def.inputs.iter().chain(def.hidden).filter(|i| i.turns()) {
+                let Control::Number { unit, .. } = input.control else {
+                    panic!("{}.{} is a number", def.slug, input.key);
+                };
+                assert_eq!(unit, TURNS, "{}.{}", def.slug, input.key);
+            }
+        }
+        for (slug, key, turns) in [
+            ("displace", "phase", true),
+            ("warp", "phase", true),
+            ("noisedisplace", "phase", true),
+            ("sphere", "tYaw", true),
+            ("sine", "phase", true),
+            ("polygon", "rotation", true),
+            ("colorshift", "hue", true),
+            ("wave", "rotation", true),
+            ("wave", "phase", false),
+            ("whirlandpinch", "whirl", false),
+            ("twist", "rate", false),
+            ("repeataround", "spread", false),
+            ("repeataround", "turn", true),
+            ("repeatgrid", "spin", false),
+            ("scattersphere", "spin", false),
+        ] {
+            let def = find(slug).unwrap_or_else(|| panic!("no {slug}"));
+            let input = def
+                .input(key)
+                .unwrap_or_else(|| panic!("{slug} has no {key}"));
+            assert_eq!(input.turns(), turns, "{slug}.{key}");
         }
     }
 

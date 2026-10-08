@@ -26,7 +26,7 @@
 //! the tallest bump, that is 5.6. The octaves' slopes add, each scaled by its frequency and
 //! weight, so the bound is exact for one octave and loose for many.
 
-use super::{SDF, fill, num, out, solid};
+use super::{SDF, fill, num, out, solid, turn};
 use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
 
 /// Iteration counts 1 to 12, for an option whose loop length is written into the code.
@@ -69,9 +69,9 @@ pub static FOLD: NodeDef = NodeDef {
         num("offsetX", "Offset X", 1.0, -4.0, 4.0, 0.001, "⬓"),
         num("offsetY", "Offset Y", 1.0, -4.0, 4.0, 0.001, "⬓"),
         num("offsetZ", "Offset Z", 1.0, -4.0, 4.0, 0.001, "⬓"),
-        num("turnX", "Turn X", 0.02, -0.5, 0.5, 0.001, TURNS),
-        num("turnY", "Turn Y", 0.0, -0.5, 0.5, 0.001, TURNS),
-        num("turnZ", "Turn Z", 0.04, -0.5, 0.5, 0.001, TURNS),
+        turn("turnX", "Turn X", 0.02, -0.5, 0.5, 0.001),
+        turn("turnY", "Turn Y", 0.0, -0.5, 0.5, 0.001),
+        turn("turnZ", "Turn Z", 0.04, -0.5, 0.5, 0.001),
         num("tint", "Tint", 0.4, 0.0, 1.0, 0.01, ""),
     ],
     options: &[
@@ -252,7 +252,7 @@ pub static NOISE_DISPLACE: NodeDef = NodeDef {
         num("amount", "Amount", 0.15, 0.0, 1.0, 0.001, "⬓"),
         num("frequency", "Frequency", 1.5, 0.1, 30.0, 0.01, "/⬓"),
         num("roughness", "Roughness", 0.5, 0.0, 1.0, 0.01, ""),
-        num("phase", "Phase", 0.0, 0.0, 1.0, 0.001, TURNS),
+        turn("phase", "Phase", 0.0, 0.0, 1.0, 0.001),
     ],
     options: &[OptionDef {
         key: "octaves",

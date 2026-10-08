@@ -48,7 +48,7 @@ pub static DEF: NodeDef = NodeDef {
             key: "angle",
             label: "Angle",
             ty: VaryingNumber,
-            control: Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+            control: Control::turn(0.0, -2.0, 2.0, 0.001),
         },
         InputDef {
             key: "centerX",

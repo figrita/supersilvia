@@ -125,17 +125,9 @@ pub const TRANSFORM: OptionDef =
     OptionDef::heading("transform", "Transform", false, OptionKind::Presentation);
 
 /// The rows [`TRANSFORM`] folds: a turn about the shape's own center and a scale.
-pub const T_YAW: InputDef = num("tYaw", "Yaw", 0.0, -1.0, 1.0, 0.001, crate::nodes::TURNS);
-pub const T_PITCH: InputDef = num(
-    "tPitch",
-    "Pitch",
-    0.0,
-    -1.0,
-    1.0,
-    0.001,
-    crate::nodes::TURNS,
-);
-pub const T_ROLL: InputDef = num("tRoll", "Roll", 0.0, -1.0, 1.0, 0.001, crate::nodes::TURNS);
+pub const T_YAW: InputDef = turn("tYaw", "Yaw", 0.0, -1.0, 1.0, 0.001);
+pub const T_PITCH: InputDef = turn("tPitch", "Pitch", 0.0, -1.0, 1.0, 0.001);
+pub const T_ROLL: InputDef = turn("tRoll", "Roll", 0.0, -1.0, 1.0, 0.001);
 pub const T_SCALE: InputDef = num_log("tScale", "Scale", 1.0, 0.05, 20.0, 0.01, "x");
 pub const TRANSFORM_ROWS: [InputDef; 4] = [T_YAW, T_PITCH, T_ROLL, T_SCALE];
 
@@ -229,6 +221,24 @@ pub(crate) const fn num(
         label,
         ty: UniformNumber,
         control: Control::num(default, min, max, step, unit),
+    }
+}
+
+/// An angle on a solid node that its body reads round a whole turn, through a rotation, a
+/// sine or a cosine alone: [`Control::turn`].
+pub(crate) const fn turn(
+    key: &'static str,
+    label: &'static str,
+    default: f32,
+    min: f32,
+    max: f32,
+    step: f32,
+) -> InputDef {
+    InputDef {
+        key,
+        label,
+        ty: UniformNumber,
+        control: Control::turn(default, min, max, step),
     }
 }
 

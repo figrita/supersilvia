@@ -7,7 +7,7 @@
 //! bound: Stretch by its smallest factor's reciprocal, Twist and Bend by how far the point is
 //! from the axis they turn about.
 
-use super::{SDF, fill, num, num_log, out, solid};
+use super::{SDF, fill, num, num_log, out, solid, turn};
 use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
 
 pub static PLACE: NodeDef = NodeDef {
@@ -21,9 +21,9 @@ pub static PLACE: NodeDef = NodeDef {
         num("x", "X", 0.0, -10.0, 10.0, 0.01, "⬓"),
         num("y", "Y", 0.0, -10.0, 10.0, 0.01, "⬓"),
         num("z", "Z", 0.0, -10.0, 10.0, 0.01, "⬓"),
-        num("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001, TURNS),
-        num("pitch", "Pitch", 0.0, -1.0, 1.0, 0.001, TURNS),
-        num("roll", "Roll", 0.0, -1.0, 1.0, 0.001, TURNS),
+        turn("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001),
+        turn("pitch", "Pitch", 0.0, -1.0, 1.0, 0.001),
+        turn("roll", "Roll", 0.0, -1.0, 1.0, 0.001),
         num_log("scale", "Scale", 1.0, 0.05, 20.0, 0.01, "x"),
     ],
     outputs: &[out(|node, ctx, _| {

@@ -134,7 +134,7 @@ node! {
     inputs: [
         VaryingColor "input" "Input" at "uv + offset" = Control::None,
         VaryingNumber "amount" "Amount" = Control::num(10.0, 0.0, 100.0, 0.1, "px"),
-        VaryingNumber "angle" "Angle" = Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "angle" "Angle" = Control::turn(0.0, -2.0, 2.0, 0.001),
     ],
     outputs: [
         VaryingColor "output" "Output" = format!(

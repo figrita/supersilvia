@@ -49,7 +49,9 @@ pub static DEF: NodeDef = NodeDef {
     category: Category::Output,
     icon: "📺",
     label: "Output",
-    tooltip: "Renders its input. Its frame port republishes the result as a texture.",
+    tooltip: "Renders its input. Its frame port republishes the result as a texture. A Snap, \
+              a PNG sequence and a GIF keep the picture's own alpha, and a video drops it; \
+              Alpha under Send is what NDI and Syphon send, and shows once either is on.",
     inputs: &[
         InputDef {
             key: "input",
@@ -460,7 +462,8 @@ pub enum SendRow {
     Way(Way),
     /// Syphon's Flip, under the Syphon row while it publishes.
     Flip,
-    /// The alpha both ways share, once, after the ways, while either sends.
+    /// The alpha both ways share, once, after the ways, while either sends: what is sent
+    /// and nothing else, since a Snap and a render's PNG or GIF keep the picture's own.
     Alpha,
 }
 

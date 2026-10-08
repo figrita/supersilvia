@@ -1,35 +1,44 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! One loop of every workspace's Output as a small animated GIF, headless, with the seam
-//! measured beside the file: the Output's ordinary render, run on each tab of a project in
+//! One loop of every Output of every workspace as a small animated GIF, headless, with the
+//! seam measured beside the file: the Output's ordinary render, run on each tab of a project in
 //! turn for as long as its Master Gear says a loop is.
 //!
 //! ```sh
-//! cargo run --release --example loop_gifs -- <project folder> [--only name,name] [--out dir]
+//! cargo run --release --example loop_gifs -- <project folder> [--only name]... [--out dir]
 //!     [--width 480] [--square 400] [--colors 64] [--warm seconds] [--length seconds]
 //!     [--pre-roll loops] [--keep]
 //! ```
 //!
+//! `--only` names a workspace to render, and may be given again for more: its argument is a
+//! name whole, or a list of names split at its commas, so a name holding a comma is one
+//! `--only` of its own.
+//!
 //! On the integrated GPU, `render::adapter::Asked::integrated`, never a software adapter.
 //! The project is opened through the `App`, as the editor opens it, and any load warning is
 //! printed and fails the run. Each workspace is then the one open tab, as a person would look
-//! at it, and its Output is rendered through `App::render_settings_of` and
-//! `App::start_render`. **The length is the Master Gear's**: of the Master Gears upstream of the
-//! Output, the only one, or else the first by id, for as many of its cycles as everything
-//! downstream of it needs to come back whole (`nodes::chain::master_length`); a workspace with
-//! none, or whose loop never closes or cannot be told, takes `--length` seconds, or else the
-//! Output's own Duration. The
+//! at it, and each of its Outputs is rendered in turn, from a fresh `App`, through
+//! `App::render_settings_of` and `App::start_render`. **The length is the Master Gear's**: of
+//! the Master Gears upstream of the Output, the only one, or else the first by id, for as many
+//! of its cycles as everything downstream of it needs to come back whole
+//! (`nodes::chain::master_length`); an Output with none upstream, or whose loop never closes or
+//! cannot be told, takes `--length` seconds, or else its own Duration, and the line printed
+//! says which and why. The
 //! render is that length in whole frames at the Output's FPS, `F`, after `--pre-roll` loops of
 //! warm-up at negative time, three by default — an echo dimmed by 0.94 a frame leaves 8-bit
-//! crumbs that take that long to settle onto the loop — and one frame more: frame `F` is compared with frame zero for the seam, and only frames
-//! `0..F` go into the GIF. It writes a PNG sequence at the Output's own resolution into a
+//! crumbs that take that long to settle onto the loop — and one frame more: frame `F` is
+//! compared with frame zero for the seam, premultiplied, so a color under a pixel nobody can
+//! see does not count, and only frames `0..F` go into the GIF. It writes a PNG sequence at the
+//! Output's own resolution into a
 //! scratch folder, and each frame is composited over black — the PNGs are straight and the GIF
 //! is opaque, so a transparent part kept at its own color would show at full strength — then
 //! brought down to a size a page can carry
 //! — 480 wide, or 400 for a square or upright Output — mapped onto one palette the loop
 //! shares, and written through `video::gif`, the app's own GIF writer, as
-//! `renders/<workspace>.gif`. The small size is this tool's rather than the export's, which is
-//! the Output's own resolution. `--out` copies each GIF
+//! `renders/<workspace>.gif` — or, in a workspace with several Outputs,
+//! `renders/<workspace>-<send name>.gif`, the Output's own send name where it has one and
+//! `output<id>` where it does not. The small size is this tool's rather than the export's,
+//! which is the Output's own resolution. `--out` copies each GIF
 //! into a folder besides.
 //!
 //! Before the export the workspace plays live for `--warm` seconds, one by default, so its
@@ -69,12 +78,13 @@ fn main() {
     };
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            // The whole argument is a name too, since a workspace's may hold a comma.
+            // The whole argument is a name too, since a workspace's may hold a comma, and the
+            // flag may be given again.
             "--only" => {
                 let names = args.next().expect("names after --only");
-                let mut list: Vec<String> = names.split(',').map(str::to_string).collect();
+                let list = only.get_or_insert_with(Vec::new);
+                list.extend(names.split(',').map(str::to_string));
                 list.push(names);
-                only = Some(list);
             }
             "--out" => copy_to = Some(PathBuf::from(args.next().expect("a folder after --out"))),
             "--width" => size.width = number(&mut args, "--width") as u32,
@@ -102,10 +112,18 @@ fn main() {
         graph.iter().count(),
         length.map_or("the Output's Duration".to_string(), |s| format!("{s} s"))
     );
+    // Each workspace with its Outputs, by id, and the name each Output's GIF takes.
     let workspaces: Vec<_> = graph
         .workspaces()
         .iter()
-        .map(|w| (w.id, w.name.clone()))
+        .map(|w| {
+            let outputs: Vec<(NodeId, String)> = graph
+                .iter()
+                .filter(|(_, n)| n.def.is_output && n.workspaces.contains(&w.id))
+                .map(|(id, n)| (id, output_name(id, n)))
+                .collect();
+            (w.id, w.name.clone(), outputs)
+        })
         .collect();
     drop((project, graph));
 
@@ -123,89 +141,47 @@ fn main() {
         std::fs::create_dir_all(dir).expect("the --out folder");
     }
 
-    for (index, (ws, name)) in workspaces.iter().enumerate() {
+    let mut index = 0;
+    for (ws, name, outputs) in &workspaces {
         if only
             .as_ref()
             .is_some_and(|names| !names.iter().any(|n| n == name))
         {
             continue;
         }
-        fill_assets(&root, *ws);
-        let mut app = App::headless();
-        app.attach_gpu_on(gpu.for_synth());
-        app.open_project(root.clone());
-        let open: Vec<_> = app.open_workspaces().iter().copied().collect();
-        for id in open {
-            app.close_workspace(id);
-        }
-        app.open_workspace(*ws);
-        let outputs: Vec<NodeId> = app
-            .graph()
-            .iter()
-            .filter(|(_, n)| n.def.is_output && n.workspaces.contains(ws))
-            .map(|(id, _)| id)
-            .collect();
-        let [output] = outputs[..] else {
-            println!("{name}: {} Outputs, skipped", outputs.len());
+        if outputs.is_empty() {
+            println!("{name}: no Output, skipped");
             continue;
-        };
-        // Live for a while, so every program has linked and the Output draws.
-        app.publish_plan();
-        for _ in 0..(warm * 60.0).ceil() as u32 {
-            app.tick(1.0 / 60.0);
-            std::thread::sleep(Duration::from_millis(15));
         }
-        let mut settings = app.render_settings_of(output).expect("an Output");
-        let fps = settings.fps;
-        let (seconds, from) = match (loop_length(&app, output), length) {
-            (Some((master, seconds)), _) => (seconds, format!("mastergear{}", master.0)),
-            (None, Some(seconds)) => (seconds, "typed".to_string()),
-            (None, None) => (f64::from(settings.frames) / fps, "the Output".to_string()),
-        };
-        let frames = (seconds * fps).round().max(1.0) as u32;
-        let frames_dir = scratch.join(format!("{index:02}"));
-        let _ = std::fs::remove_dir_all(&frames_dir);
-        settings.format = Format::PngSequence;
-        settings.frames = frames + 1;
-        settings.warmup = Warmup::Run(frames * pre_roll);
-        settings.destination.clone_from(&frames_dir);
-        let started = Instant::now();
-        app.start_render(output, &settings)
-            .unwrap_or_else(|e| panic!("{name}: {e}"));
-        while app.rendering() {
-            assert!(
-                started.elapsed() < Duration::from_secs(600),
-                "{name}: the render never finished"
-            );
-            app.publish_plan();
-            app.tick(1.0 / 60.0);
-        }
-        let outcome = app.render_outcome().cloned().expect("an outcome");
-        let Outcome::Done { .. } = outcome else {
-            panic!("{name}: {outcome:?}");
-        };
-        drop(app);
-        let seam = Seam::between(&frames_dir, frames);
-
-        let file = renders.join(format!("{}.gif", file_stem(name)));
-        let (w, h) = write_gif(&frames_dir, frames, fps, &file, size);
-        if keep {
-            println!("    frames kept in {}", frames_dir.display());
-        } else {
-            let _ = std::fs::remove_dir_all(&frames_dir);
-        }
-        let bytes = std::fs::metadata(&file).map_or(0, |m| m.len());
-        println!(
-            "{name}: {seconds} s from {from}, {frames} frames at {fps} fps, {w}x{h}, {:.2} MB, \
-             {:.1} s to render — {}",
-            bytes as f64 / 1e6,
-            started.elapsed().as_secs_f64(),
-            seam.describe()
-        );
-        println!("    {}", file.display());
-        if let Some(dir) = &copy_to {
-            std::fs::copy(&file, dir.join(file.file_name().expect("a name")))
-                .expect("a copy in --out");
+        fill_assets(&root, *ws);
+        for (output, output_name) in outputs {
+            // One Output is the workspace's GIF; of several, each is named by its own.
+            let (label, stem) = if outputs.len() == 1 {
+                (name.clone(), file_stem(name))
+            } else {
+                (
+                    format!("{name} · {output_name}"),
+                    format!("{}-{}", file_stem(name), file_stem(output_name)),
+                )
+            };
+            let job = Job {
+                root: &root,
+                workspace: *ws,
+                output: *output,
+                frames_dir: scratch.join(format!("{index:02}")),
+                file: renders.join(format!("{stem}.gif")),
+                warm,
+                length,
+                pre_roll,
+                size,
+                keep,
+            };
+            index += 1;
+            job.run(&gpu, &label);
+            if let Some(dir) = &copy_to {
+                std::fs::copy(&job.file, dir.join(job.file.file_name().expect("a name")))
+                    .expect("a copy in --out");
+            }
         }
     }
     if !keep {
@@ -213,10 +189,106 @@ fn main() {
     }
 }
 
+/// One Output's loop: where it comes from, where its frames and its GIF go, and how it is
+/// taken.
+struct Job<'a> {
+    root: &'a Path,
+    workspace: supersilvia::graph::WorkspaceId,
+    output: NodeId,
+    frames_dir: PathBuf,
+    file: PathBuf,
+    warm: f64,
+    length: Option<f64>,
+    pre_roll: u32,
+    size: Size,
+    keep: bool,
+}
+
+impl Job<'_> {
+    /// Open the project with the workspace the one tab, play it live for a while, render the
+    /// Output's loop and write its GIF, printing what it did under `label`.
+    fn run(&self, gpu: &Gpu, label: &str) {
+        let mut app = App::headless();
+        app.attach_gpu_on(gpu.for_synth());
+        app.open_project(self.root.to_path_buf());
+        let open: Vec<_> = app.open_workspaces().iter().copied().collect();
+        for id in open {
+            app.close_workspace(id);
+        }
+        app.open_workspace(self.workspace);
+        // Live for a while, so every program has linked and the Output draws.
+        app.publish_plan();
+        for _ in 0..(self.warm * 60.0).ceil() as u32 {
+            app.tick(1.0 / 60.0);
+            std::thread::sleep(Duration::from_millis(15));
+        }
+        let mut settings = app.render_settings_of(self.output).expect("an Output");
+        let fps = settings.fps;
+        let (seconds, from) = match (loop_length(&app, self.output), self.length) {
+            (Ok((master, seconds)), _) => (seconds, format!("mastergear{}", master.0)),
+            (Err(why), Some(seconds)) => (seconds, format!("typed, as {why}")),
+            (Err(why), None) => (
+                f64::from(settings.frames) / fps,
+                format!("the Output, as {why}"),
+            ),
+        };
+        let frames = (seconds * fps).round().max(1.0) as u32;
+        let _ = std::fs::remove_dir_all(&self.frames_dir);
+        settings.format = Format::PngSequence;
+        settings.frames = frames + 1;
+        settings.warmup = Warmup::Run(frames * self.pre_roll);
+        settings.destination.clone_from(&self.frames_dir);
+        let started = Instant::now();
+        app.start_render(self.output, &settings)
+            .unwrap_or_else(|e| panic!("{label}: {e}"));
+        while app.rendering() {
+            assert!(
+                started.elapsed() < Duration::from_secs(600),
+                "{label}: the render never finished"
+            );
+            app.publish_plan();
+            app.tick(1.0 / 60.0);
+        }
+        let outcome = app.render_outcome().cloned().expect("an outcome");
+        let Outcome::Done { .. } = outcome else {
+            panic!("{label}: {outcome:?}");
+        };
+        drop(app);
+        let seam = Seam::between(&self.frames_dir, frames);
+
+        let (w, h) = write_gif(&self.frames_dir, frames, fps, &self.file, self.size);
+        if self.keep {
+            println!("    frames kept in {}", self.frames_dir.display());
+        } else {
+            let _ = std::fs::remove_dir_all(&self.frames_dir);
+        }
+        let bytes = std::fs::metadata(&self.file).map_or(0, |m| m.len());
+        println!(
+            "{label}: {seconds} s from {from}, {frames} frames at {fps} fps, {w}x{h}, {:.2} MB, \
+             {:.1} s to render — {}",
+            bytes as f64 / 1e6,
+            started.elapsed().as_secs_f64(),
+            seam.describe()
+        );
+        println!("    {}", self.file.display());
+    }
+}
+
+/// The name an Output's GIF takes in a workspace of several: its send name where it has one
+/// of its own, and `output<id>` where it does not.
+fn output_name(id: NodeId, node: &supersilvia::graph::Node) -> String {
+    let sent = supersilvia::nodes::output::send_name(id, node);
+    if sent == supersilvia::nodes::output::default_name(id) {
+        format!("output{}", id.0)
+    } else {
+        sent
+    }
+}
+
 /// How long a loop of `output` is, from a Master Gear upstream of it: the only one, or else the
-/// first by id, for as many cycles as its chains need. `None` where there is none, or where its
-/// chains never close.
-fn loop_length(app: &App, output: NodeId) -> Option<(NodeId, f64)> {
+/// first by id, for as many cycles as its chains need. Where there is none, or its chains
+/// never close or cannot be told, why: the Master Gear's own caption.
+fn loop_length(app: &App, output: NodeId) -> Result<(NodeId, f64), String> {
     let graph = app.graph();
     let mut upstream = std::collections::BTreeSet::new();
     let mut stack = vec![output];
@@ -227,14 +299,22 @@ fn loop_length(app: &App, output: NodeId) -> Option<(NodeId, f64)> {
     }
     let master = upstream
         .into_iter()
-        .find(|id| graph.get(*id).is_some_and(|n| n.def.slug == "mastergear"))?;
-    Some((
-        master,
-        supersilvia::nodes::chain::master_length(graph, master)?,
-    ))
+        .find(|id| graph.get(*id).is_some_and(|n| n.def.slug == "mastergear"))
+        .ok_or_else(|| "no Master Gear is upstream".to_string())?;
+    supersilvia::nodes::chain::master_length(graph, master)
+        .map(|seconds| (master, seconds))
+        .ok_or_else(|| {
+            format!(
+                "mastergear{} says {}",
+                master.0,
+                supersilvia::nodes::chain::caption(graph, master)
+            )
+        })
 }
 
-/// How far frame `F` of a loop is from frame zero, which it is in a loop that closes.
+/// How far frame `F` of a loop is from frame zero, which it is in a loop that closes,
+/// compared premultiplied: a pixel's color counts as much as the pixel can be seen, so two
+/// colors under alpha zero are the same nothing, while a change of alpha alone still counts.
 struct Seam {
     /// Pixels where any channel differs at all, out of `pixels`.
     differing: u64,
@@ -253,7 +333,9 @@ impl Seam {
                 .to_rgba8()
                 .into_raw()
         };
-        let (first, last) = (read(0), read(frames));
+        let (mut first, mut last) = (read(0), read(frames));
+        premultiply(&mut first);
+        premultiply(&mut last);
         let mut seam = Self {
             differing: 0,
             pixels: (first.len() / 4) as u64,
@@ -287,7 +369,18 @@ impl Seam {
     }
 }
 
-/// A workspace's name as a file name: lower case, words joined by dashes.
+/// Straight RGBA, as the PNG sequence is written, premultiplied in place, rounded to 8 bits
+/// as [`over_black`] rounds, alpha kept.
+fn premultiply(rgba: &mut [u8]) {
+    for p in rgba.as_chunks_mut::<4>().0 {
+        let a = u16::from(p[3]);
+        for c in &mut p[..3] {
+            *c = ((u16::from(*c) * a + 127) / 255) as u8;
+        }
+    }
+}
+
+/// A name as a file name: lower case, words joined by dashes.
 fn file_stem(name: &str) -> String {
     name.to_lowercase()
         .split(|c: char| !c.is_alphanumeric())

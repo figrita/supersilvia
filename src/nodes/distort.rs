@@ -237,8 +237,10 @@ node! {
         VaryingColor "input" "Input" at "displacedUV" = Control::None,
         VaryingNumber "amplitude" "Amplitude" = Control::num(0.1, 0.0, 1.0, 0.001, "⬓"),
         VaryingNumber "frequency" "Frequency" = Control::num_log(10.0, 0.1, 100.0, 0.1, "/⬓"),
+        // In turns but no `Control::turn`: the Noise waveform hashes the phase rather than
+        // turning it, so a whole turn on is another picture.
         VaryingNumber "phase" "Phase" = Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS),
-        VaryingNumber "rotation" "Rotation" = Control::num(0.0, -1.0, 1.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "rotation" "Rotation" = Control::turn(0.0, -1.0, 1.0, 0.001),
         VaryingNumber "centerX" "Center X" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
         VaryingNumber "centerY" "Center Y" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
     ],
@@ -289,6 +291,8 @@ node! {
     width: 216.0,
     inputs: [
         VaryingColor "input" "Input" at "whirledUV" = Control::None,
+        // No `Control::turn`: the angle is scaled by the distance from the center, so a whole
+        // turn on turns every ring but the edge by something else.
         VaryingNumber "whirl" "Whirl Angle" = Control::num(0.25, -2.0, 2.0, 0.001, crate::nodes::TURNS),
         VaryingNumber "pinch" "Pinch Amount" = Control::num(0.0, -1.0, 1.0, 0.01, ""),
         VaryingNumber "radius" "Radius" = Control::num(0.5, 0.01, 1.5, 0.01, "⬓"),
@@ -332,7 +336,9 @@ const KALEIDOSCOPE_SETUP_WGSL: &str = "    let segments = max({segments}, 2.0);
 ";
 
 /// Every other wedge mirrored, which is what a tube of mirrors does. The half-height is
-/// silvia's, and it is what makes the classic look.
+/// silvia's, and it is what makes the classic look. Alternate wedges close round the circle
+/// only on an even count; on an odd one the wedge the angle's cut at ±π runs through is
+/// mirrored on one side of the cut and not the other, a fold down its middle.
 const KALEIDOSCOPE_CLASSIC_WGSL: &str = "    var scaled = r / zoom;
     var localAngle = floor_mod(a, segmentAngle);
     if (floor_mod(floor(a / segmentAngle), 2.0) == 1.0) { localAngle = segmentAngle - localAngle; }
@@ -366,7 +372,9 @@ node! {
     category: Transform,
     tooltip: "Folds the input into wedges around a center. Classic mirrors every other wedge, \
               Continuous repeats one without mirroring, and Spiral unwraps the wedge into a \
-              tunnel. Source Segment picks which wedge is copied.",
+              tunnel. Source Segment picks which wedge is copied. Classic closes only on an \
+              even Segments: an odd count leaves one wedge, on the left, mirrored about its own \
+              middle.",
     // "Source Segment" does not fit the default 200.
     width: 216.0,
     inputs: [
@@ -829,7 +837,11 @@ node! {
               half a unit a second times its Speed. A cycle of its Time is a flight of 64 \
               units, after which it comes back while the depth wraps, so a gear cabled into \
               Time flies it once a turn; Offset moves it along. Twist is how far the tube \
-              wanders and zoom is the lens.",
+              wanders and zoom is the lens. The wall shows only the input's middle, −1 to 1 \
+              each way: Cartesian wraps that square's width once around the tube and its height \
+              along every 4 units, and Polar reads the disc of radius 1, its angle around the \
+              wall and its radius along it. So a pattern reads coarser on the wall than in the \
+              frame; scale it up first.",
     // At Depth Wrap None the camera flies on through its input, so the picture comes back when
     // the input does along the tube.
     timing: Timing::repeating(0.5 / TUNNEL_FLIGHT, tunnel_period)

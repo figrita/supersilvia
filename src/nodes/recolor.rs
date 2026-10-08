@@ -155,7 +155,7 @@ node! {
               bright it is. One turn of Hue Shift is the whole wheel.",
     inputs: [
         VaryingColor "input" "Input" = Control::None,
-        VaryingNumber "hue" "Hue Shift" = Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "hue" "Hue Shift" = Control::turn(0.0, -2.0, 2.0, 0.001),
         VaryingNumber "saturation" "Saturation" = Control::num(1.0, 0.0, 2.0, 0.01, ""),
         VaryingNumber "value" "Value" = Control::num(1.0, 0.0, 2.0, 0.01, ""),
     ],

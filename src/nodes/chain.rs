@@ -28,9 +28,15 @@
 //!   a fraction ([`Fraction::near`]); a clip's, whose length the graph does not hold, cannot be
 //!   told. Every other input it reads adds what it comes back in. A count in Speed never
 //!   closes, and anything else in one cannot be told.
+//! - **An angle read round a whole turn** — an input declared with `Control::turn`, a
+//!   rotation, a hue, a solid's Phase — draws the same a whole turn on, so a count in it comes
+//!   back every `1 ÷ r`, every cycle of its gear. Anywhere else a count is a number that grows
+//!   without bound, which cannot be told.
 //! - **A Clock Divider** at ÷n turns beats every `T` into beats every `nT`.
 //! - **A node with no CPU half** — arithmetic, a shader, an Output — is a function of its
-//!   inputs, and comes back when all of them have. Any other CPU node keeps state the walk
+//!   inputs, and comes back when all of them have; so is the Text node, whose CPU half lays
+//!   out its words alone. A loop through a frame, feedback, cannot be told: the walk comes
+//!   back to a node it is still working out. Any other CPU node keeps state the walk
 //!   cannot read: it is still while nothing that moves reaches it, a device's never comes
 //!   back, and otherwise it cannot be told.
 //!
@@ -359,6 +365,27 @@ impl Gather {
         }
     }
 
+    /// What reaches input `key` of `node`: an angle read round a whole turn
+    /// ([`crate::nodes::InputDef::turns`]) comes back every turn of a count in it, every
+    /// `1 ÷ rate` master cycles; anything else is read as [`Self::reading`] reads it.
+    fn input(&mut self, m: Motion, node: &Node, key: &str, at: NodeId) {
+        match m {
+            Motion::Clock(c, Shape::Count)
+                if node
+                    .def
+                    .input(key)
+                    .is_some_and(crate::nodes::InputDef::turns) =>
+            {
+                match period_of(c, Some(Fraction::ONE)) {
+                    Ok(period) => self.every(period, at),
+                    Err(()) => self.fail(Motion::Never(at)),
+                }
+                self.sway(c);
+            }
+            m => self.reading(m, at),
+        }
+    }
+
     fn done(self) -> Motion {
         if let Some(m) = self.broke {
             return m;
@@ -626,33 +653,42 @@ impl<'g> Walk<'g> {
         if let Some(t) = node.def.timing {
             return self.timed(id, node, t);
         }
-        let cables: Vec<PortRef> = self.graph.cables_into(id).iter().map(|c| c.from).collect();
+        let cables: Vec<(PortRef, &'static str)> = self
+            .graph
+            .cables_into(id)
+            .iter()
+            .map(|c| (c.from, c.to.key))
+            .collect();
         let mut g = Gather::default();
-        match node.def.cpu.as_ref() {
-            // A function of its inputs.
-            None => {
-                for from in cables {
-                    let m = self.port(from);
-                    g.reading(m, id);
-                }
-                g.done()
+        // A function of its inputs: a node with no CPU half, or the Text node, whose CPU half
+        // lays out its words alone while its shader mixes its colors in.
+        let cpu = node
+            .def
+            .cpu
+            .as_ref()
+            .filter(|_| node.def.slug != crate::nodes::text::DEF.slug);
+        let Some(cpu) = cpu else {
+            for (from, key) in cables {
+                let m = self.port(from);
+                g.input(m, node, key, id);
             }
-            Some(cpu) if cpu.live => Motion::Never(id),
-            Some(cpu) => {
-                let moves = cpu.integrates || node.def.slug == crate::nodes::time::DEF.slug;
-                for from in cables {
-                    match self.port(from) {
-                        Motion::Still => {}
-                        m @ (Motion::Never(_) | Motion::Unknown(_)) => g.fail(m),
-                        _ => g.fail(Motion::Unknown(id)),
-                    }
-                }
-                if moves {
-                    g.fail(Motion::Unknown(id));
-                }
-                g.broke.unwrap_or(Motion::Still)
+            return g.done();
+        };
+        if cpu.live {
+            return Motion::Never(id);
+        }
+        let moves = cpu.integrates || node.def.slug == crate::nodes::time::DEF.slug;
+        for (from, _) in cables {
+            match self.port(from) {
+                Motion::Still => {}
+                m @ (Motion::Never(_) | Motion::Unknown(_)) => g.fail(m),
+                _ => g.fail(Motion::Unknown(id)),
             }
         }
+        if moves {
+            g.fail(Motion::Unknown(id));
+        }
+        g.broke.unwrap_or(Motion::Still)
     }
 
     /// A node that moves with time: where each axis's Time and Offset put it, round its
@@ -742,17 +778,17 @@ impl<'g> Walk<'g> {
             }
         }
         // Everything else it reads: Gate, Amplitude, a lane's knobs, a clip's tuning.
-        let cables: Vec<PortRef> = graph
+        let cables: Vec<(PortRef, &'static str)> = graph
             .cables_into(id)
             .iter()
             .filter(|c| {
                 !(timing::is_time_row(c.to.key) || (sequencer && c.to.key == sequencer::STEP))
             })
-            .map(|c| c.from)
+            .map(|c| (c.from, c.to.key))
             .collect();
-        for from in cables {
+        for (from, key) in cables {
             let m = self.port(from);
-            g.reading(m, id);
+            g.input(m, node, key, id);
         }
         g.done()
     }
@@ -1476,9 +1512,9 @@ mod tests {
         }
     }
 
-    /// **A count into anything but a Time or an Offset cannot be told**, and into an Offset
-    /// it adds to where the node is: a Euclidean Rhythm five bars long, still, with the
-    /// master's Cycles in its Offset comes back in five.
+    /// **A count into anything but a Time, an Offset or an angle cannot be told**, and into
+    /// an Offset it adds to where the node is: a Euclidean Rhythm five bars long, still, with
+    /// the master's Cycles in its Offset comes back in five.
     #[test]
     fn a_count_in_an_offset_moves_the_node_and_in_a_level_cannot_be_told() {
         let mut g = Graph::new();
@@ -1638,5 +1674,92 @@ mod tests {
         connect(&mut g, (times, "output"), (shaky, crate::nodes::TIME_Y));
         connect(&mut g, (master, "cycles"), (shaky, crate::nodes::TIME));
         assert_eq!(master_loop(&g, master).unsure, [times]);
+    }
+
+    /// **A count in an angle read round a whole turn comes back every turn**: a gear's Cycles
+    /// in Displace's, Warp's or Noise Displace's Phase, a shape's Yaw, a Sine's Phase or a
+    /// polygon's Rotation comes back every cycle of the gear — every cycle of the master on
+    /// it, three on a ÷3 gear, two on a 3 : 2 — and a Phase there as it always did. An angle a
+    /// whole turn on draws differently is still a number that grows without bound: the Wave's
+    /// Phase, a whirl, a twist's Rate.
+    #[test]
+    fn a_count_in_an_angle_comes_back_every_turn() {
+        for (slug, key) in [
+            ("displace", "phase"),
+            ("warp", "phase"),
+            ("noisedisplace", "phase"),
+            ("sphere", "tYaw"),
+            ("sine", "phase"),
+            ("polygon", "rotation"),
+        ] {
+            for ((p, q), want) in [((1.0, 1.0), 1), ((1.0, 3.0), 3), ((3.0, 2.0), 2)] {
+                let mut g = Graph::new();
+                let master = gear(&mut g, "mastergear", None);
+                let ratio = gear(&mut g, "ratiogear", Some((p, q)));
+                let node = gear(&mut g, slug, None);
+                connect(&mut g, (master, "cycles"), (ratio, "clock"));
+                connect(&mut g, (ratio, "cycles"), (node, key));
+                let l = master_loop(&g, master);
+                assert_eq!(
+                    (l.cycles, l.open.len(), l.unsure.len()),
+                    (want, 0, 0),
+                    "{slug}.{key} at {p} : {q}"
+                );
+            }
+            let mut g = Graph::new();
+            let master = gear(&mut g, "mastergear", None);
+            let node = gear(&mut g, slug, None);
+            connect(&mut g, (master, "wrapped"), (node, key));
+            assert_eq!(
+                master_length(&g, master),
+                Some(2.0),
+                "a Phase in {slug}.{key}"
+            );
+        }
+        for (slug, key) in [
+            ("wave", "phase"),
+            ("whirlandpinch", "whirl"),
+            ("twist", "rate"),
+        ] {
+            let mut g = Graph::new();
+            let master = gear(&mut g, "mastergear", None);
+            let node = gear(&mut g, slug, None);
+            connect(&mut g, (master, "cycles"), (node, key));
+            assert_eq!(master_loop(&g, master).unsure, [node], "{slug}.{key}");
+            assert_eq!(
+                caption(&g, master),
+                format!("can't tell when 1 node closes ({slug}{})", node.0)
+            );
+        }
+    }
+
+    /// **The Text node is a function of its inputs**: its CPU half lays out the words, which
+    /// do not move, and its colors are mixed in by its shader, so a Cosine Gradient on a ×½
+    /// gear in its Text Color comes back in two cycles. Its picture through an Output's frame
+    /// and back, feedback, cannot be told.
+    #[test]
+    fn words_come_back_with_their_colors_and_feedback_cannot_be_told() {
+        let mut g = Graph::new();
+        let (master, colors) = driving(&mut g, (1.0, 2.0), "cosinegradient", "cycles");
+        let text = gear(&mut g, "text", None);
+        let output = gear(&mut g, "output", None);
+        connect(&mut g, (colors, "output"), (text, "textColor"));
+        connect(&mut g, (text, "output"), (output, "input"));
+        let l = master_loop(&g, master);
+        assert_eq!((l.cycles, l.open.len(), l.unsure.len()), (2, 0, 0));
+
+        let shift = gear(&mut g, "colorshift", None);
+        let screen = gear(&mut g, "layerblend", None);
+        g.disconnect(PortRef::new(output, "input"));
+        connect(&mut g, (output, "frame"), (shift, "input"));
+        connect(&mut g, (shift, "output"), (screen, "background"));
+        connect(&mut g, (text, "output"), (screen, "foreground"));
+        connect(&mut g, (screen, "output"), (output, "input"));
+        assert!(
+            caption(&g, master).starts_with("can't tell"),
+            "{}",
+            caption(&g, master)
+        );
+        assert_eq!(master_length(&g, master), None);
     }
 }

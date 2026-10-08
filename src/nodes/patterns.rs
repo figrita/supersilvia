@@ -33,7 +33,7 @@ node! {
     inputs: [
         VaryingNumber "frequency" "Frequency" = Control::num(8.0, 1.0, 64.0, 1.0, "/⬓"),
         VaryingNumber "phase" "Phase" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "rotation" "Rotation" = Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "rotation" "Rotation" = Control::turn(0.0, -2.0, 2.0, 0.001),
         VaryingColor "color1" "Color 1" = Control::color("#ffffffff"),
         VaryingColor "color2" "Color 2" = Control::color("#000000ff"),
         VaryingNumber "smoothing" "Smoothing" = Control::num_log(0.01, 0.0, 1.0, 0.001, ""),

@@ -38,9 +38,10 @@ fn control(c: &Control) -> Value {
             unit,
             log,
             capped_by,
+            turn,
         } => json!({
             "kind": "number", "default": default, "min": min, "max": max,
-            "step": step, "unit": unit, "log": log, "capped_by": capped_by,
+            "step": step, "unit": unit, "log": log, "capped_by": capped_by, "turn": turn,
         }),
         Control::Color { default } => json!({ "kind": "color", "default": default }),
         Control::Press => json!({ "kind": "press" }),
@@ -62,10 +63,14 @@ fn main() {
                 })
             })
             .collect();
+        // The graph's own delayed flag, which a `Texture` output carries whatever its
+        // `OutputDef::delayed` says.
+        let ports = d.port_defs().1;
         let outputs: Vec<Value> = d
             .outputs
             .iter()
-            .map(|o| {
+            .zip(&ports)
+            .map(|(o, port)| {
                 json!({
                     "key": o.key, "label": o.label, "type": port_ty(o.ty),
                     "kind": match o.kind {
@@ -74,7 +79,7 @@ fn main() {
                         OutputKind::Uniform => "uniform",
                         OutputKind::Action => "action",
                     },
-                    "range": o.range, "delayed": o.delayed, "dual": o.eval.is_some(),
+                    "range": o.range, "delayed": port.delayed, "dual": o.eval.is_some(),
                 })
             })
             .collect();

@@ -104,7 +104,7 @@ pub static ROTATE: NodeDef = NodeDef {
     icon: "🔄",
     label: "Rotate",
     tooltip: "Rotates the input around a center. Angle in turns: 1.0 is a full turn, 0.5 \
-              is 180°, positive clockwise and negative counter-clockwise.",
+              is 180°, positive counter-clockwise and negative clockwise.",
     inputs: &[
         InputDef {
             key: "input",
@@ -226,8 +226,8 @@ node! {
     label: "Translate",
     category: Transform,
     tooltip: "Slides the input across the frame. The offset is subtracted from the sampling \
-              coordinate, so a positive X moves the picture left and a positive Y moves it \
-              down.",
+              coordinate, so a positive X moves the picture right and a positive Y moves it \
+              up.",
     inputs: [
         VaryingColor "input" "Input" at "translatedUV" = Control::None,
         VaryingNumber "x" "X Offset" = Control::num(0.0, -1.0, 1.0, 0.01, "⬓"),

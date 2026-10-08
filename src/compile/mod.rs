@@ -393,7 +393,19 @@ impl<'a> CompileContext<'a> {
                 .and_then(|n| n.output(src.key))
                 .is_some_and(|p| p.ty.is_uniform());
             if is_uniform {
-                return self.published_uniform(src.node, src.key);
+                let value = self.published_uniform(src.node, src.key);
+                // An angle read round a whole turn takes the count's fraction, so a gear's
+                // Cycles a whole number of turns on draws to the bit what it drew at zero.
+                let turns = self
+                    .graph
+                    .get(id)
+                    .and_then(|n| n.def.input(key))
+                    .is_some_and(crate::nodes::InputDef::turns);
+                return if turns {
+                    format!("fract({value})")
+                } else {
+                    value
+                };
             }
             let Some((func, ret)) = self.emit(src) else {
                 return Self::fallback(PortType::VaryingColor, uv);

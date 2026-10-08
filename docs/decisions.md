@@ -1093,9 +1093,14 @@ in one drop rather than four nodes and three cables, and because the composed fo
 after the multiply unless wired carefully. Same argument as `oscillator` beside `sine`.
 
 **Chosen: exposure is open loop on the input.** `gain = target / measured` has no dynamics
-to tune and cannot oscillate; the slew is the only time constant. Closed loop on the output
-was rejected for that reason. Inside a feedback loop the input is last frame's output, so
-the loop is held anyway.
+to tune; the slew is the only time constant. Closed loop on the output was rejected for that
+reason. Inside a feedback loop the input is last frame's output, so the loop is held anyway —
+but there the open law is not open: over a dim source the frame's log brightness integrates
+the log of the gain, and a plain slew on that is an undamped spring: it swings an additive
+loop between a fifth and a half of white every two seconds at Response 2 to 4. **Chosen: the slew
+leads** with `√a − a` of each change in the wanted gain, which half-damps the spring at any
+Response and off a loop only answers a step sooner, never past it. **Rejected: a cap on Max
+gain**, which would stop the loop running away and also stop a dark camera being brought up.
 
 **Chosen: a node may read its own published uniform number.** `ctx.own_uniform` registers the
 same `NodeUniform` provider a connected uniform number gets. A node whose WGSL reads what its
@@ -6785,6 +6790,18 @@ frame and a zero-copy camera or clip import alike.
 - mips on the producer's ring, which misses cameras and clips;
 - supersampling, which multiplies a march's cost;
 - temporal smoothing, which ghosts.
+
+### A ray that runs out of steps ends where it stopped
+
+**Chosen.** A ray that uses up Steps short of the far limit is a hit where it stopped if its
+distance there is within about a pixel, or else lands on the floor where it would cross it
+([rendering.md](rendering.md#render-3d)), rather than showing the background, which drew a
+ring round a Noise Displace and a ragged horizon.
+
+**What lost: the closest approach along the ray**, the usual sphere-tracing rule. A bound that
+shrinks the step under-reports the distance by as much as it shrinks it, so a ray passing
+pixels clear of the surface reads as touching it, and the surface grew a crust of such
+pixels round its silhouette.
 
 ### Render 3D keeps five numbers as ports and the rest as its own
 

@@ -214,7 +214,7 @@ node! {
     inputs: [
         VaryingColor "input" "Input" at "uv + offset" = Control::None,
         VaryingNumber "strength" "Strength" = Control::num(1.0, 0.0, 5.0, 0.1, "x"),
-        VaryingNumber "angle" "Light Angle" = Control::num(0.125, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "angle" "Light Angle" = Control::turn(0.125, -2.0, 2.0, 0.001),
         VaryingNumber "offset" "Gray" = Control::num(0.5, 0.0, 1.0, 0.01, ""),
     ],
     options: [

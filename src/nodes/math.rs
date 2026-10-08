@@ -148,7 +148,7 @@ macro_rules! wave {
             inputs: &[
                 InputDef { key: "input", label: "Input", ty: VaryingNumber, control: Control::num(0.0, -10.0, 10.0, 0.01, "") },
                 InputDef { key: "frequency", label: "Frequency", ty: VaryingNumber, control: Control::num(1.0, 0.01, 10.0, 0.01, "x") },
-                InputDef { key: "phase", label: "Phase", ty: VaryingNumber, control: Control::num(0.0, -2.0, 2.0, 0.001, crate::nodes::TURNS) },
+                InputDef { key: "phase", label: "Phase", ty: VaryingNumber, control: Control::turn(0.0, -2.0, 2.0, 0.001) },
                 InputDef { key: "amplitude", label: "Amplitude", ty: VaryingNumber, control: Control::num(1.0, 0.0, 10.0, 0.01, "") },
             ],
             outputs: &[OutputDef {
@@ -173,7 +173,8 @@ macro_rules! wave {
                         * ctx.input(node, "frequency")
                         * 2.0
                         * std::f64::consts::PI
-                        + ctx.input(node, "phase") * std::f64::consts::TAU;
+                        // The phase's fraction, as the shader takes it (`Control::turn`).
+                        + ctx.input(node, "phase").rem_euclid(1.0) * std::f64::consts::TAU;
                     f(angle) * ctx.input(node, "amplitude")
                 }),
                 ..OutputDef::EMPTY

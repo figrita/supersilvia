@@ -116,7 +116,7 @@ node! {
     inputs: [
         VaryingColor "input" "Input" = Control::None,
         VaryingNumber "dotSize" "Dot Size" = Control::num(5.0, 2.0, 40.0, 0.1, "px"),
-        VaryingNumber "angle" "Angle" = Control::num(0.125, -2.0, 2.0, 0.001, crate::nodes::TURNS),
+        VaryingNumber "angle" "Angle" = Control::turn(0.125, -2.0, 2.0, 0.001),
         VaryingNumber "smoothness" "Smoothness" = Control::num(0.1, 0.01, 0.5, 0.01, ""),
     ],
     options: [

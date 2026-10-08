@@ -27,10 +27,10 @@
 //! anything not wrapped onto the axis. Across the seam behind the ring the input is cut unless
 //! it repeats every `2πR` along X.
 
-use super::{SDF, fill, num, num_log, out, solid};
+use super::{SDF, fill, num, num_log, out, solid, turn};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, NodeDef, TURNS};
+use crate::nodes::{Category, NodeDef};
 
 /// The seam helpers and the warp's noise.
 const BLENDS: &str = "// Seams and warps.
@@ -172,7 +172,7 @@ pub static WARP: NodeDef = NodeDef {
         solid("input", "Solid"),
         num("amount", "Amount", 0.3, 0.0, 2.0, 0.001, "⬓"),
         num_log("frequency", "Frequency", 1.0, 0.05, 10.0, 0.01, "/⬓"),
-        num("phase", "Phase", 0.0, 0.0, 1.0, 0.001, TURNS),
+        turn("phase", "Phase", 0.0, 0.0, 1.0, 0.001),
     ],
     outputs: &[out(|node, ctx, _| {
         let inner = ctx.input(node, "input", "q");
@@ -202,8 +202,8 @@ pub static FOLD_PLANE: NodeDef = NodeDef {
               Yaw and Pitch aim the normal, from +X; Offset moves the plane along it.",
     inputs: &[
         solid("input", "Solid"),
-        num("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001, TURNS),
-        num("pitch", "Pitch", 0.0, -0.25, 0.25, 0.001, TURNS),
+        turn("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001),
+        turn("pitch", "Pitch", 0.0, -0.25, 0.25, 0.001),
         num("offset", "Offset", 0.0, -10.0, 10.0, 0.01, "⬓"),
     ],
     outputs: &[out(|node, ctx, _| {

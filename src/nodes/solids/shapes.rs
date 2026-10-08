@@ -39,10 +39,10 @@
 //! percent of exact, and a dense search over the curve never found it claiming too much.
 
 use super::more::{X, Y, Z, placed};
-use super::{SDF, color, num, num_log, out, tint};
+use super::{SDF, color, num, num_log, out, tint, turn};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::nodes::{Category, NodeDef, TURNS};
+use crate::nodes::{Category, NodeDef};
 
 /// A primitive's body: `prelude` over `q`, then the distance `dist` and the node's Color.
 fn primitive(node: NodeId, ctx: &mut CompileContext, prelude: &str, dist: &str) -> String {
@@ -270,8 +270,8 @@ pub static SLAB: NodeDef = NodeDef {
         X,
         Y,
         Z,
-        num("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001, TURNS),
-        num("pitch", "Pitch", 0.0, -1.0, 1.0, 0.001, TURNS),
+        turn("yaw", "Yaw", 0.0, -1.0, 1.0, 0.001),
+        turn("pitch", "Pitch", 0.0, -1.0, 1.0, 0.001),
         num("offset", "Offset", 0.0, -10.0, 10.0, 0.01, "⬓"),
         num("thickness", "Thickness", 0.5, 0.0, 20.0, 0.01, "⬓"),
         color("color", "Color", "#a8a2b8ff"),

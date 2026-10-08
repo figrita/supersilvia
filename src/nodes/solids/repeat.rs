@@ -12,7 +12,7 @@
 //! a step per copy. The hash is integer arithmetic, so a scatter is the same on every GPU and
 //! comes back the same when a project is opened.
 
-use super::{SDF, fill, num, out, solid};
+use super::{SDF, fill, num, out, solid, turn};
 use crate::nodes::{Category, NodeDef, OptionDef, TURNS};
 
 pub static GRID: NodeDef = NodeDef {
@@ -93,7 +93,7 @@ pub static AROUND: NodeDef = NodeDef {
         num("radius", "Radius", 2.0, 0.0, 20.0, 0.01, "⬓"),
         num("spread", "Spread", 1.0, 0.0, 1.0, 0.001, TURNS),
         num("rise", "Rise", 0.0, -2.0, 2.0, 0.01, "⬓"),
-        num("turn", "Turn", 0.0, -1.0, 1.0, 0.001, TURNS),
+        turn("turn", "Turn", 0.0, -1.0, 1.0, 0.001),
         num("grow", "Grow", 0.0, -0.5, 0.5, 0.001, ""),
         num("tint", "Tint", 0.0, 0.0, 1.0, 0.01, ""),
         num("seed", "Seed", 0.0, 0.0, 999.0, 1.0, ""),

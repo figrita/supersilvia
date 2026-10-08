@@ -709,6 +709,14 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
   advances a sixteenth of a bar a beat and reads nothing else of time. Every other input a node
   reads — an Amplitude, a Gate — adds what arrives there: a Phase, a Ping-pong or anything
   that comes back on its own, and a count, which grows without bound, cannot be told.
+- **An angle read round a whole turn** — an input declared with `Control::turn`
+  (`InputDef::turns`): a rotation, a hue, a Sine's Phase, a solid's Yaw, Pitch and Roll, and
+  Displace's, Warp's and Noise Displace's Phase — draws the same picture a whole turn on, so a
+  gear's Cycles there at rate `r` comes back every `1 ÷ r` of `M`'s cycles, every cycle of its
+  gear. Only an angle the body turns by alone is declared: the Wave's Phase is not, since its
+  Noise hashes it, nor a whirl, scaled by the distance out, a twist's Rate, scaled by the
+  height, a Repeat Around's Spread or a random Spin, and a count in one of those cannot be
+  told.
 - **A Trigger** beats once a cycle of its gear; a **Clock Divider** at ÷n beats every `n` of
   those.
 - **A node on its own clock** — Loop mode with nothing in its Time, or running free on its
@@ -719,15 +727,17 @@ of its `f64` by `Fraction::near` (the least denominator up to 4096 whose multipl
   length `L` where its rate times `L ÷ P` is whole (`chain::closes_alone`); a node standing
   still closes on anything.
 - **A node with no CPU half** — arithmetic, a shader, an Output — comes back when all its
-  inputs have. Any other CPU node keeps state the walk cannot read: still while nothing that
-  moves reaches it, never back where it reads a device, and otherwise it cannot be told. A
-  loop through a frame — feedback — cannot be told.
+  inputs have, and so does the Text node, whose CPU half lays out its words alone while its
+  shader mixes its colors in. Any other CPU node keeps state the walk cannot read: still
+  while nothing that moves reaches it, never back where it reads a device, and otherwise it
+  cannot be told. A loop through a frame — feedback — cannot be told.
 - **What never closes**: a picture that never repeats — a noise at Repeat Never, a clip on
   Hold, the oscillator's Noise — on a moving clock; a count in a
   Speed, a rate that keeps growing; a ratio that is no fraction with a denominator up to 64;
   and a loop longer than the arithmetic can count, which no practical length closes. **What
   cannot be told**: a cable in a Ratio, a Speed or a Divide, a gear's count through a Math
-  node or into anything but a Time or an Offset, a beat into a gear reset or held, a CPU node's
+  node or into anything but a Time, an Offset or an angle read round a whole turn, a beat
+  into a gear reset or held, a CPU node's
   state, a clip on its own clock, the tunnel at Depth Wrap None, which comes back when its input
   does.
 - An unconnected color input falls back to the hue wheel, `defaultUvMap`, which stands still
@@ -748,7 +758,10 @@ zero drew, whatever the Offset or the field in it. Added the other way round, `T
 rounds the Offset differently a period on, and a loop comes back a grey level off in a few
 pixels. And a count reaches a Time as its whole part and the `f32` of its fraction, so the
 fraction a loop on is the fraction before it to the bit, before zero as after it: a render's
-warm-up at negative time draws what the loop draws.
+warm-up at negative time draws what the loop draws. An angle read round a whole turn takes the
+same care: a uniform cabled into one reaches the shader as its `fract`, and a Sine's own
+arithmetic on the CPU takes its Phase's fraction too, so a count a whole number of turns on
+turns by exactly what it turned by at zero.
 
 A stateful node closes only where it has settled or its state happens to come back, and
 nothing reads that for it: `loop_gifs` compares the frame one loop on with the first, which
@@ -1099,7 +1112,9 @@ things drawn around a center, `patterns.rs` for the ones that repeat across the 
 random ones. Every one of them is the `node!` macro except `checkerboard`, the hand-written
 example above. `mandelbrot` and `juliaset` read Time and Offset on
 their `map` output, where silvia read `u_time` directly, one cycle a drift of the orbit map,
-a drift every two seconds at rest — [Timing](#timing) has the rule. `lyapunov`'s `sequence` is typed free
+a drift every two seconds at rest — [Timing](#timing) has the rule; `color`, `smooth` and
+`mask` hold still, and `smooth` is the escape count over Iterations, 0 to 1, so more Iterations
+darkens it and `color`. `lyapunov`'s `sequence` is typed free
 text, like silvia's own field, and silvia's Random Seq writes it: a
 [`Region::Buttons`](ui.md#a-nodes-own-buttons) row of one under the rows, rolling two to
 eleven letters of `A` and `B`, both present, exactly as silvia's `randomSequence` does. A press
@@ -1344,7 +1359,11 @@ rectangle tiled, the rectangle mirror-tiled or the edge smeared out, and the cov
 premultiplied, so it shows through wherever the input is transparent. `domainwarp` and `tunnel3d` read Time and Offset where silvia
 read `u_time` and drove a CPU phase accumulator respectively: the warp in lattice cells with
 the noises' Repeat, the tunnel in flights of 64 units of camera depth on its retuned path,
-which comes back every flight while the depth wraps, its Helix every quarter.
+which comes back every flight while the depth wraps, its Helix every quarter. The tunnel's
+wall reads only the input's middle, −1 to 1 each way: Cartesian wraps that square's width once
+around the tube and its height along every 4 units of depth, and Polar reads the disc of
+radius 1, angle around and radius along, so a pattern reads coarser on the wall than in the
+frame; the tooltip says so.
 
 `slew` is the reference CPU node: three `UniformNumber` inputs — `input`, `rise` and `fall` —
 one `UniformNumber` out, and a `tick` that integrates `dt`. `Shape` picks which of the two
@@ -1480,9 +1499,13 @@ one; `span` is the smallest gap allowed, so silence is not stretched to full sca
 `autoexposure` measures its input the way `tap` does — over the unit square, at the grid it
 offers no choice about — computes the gain that brings the mean
 luminance to `target`, slews toward it in log space at the pace **Response** sets, clamps
-it, and multiplies — open loop on
-the input, so it cannot oscillate, and inside a feedback loop it holds the loop at a level
-instead of letting it run away or die. Its WGSL reads the gain its own tick published,
+it, and multiplies — open loop on the input, and inside a feedback loop it holds the loop at a
+level instead of letting it run away or die. The slew leads with `√a − a` of each change in the
+gain it wants, `a` being the fraction of the gap it closes a tick: in a loop that adds light over
+a dim source the frame's log brightness integrates the log of the gain, and a plain slew on that
+is an undamped spring, which this damps to half; off a loop a step in the input is answered
+`√a` at once and never overshot. A Response under a second can still outrun the late reading in
+such a loop, which the tooltip says, with Max gain 1 as the hold. Its WGSL reads the gain its own tick published,
 through `ctx.own_uniform`, which is how a node closes a loop over itself without a cable.
 
 `video` plays a file. On first use the file is transcoded into all-intra H.264 in the cache
