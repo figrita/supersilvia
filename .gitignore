@@ -6,3 +6,4 @@
 *.svs.bak
 /.dirac-cache
 *.old.png
+__pycache__/
