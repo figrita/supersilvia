@@ -9134,7 +9134,8 @@ fn a_cable_with_one_end_elsewhere_is_a_tag_and_not_a_cable() {
     );
 }
 
-/// Clicking a tag activates the workspace the source is on and puts the view on it.
+/// Clicking a tag activates the workspace the source is on, puts the view on it, and makes it
+/// throb — the same answer every other link to a node gives.
 #[test]
 fn clicking_a_tag_goes_to_the_node_the_cable_came_from() {
     let mut h = harness();
@@ -9164,9 +9165,81 @@ fn clicking_a_tag_goes_to_the_node_the_cable_came_from() {
     let middle = h.state().canvas_origin()
         + egui::vec2(h.state().canvas_width(), h.state().canvas_height()) * 0.5;
     assert!((at - middle).length() < 1.0, "{at:?} against {middle:?}");
+    assert_eq!(
+        h.state().canvas_throbbing(),
+        Some(source),
+        "and it throbs, so the eye lands on it"
+    );
 
     // Following a tag is session state, like switching a tab: it never enters the history.
     assert_eq!(h.state().history().len(), edits);
+}
+
+/// The tag is a link in the accessibility tree too, and hovering it says, in a person's
+/// words, which node is at the far end and which workspace it is on.
+#[test]
+fn a_tags_tooltip_names_the_far_node_and_its_workspace() {
+    let mut h = harness();
+    h.step();
+    across_two_workspaces(&mut h);
+    let tag = "tag from checkerboard1.output on Workspace 1";
+    assert!(
+        h.query_by_role_and_label(egui::accesskit::Role::Link, tag)
+            .is_some(),
+        "the tag is a link"
+    );
+    let words = "Checkerboard on Workspace 1 — click to show it";
+    assert!(h.query_by_label_contains(words).is_none());
+
+    h.get_by_label(tag).hover();
+    h.run_steps(4);
+    assert!(
+        h.query_by_label_contains(words).is_some(),
+        "hovering the tag names the node and the workspace"
+    );
+}
+
+/// The output's side of the same cable is a tag as well, and a link: from the source's
+/// workspace it goes to the node the cable feeds, opening that workspace if it is closed.
+#[test]
+fn clicking_an_outputs_tag_goes_to_the_node_the_cable_feeds() {
+    let mut h = harness();
+    h.step();
+    let (_, out, first) = across_two_workspaces(&mut h);
+    let second = h.state().graph().workspaces()[1].id;
+    click_tab(&mut h, "tab Workspace 1");
+    h.state_mut().close_workspace(second);
+    h.run_steps(2);
+    assert!(h.query_by_label("tab Workspace 2").is_none());
+    assert_eq!(h.state().active(), Active::Workspace(first));
+    let edits = h.state().history().len();
+
+    let tag = "tag to output2 on Workspace 2";
+    h.get_by_label(tag).hover();
+    h.run_steps(4);
+    assert!(
+        h.query_by_label_contains("Output on Workspace 2, which is closed")
+            .is_some(),
+        "the tooltip says where the cable goes and that the workspace is closed"
+    );
+    h.get_by_label(tag).click();
+    h.run_steps(2);
+
+    assert!(h.state().open_workspaces().contains(&second), "it opened");
+    assert_eq!(h.state().active(), Active::Workspace(second), "it switched");
+    let at = h
+        .state()
+        .canvas_transform()
+        .to_screen(h.state().canvas_origin(), node_rect(&h, out).center());
+    let middle = h.state().canvas_origin()
+        + egui::vec2(h.state().canvas_width(), h.state().canvas_height()) * 0.5;
+    assert!((at - middle).length() < 1.0, "{at:?} against {middle:?}");
+    assert_eq!(h.state().canvas_throbbing(), Some(out), "and it throbs");
+    assert_eq!(
+        h.state().history().len(),
+        edits,
+        "and none of it is an edit"
+    );
 }
 
 /// A tag naming a **closed** workspace is still there, and clicking it opens that workspace.

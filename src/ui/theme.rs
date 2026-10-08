@@ -458,7 +458,7 @@ pub const RADIUS_SM: u8 = 4;
 pub const RADIUS_MD: u8 = 6;
 pub const RADIUS_LG: u8 = 12;
 
-/// The cross-workspace tag: the pill beside an input port whose cable comes from a node
+/// The cross-workspace tag: the pill beside a port whose cable goes to or comes from a node
 /// that is not on this workspace. Sharp like everything that is not a node, and sized from
 /// the port row it sits in.
 pub const TAG_HEIGHT: f32 = 18.0;

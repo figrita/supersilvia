@@ -3838,51 +3838,55 @@ fn card(
     response
 }
 
-/// A cable's far end, where the node it comes from is not on this workspace.
+/// A cable's far end, where the node at the other end is not on this workspace.
 ///
-/// The pill stands in for the cable that cannot be drawn: the source node's icon and the
-/// workspace it is on, in the port's own color, dimmed while that workspace has no tab.
+/// The pill stands in for the cable that cannot be drawn: the far node's icon and the
+/// workspace it is on, in the port's own color, dimmed while that workspace has no tab. It is
+/// a link: clicking it shows that node, the way every other link to a node does.
 pub struct Tag<'a> {
-    /// The source node's `NodeDef::icon`, drawn `theme::ICON_BUMP` larger than the name
+    /// The far node's `NodeDef::icon`, drawn `theme::ICON_BUMP` larger than the name
     /// beside it — the pill grows to hold it rather than clipping it.
     pub icon: &'a str,
     /// The workspace's name.
     pub label: &'a str,
-    /// What the accessibility tree carries:
-    /// `tag from {slug}{id}.{key} on {workspace name}`.
+    /// What the accessibility tree carries: `tag from {slug}{id}.{key} on {workspace name}`
+    /// beside an input, `tag to {slug}{id} on {workspace name}` beside an output.
     pub name: &'a str,
+    /// What hovering it says, in words a person reads: which node, on which workspace, and
+    /// that a click goes there.
+    pub hover: &'a str,
     /// The cable's type, which is where the color comes from.
     pub ty: PortType,
     /// The workspace named has no tab.
     pub closed: bool,
+    /// Which way it stands from the port: leftwards beside an input, where the cable would
+    /// have come in, and rightwards beside an output, where it would have left.
+    pub leftwards: bool,
 }
 
-/// Draw one tag, right-aligned to `right`, and return where it landed.
+/// Draw one tag with its near edge at `at`, on the side [`Tag::leftwards`] says, and return
+/// where it landed.
 ///
-/// The rect comes back so a second tag on the same port stacks leftwards from the first: an
-/// action input takes many sources, and each one that is elsewhere gets a pill.
+/// The rect comes back so a second tag on the same port stacks outwards from the first: an
+/// action input takes many sources, an output feeds many inputs, and each one that is
+/// elsewhere gets a pill.
 pub fn tag(
     ui: &mut Ui,
-    right: Pos2,
+    at: Pos2,
     tag: &Tag<'_>,
     theme: &crate::ui::theme::Theme,
     zoom: f32,
 ) -> (Rect, Response) {
     use crate::ui::theme;
 
-    let dim = |c: eframe::egui::Color32| {
-        if tag.closed {
-            c.gamma_multiply(theme::TAG_CLOSED)
-        } else {
-            c
-        }
-    };
     // Two galleys, so the icon can be the larger of the pair. The name is wrapped in what is
-    // left of the pill's width once the icon has had its share.
+    // left of the pill's width once the icon has had its share. Measured before anything is
+    // painted, because the pill is interacted with before it is painted: its hover is part of
+    // how it looks.
     let icon = ui.painter().layout_no_wrap(
         tag.icon.to_string(),
         theme::icon_font(theme::FONT_TINY, zoom),
-        dim(theme.tag_text(tag.ty)),
+        Color32::PLACEHOLDER,
     );
     let gap_world = if tag.icon.is_empty() { 0.0 } else { 3.0 };
     let gap = gap_world * zoom;
@@ -3898,14 +3902,15 @@ pub fn tag(
         .size()
         .x;
     let room = (theme::TAG_MAX_WIDTH - theme::TAG_PAD * 2.0 - icon_world - gap_world).max(1.0);
-    let ink = dim(theme.tag_text(tag.ty));
     let galley = crate::ui::text::wrapped(
         ui.ctx(),
         tag.label,
         theme::FONT_TINY,
         room,
         zoom,
-        |text, font, wrap| eframe::egui::text::LayoutJob::simple(text.to_owned(), font, ink, wrap),
+        |text, font, wrap| {
+            eframe::egui::text::LayoutJob::simple(text.to_owned(), font, Color32::PLACEHOLDER, wrap)
+        },
     );
     // The pill takes its height from what is in it, floored at the row-sized minimum: an
     // icon four points larger than the name is also taller than it, and a fixed height would
@@ -3914,15 +3919,39 @@ pub fn tag(
         icon.size().x + gap + galley.size().x + theme::TAG_PAD * 2.0 * zoom,
         (theme::TAG_HEIGHT * zoom).max(icon.size().y.max(galley.size().y) + 2.0 * zoom),
     );
-    let rect = Rect::from_min_size(Pos2::new(right.x - size.x, right.y - size.y * 0.5), size);
+    let min_x = if tag.leftwards { at.x - size.x } else { at.x };
+    let rect = Rect::from_min_size(Pos2::new(min_x, at.y - size.y * 0.5), size);
 
+    // The widget carries the name; the geometry carries the click — the same split cables
+    // are drawn under. A link, like every other name in the app that shows a node.
+    let response = ui.interact(rect, ui.id().with(("tag", tag.name)), Sense::click());
+    crate::ui::cursor(&response, CursorIcon::PointingHand);
+    crate::ui::accessible(&response, WidgetType::Link, tag.name);
+
+    // Under the pointer it lights the way a link does: a closed workspace's tag stops being
+    // quiet, and the outline takes the label's ink, so the pill says it is the thing a click
+    // lands on before the click.
+    let hovered = response.hovered();
+    let dim = |c: Color32| {
+        if tag.closed && !hovered {
+            c.gamma_multiply(theme::TAG_CLOSED)
+        } else {
+            c
+        }
+    };
+    let ink = dim(theme.tag_text(tag.ty));
+    let border = if hovered {
+        ink
+    } else {
+        dim(theme.tag_border(tag.ty))
+    };
     let radius = CornerRadius::same((f32::from(theme::RADIUS_SM) * zoom).round() as u8);
     ui.painter()
         .rect_filled(rect, radius, dim(theme.tag_fill(tag.ty)));
     ui.painter().rect_stroke(
         rect,
         radius,
-        Stroke::new(1.0, dim(theme.tag_border(tag.ty))),
+        Stroke::new(1.0, border),
         eframe::egui::StrokeKind::Inside,
     );
     // Icon then name, the pair centerd in the pill.
@@ -3930,7 +3959,7 @@ pub fn tag(
     ui.painter().galley(
         Pos2::new(left, rect.center().y - icon.size().y * 0.5),
         icon.clone(),
-        dim(theme.tag_text(tag.ty)),
+        ink,
     );
     ui.painter().galley(
         Pos2::new(
@@ -3938,19 +3967,10 @@ pub fn tag(
             rect.center().y - galley.size().y * 0.5,
         ),
         galley,
-        dim(theme.tag_text(tag.ty)),
+        ink,
     );
 
-    // The widget carries the name; the geometry carries the click — the same split cables
-    // are drawn under.
-    let response = ui.interact(rect, ui.id().with(("tag", tag.name)), Sense::click());
-    crate::ui::cursor(&response, CursorIcon::PointingHand);
-    crate::ui::accessible(&response, WidgetType::Button, tag.name);
-    response.clone().on_hover_text(if tag.closed {
-        format!("{} — closed; click to open it", tag.name)
-    } else {
-        format!("{} — click to go there", tag.name)
-    });
+    response.clone().on_hover_text(tag.hover);
     (rect, response)
 }
 

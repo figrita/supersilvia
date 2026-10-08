@@ -1091,8 +1091,12 @@ rather than looking unplugged.
   it** — floored at `TAG_HEIGHT`, since a fixed height would clip the larger glyph and a pill
   taller than `PORT_PITCH` would run into the row above. `tests/ui.rs` pins that bound.
 - **The output** a cable leaves toward a node that is not here keeps its connected border and
-  says where it goes **on hover**: `to output2.input on Cameras`. There is no room for a pill
-  on that side — a cable leaves an output rightwards into whatever is there.
+  grows the same pill on its own side, **stacked rightwards** where the cable would have left:
+  the icon of the node it feeds and that node's workspace. One pill per node fed rather than
+  per cable, because a pill is a link to a node and two into one node would be one link
+  twice; which ports exactly is the port's own hover, `to output2.input on Cameras`. Where a
+  local cable leaves the same output, the pill sits over its first stretch, as an input's
+  pill does over a local cable into an action input.
 
 **Which workspace the tag names** is the first **open** one in project order among the source
 node's set, because that is where clicking can go without opening anything; a node on none
@@ -1101,10 +1105,13 @@ and every link that shows a node goes by it — a tag, an asset card's user, a n
 Status box, a MIDI mapping, a deck's workspace and an Output's `!` — preferring the tab being
 looked at where the node is on it, so no link opens a tab where one already open would do.
 
-**Clicking a tag navigates**: activate that workspace, opening it if it is closed, and pan so
-the source node is centerd. It is a *request* — `Effects::navigate` — that `App`
-performs, and it is session state, not a command: opening a tab, switching to it and panning
-never enter the undo history.
+**A tag is a link.** Under the pointer it wears the pointing hand, its outline takes the
+label's ink and a closed workspace's tag stops being dimmed, and its hover says in words where
+it goes: `Checkerboard on Cameras — click to show it`, or `… on Cameras, which is closed —
+click to open it and show the node`. **Clicking it navigates**: activate that workspace,
+opening it if it is closed, and pan so the far node is centerd. It is a *request* —
+`Effects::navigate` — that `App` performs, and it is session state, not a command: opening a
+tab, switching to it and panning never enter the undo history.
 
 **The node that was asked for then throbs**, a ring in the accent just outside its border,
 brightest on arrival and gone in about a second. Centring alone lands the view on a node that
@@ -1117,9 +1124,10 @@ every route in is `App::navigate_to` — a tag, the status box, the MIDI panel, 
 first frame that draws, so a link followed while the window is not painting still throbs in
 full when it comes back.
 
-Each tag is a `Response` with `widget_info` named
-`tag from {slug}{id}.{key} on {workspace name}`. **The widget carries the name; the geometry
-carries the click**, the same split cables are drawn under.
+Each tag is a `Response` with the `Link` role, named
+`tag from {slug}{id}.{key} on {workspace name}` beside an input and
+`tag to {slug}{id} on {workspace name}` beside an output. **The widget carries the name; the
+geometry carries the click**, the same split cables are drawn under.
 
 ## Two layout modes
 

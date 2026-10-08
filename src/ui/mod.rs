@@ -526,6 +526,11 @@ impl CanvasState {
         self.throb = Some((node, None));
     }
 
+    /// The node a followed link is throbbing, until the throb has run its course.
+    pub fn throbbing(&self) -> Option<NodeId> {
+        self.throb.map(|(node, _)| node)
+    }
+
     /// Remember that these action ports fired, so the next frame draws the throb.
     ///
     /// Session state, like the node throb it is a sibling of: a firing is something that
@@ -1451,8 +1456,7 @@ struct Pass<'a> {
     /// Which data inputs already have something plugged in.
     fed: std::collections::HashSet<PortRef>,
     /// Every cable with exactly one end on this workspace, by the port that end is: an input
-    /// gets a tag per source that is elsewhere, an output gets hover text naming where it
-    /// goes.
+    /// gets a tag per source that is elsewhere, an output a tag per node it feeds there.
     from_elsewhere: std::collections::HashMap<PortRef, Vec<PortRef>>,
     to_elsewhere: std::collections::HashMap<PortRef, Vec<PortRef>>,
     pointer: Option<Pos2>,
@@ -2007,11 +2011,9 @@ fn ports(
         // The far end of a cable that cannot be drawn, because the node at the other end is
         // not on this workspace. The port keeps its connected border either way — it *is*
         // connected — and what is missing is where to.
-        if slot.is_input {
-            tags(ui, pass, slot, cx.zoom(), fx);
-        } else if let Some(away) = pass.to_elsewhere.get(&slot.port) {
-            // An output has no room for a pill — a cable leaves it rightwards into whatever
-            // is there — so where it goes is hover text.
+        tags(ui, pass, slot, cx.zoom(), fx);
+        if let Some(away) = pass.to_elsewhere.get(&slot.port) {
+            // Which ports, exactly, on the port itself: the pills beside it name nodes.
             let away: Vec<String> = away
                 .iter()
                 .filter_map(|to| {
@@ -2040,41 +2042,79 @@ fn tag_home<'a>(
     Some((frame.graph.workspace(home)?, frame.tabs.contains(&home)))
 }
 
-/// A pill per source that is elsewhere, stacked leftwards from an input port: an action input
-/// takes many, and each one has its own somewhere.
+/// A pill per far end that is elsewhere: stacked leftwards from an input, one per source,
+/// since an action input takes many and each has its own somewhere; and rightwards from an
+/// output, one per node it feeds, since a pill is a link to a node and two into one node
+/// would be the same link twice.
+///
+/// Each is a link: a click asks for [`Effects::navigate`], which is what every other link to
+/// a node asks for — the far node's workspace, opened if it is closed, centred on it, and the
+/// node throbbing.
 fn tags(ui: &mut Ui, pass: &Pass<'_>, slot: &PortSlot, zoom: f32, fx: &mut Effects) {
-    let Some(sources) = pass.from_elsewhere.get(&slot.port) else {
+    let ends = if slot.is_input {
+        pass.from_elsewhere.get(&slot.port)
+    } else {
+        pass.to_elsewhere.get(&slot.port)
+    };
+    let Some(ends) = ends else {
         return;
     };
     let theme = pass.frame.theme;
-    let mut right = slot.center - vec2(theme::TAG_GAP * zoom, 0.0);
-    for src in sources {
-        let Some((home, is_open)) = tag_home(pass.frame, src.node) else {
+    let outwards = if slot.is_input { -1.0 } else { 1.0 };
+    let mut at = slot.center + vec2(outwards * theme::TAG_GAP * zoom, 0.0);
+    let mut shown: Vec<NodeId> = Vec::new();
+    for end in ends {
+        if !slot.is_input {
+            if shown.contains(&end.node) {
+                continue;
+            }
+            shown.push(end.node);
+        }
+        let Some((home, is_open)) = tag_home(pass.frame, end.node) else {
             continue;
         };
-        let Some(source) = pass.frame.graph.get(src.node) else {
+        let Some(far) = pass.frame.graph.get(end.node) else {
             continue;
+        };
+        let name = if slot.is_input {
+            format!(
+                "tag from {}{}.{} on {}",
+                far.def.slug, end.node, end.key, home.name
+            )
+        } else {
+            format!("tag to {}{} on {}", far.def.slug, end.node, home.name)
+        };
+        let hover = if is_open {
+            format!("{} on {} — click to show it", far.def.label, home.name)
+        } else {
+            format!(
+                "{} on {}, which is closed — click to open it and show the node",
+                far.def.label, home.name
+            )
         };
         let (placed, response) = node_widget::tag(
             ui,
-            right,
+            at,
             &node_widget::Tag {
-                icon: source.def.icon,
+                icon: far.def.icon,
                 label: &home.name,
-                name: &format!(
-                    "tag from {}{}.{} on {}",
-                    source.def.slug, src.node, src.key, home.name
-                ),
+                name: &name,
+                hover: &hover,
                 ty: slot.ty,
                 closed: !is_open,
+                leftwards: slot.is_input,
             },
             theme,
             zoom,
         );
         if response.clicked() {
-            fx.navigate = Some((home.id, src.node));
+            fx.navigate = Some((home.id, end.node));
         }
-        right.x = placed.min.x - theme::TAG_GAP * zoom;
+        at.x = if slot.is_input {
+            placed.min.x - theme::TAG_GAP * zoom
+        } else {
+            placed.max.x + theme::TAG_GAP * zoom
+        };
     }
 }
 

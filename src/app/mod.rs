@@ -788,6 +788,11 @@ impl App {
         self.canvas.origin()
     }
 
+    /// The node a followed link is throbbing on the canvas, if one is.
+    pub fn canvas_throbbing(&self) -> Option<NodeId> {
+        self.canvas.throbbing()
+    }
+
     /// The selected nodes, in id order. Session state, so it is not in the file.
     pub fn canvas_selection(&self) -> Vec<NodeId> {
         self.canvas.selected().iter().copied().collect()
