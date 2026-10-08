@@ -235,6 +235,7 @@ fn wired_graph(
                 PortType::VaryingColor => ("checkerboard", "output"),
                 PortType::VaryingNumber => ("vignette", "mask"),
                 PortType::UniformColor => ("color", "output"),
+                PortType::Solid => ("sphere", "solid"),
                 PortType::UniformNumber | PortType::Action => continue,
             };
             let src = add(&mut g, source);
@@ -248,6 +249,13 @@ fn wired_graph(
         .filter(|p| p.ty == PortType::VaryingColor)
         .map(|p| PortRef::new(under, p.key))
         .collect();
+    // A solid reaches a picture through a render.
+    for p in def.outputs.iter().filter(|p| p.ty.is_solid()) {
+        let render = add(&mut g, "solidrender");
+        g.connect(PortRef::new(under, p.key), PortRef::new(render, "solid"))
+            .unwrap_or_else(|e| panic!("{}.{}: {e}", def.slug, p.key));
+        roots.push(PortRef::new(render, "output"));
+    }
     if roots.is_empty() {
         let rgba = add(&mut g, "rgba");
         for (field, channel) in def
@@ -1158,6 +1166,61 @@ fn a_perlins_value_is_a_field_between_zero_and_one() {
     let a = red_at(&pixels, SIZE, SIZE / 4, SIZE / 2);
     let b = red_at(&pixels, SIZE, SIZE / 2, SIZE / 2);
     assert_ne!(a, b, "two points of a noise field differ");
+}
+
+// ------------------------------------------------------------------ a solid, rendered
+
+/// A sphere at the origin, rendered flat with no floor and no fog by a camera on the `z` axis
+/// three units out and looking at it: the middle of the frame is the sphere's color and the
+/// corners, past its edge, are the background.
+#[test]
+fn a_rendered_sphere_is_its_color_in_the_middle_and_the_background_round_it() {
+    const SIZE: usize = 32;
+    const SPHERE: [f32; 4] = [0.2, 0.8, 0.4, 1.0];
+    const BACKGROUND: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+    let mut g = Graph::new();
+    let sphere = add(&mut g, "sphere");
+    let render = add(&mut g, "solidrender");
+    let out = add(&mut g, "output");
+    set_color(&mut g, sphere, "color", SPHERE);
+    for (key, value) in [
+        ("orbit", 0.0),
+        ("tilt", 0.0),
+        ("distance", 3.0),
+        ("targetX", 0.0),
+        ("targetY", 0.0),
+        ("targetZ", 0.0),
+        ("fog", 0.0),
+    ] {
+        set(&mut g, render, key, value);
+    }
+    set_color(&mut g, render, "background", BACKGROUND);
+    for (key, value) in [("shading", "flat"), ("floor", "none")] {
+        g.get_mut(render)
+            .unwrap()
+            .options
+            .insert(key, value.to_string());
+    }
+    g.connect(PortRef::new(sphere, "solid"), PortRef::new(render, "solid"))
+        .unwrap();
+    g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+        .unwrap();
+
+    let pixels = rendered(&g, out, SIZE as u32);
+    let near = |got: [u8; 4], want: [f32; 4]| {
+        got.iter()
+            .zip(want)
+            .all(|(g, w)| (f32::from(*g) - w * 255.0).abs() <= 3.0)
+    };
+    let middle = pixels[(SIZE / 2) * SIZE + SIZE / 2];
+    assert!(near(middle, SPHERE), "the middle is the sphere: {middle:?}");
+    for (x, y) in [(0, 0), (SIZE - 1, 0), (0, SIZE - 1), (SIZE - 1, SIZE - 1)] {
+        let corner = pixels[y * SIZE + x];
+        assert!(
+            near(corner, BACKGROUND),
+            "({x}, {y}) is the background: {corner:?}"
+        );
+    }
 }
 
 // ------------------------------------------------- the unglamorous four, on the GPU

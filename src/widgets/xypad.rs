@@ -70,7 +70,7 @@ pub const XYPAD: RegionDef = RegionDef {
 
 /// The square at the body's own width inside silvia's padding, then the readouts, the
 /// presets and the line of help.
-fn size(node: &Node) -> f32 {
+fn size(node: &Node, _: crate::nodes::Region) -> f32 {
     let side = canvas::node_width(node) - 2.0 * PAD;
     PAD + side + GAP + CAPTION + number::HEIGHT + GAP + BUTTON + GAP + HINT + PAD
 }

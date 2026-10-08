@@ -4,7 +4,7 @@
 
 use crate::graph::NodeId;
 
-/// The port types: four that carry data, on two axes, and the event.
+/// The port types: four that carry data, on two axes, the event, and the solid.
 ///
 /// A data port has a [`Kind`] — a number or a color — and a [`Rate`]. `Fragment` is one
 /// value per pixel, `float f(vec2 uv)` or `vec4 f(vec2 uv)`, meaningful only inside a
@@ -16,6 +16,10 @@ use crate::graph::NodeId;
 /// uniform may feed a varying input of its own kind, because broadcasting one value across
 /// every pixel costs nothing — it is a uniform, which is what an unconnected control already
 /// is. The reverse needs a render pass and a readback, and is a node.
+///
+/// `Solid` is a shape in three dimensions: `vec4 f(vec3 p)`, the signed distance to its
+/// surface and the color there. It varies over a point rather than a pixel, connects only to
+/// another `Solid`, and reaches a picture through a node that marches rays into it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PortType {
     VaryingNumber,
@@ -23,6 +27,7 @@ pub enum PortType {
     UniformNumber,
     UniformColor,
     Action,
+    Solid,
 }
 
 /// What a port carries, whatever its rate.
@@ -31,6 +36,7 @@ pub enum Kind {
     Number,
     Color,
     Event,
+    Solid,
 }
 
 /// How often a data port's value varies: once per pixel, or once per frame.
@@ -46,13 +52,14 @@ impl PortType {
             Self::VaryingNumber | Self::UniformNumber => Kind::Number,
             Self::VaryingColor | Self::UniformColor => Kind::Color,
             Self::Action => Kind::Event,
+            Self::Solid => Kind::Solid,
         }
     }
 
-    /// `None` for an event, which has no value to vary.
+    /// `None` for an event, which has no value to vary. A solid varies, over a point.
     pub fn rate(self) -> Option<Rate> {
         match self {
-            Self::VaryingNumber | Self::VaryingColor => Some(Rate::Varying),
+            Self::VaryingNumber | Self::VaryingColor | Self::Solid => Some(Rate::Varying),
             Self::UniformNumber | Self::UniformColor => Some(Rate::Uniform),
             Self::Action => None,
         }
@@ -74,7 +81,7 @@ impl PortType {
             (Kind::Number, Rate::Uniform) => Self::UniformNumber,
             (Kind::Color, Rate::Varying) => Self::VaryingColor,
             (Kind::Color, Rate::Uniform) => Self::UniformColor,
-            (Kind::Event, _) => self,
+            (Kind::Event | Kind::Solid, _) => self,
         }
     }
 
@@ -86,7 +93,13 @@ impl PortType {
             Self::UniformNumber => "uniform number",
             Self::UniformColor => "uniform color",
             Self::Action => "action",
+            Self::Solid => "solid",
         }
+    }
+
+    /// A function of a point in three dimensions rather than of a pixel.
+    pub fn is_solid(self) -> bool {
+        self == Self::Solid
     }
 
     /// Data ports carry a value. Action ports carry an event on the CPU and obey different

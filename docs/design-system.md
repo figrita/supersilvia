@@ -36,6 +36,10 @@ The default is the canonical **vapor** preset:
 A whole re-theme is four numbers. That is the visual expression of the same discipline as the
 compiler: one parameter, everything else derived.
 
+**A solid port is not a fifth anchor.** `Theme::solid` is the hue halfway along the short way
+from the event anchor to the main one, at the number anchor's saturation and lightness, so it
+moves with a re-theme and stands apart from the three port families.
+
 **And they are four numbers you can actually reach**, which was not true until the
 Preferences window existed.
 

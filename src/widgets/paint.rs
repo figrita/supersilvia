@@ -89,12 +89,12 @@ fn picture_width(node: &Node) -> f32 {
 
 /// As tall as the canvas's own aspect makes the body's width: silvia's canvas is a fixed
 /// width and whatever height Canvas Size gives it.
-fn paint_size(node: &Node) -> f32 {
+fn paint_size(node: &Node, _: crate::nodes::Region) -> f32 {
     let (w, h) = drawingcanvas::canvas_size(node);
     PAD + 2.0 * BORDER + picture_width(node) * h as f32 / w as f32
 }
 
-fn brush_size(_node: &Node) -> f32 {
+fn brush_size(_node: &Node, _: crate::nodes::Region) -> f32 {
     GAP + BUTTON + 3.0 * (GAP + number::HEIGHT) + GAP + 2.0 * HINT_LINE + PAD
 }
 

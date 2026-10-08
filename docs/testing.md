@@ -8,7 +8,8 @@ node code was written.
 `graph/`, `compile/`, `nodes/`, `audio/` and `video/` have no GPU and no egui, so they are
 ordinary unit and integration tests. The generated WGSL is snapshot-tested with `insta`, and
 `tests/shader_targets.rs` takes every WGSL module the compiler can write — each workspace
-pass among them, and one holding every node in the registry — and every stage and
+pass among them, every solid node with a Sphere in each solid input and its solid through a
+Render 3D, and one holding every node in the registry — and every stage and
 kernel the wgpu renderer writes for itself, through naga to MSL, SPIR-V and HLSL, so a module
 Metal, Vulkan or Direct3D 12 would refuse is a failure here. Seconds, not
 minutes — nearly all of it `video/clip.rs` driving a real hardware encoder; everything else
@@ -189,7 +190,8 @@ discrete, so `SUPERSILVIA_ADAPTER=intel` names it), `gpu_nodes.rs`,
 where a bare `CAMetalLayer` needs no window) and `gpu_lost.rs` (an uncaptured error logged
 rather than fatal, and a loss forced with `Device::destroy` reaching the callback); `gpu_nodes.rs` holds Offset
 adding to Time, a field into Offset making a ripple, a gear in Time being the node at the
-gear's reading and the tunnel coming back after its period; `gpu_app.rs` is the whole `App` on
+gear's reading, the tunnel coming back after its period, and a Sphere through Render 3D its
+color in the middle of the frame and the background round it; `gpu_app.rs` is the whole `App` on
 the GPU — a Snap into `snaps/`, the render job, a time-driven picture the same at one moment
 whatever came before, a loop as long as its Master Gear says closing to the byte, the tunnel's
 flight closing every cycle, a clip rendered for its whole play coming back to its first

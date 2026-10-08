@@ -10259,6 +10259,142 @@ fn the_time_rows_fold_under_a_closed_timing_heading() {
     );
 }
 
+/// **A shape's turn and scale fold under a Transform heading that starts closed**, the way a
+/// moving node's time rows fold under Timing. Closed, no Yaw, Pitch, Roll or Scale row is
+/// drawn and the node is that much shorter; open, all four are. A cable into a folded row
+/// gathers on the heading's left edge, as a folded Time's does.
+#[test]
+fn a_shapes_turn_and_scale_fold_under_a_closed_transform_heading() {
+    use supersilvia::ui::canvas::Row;
+    let mut h = tall_harness();
+    let workspace = h.state().graph().default_workspace();
+    for (slug, at) in [("time", Pos2::new(0.0, 600.0)), ("sphere", Pos2::ZERO)] {
+        h.state_mut()
+            .apply(Command::AddNode {
+                slug,
+                at,
+                workspace,
+            })
+            .unwrap();
+    }
+    h.run_steps(3);
+    let ids: Vec<_> = h.state().graph().iter().map(|(id, _)| id).collect();
+    let (seconds, sphere) = (ids[0], ids[1]);
+    let heading = format!("sphere{sphere}.transform");
+    let rows = ["tYaw", "tPitch", "tRoll", "tScale"];
+    let index = |h: &Harness<'_, App>, key: &str| {
+        h.state()
+            .graph()
+            .get(sphere)
+            .unwrap()
+            .inputs
+            .iter()
+            .position(|p| p.key == key)
+            .unwrap()
+    };
+    let rows_of = |h: &Harness<'_, App>| {
+        laid_out(h, sphere)
+            .find(sphere)
+            .unwrap()
+            .rows
+            .iter()
+            .map(|r| r.row)
+            .collect::<Vec<_>>()
+    };
+    assert!(h.query_by_label(&heading).is_some(), "a Transform heading");
+    assert!(
+        h.query_all_by_label_contains(&format!("sphere{sphere}.tYaw"))
+            .next()
+            .is_none(),
+        "closed on a new node: no Yaw row"
+    );
+    let laid = rows_of(&h);
+    let bar = laid
+        .iter()
+        .position(|r| *r == Row::TransformHeading)
+        .expect("the heading has a row");
+    assert_eq!(
+        laid.get(bar - 1),
+        Some(&Row::Input(index(&h, "tYaw") - 1)),
+        "the bar sits under the row before Yaw"
+    );
+    for key in rows {
+        assert!(
+            !laid.contains(&Row::Input(index(&h, key))),
+            "closed, {key} has no row"
+        );
+    }
+    let closed = node_height(&h, sphere);
+
+    h.get_by_label(&heading).click();
+    h.run_steps(2);
+    assert_eq!(
+        h.state()
+            .graph()
+            .get(sphere)
+            .unwrap()
+            .options
+            .get("transform")
+            .map(String::as_str),
+        Some("on")
+    );
+    let laid = rows_of(&h);
+    let bar = laid.iter().position(|r| *r == Row::TransformHeading);
+    for (i, key) in rows.iter().enumerate() {
+        assert_eq!(
+            laid.get(bar.unwrap() + 1 + i),
+            Some(&Row::Input(index(&h, key))),
+            "open, {key} is drawn under the bar"
+        );
+        assert!(
+            h.query_all_by_label_contains(&format!("sphere{sphere}.{key}"))
+                .next()
+                .is_some(),
+            "open, {key} draws its control"
+        );
+    }
+    assert!(
+        node_height(&h, sphere) > closed,
+        "the node grew by the rows"
+    );
+    assert!(h.query_by_label(&heading).is_some(), "the heading stays");
+
+    // Closed again, a clock cabled into the folded Yaw is drawn into the heading.
+    h.get_by_label(&heading).click();
+    h.run_steps(2);
+    assert_eq!(
+        node_height(&h, sphere),
+        closed,
+        "folded, as short as it was"
+    );
+    h.state_mut()
+        .apply(Command::Connect {
+            from: supersilvia::graph::PortRef::new(seconds, "seconds"),
+            to: supersilvia::graph::PortRef::new(sphere, "tYaw"),
+        })
+        .unwrap();
+    h.run_steps(2);
+    let laid = laid_out(&h, sphere);
+    let node = laid.find(sphere).unwrap();
+    let bar = node
+        .block(Row::TransformHeading)
+        .expect("the heading has a row");
+    let slot = node
+        .ports
+        .iter()
+        .find(|p| p.port.key == "tYaw")
+        .expect("a cabled Yaw keeps a dot while folded");
+    assert_eq!(slot.center.x, node.rect.min.x, "on the body's left edge");
+    assert!(
+        (slot.center.y - bar.center().y).abs() < 0.5,
+        "at the heading's middle"
+    );
+    assert!(
+        node.ports.iter().all(|p| p.port.key != "tPitch"),
+        "a Pitch with nothing on it has no dot while folded"
+    );
+}
+
 /// **A Time row in Loop mode carries a loop meter where the Speed knob stands in Free mode**,
 /// in the knob's own place. Held at 5.25 seconds: a Perlin at Repeat 4, half a cell a second,
 /// is 2.625 cells in, the third of four; one at Repeat Never is two whole cells in, its end
@@ -14427,4 +14563,312 @@ fn release_all_in_the_midi_window_lets_go_of_held_notes() {
     h.get_by_label("Release all").click();
     h.run_steps(3);
     assert!(!h.state().is_held(port), "Release all let it go");
+}
+
+// ------------------------------------------------------------------------------ Render 3D
+
+/// A Render 3D on the canvas, put where the whole of it is on screen, and its id.
+fn render_3d(h: &mut Harness<'_, App>) -> supersilvia::graph::NodeId {
+    let workspace = h.state().graph().default_workspace();
+    h.state_mut()
+        .apply(Command::AddNode {
+            slug: "solidrender",
+            at: Pos2::new(40.0, 20.0),
+            workspace,
+        })
+        .unwrap();
+    h.run_steps(3);
+    h.state()
+        .graph()
+        .iter()
+        .find(|(_, n)| n.def.slug == "solidrender")
+        .expect("the render")
+        .0
+}
+
+fn option_value(h: &Harness<'_, App>, id: supersilvia::graph::NodeId, key: &str) -> String {
+    h.state()
+        .graph()
+        .get(id)
+        .and_then(|n| n.options.get(key))
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// **Render 3D is five numbers a cable is for and four sections for the rest.** Its ports are
+/// the Solid, Orbit, Tilt, Distance, Light and Glow, and the picture out; it has no option rows;
+/// Camera, Light and Look are open on a new node and Quality is closed until its heading is
+/// clicked.
+#[test]
+fn render_3d_has_six_ports_and_four_sections_with_quality_closed() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let node = h.state().graph().get(id).unwrap().clone();
+    let inputs: Vec<_> = node.inputs.iter().map(|p| p.key).collect();
+    assert_eq!(
+        inputs,
+        ["solid", "orbit", "tilt", "distance", "light", "glowAmount"]
+    );
+    let outputs: Vec<_> = node.outputs.iter().map(|p| p.key).collect();
+    assert_eq!(outputs, ["output"]);
+    let laid = laid_out(&h, id);
+    assert!(
+        laid.find(id)
+            .unwrap()
+            .rows
+            .iter()
+            .all(|r| !matches!(r.row, supersilvia::ui::canvas::Row::Option(_))),
+        "no option rows: every option is drawn in a section"
+    );
+
+    for heading in [
+        "cameraSection",
+        "lightSection",
+        "lookSection",
+        "qualitySection",
+    ] {
+        assert!(
+            h.query_by_label(&format!("solidrender{id}.{heading}"))
+                .is_some(),
+            "a {heading} heading"
+        );
+    }
+    for open in ["globe", "sun", "shading.toon", "camera.lookat"] {
+        assert!(
+            h.query_by_label(&format!("solidrender{id}.{open}"))
+                .is_some(),
+            "{open} is drawn in an open section"
+        );
+    }
+    let quality = format!("solidrender{id}.steps.256");
+    assert!(
+        h.query_by_label(&quality).is_none(),
+        "Quality starts closed"
+    );
+    let closed = node_height(&h, id);
+
+    h.get_by_label(&format!("solidrender{id}.qualitySection"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(option_value(&h, id, "qualitySection"), "on");
+    assert!(h.query_by_label(&quality).is_some(), "open, its Steps show");
+    assert!(node_height(&h, id) > closed, "and the node grew by them");
+}
+
+/// A drag on the globe orbits the camera round its target and tilts it, as one undo step, and
+/// the node stays where it was.
+#[test]
+fn dragging_the_globe_orbits_and_tilts_the_camera_in_one_step() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let where_it_was = h.state().graph().get(id).unwrap().pos;
+    let (orbit, tilt) = (float(&h, id, "orbit"), float(&h, id, "tilt"));
+    let steps = h.state().undo_len();
+
+    let globe = h.get_by_label(&format!("solidrender{id}.globe")).rect();
+    let from = globe.center();
+    drag_with(
+        &mut h,
+        from,
+        from + egui::vec2(globe.width() * 0.2, -globe.height() * 0.1),
+        egui::Modifiers::NONE,
+    );
+    assert!(
+        float(&h, id, "orbit") > orbit + 0.05,
+        "dragged right, it orbits: {orbit} to {}",
+        float(&h, id, "orbit")
+    );
+    assert!(
+        float(&h, id, "tilt") > tilt + 0.02,
+        "dragged up, it tilts up: {tilt} to {}",
+        float(&h, id, "tilt")
+    );
+    assert_eq!(h.state().graph().get(id).unwrap().pos, where_it_was);
+    assert_eq!(h.state().undo_len(), steps + 1, "a drag is one undo step");
+
+    h.state_mut().undo();
+    h.step();
+    assert_eq!(float(&h, id, "orbit"), orbit);
+    assert_eq!(float(&h, id, "tilt"), tilt);
+}
+
+/// Standing at From, a drag on the globe carries From round the Target at the distance it
+/// stood at, and leaves Orbit and Tilt alone.
+#[test]
+fn dragging_the_globe_in_look_at_carries_from_round_the_target() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    h.get_by_label(&format!("solidrender{id}.camera.lookat"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(option_value(&h, id, "camera"), "lookat");
+    let from = |h: &Harness<'_, App>| ["fromX", "fromY", "fromZ"].map(|k| float(h, id, k));
+    let length = |v: [f32; 3]| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    let (before, orbit) = (from(&h), float(&h, id, "orbit"));
+
+    let globe = h.get_by_label(&format!("solidrender{id}.globe")).rect();
+    drag_with(
+        &mut h,
+        globe.center(),
+        globe.center() + egui::vec2(globe.width() * 0.2, 0.0),
+        egui::Modifiers::NONE,
+    );
+    let after = from(&h);
+    assert!(
+        (after[0] - before[0]).abs() > 0.5,
+        "From moved round: {before:?} to {after:?}"
+    );
+    assert!(
+        (length(after) - length(before)).abs() < 0.05,
+        "at the distance it stood at"
+    );
+    assert_eq!(float(&h, id, "orbit"), orbit, "Orbit is left alone");
+}
+
+/// The wheel over the globe brings the camera nearer, and is spent there: the canvas does not
+/// zoom on it.
+#[test]
+fn the_wheel_over_the_globe_moves_the_camera_nearer() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let zoom = h.state().canvas_transform().zoom;
+    let distance = float(&h, id, "distance");
+    let at = h
+        .get_by_label(&format!("solidrender{id}.globe"))
+        .rect()
+        .center();
+    scroll_at(
+        &mut h,
+        at,
+        egui::MouseWheelUnit::Line,
+        egui::Vec2::new(0.0, 1.0),
+    );
+    h.run_steps(6);
+    assert!(
+        float(&h, id, "distance") < distance,
+        "nearer: {distance} to {}",
+        float(&h, id, "distance")
+    );
+    assert_eq!(h.state().canvas_transform().zoom, zoom, "and no zoom");
+}
+
+/// The sun goes where the hand puts it on the sky: to the right of the middle, half way out,
+/// is a light a quarter turn round, half way up.
+#[test]
+fn dragging_the_sun_sets_the_light_and_its_height() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let steps = h.state().undo_len();
+    let disk = h.get_by_label(&format!("solidrender{id}.sun")).rect();
+    // The disk stands four points inside its square.
+    let radius = disk.width() * 0.5 - 4.0 * h.state().canvas_transform().zoom;
+    let to = disk.center() + egui::vec2(radius * 0.5, 0.0);
+    drag_with(
+        &mut h,
+        disk.center() + egui::vec2(-radius * 0.3, radius * 0.3),
+        to,
+        egui::Modifiers::NONE,
+    );
+    let (light, height) = (float(&h, id, "light"), float(&h, id, "lightHeight"));
+    assert!((light - 0.25).abs() < 0.01, "a quarter turn round: {light}");
+    assert!((height - 0.125).abs() < 0.01, "half way up: {height}");
+    assert_eq!(h.state().undo_len(), steps + 1, "a drag is one undo step");
+}
+
+/// A segment in a section sets its option, as a pick from a select did.
+#[test]
+fn a_shading_segment_sets_the_shading() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    assert_eq!(option_value(&h, id, "shading"), "lit");
+    h.get_by_label(&format!("solidrender{id}.shading.toon"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(option_value(&h, id, "shading"), "toon");
+}
+
+/// The Glow button opens a panel under it with Glow's own controls; a switch in it sets its
+/// option and leaves it open, and `Escape` or a click away closes it.
+#[test]
+fn the_glow_panel_opens_edits_and_closes() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let panel = format!("solidrender{id}.glowPanel.panel");
+    let reach = format!("solidrender{id}.glowReach");
+    assert!(h.query_by_label(&panel).is_none(), "closed on a new node");
+    assert!(h.query_by_label_contains(&reach).is_none());
+
+    h.get_by_label(&format!("solidrender{id}.glowPanel"))
+        .click();
+    // Two frames: the first an `Area` appears is a sizing pass.
+    h.run_steps(2);
+    assert!(h.query_by_label(&panel).is_some(), "the panel is open");
+    assert!(
+        h.query_by_label_contains(&reach).is_some(),
+        "with Reach in it"
+    );
+    assert!(
+        h.query_by_label_contains(&format!("solidrender{id}.glowColor"))
+            .is_some()
+    );
+
+    h.get_by_label(&format!("solidrender{id}.glow.on")).click();
+    h.run_steps(2);
+    assert_eq!(option_value(&h, id, "glow"), "on");
+    assert!(
+        h.query_by_label(&panel).is_some(),
+        "a pick inside leaves it open"
+    );
+
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+    assert!(h.query_by_label(&panel).is_none(), "Escape closes it");
+
+    h.get_by_label(&format!("solidrender{id}.glowPanel"))
+        .click();
+    h.run_steps(2);
+    assert!(h.query_by_label(&panel).is_some(), "open again");
+    click_with(&mut h, Pos2::new(900.0, 1000.0), egui::Modifiers::NONE);
+    h.run_steps(2);
+    assert!(h.query_by_label(&panel).is_none(), "a click away closes it");
+}
+
+/// Target & From's Reset puts all six back as one edit.
+#[test]
+fn target_and_froms_reset_puts_the_six_back() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    for (key, v) in [("targetX", 2.0), ("fromZ", -3.0)] {
+        h.state_mut()
+            .apply(Command::SetControl {
+                node: id,
+                key,
+                value: supersilvia::graph::ControlValue::Float(v),
+            })
+            .unwrap();
+        h.state_mut().end_gesture();
+    }
+    h.step();
+    h.get_by_label(&format!("solidrender{id}.aim")).click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label_contains(&format!("solidrender{id}.targetX"))
+            .is_some(),
+        "the panel shows Target X"
+    );
+    let steps = h.state().undo_len();
+    h.get_by_label(&format!("solidrender{id}.aim.reset"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(float(&h, id, "targetX"), 0.0);
+    assert_eq!(float(&h, id, "fromZ"), 5.7);
+    assert_eq!(h.state().undo_len(), steps + 1, "one edit");
 }

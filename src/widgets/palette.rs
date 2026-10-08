@@ -61,7 +61,7 @@ pub const PALETTE: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     PAD * 2.0 + STRIP + GAP + WAVES + GAP + HEAD + 4.0 * number::HEIGHT + 3.0 * GAP
 }
 

@@ -578,6 +578,7 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
                 | canvas::Row::RecordHeading
                 | canvas::Row::SendHeading
                 | canvas::Row::TimingHeading
+                | canvas::Row::TransformHeading
         )
     };
     while let Some(&canvas::RowBox { row, top, height }) = rows.next() {
@@ -588,7 +589,7 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
         // the rows under it keep the banding they had when the heading was a tick.
         let heading_bar = is_bar(row);
         // A heading parts a block with air, not with corners: the rows either side of a bar,
-        // and the Timing heading's own rows, stay square, and only a section's own first and
+        // and an input heading's own rows, stay square, and only a section's own first and
         // last rows round.
         let is_first = opens_section;
         let is_last = rows.peek().is_none_or(|r| r.row.section() != section);
@@ -784,8 +785,8 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
                 band.left_center()
                     + vec2(
                         (LABEL_INSET
-                            + if canvas::under_timing(node, r.row) {
-                                canvas::TIMING_INDENT
+                            + if canvas::under_heading(node, r.row) {
+                                canvas::HEADING_INDENT
                             } else {
                                 0.0
                             })
@@ -1932,24 +1933,24 @@ pub fn controls(
         return;
     }
     input_controls(ui, cx, fx, open);
-    // The heading a moving node's time rows fold under, the same bar again, with its mode on
-    // the bar's right end, open or closed.
-    if canvas::timing_heading(cx.node).is_some() {
-        row_heading(
-            ui,
-            cx,
-            fx,
-            crate::nodes::timing::HEADING.key,
-            canvas::Row::TimingHeading,
-            canvas::timing_shown(cx.node),
-        );
-        heading_options(
-            ui,
-            cx,
-            fx,
-            crate::nodes::timing::HEADING.key,
-            canvas::Row::TimingHeading,
-        );
+    // The headings a run of inputs folds under — a moving node's time rows, a shape's turn
+    // and scale — the same bar again, with any option it carries on the bar's right end (the
+    // time mode), open or closed.
+    for row in canvas::INPUT_HEADINGS {
+        let Some(key) = canvas::input_heading_key(row) else {
+            continue;
+        };
+        if canvas::input_heading(cx.node, row).is_some() {
+            row_heading(
+                ui,
+                cx,
+                fx,
+                key,
+                row,
+                canvas::input_heading_shown(cx.node, row),
+            );
+            heading_options(ui, cx, fx, key, row);
+        }
     }
     // The heading over the Render section: the same bar, triangle and turn a region's heading
     // is, drawn over rows instead of over a band. It is on every Output whether the section
@@ -2211,8 +2212,8 @@ fn press_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, index: usize, key:
     }
 }
 
-/// The bar over a run of an Output's rows — its Render section or its Send rows — and the
-/// option it turns.
+/// The bar over a run of a node's rows — an Output's Render section or its Send rows, a
+/// moving node's time rows, a shape's turn and scale — and the option it turns.
 fn row_heading(
     ui: &mut Ui,
     cx: &NodeCtx<'_>,
@@ -2228,7 +2229,7 @@ fn row_heading(
         return;
     };
     // Drawn after the node's border, so its bar stops short of the border on each side that
-    // reaches it: both on a full-width row, the port side alone on the Timing heading, whose
+    // reaches it: both on a full-width row, the port side alone on an input heading, whose
     // far end stops short where the inputs do.
     let border = border_width(cx.selected);
     let flush = strip.max.x >= cx.screen(cx.layout.rect).max.x - 0.5;

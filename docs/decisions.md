@@ -902,7 +902,7 @@ only with the portal backend.
 
 ### A fourth port type: uniform numbers
 
-**Chosen.** The model is in [architecture.md](architecture.md#four-kinds-of-value-and-one-asymmetry);
+**Chosen.** The model is in [architecture.md](architecture.md#six-port-types-and-one-asymmetry);
 this records why it is a type and what lost.
 
 A graph carries four kinds of value, not three:
@@ -6706,3 +6706,107 @@ program holds — looked exactly like one warming up. Any Main Input source with
 ten seconds after it opened reads *not responding*, and a camera that stops for ten seconds
 after its first frame does too; a screen with nothing moving on it and a clip on a paused
 playhead deliver nothing new and are not stopped, so the second rule is the camera's alone.
+
+### Render 3D is a node whose output is a picture, not a kind of Output
+
+**Chosen.** Render 3D takes a solid and returns a `VaryingColor` field, so an ordinary Output
+draws it ([rendering.md](rendering.md#render-3d)). Decks, Record, the sends, the `frame` port,
+the mixer and thumbnails take it with nothing added, and a video effect can follow it on the
+same workspace.
+
+**What lost: a solid Output**, a kind of Output that takes a solid and owns the camera. Every
+way a picture leaves the graph — a deck, a send, a recording, a frame port — would need a case
+for it, and its picture would reach a video node only through its frame. The node's price is
+that a video effect after a render re-marches it at every tap, and an Output between the two
+answers that.
+
+### A solid compiles to two functions, not one
+
+**Chosen.** Every solid node's generator runs twice: once for the whole solid, distance and
+color, and once for its distance alone, named with a `_d` suffix
+([nodes.md](nodes.md#two-functions-per-solid)). A march reads a solid's distance dozens to
+hundreds of times a pixel and its color once.
+
+**What lost: one function returning both.** A march would carry every color at every step: a
+Texture's samples and the video chain behind them, a repeat's hue hash, every color field. The
+price of two is two functions a node in the module, and a generator that asks
+`CompileContext::solid_color` before it writes a color.
+
+### Every shape lands on the last, rather than a tree of unions
+
+**Chosen** by the owner. Every shape node has an Onto input and combines its shape with it by
+a Mode of Union, Subtract or Intersect, with a Blend, and turns and scales about its own center
+under a folded Transform heading ([nodes.md](nodes.md#the-chain)). The names are the plain
+ones, not Add and Cut. A scene is a row of shapes cabled one into the next. The compiler
+writes the wrapping once for every shape, so a shape's generator writes only its own shape.
+
+**What lost: trees of Union and Place.** A scene of ten shapes is then ten shapes, the unions
+holding them four at a time, and a Place on each one that turns: a graph wider than the scene.
+**Union stays for branches**, two chains built apart, and **Place for groups**, a whole chain
+moved at once.
+
+### A copy that does not fit its cell is sliced
+
+**Chosen** by the owner. Repeat, Repeat Around and Scatter on Sphere fold the point into the
+nearest cell and evaluate their input once, there ([nodes.md](nodes.md#repetition)). A copy
+wider than its cell, or pushed out of it by Scatter or Grow, is cut flat at the cell's edge,
+and each node's tooltip says so.
+
+**What lost: checking the neighbors.** Evaluating the input in the cells round the nearest one
+as well — eight in a plane, twenty-six in space — and keeping the nearest would draw an
+overhanging copy whole, at that many times the cost of every step of every march. The slice
+shows, and says what to do: widen the spacing.
+
+### Per-copy variation is the repeat node's, not a number other nodes read
+
+**Chosen** by the owner. Only the repeat knows the cell, so Scatter, Spin, Size, Tint and Repeat
+Around's steps are on the repeat node, each from a deterministic integer hash of the cell and
+a Seed ([nodes.md](nodes.md#repetition)).
+
+**Deferred: a Copy node**, a per-copy number any node upstream could read, such as a sphere's
+radius by its copy. A number that differs per copy differs over a point, which no port type
+carries: a `UniformNumber` is one value a frame, and a field is a function of `uv`. A Copy node
+is a new port type, a number field in three dimensions, which every number input on a solid
+would then have to take.
+
+### No mipmaps on a solid's textures
+
+**Chosen.** No texture has mip levels, and Texture samples level 0, so a distant textured
+surface shimmers ([rendering.md](rendering.md#render-3d)).
+
+**The planned answer, if the shimmer bothers, is not built**: a mipped copy on the solid's
+side, at a capped size, with the level chosen from the ray's distance. It covers an Output's
+frame and a zero-copy camera or clip import alike.
+
+**What lost:**
+
+- mips on the producer's ring, which misses cameras and clips;
+- supersampling, which multiplies a march's cost;
+- temporal smoothing, which ghosts.
+
+### Render 3D keeps five numbers as ports and the rest as its own
+
+**Chosen** by the owner. Orbit, Tilt, Distance, Light and Glow are ports, since they are what a
+cable, a gear or a MIDI knob moves in a show. Everything else is a hidden control or an
+in-region option, drawn in four folding sections — Camera, Light, Look and Quality — with
+segmented switches, a globe to drag the camera, a sun disk for the light, and panels for Target
+& From, Glow and Toon ([ui.md](ui.md#sections)). Each is still saved, undone and, a number,
+bindable to MIDI.
+
+**What lost: every setting a row with a port.** As rows, its thirty-one settings make a node
+taller than the scene it draws, and a camera is aimed by dragging a globe rather than by
+scrubbing numbers in a column. There is no live preview in the node: the Output it feeds is the preview.
+
+### A port key names one port of its node
+
+**Chosen.** No two of a node's ports share a key: not two inputs, not two outputs, not an
+input and an output, and not a port and a hidden control.
+`no_two_ports_of_a_node_share_a_key` in `nodes/mod.rs` holds the registry to it.
+
+**Why.** A port is named by its node and its key alone, `PortRef`, and the canvas tells an
+input from an output by looking the key up among the node's outputs. So two ports under one
+key are one port to both: on a solid modifier with an input and an output both keyed `solid`,
+a cable dragged out of the input starts from the output.
+
+**What lost: a `PortRef` that carries its side.** Every cable, file and command names a port by
+node and key, and one rule over the registry costs none of them anything.

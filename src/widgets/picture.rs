@@ -30,7 +30,7 @@ pub const RENDER: RegionDef = RegionDef {
 /// the `resolution` option currently names — recomputed every frame rather than cached, so
 /// picking a taller resolution reshapes the node on the spot instead of leaving black bars,
 /// a tick or two before the picture of that shape is published.
-fn render_size(node: &Node) -> f32 {
+fn render_size(node: &Node, _: crate::nodes::Region) -> f32 {
     let (w, h) = crate::nodes::output::resolution_of(node);
     canvas::node_width(node) * h as f32 / w as f32
 }
@@ -56,7 +56,7 @@ pub const PREVIEW: RegionDef = RegionDef {
 /// exactly: a clip's shape is whatever was imported and is not known until a frame has been
 /// decoded, long after the node has been laid out. The blit letterboxes into it, which is what
 /// the mixer panel's channel preview already does with a deck that is not 16:9.
-fn preview_size(node: &Node) -> f32 {
+fn preview_size(node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::node_width(node) * 9.0 / 16.0
 }
 

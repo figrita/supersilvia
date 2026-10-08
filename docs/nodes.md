@@ -162,6 +162,7 @@ WGSL. The signature is derived from the port's `PortType`:
 
 - `PortType::VaryingNumber` → `fn name(uv: vec2f) -> f32`
 - `PortType::VaryingColor` → `fn name(uv: vec2f) -> vec4f`
+- `PortType::Solid` → `fn name(p: vec3f) -> vec4f`, twice: see [Solids](#solids)
 - `PortType::UniformNumber` → no function. The output carries `no_wgsl`, and the compiler
   resolves the port to a uniform before it could ever call it. `Action` is the same, and never
   reaches the compiler at all.
@@ -191,8 +192,8 @@ both entry points. An output nobody has written a body
 for gets `no_wgsl`: a magenta (or zero) placeholder and a `Diagnostic::Untranslated`, so the
 module still validates.
 
-**The function** is `fn name(uv: vec2f) -> vec4f` for a color and `-> f32` for a number, and
-a measurement is `fn name(p: vec2f)`. A parameter is immutable: a body that moves its
+**The function** is `fn name(uv: vec2f) -> vec4f` for a color and `-> f32` for a number,
+`fn name(p: vec3f) -> vec4f` for a solid, and a measurement is `fn name(p: vec2f)`. A parameter is immutable: a body that moves its
 coordinate declares `var st = uv;` first.
 
 **What `ctx` hands back.** Every uniform is a member of the module's one struct `u` —
@@ -1067,6 +1068,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Math` | `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`, `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`, `smoothstep`, `threshold`, `random` |
 | `Control` | `number`, `clock`, `oscillator`, `animation`, `automation`, `slew`, `autogain`, `button`, `clockdivider`, `counter`, `adsr`, `smoothcounter`, `triggeredrandom`, `triggeredcolor`, `randomfire`, `euclideanrhythm`, `stepsequencer`, `xypad` |
 | `Gear` | `mastergear`, `ratiogear`, `time` |
+| `Solid` | `sphere`, `box`, `torus`, `cylinder`, `capsule`, `octahedron`, `ground`, `union`, `solidsubtract`, `intersect`, `place`, `stretch`, `solidmirror`, `twist`, `bend`, `repeatgrid`, `repeataround`, `inflate`, `shell`, `paint`, `displace`, `surfacetexture`, `cone`, `hexprism`, `pyramid`, `link`, `gyroid`, `elongate`, `morph`, `stripes3d`, `heightgradient`, `menger`, `mandelbulb`, `boxframe`, `superellipsoid`, `ellipsoid`, `helix`, `slab`, `dodecahedron`, `icosahedron`, `stairsunion`, `columnsunion`, `solidxor`, `warp`, `foldplane`, `wrap`, `fold`, `scattersphere`, `noisedisplace`, `checker3d`, `proximity`, `facing`, `distancebands`, `extrude`, `revolve`, `heightfield`, `solidrender` |
 | `Output` | `output` |
 
 The left column is the node's own `Category`, not a heading invented here: the Nodes menu is
@@ -1758,11 +1760,191 @@ The math nodes come from two macros, since the only thing differing between them
 expression. Node definitions are data, so a macro over them is ordinary — not the case if
 they were trait implementations.
 
+## Solids
+
+A **solid** is a shape in three dimensions, `PortType::Solid`: `fn f(p: vec3f) -> vec4f`, the
+signed distance from `p` to the surface in `.x`, negative inside, and the color there in
+`.yzw`. The video graph's rule holds one axis up: every output is a function and every cable
+is a call. A primitive measures a distance, a boolean combines two, and a node that moves
+space hands its input a different point, as `zoom` hands its input a different `uv`:
+
+```rust
+// twist
+let inner = ctx.input(node, "input", "q");
+format!("    let k = {{rate}} * 6.2831853;
+    let xz = sd_rot2(p.xz, k * p.y);
+    let q = vec3f(xz.x, p.y, xz.y);
+    let r = {inner};
+    return vec4f(r.x / sqrt(1.0 + k * k * dot(p.xz, p.xz)), r.yzw);")
+```
+
+Color rides through a boolean the way the distance does. The units are
+[worldspace](#worldspace)'s lifted one axis: the viewport is 2 tall, and `y` is up. An angle
+is in turns. The helpers every solid node shares — `sd_rot2`, `sd_turn`, the three booleans,
+`sd_hash3` and `sd_hue` — are one `wgsl_util`, `solids::SDF`, so a module with no solid node
+carries none of them. **An unconnected solid input is nothing, a long way off**:
+`vec4f(SOLID_FAR, 0.5, 0.5, 0.5)`, with `compile::SOLID_FAR` at `1.0e4`, so a union with it is
+the other side alone. A solid reaches a picture through [Render 3D](rendering.md#render-3d),
+and nothing else. [solids-demo.html](../proposals/solids-demo.html) is the sketch in HTML and
+JS the library was ported from.
+
+### Two functions per solid
+
+A march asks a solid for its distance dozens to hundreds of times a pixel, and for its color
+once, where the ray lands. **So every solid node's generator runs twice**: once for the whole
+solid, and once for its distance alone, named with a `_d` suffix (`sphere3_solid_d`).
+`ctx.solid_color()` says which one the generator is writing, and the distance-only one leaves
+out whatever only colors. `ctx.input` asks a solid input for the variant being written.
+`ctx.solid_input(node, key, p, color)` asks for one by name: Render 3D marches the distance
+alone and asks for the whole where the ray hit, and Texture's Box mapping and Facing take a
+normal from four distance-only taps of their own input. In the distance-only variant the
+first component means what it means in the whole; the other three are whatever was cheapest.
+Paint, Texture and the color fields return their input untouched there, so a march never pays
+for them, and `solids::tint` writes a color input's rgb in the whole and zero in the distance
+alone.
+
+### Numbers on a solid are uniform
+
+**Every number input on a solid node is a `UniformNumber`.** A solid has a point and no `uv`,
+so a field has nothing to vary over, and a CPU node — a slew, an oscillator, a gear, a tap's
+reading, a MIDI knob — reaches any of them. Nothing on a solid moves by itself: a gear's Cycles
+into Displace's Phase moves the ripple, and an oscillator into a Sphere's Radius moves the
+ball. `a_solid_node_publishes_a_solid_and_reads_uniform_numbers` in `nodes/mod.rs` holds every
+Solids node but Render 3D to publishing a solid keyed `solid`, every number input on one to a
+`UniformNumber`, and every solid port to a node in the Solids category.
+
+### A distance stays a bound
+
+Sphere tracing steps along a ray by the distance the solid reports, so **a distance may never
+claim more room than there is**. A node that stretches space divides its distance by the most
+it stretches. A march then never steps through a surface; it takes more steps instead, which
+Render 3D's Steps shading shows.
+
+- A move, a turn and a mirror pass the distance as it is.
+- A uniform scale multiplies it back: Place's Scale, a shape's Transform Scale, Repeat's Size,
+  Repeat Around's Grow, and the scale Fold gathers over its iterations.
+- Stretch, a scale per axis, multiplies by its smallest factor.
+- Twist and Bend divide by how far the point is from the axis they turn about, and Wrap by its
+  stretch integrated toward its axis.
+- Displace divides by its Amount times its Frequency, and Warp and Noise Displace by their
+  noise's steepest slope.
+- Extrude, Revolve and Heightfield divide by their Steepness ([profiles](#profiles)).
+
+A few shapes are bounds rather than exact distances: the octahedron, the gyroid, the
+ellipsoid, the superellipsoid, the helix, and the dodecahedron and the icosahedron beyond
+their edges. The Mandelbulb's is an estimate scaled down by a quarter. Each module's comment
+argues its bound.
+
+### The chain
+
+**Every shape node lands its shape on the solid built so far.** A primitive, a regular solid,
+a fractal and a profile each take that solid on their first row, **Onto**, and combine with it
+by **Mode** — Union, Subtract or Intersect — with **Blend** melting the seam. With nothing in
+Onto a shape is itself alone, whatever the mode. So a scene is a row of shapes, each cabled
+into the next. A blend carries color across the seam as it carries the shape, and a
+subtracted shape's cut face takes the cutter's color.
+
+Under a **Transform** heading, closed on a new node, every shape also turns by Yaw, Pitch and
+Roll and scales by Scale, about its own center: its X, Y and Z where it has them, the origin
+where it has none. A primitive carries its own place and color, so a simple scene needs no
+transform node.
+
+**The compiler writes the chain, once, for every shape.** A shape's generator writes only its
+own shape. `CompileContext::emit` makes that body a function of its own, `{func}_own`, for
+every node `solids::is_shape` says is one — a node with an Onto input — and wraps it in
+`solids::chain`, which turns and scales the point, scales the distance back and combines the
+result with Onto by the mode. A shape declares its rows with `shape_inputs!`, its options with
+`shape_options!` and its heading with `solids::ROW_HEADINGS`.
+
+Union (up to four inputs), Subtract and Intersect, each with a Smooth, are for merging
+branches: two chains built apart. Place is for moving a group: it moves, turns and scales
+whatever is cabled into it, a whole chain at once. See
+[decisions.md](decisions.md#every-shape-lands-on-the-last-rather-than-a-tree-of-unions).
+
+### Repetition
+
+Repeat (`repeatgrid`), Repeat Around (`repeataround`) and Scatter on Sphere (`scattersphere`)
+each fold the point into one cell, so the input is evaluated once however many copies show.
+Repeat's Forever costs what one copy does.
+
+**A copy must fit its cell.** The fold looks at the nearest cell alone. A copy wider than the
+spacing, or pushed out of its cell by Scatter or Grow, is sliced flat at the cell's edge.
+Nothing checks the neighbors; the slice is the signal to widen the spacing, and each node's
+tooltip says so. An endless repeat ends where the march gives up, 80 units out, and Render
+3D's Fog is what hides that edge.
+
+**Per-copy variation is the repeat node's**, since only it knows the cell: Repeat's Scatter,
+Spin, Size and Tint, Repeat Around's steps of Rise, Turn and Grow and its Tint, and Scatter on
+Sphere's Spin, Size and Tint. Each random one is `sd_hash3` of the cell and the Seed, integer
+arithmetic, so a scatter is the same on every GPU and in every session.
+
+### Texture
+
+**Texture (`surfacetexture`) puts any `VaryingColor` on a surface**: an Output's `frame` from
+another workspace, a camera, a clip, or a whole video chain, which is then computed where the
+ray lands. A solid has no `uv`, so the node makes one from the point by its Mapping: Box,
+three pictures blended by which way the surface faces, or Front, Top, Side, Around or Sphere.
+Scale, Offset X and Y and Mix are its numbers. The picture is sampled in the whole function
+alone, so it is paid once a pixel, and once more where a One bounce reflection hits.
+
+**Where it is wired decides whether it sticks.** A transform downstream of a Texture moves the
+picture with the solid. A transform upstream of it moves the solid through the picture, which
+is then a projector. There are no mipmaps, so a distant textured surface shimmers
+([rendering.md](rendering.md#render-3d)).
+
+### Profiles
+
+Extrude, Revolve and Heightfield make a shape from a picture: pushed out into a slab Depth
+deep, spun round the upright axis as a lathe turns a vase, or raised into terrain. They are
+the one place a field enters a distance, because a profile has a `uv`. **The picture is the
+shape**, so unlike Texture's it is asked in the distance-only function too, at every march
+step near enough for it to matter. A heavy chain behind it is paid at every step; an Output's
+Frame, one texture read, is cheapest. With Colored by Picture, its color is read in the whole
+function alone.
+
+**A picture's value is not a distance.** A brightness or an alpha over Threshold says only
+inside or outside. So each takes a **Steepness**: the fastest the value changes per unit of
+the picture, about one over the width of its soft edge. The edge is then at least
+`|Threshold − v| / Steepness` away, and that is the distance each reports, scaled into the
+world. Too low and the march oversteps and tears at the edges; too high and it creeps.
+Outside the picture's frame the picture counts as empty.
+
+**A soft edge is what makes a low Steepness true**: a shape's own Softness, or a blurred
+texture such as a Text. A Blur of a drawn shape is not one. It is a staircase of its taps, each
+step as steep as the edge, so the surface speckles.
+
+### The library
+
+| Family | Nodes |
+| --- | --- |
+| Primitives | Sphere, Box, Torus, Cylinder, Capsule, Octahedron, Ground, Cone, Hex Prism, Pyramid, Link, Box Frame, Ellipsoid, Superellipsoid, Helix, Slab, Dodecahedron, Icosahedron |
+| Lattices and fractals | Gyroid, a sheet that fills all of space, for intersecting with something finite; Menger Sponge and Mandelbulb, whose Iterations is a `Code` option because it multiplies everything a render does |
+| Profiles | Extrude, Revolve, Heightfield |
+| Booleans | Union, Subtract, Intersect; Stairs Union and Columns Union, two shaped seams; Exclusive, the overlap hollowed out; Morph, A into B by Amount |
+| Space | Place, Stretch, Mirror Space, Fold Plane, Twist, Bend, Wrap, Elongate, Warp |
+| Repeats | Repeat, Repeat Around, Scatter on Sphere, and Fold, a kaleidoscope of the solid's copies |
+| Surface | Round, Shell, Displace, Noise Displace, Paint, Texture |
+| Color fields | Stripes 3D, Height Gradient, Checker 3D, Facing, and Proximity and Contours, which paint by the distance to a second solid that is not drawn |
+| Render | Render 3D |
+
+Every shape in the first three rows is in the chain. A color field changes only color, so a
+march reads its input through it untouched. Each node's tooltip names its knobs.
+
+### Thumbnails
+
+**A solid port's thumbnail is a small render** from a fixed camera up and to the right of the
+origin, `compile::wgsl::solid_thumbnail`, drawn in [the workspace
+pass](rendering.md#the-workspace-pass) beside every other thumbnail. It marches the
+distance-only function 48 steps, with no shadow and no floor, lights the hit from over the
+camera's shoulder, and leaves the rest transparent black. The compiler emits both variants for
+it.
+
 ## Adding a node
 
 1. `src/nodes/yourname.rs` with a `pub static DEF: NodeDef`.
 2. Add `pub mod yourname;` and `&yourname::DEF` to `REGISTRY` in `src/nodes/mod.rs`.
-3. `cargo test` — the registry tests check slug uniqueness, port key uniqueness, that option
+3. `cargo test` — the registry tests check slug uniqueness, that no key names two ports of a
+   node (`no_two_ports_of_a_node_share_a_key`, an input and an output included), that option
    defaults are among their choices, that color defaults parse, that a hidden control has no
    port, and that a `Control::Press` sits on an `Action` input and nowhere else. Seven of them
    are constraints to satisfy rather than facts to discover:

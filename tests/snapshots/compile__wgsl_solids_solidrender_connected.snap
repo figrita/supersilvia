@@ -1,0 +1,191 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_solidrender1_background: vec4f,
+    u_control_solidrender1_distance: f32,
+    u_control_solidrender1_floorHeight: f32,
+    u_control_solidrender1_fog: f32,
+    u_control_solidrender1_lens: f32,
+    u_control_solidrender1_light: f32,
+    u_control_solidrender1_lightHeight: f32,
+    u_control_solidrender1_orbit: f32,
+    u_control_solidrender1_step: f32,
+    u_control_solidrender1_targetX: f32,
+    u_control_solidrender1_targetY: f32,
+    u_control_solidrender1_targetZ: f32,
+    u_control_solidrender1_tilt: f32,
+    u_control_sphere3_color: vec4f,
+    u_control_sphere3_radius: f32,
+    u_control_sphere3_tPitch: f32,
+    u_control_sphere3_tRoll: f32,
+    u_control_sphere3_tScale: f32,
+    u_control_sphere3_tYaw: f32,
+    u_control_sphere3_x: f32,
+    u_control_sphere3_y: f32,
+    u_control_sphere3_z: f32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+// Solids.
+fn sd_rot2(v: vec2f, a: f32) -> vec2f {
+    let c = cos(a);
+    let s = sin(a);
+    return vec2f(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+// Turn a point by yaw (around y), pitch (around x) and roll (around z), in radians.
+fn sd_turn(p: vec3f, a: vec3f) -> vec3f {
+    let xz = sd_rot2(p.xz, a.x);
+    var q = vec3f(xz.x, p.y, xz.y);
+    let yz = sd_rot2(q.yz, a.y);
+    q = vec3f(q.x, yz.x, yz.y);
+    let xy = sd_rot2(q.xy, a.z);
+    return vec3f(xy.x, xy.y, q.z);
+}
+// Smooth minimum with its blend carried into the color, so a seam between two colors is as
+// soft as the seam between the two shapes. A radius of zero is the hard union.
+fn sd_union(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(b, a, a.x < b.x); }
+    let h = clamp(0.5 + 0.5 * (b.x - a.x) / k, 0.0, 1.0);
+    return vec4f(mix(b.x, a.x, h) - k * h * (1.0 - h), mix(b.yzw, a.yzw, h));
+}
+// `a` with `b` carved out of it. The cut face takes `b`'s color.
+fn sd_subtract(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(a, vec4f(-b.x, b.yzw), -b.x > a.x); }
+    let h = clamp(0.5 - 0.5 * (a.x + b.x) / k, 0.0, 1.0);
+    return vec4f(mix(a.x, -b.x, h) + k * h * (1.0 - h), mix(a.yzw, b.yzw, h));
+}
+fn sd_intersect(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(b, a, a.x > b.x); }
+    let h = clamp(0.5 - 0.5 * (b.x - a.x) / k, 0.0, 1.0);
+    return vec4f(mix(b.x, a.x, h) + k * h * (1.0 - h), mix(b.yzw, a.yzw, h));
+}
+// Three numbers, 0 to 1, from a whole-numbered cell and a seed: integer arithmetic only, so a
+// cell scatters the same way on every GPU and in every session.
+fn sd_hash3(cell: vec3f, seed: f32) -> vec3f {
+    var v = bitcast<vec3u>(vec3i(cell) + vec3i(i32(seed) * 1597, i32(seed) * 3571, i32(seed) * 7919));
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v = v ^ (v >> vec3u(16u));
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    return vec3f(v) * (1.0 / 4294967295.0);
+}
+// A fully saturated hue, 0 to 1 round the wheel.
+fn sd_hue(h: f32) -> vec3f {
+    return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
+}
+
+fn sphere3_solid_d_own(p: vec3f) -> vec4f {
+    let q = p - vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
+    return vec4f(length(q) - u.u_control_sphere3_radius, vec3f(0.0));
+}
+
+fn sphere3_solid_d(p: vec3f) -> vec4f {
+    let pivot = vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
+    let s = max(u.u_control_sphere3_tScale, 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_sphere3_tYaw, u.u_control_sphere3_tPitch, u.u_control_sphere3_tRoll) * 6.2831853) / s;
+    let o = sphere3_solid_d_own(local);
+    let me = vec4f(o.x * s, o.yzw);
+    return me;
+}
+
+fn sphere3_solid_own(p: vec3f) -> vec4f {
+    let q = p - vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
+    return vec4f(length(q) - u.u_control_sphere3_radius, u.u_control_sphere3_color.rgb);
+}
+
+fn sphere3_solid(p: vec3f) -> vec4f {
+    let pivot = vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
+    let s = max(u.u_control_sphere3_tScale, 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_sphere3_tYaw, u.u_control_sphere3_tPitch, u.u_control_sphere3_tRoll) * 6.2831853) / s;
+    let o = sphere3_solid_own(local);
+    let me = vec4f(o.x * s, o.yzw);
+    return me;
+}
+
+fn solidrender1_output(uv: vec2f) -> vec4f {
+    let tau = 6.2831853;
+    let orbit = u.u_control_solidrender1_orbit * tau;
+    let tilt = u.u_control_solidrender1_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender1_targetX, u.u_control_solidrender1_targetY, u.u_control_solidrender1_targetZ);
+    let ro = aim + u.u_control_solidrender1_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let fwd = normalize(aim - ro);
+    let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
+    let up = cross(right, fwd);
+    let rd = normalize(fwd * u.u_control_solidrender1_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender1_floorHeight;
+    let bg = u.u_control_solidrender1_background;
+    let relax = u.u_control_solidrender1_step;
+    var pp = vec3f(0.0);
+    var t = 0.0;
+    var hit = false;
+    var count = 0.0;
+    for (var i = 0; i < 128; i++) {
+        pp = ro + rd * t;
+        let h = min((pp.y - fh), sphere3_solid_d(pp).x);
+        if (h < 0.0004 * t + 0.0001) { hit = true; break; }
+        t += h * relax;
+        count += 1.0;
+        if (t > 80.0) { break; }
+    }
+    let heat = count / 128.0;
+    if (!hit) { return bg; }
+    let pos = ro + rd * t;
+    let e = vec2f(1.0, -1.0) * 0.0005 * max(1.0, t * 0.25);
+    pp = pos + e.xyy;
+    let n0 = min((pp.y - fh), sphere3_solid_d(pp).x);
+    pp = pos + e.yyx;
+    let n1 = min((pp.y - fh), sphere3_solid_d(pp).x);
+    pp = pos + e.yxy;
+    let n2 = min((pp.y - fh), sphere3_solid_d(pp).x);
+    pp = pos + e.xxx;
+    let n3 = min((pp.y - fh), sphere3_solid_d(pp).x);
+    let n = normalize(e.xyy * n0 + e.yyx * n1 + e.yxy * n2 + e.xxx * n3);
+    pp = pos;
+    let floor_hit = ((pp.y - fh)) < sphere3_solid_d(pp).x;
+    var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
+    if (!floor_hit) { albedo = sphere3_solid(pos).yzw; }
+    let fog = 1.0 - exp(-u.u_control_solidrender1_fog * t);
+    let la = u.u_control_solidrender1_light * tau;
+    let lh = u.u_control_solidrender1_lightHeight * tau;
+    let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
+    var sh = 1.0;
+    var st = 0.03;
+    for (var j = 0; j < 32; j++) {
+        pp = pos + n * 0.01 + light * st;
+        let h = min((pp.y - fh), sphere3_solid_d(pp).x);
+        sh = min(sh, 10.0 * h / st);
+        st += clamp(h, 0.02, 0.6);
+        if (sh < 0.01 || st > 20.0) { break; }
+    }
+    sh = clamp(sh, 0.0, 1.0);
+    var occ = 0.0;
+    for (var j = 1; j <= 5; j++) {
+        let hk = 0.07 * f32(j);
+        pp = pos + n * hk;
+        occ += (hk - min((pp.y - fh), sphere3_solid_d(pp).x)) / f32(j);
+    }
+    let ao = clamp(1.0 - 2.5 * occ, 0.0, 1.0);
+    let lin = pow(albedo, vec3f(2.2));
+    let dif = max(dot(n, light), 0.0) * sh;
+    let amb = (0.5 + 0.5 * n.y) * ao;
+    let spe = pow(max(dot(n, normalize(light - rd)), 0.0), 40.0) * dif * 0.35;
+    let col = pow(lin * (dif * 1.25 + amb * 0.30) + spe, vec3f(1.0 / 2.2));
+    return mix(vec4f(col, 1.0), bg, fog);
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return solidrender1_output(uv);
+}

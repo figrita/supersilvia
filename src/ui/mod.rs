@@ -2906,8 +2906,8 @@ fn refusal_words(
     }
 }
 
-/// What a port carries, as a refusal says it: a picture, a field, a number, a color or an
-/// event.
+/// What a port carries, as a refusal says it: a picture, a field, a number, a color, an event
+/// or a solid.
 fn carried(ty: PortType) -> &'static str {
     match ty {
         PortType::VaryingColor => "a picture",
@@ -2915,6 +2915,7 @@ fn carried(ty: PortType) -> &'static str {
         PortType::UniformNumber => "a number",
         PortType::UniformColor => "a color",
         PortType::Action => "an event",
+        PortType::Solid => "a solid",
     }
 }
 

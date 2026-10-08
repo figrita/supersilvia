@@ -1132,6 +1132,65 @@ made. See [decisions.md](decisions.md#a-header-warns-on-what-the-probe-measures-
 
 The picture a probe draws is thrown away. Only the counts leave it.
 
+## Render 3D
+
+**Render 3D (`solidrender`) is a node, and its output is a picture.** It takes a
+[solid](nodes.md#solids) and is an ordinary `VaryingColor` field: a function of `uv` that
+marches one ray per pixel into the solid, from a camera that orbits a target or looks at it
+from a point. An Output draws it at whatever size that Output draws, since the render has no
+resolution of its own. Decks, Record, the sends, the `frame` port, the mixer and thumbnails
+take it unchanged, and nothing in `render/` or the compositor knows it is three-dimensional.
+Video effects can follow it. See
+[decisions.md](decisions.md#render-3d-is-a-node-whose-output-is-a-picture-not-a-kind-of-output).
+
+**Five numbers are ports**: Orbit, Tilt, Distance, Light and Glow, so a MIDI knob or a gear
+flies the camera and moves the light. Everything else is the node's own, hidden controls and
+in-region options drawn in four folding [sections](ui.md#sections):
+
+- **Camera**: the globe; Camera, Orbit or Look at; Lens Type, Persp, Ortho or Fisheye; Lens;
+  and a Target & From panel.
+- **Light**: the sun disk; Shadows, Soft or None; Light Height; Fog; and a Glow panel.
+- **Look**: Shading, which is Lit, Toon, Flat, Normals, Depth or Steps; a Toon panel; the
+  Background; and the Floor, Checker, Plain or None, with its height.
+- **Quality**, closed on a new node: Steps, 64, 128, 256 or 512; Step; Reflections, None or One
+  bounce; and Reflectivity.
+
+**Step** scales each march step: under 1 is safer, and over 1 is faster and can overstep. The
+floor and the fog are the render's, not solids. Every option is a `Code` option, and at its
+default each emits nothing, so the module is the plain march alone.
+
+**What a pixel costs.** A picture is evaluated once a pixel. A render evaluates its solid's
+distance-only function up to Steps times a pixel, against the floor each time; then four times
+for the normal, up to 32 for a soft shadow and five for Lit's occlusion; and the whole function
+once, where the ray hit. Toon shades with the shadow and no occlusion, Flat, Normals and Depth
+with neither, and Steps stops at the march. **One bounce** marches a second ray along the
+reflection, a quarter of Steps long, and asks for a normal and a color where it lands: up to a
+quarter as much again as the main march, plus five evaluations. Glow costs an exponential a
+step and Toon's outline a comparison a step. Look at, Orthographic and Fisheye change only how
+a ray starts, and cost nothing. A shape's own work multiplies all of it: a fractal's
+Iterations, and a profile's picture at every step.
+
+**Steps shading paints the march's work**: each pixel's step count over Steps, as heat from
+blue through yellow to red. A loose bound, a strong warp or a low Step reads hot.
+
+**A video effect after a render multiplies the march.** A field is a function, so a blur that
+taps its input nine times runs the whole render nine times a pixel. An Output between them
+pays the march once: cable the render into an Output, and the effect into that Output's
+`frame`. [The cost probe](#the-cost-probe) shows either figure. Its warning on a header leaves
+out a render's calls into its solid input (`app::link::measure`). A march calls its solid at
+every step, which is the render's own work and not a multiplied upstream an Output in between
+could flatten, since no Output holds a solid. The solid's nodes still count their evaluations
+on the strip.
+
+**There are no mipmaps.** No texture has mip levels ([nodes.md](nodes.md#wgsl)), so a
+[Texture](nodes.md#texture) on a distant surface samples one texel where a pixel covers many,
+and shimmers as it moves. See [decisions.md](decisions.md#no-mipmaps-on-a-solids-textures).
+
+**A frame from a closed tab holds.** An Output on a closed workspace is suspended unless it is
+on air, on a deck or sent ([which Outputs draw](#which-outputs-draw)), and its `frame` is the
+last one it drew. A Texture on an open tab reading that frame shows it standing still until
+the Output's tab is open again.
+
 ## The workspace pass
 
 **Every measurement runs in its workspace's pass, and so does every thumbnail.** A tap's,
@@ -1170,7 +1229,9 @@ at the cell's own index, so no two fragments write one word: a number's `f32` bi
 clamped to `[0, 1]` and packed four bytes to a word. The picture is thrown away. A tile is one
 port throughout, so a workgroup runs one case of the `switch` but where it straddles two
 tiles. `u_resolution` reads 1280x720 in a pass, not the target's size, so a node that measures
-in pixels draws its thumbnail and is measured as in an Output of the default size.
+in pixels draws its thumbnail and is measured as in an Output of the default size. **A solid
+port's tile calls a small render of it**, `compile::wgsl::solid_thumbnail`, a 48-step march
+from a fixed camera ([nodes.md](nodes.md#thumbnails)), and writes the color it returns.
 
 **Drawn in the coda, after every Output**, before the probes, into its own renderer
 (`Renderer::passes`, keyed by workspace and batch), so what it samples of another Output's

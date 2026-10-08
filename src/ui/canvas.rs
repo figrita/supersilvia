@@ -171,23 +171,55 @@ pub fn record_shown(node: &Node) -> bool {
     render_heading(node) && tick(node, crate::nodes::output::RECORD).unwrap_or(false)
 }
 
-/// Where a moving node's Timing heading sits: the index of its first time row, on a node that
-/// keeps time (`nodes::timing`). `None` elsewhere, and on a collapsed node.
-pub fn timing_heading(node: &Node) -> Option<usize> {
-    if node.collapsed || node.def.timing.is_none() {
+/// The headings that fold a run of a node's inputs, each in the input block over the rows it
+/// folds: a moving node's Timing heading over its time rows, and a shape's Transform heading
+/// over its turn and scale.
+pub const INPUT_HEADINGS: [Row; 2] = [Row::TimingHeading, Row::TransformHeading];
+
+/// The option an input heading turns, or `None` for a row that is not one.
+pub fn input_heading_key(row: Row) -> Option<&'static str> {
+    match row {
+        Row::TimingHeading => Some(crate::nodes::timing::HEADING.key),
+        Row::TransformHeading => Some(crate::nodes::solids::TRANSFORM.key),
+        _ => None,
+    }
+}
+
+/// The input heading this input folds under on this node, if any: Timing over a time row on a
+/// node that keeps time (`nodes::is_time_row`), Transform over a turn or a scale on a node that
+/// declares that heading (`nodes::solids::is_transform_row`).
+pub fn folded_by(node: &Node, key: &str) -> Option<Row> {
+    if node.def.timing.is_some() && crate::nodes::is_time_row(key) {
+        Some(Row::TimingHeading)
+    } else if node
+        .def
+        .row_headings
+        .contains(&crate::nodes::solids::TRANSFORM.key)
+        && crate::nodes::solids::is_transform_row(key)
+    {
+        Some(Row::TransformHeading)
+    } else {
+        None
+    }
+}
+
+/// Where an input heading sits: the index of the first input it folds. `None` on a node with
+/// no such input, and on a collapsed node.
+pub fn input_heading(node: &Node, heading: Row) -> Option<usize> {
+    if node.collapsed {
         return None;
     }
     node.inputs
         .iter()
-        .position(|p| crate::nodes::is_time_row(p.key))
+        .position(|p| folded_by(node, p.key) == Some(heading))
 }
 
-/// How much further in a row under the Timing heading starts its label than a row outside
-/// it: a few points, so the rows read as the heading's own rather than as the node's next.
-pub const TIMING_INDENT: f32 = 6.0;
+/// How much further in a row under an input heading starts its label than a row outside it: a
+/// few points, so the rows read as the heading's own rather than as the node's next.
+pub const HEADING_INDENT: f32 = 6.0;
 
-/// The one gap a heading keeps: above its bar, under a closed bar, and under the last row the
-/// Timing heading folds, which parts those rows from the node's next input as the open bar
+/// The one gap a heading keeps: above its bar, under a closed bar, and under the last row an
+/// input heading folds, which parts those rows from the node's next input as the open bar
 /// touching its first row joins them to it. The bar itself is the same height open or closed,
 /// so a fold moves what is under it and never the bar.
 pub const HEADING_GAP: f32 = 2.0;
@@ -195,7 +227,7 @@ pub const HEADING_GAP: f32 = 2.0;
 /// Whether a heading row is open, or `None` for a row that is not a heading.
 fn heading_open(node: &Node, row: Row) -> Option<bool> {
     match row {
-        Row::TimingHeading => Some(timing_shown(node)),
+        Row::TimingHeading | Row::TransformHeading => Some(input_heading_shown(node, row)),
         Row::RenderHeading => Some(render_shown(node)),
         Row::RecordHeading => Some(record_shown(node)),
         Row::SendHeading => Some(send_shown(node)),
@@ -203,26 +235,25 @@ fn heading_open(node: &Node, row: Row) -> Option<bool> {
     }
 }
 
-/// Is this row one the Timing heading folds: a Time, a Speed or an Offset under an open
-/// heading. Only drawn while the heading is open, so a row that is drawn is under one.
-pub fn under_timing(node: &Node, row: Row) -> bool {
+/// Is this row one an input heading folds: a time row under an open Timing heading, a turn or
+/// a scale under an open Transform heading. Only drawn while its heading is open, so a row
+/// that is drawn is under one.
+pub fn under_heading(node: &Node, row: Row) -> bool {
     let Row::Input(i) = row else {
         return false;
     };
-    node.def.timing.is_some()
-        && node
-            .inputs
-            .get(i)
-            .is_some_and(|p| crate::nodes::is_time_row(p.key))
+    node.inputs
+        .get(i)
+        .is_some_and(|p| folded_by(node, p.key).is_some())
 }
 
-/// Is the Timing heading open: its option, which reads absent as closed.
-pub fn timing_shown(node: &Node) -> bool {
-    tick(node, crate::nodes::timing::HEADING.key).unwrap_or(false)
+/// Is an input heading open: its option, which reads absent as closed.
+pub fn input_heading_shown(node: &Node, heading: Row) -> bool {
+    input_heading_key(heading).is_some_and(|key| tick(node, key).unwrap_or(false))
 }
 
 /// Is this input's row drawn: every input but the row the node's time mode puts away, and
-/// every time row while their heading is closed (`nodes::is_time_row`).
+/// every row an input heading folds while that heading is closed.
 fn input_shown(node: &Node, index: usize) -> bool {
     let Some(port) = node.inputs.get(index) else {
         return true;
@@ -230,7 +261,7 @@ fn input_shown(node: &Node, index: usize) -> bool {
     if crate::nodes::timing::is_inactive(node, port.key) {
         return false;
     }
-    timing_heading(node).is_none() || timing_shown(node) || !crate::nodes::is_time_row(port.key)
+    folded_by(node, port.key).is_none_or(|h| node.collapsed || input_heading_shown(node, h))
 }
 
 /// How many of an Output's selects are drawn in the render section rather than the option
@@ -364,6 +395,9 @@ pub enum Row {
     /// row is: the same bar a region's heading is, over two port rows. On every such node
     /// whether it is open or closed.
     TimingHeading,
+    /// The bar a shape's turn and scale fold under, over the first of those rows: the same bar
+    /// again, on every node that declares the Transform heading, open or closed.
+    TransformHeading,
     Output(usize),
     Option(usize),
     /// One value the node declares, drawn by its own `ValueKind` — a box of text on a
@@ -408,6 +442,7 @@ impl Row {
             Row::Input(i) => Some((i, true)),
             Row::Output(i) => Some((i, false)),
             Row::TimingHeading
+            | Row::TransformHeading
             | Row::Option(_)
             | Row::Checks
             | Row::Value(_)
@@ -427,8 +462,8 @@ impl Row {
     /// block's own inset and corner rounding.
     pub fn section(self) -> u8 {
         match self {
-            // The Timing heading is in the input block, over the two inputs it folds.
-            Row::Input(_) | Row::TimingHeading => 0,
+            // An input heading is in the input block, over the inputs it folds.
+            Row::Input(_) | Row::TimingHeading | Row::TransformHeading => 0,
             Row::Output(_) => 1,
             // The ticks are options, and they sit in the option block: one groove above the
             // whole of it, not a second seam inside it.
@@ -491,9 +526,9 @@ pub fn row_block(body: Rect, row: Row, top: f32, height: f32) -> Rect {
         vec2(body.width(), height),
     );
     match row {
-        // The Timing heading stands among the inputs it folds, so it stops short of the far
+        // An input heading stands among the inputs it folds, so it stops short of the far
         // edge where they do.
-        Row::Input(_) | Row::TimingHeading => Rect::from_min_max(
+        Row::Input(_) | Row::TimingHeading | Row::TransformHeading => Rect::from_min_max(
             full.min,
             Pos2::new(full.max.x - ROW_BLOCK_INSET, full.max.y),
         ),
@@ -579,9 +614,11 @@ pub fn row_height(node: &Node, row: Row) -> f32 {
             OPTION_ROW_PITCH
         }
         // The same bar a region's heading is, so the two read as one affordance.
-        Row::RenderHeading | Row::RecordHeading | Row::SendHeading | Row::TimingHeading => {
-            HEADING_HEIGHT
-        }
+        Row::RenderHeading
+        | Row::RecordHeading
+        | Row::SendHeading
+        | Row::TimingHeading
+        | Row::TransformHeading => HEADING_HEIGHT,
         Row::Readout => READOUT_ROW_PITCH,
         // A value's height is the lines it declares: one line is an option row, and each
         // line after that adds a line of text rather than a whole row's padding. The inset
@@ -658,12 +695,12 @@ pub fn rows(node: &Node) -> impl Iterator<Item = (Row, f32)> + '_ {
     );
     let render = if render_shown(node) { RENDER_ROWS } else { 0 };
     let record = if record_shown(node) { RECORD_ROWS } else { 0 };
-    let time = timing_heading(node);
+    let headings = INPUT_HEADINGS.map(|h| (h, input_heading(node, h)));
     (0..node.inputs.len().min(n))
         .flat_map(move |i| {
-            (time == Some(i))
-                .then_some(Row::TimingHeading)
+            headings
                 .into_iter()
+                .filter_map(move |(h, at)| (at == Some(i)).then_some(h))
                 .chain(input_shown(node, i).then_some(Row::Input(i)))
         })
         .chain(
@@ -707,7 +744,7 @@ pub fn rows(node: &Node) -> impl Iterator<Item = (Row, f32)> + '_ {
 pub fn rows_with_top(node: &Node) -> impl Iterator<Item = (Row, f32, f32)> + '_ {
     let mut top = HEADER_HEIGHT;
     let mut section: Option<u8> = None;
-    let mut timed = false;
+    let mut folded = false;
     let mut closed = false;
     rows(node).map(move |(row, h)| {
         top += match section {
@@ -715,15 +752,15 @@ pub fn rows_with_top(node: &Node) -> impl Iterator<Item = (Row, f32, f32)> + '_ 
             Some(s) if s != row.section() => SECTION_GAP,
             Some(_) => 0.0,
         };
-        // A heading's gap, where the next row goes on in the same section: under the Timing
-        // heading's last row, and under a closed bar unless another bar follows, whose own
+        // A heading's gap, where the next row goes on in the same section: under the last row
+        // an input heading folds, and under a closed bar unless another bar follows, whose own
         // air above it is the gap.
-        let under = under_timing(node, row);
+        let under = under_heading(node, row);
         let open = heading_open(node, row);
-        if section == Some(row.section()) && ((timed && !under) || (closed && open.is_none())) {
+        if section == Some(row.section()) && ((folded && !under) || (closed && open.is_none())) {
             top += HEADING_GAP;
         }
-        timed = under;
+        folded = under;
         closed = open == Some(false);
         section = Some(row.section());
         let this = top;
@@ -800,7 +837,7 @@ fn region_height(node: &Node, region: Region) -> Option<f32> {
         0.0
     };
     let content = if region_open(node, region) {
-        (crate::widgets::def(region).size)(node)
+        (crate::widgets::def(region).size)(node, region)
     } else {
         0.0
     };
@@ -1038,17 +1075,20 @@ impl Layouts {
                 }
             }
         }
-        // A Time or an Offset folded under its heading gathers on the heading's own edge where
-        // a cable comes into it, so the cable is drawn into the bar that says the rows are
-        // there; with nothing on it, it has no dot, as a hidden output has none.
-        let heading = self.rows[rows..]
-            .iter()
-            .find(|r| r.row == Row::TimingHeading)
-            .map(|r| rect.min.y + r.top + r.height * 0.5);
-        if let Some(heading) = heading {
+        // A row folded under an input heading gathers on that heading's own edge where a cable
+        // comes into it, so the cable is drawn into the bar that says the rows are there; with
+        // nothing on it, it has no dot, as a hidden output has none.
+        for r in &self.rows[rows..] {
+            if input_heading_key(r.row).is_none() {
+                continue;
+            }
+            let heading = rect.min.y + r.top + r.height * 0.5;
             for (i, p) in node.inputs.iter().enumerate() {
                 let port = crate::graph::PortRef::new(id, p.key);
-                if !input_shown(node, i) && graph.source_of(port).is_some() {
+                if folded_by(node, p.key) == Some(r.row)
+                    && !input_shown(node, i)
+                    && graph.source_of(port).is_some()
+                {
                     self.ports.push(PortSlot {
                         port,
                         ty: p.ty,
@@ -1224,6 +1264,11 @@ mod tests {
                 if let Some(h) = region.heading() {
                     let open = region_open(g.get(id).unwrap(), *region);
                     set(&mut g, id, h.key, !open);
+                }
+            }
+            for key in INPUT_HEADINGS.iter().filter_map(|h| input_heading_key(*h)) {
+                if def.row_headings.contains(&key) {
+                    set(&mut g, id, key, true);
                 }
             }
             if def.is_output {
@@ -1470,23 +1515,22 @@ mod tests {
             // region is a row of its own however many lines tall it is, and an Output carries
             // the bars over its Render and Send sections, each section's own rows while it is
             // open, and its status line. No tick hides a row here, since every node starts
-            // with every tick shown; a moving node's Timing heading is a row, and closed, its
-            // Time and Offset are not.
-            let timed = timing_heading(node).is_some();
-            let folded = if timed && !timing_shown(node) {
-                node.inputs
-                    .iter()
-                    .filter(|p| crate::nodes::is_time_row(p.key))
-                    .count()
-            } else if timed {
-                // Open, the row its time mode puts away is still not drawn.
-                node.inputs
-                    .iter()
-                    .filter(|p| crate::nodes::timing::is_inactive(node, p.key))
-                    .count()
-            } else {
-                0
-            };
+            // with every tick shown; an input heading is a row, and closed, the rows it folds
+            // are not: a moving node's Time and Offset, a shape's turn and scale.
+            let headings = INPUT_HEADINGS
+                .iter()
+                .filter(|h| input_heading(node, **h).is_some())
+                .count();
+            let folded = node
+                .inputs
+                .iter()
+                .filter(|p| {
+                    !node.collapsed
+                        && (crate::nodes::timing::is_inactive(node, p.key)
+                            || folded_by(node, p.key)
+                                .is_some_and(|h| !input_heading_shown(node, h)))
+                })
+                .count();
             if !node.collapsed {
                 let selects = node.options.len()
                     - node.def.checks()
@@ -1498,7 +1542,7 @@ mod tests {
                 assert_eq!(
                     l.rows.len(),
                     node.inputs.len() - folded
-                        + usize::from(timed)
+                        + headings
                         + node.outputs.len()
                         + selects
                         + node.def.values.iter().filter(|v| v.rows() > 0).count()

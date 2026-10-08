@@ -236,9 +236,14 @@ pub(super) fn assemble_pass(ctx: &CompileContext) -> String {
     let grid = ctx.grid;
     let measurements = ctx.measurements.join("\n");
     let mut cases = String::new();
+    let mut views = String::new();
     for (i, (_, ty, func)) in ctx.thumbs.iter().enumerate() {
         let word = if *ty == PortType::VaryingNumber {
             format!("bitcast<u32>({func}(tp))")
+        } else if ty.is_solid() {
+            let view = format!("thumb_view{i}");
+            views.push_str(&solid_thumbnail(&view, &format!("{func}_d"), func));
+            format!("pack4x8unorm(clamp({view}(tp), vec4f(0.0), vec4f(1.0)))")
         } else {
             format!("pack4x8unorm(clamp({func}(tp), vec4f(0.0), vec4f(1.0)))")
         };
@@ -270,6 +275,7 @@ pub(super) fn assemble_pass(ctx: &CompileContext) -> String {
 "
         )
     };
+    body.push_str(&views);
     write!(
         body,
         "
@@ -283,6 +289,39 @@ fn {FRAGMENT_ENTRY}(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f 
     )
     .unwrap();
     body
+}
+
+/// A solid's port thumbnail: `name(uv)`, the solid whose distance is `dist` and whose whole
+/// is `whole` seen from a fixed camera up and to the right of the origin, lit from over the
+/// camera's shoulder, on transparent black. Short and cheap — 48 steps and no shadow — because a
+/// workspace pass draws one for every solid port on the workspace, connected or not.
+pub fn solid_thumbnail(name: &str, dist: &str, whole: &str) -> String {
+    format!(
+        "
+fn {name}(uv: vec2f) -> vec4f {{
+    let eye = vec3f(2.6, 1.9, 3.6);
+    let fwd = normalize(-eye);
+    let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
+    let up = cross(right, fwd);
+    let rd = normalize(fwd * 1.8 + right * uv.x + up * uv.y);
+    var t = 0.0;
+    for (var i = 0; i < 48; i++) {{
+        let d = {dist}(eye + rd * t).x;
+        if (d < 0.002 * t) {{
+            let p = eye + rd * t;
+            let e = vec2f(0.002, -0.002);
+            let n = normalize(e.xyy * {dist}(p + e.xyy).x + e.yyx * {dist}(p + e.yyx).x
+                + e.yxy * {dist}(p + e.yxy).x + e.xxx * {dist}(p + e.xxx).x);
+            let lit = 0.25 + 0.75 * max(dot(n, normalize(vec3f(0.6, 0.9, 0.5))), 0.0);
+            return vec4f({whole}(p).yzw * lit, 1.0);
+        }}
+        t += d;
+        if (t > 20.0) {{ break; }}
+    }}
+    return vec4f(0.0);
+}}
+"
+    )
 }
 
 /// Everything a module holds before its `fs_main`: the prelude, the uniform struct, the

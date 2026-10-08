@@ -36,11 +36,11 @@ pub const CAPTION: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::TRACE_HEIGHT
 }
 
-fn caption_size(_node: &Node) -> f32 {
+fn caption_size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::CAPTION_HEIGHT
 }
 

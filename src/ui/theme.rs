@@ -354,12 +354,26 @@ impl Theme {
         self.main.with(self.sat(0.28), 0.55).color_alpha(64)
     }
 
+    /// The solid ports' anchor: not a fifth knob but the hue halfway along the short way from
+    /// the event anchor to the main one, at the number anchor's saturation and lightness, so
+    /// it moves with a re-theme and sits apart from the three port families.
+    pub fn solid(&self) -> Hsl {
+        let (a, b) = (self.event.h, self.main.h);
+        let d = (b - a + 540.0).rem_euclid(360.0) - 180.0;
+        Hsl::new(
+            (a + d / 2.0).rem_euclid(360.0),
+            self.number.s,
+            self.number.l,
+        )
+    }
+
     /// The anchor for one port type.
     pub fn port_anchor(&self, ty: crate::graph::PortType) -> Hsl {
         let anchor = match ty.kind() {
             crate::graph::Kind::Number => self.number,
             crate::graph::Kind::Color => self.color,
             crate::graph::Kind::Event => self.event,
+            crate::graph::Kind::Solid => self.solid(),
         };
         // A uniform is its kind's color exactly; the diamond alone says which rate it is,
         // so the two rates read as one family under any theme.

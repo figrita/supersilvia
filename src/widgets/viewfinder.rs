@@ -44,7 +44,7 @@ const TILT_MAX: f32 = 2.0;
 
 /// silvia's canvas is a square of the body's width, and the square is what makes the tunnel
 /// legible: a band any shorter turns fifty nested rectangles into a smear.
-fn size(node: &Node) -> f32 {
+fn size(node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::node_width(node)
 }
 

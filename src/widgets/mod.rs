@@ -25,6 +25,7 @@ pub mod palette;
 pub mod picture;
 pub mod ranges;
 pub mod scope;
+pub mod section;
 pub mod status;
 pub mod steps;
 pub mod trace;
@@ -48,8 +49,10 @@ pub struct RegionDef {
     /// How tall the region's own content is on a node of this shape, in world units, with its
     /// heading's height excluded — the heading is the frame's and is added by
     /// `canvas::region_height`. Pure and cheap: called for every node on the workspace once a
-    /// frame, and by anything laying one node out. Never called on a closed region.
-    pub size: fn(&Node) -> f32,
+    /// frame, and by anything laying one node out. Never called on a closed region. Handed the
+    /// region too, for a kind a node declares more than once with different contents: a
+    /// [`Region::Section`].
+    pub size: fn(&Node, Region) -> f32,
     /// Draw into the rect, and say what the hand did in it.
     pub show: fn(&mut RegionUi<'_>) -> Vec<RegionEvent>,
     /// Whether the pointer inside this region's rect is the region's rather than the node's.
@@ -68,7 +71,7 @@ pub struct RegionDef {
 
 impl RegionDef {
     pub const EMPTY: Self = Self {
-        size: |_| 0.0,
+        size: |_, _| 0.0,
         show: |_| Vec::new(),
         claims_pointer: false,
         width: None,
@@ -100,6 +103,7 @@ pub fn def(region: Region) -> &'static RegionDef {
         Region::Brush => &paint::BRUSH,
         Region::Gear => &gear::GEAR,
         Region::Teeth => &gear::TEETH,
+        Region::Section(_) => &section::SECTION,
     }
 }
 
@@ -347,6 +351,11 @@ impl RegionUi<'_> {
 /// an action input — a Clear that zeroes four lanes is one edit a hand asks for, not a gate
 /// something downstream can hold. A click, not a level, for the same reason.
 pub fn button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str) -> bool {
+    lit_button(r, rect, caption, part, false)
+}
+
+/// A [`button`] that is lit while `lit`: one that opens a panel, while the panel is open.
+pub fn lit_button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str, lit: bool) -> bool {
     let name = r.name(part);
     let w = r.ui.interact(
         rect,
@@ -359,12 +368,21 @@ pub fn button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str) -> bo
     painter.rect(
         rect,
         radius,
-        if w.hovered() {
+        if lit {
+            r.theme.bg_active()
+        } else if w.hovered() {
             r.theme.bg_hover()
         } else {
             r.theme.bg_interactive()
         },
-        eframe::egui::Stroke::new((1.0 * r.zoom).max(1.0), r.theme.border_normal()),
+        eframe::egui::Stroke::new(
+            (1.0 * r.zoom).max(1.0),
+            if lit {
+                r.theme.primary_muted()
+            } else {
+                r.theme.border_normal()
+            },
+        ),
         eframe::egui::StrokeKind::Inside,
     );
     painter.text(
@@ -820,7 +838,7 @@ mod tests {
     /// A region that claims the pointer, standing in for the pad: nothing in the registry
     /// claims yet, and the declaration is the thing under test rather than any node's.
     const CLAIMS: RegionDef = RegionDef {
-        size: |_| 60.0,
+        size: |_, _| 60.0,
         show: probe,
         claims_pointer: true,
         ..RegionDef::EMPTY

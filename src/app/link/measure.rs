@@ -292,6 +292,14 @@ fn ingest(
         };
         let evals = f64::from(*count) / probed * pixels;
         match kind {
+            // A render marching into a solid calls it every step, and that is the node's
+            // work rather than a multiplied upstream an Output in between could flatten:
+            // no Output can hold a solid. The solid's nodes still count their evaluations.
+            compile::TapKind::Taps(key)
+                if graph
+                    .get(*node)
+                    .and_then(|n| n.def.input(key))
+                    .is_some_and(|i| i.ty.is_solid()) => {}
             compile::TapKind::Taps(key) => {
                 *per_site.entry((*node, *key)).or_insert(0.0) += evals;
             }

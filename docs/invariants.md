@@ -39,6 +39,8 @@ the table below is that the second list is short, and that you know exactly what
 | A `UniformNumber` port is a `Uniform` kind and an `Action` port an `Action` kind; a CPU-only node's inputs are CPU types; a node that publishes has a `cpu` half and a `cpu` half has something to publish | the registry tests in `nodes/mod.rs` | `cargo test` |
 | A hidden control has no port, an unbindable key is a control of its node, and every node is in one of the menu's categories | `a_hidden_control_has_no_port`, `an_unbindable_key_is_a_control_of_its_node`, `every_node_declares_a_category` | `cargo test` |
 | `Control::Press` belongs to an `Action` input and nowhere else | a registry test | `cargo test` |
+| No key names two ports of a node: two inputs, two outputs, an input and an output, or a port and a hidden control | `no_two_ports_of_a_node_share_a_key` in `nodes/mod.rs` | `cargo test` |
+| Every Solids node but Render 3D publishes a solid keyed `solid`, every number input on a Solids node is a `UniformNumber`, and a solid port sits on a Solids node alone | `a_solid_node_publishes_a_solid_and_reads_uniform_numbers` in `nodes/mod.rs` | `cargo test` |
 | An `OutputDef::eval` belongs to a `VaryingNumber` `Shader` output of a node with no `cpu` half and no `measure_wgsl`, all of whose inputs are `VaryingNumber` with number controls | `a_dual_output_is_a_varying_number_a_tick_can_evaluate` in `nodes/mod.rs` | `cargo test` |
 | A dual node's two implementations of one formula are the same function, and every dual node in the registry is covered by a case | `a_dual_nodes_two_implementations_agree` and `every_dual_output_in_the_registry_is_covered` in `tests/gpu_nodes.rs`, to 1e-3 through a tap | `cargo test` |
 | No cable makes a field of a uniform number something reads as one, whether it arrives as a gesture or in a file | a pinned dual node's inputs are `UniformNumber`, so `Graph::can_connect` refuses a field on type; a bulk change goes through `connect_loading` and `settle_effective_types` drops what is left illegal, settling to the types the same cables made one at a time would have | `tests/graph.rs`, `tests/workspace.rs` |
@@ -47,7 +49,7 @@ the table below is that the second list is short, and that you know exactly what
 | A `value` reads as a field: a Perlin's takes many levels across the frame and two points of it differ | `a_perlins_value_is_a_field_between_zero_and_one` in `tests/gpu_nodes.rs` | `cargo test` |
 | A `tile` repeats at exactly the period its width names, over a source whose own period is not a multiple of it | `a_tile_repeats_its_period` in `tests/gpu_nodes.rs` | `cargo test` |
 | Every shader-only node's WGSL is snapshotted with its inputs connected and unconnected, every output reached, and each category's count is asserted | `every_wgsl_node_compiles_connected_and_unconnected` in `tests/compile.rs` | `cargo test` |
-| Every module the compiler writes — each node unconnected and connected, each probe, every code option's every choice — validates and is written out as MSL, SPIR-V and HLSL, with its uniform struct and bindings where `compile::wgsl` says, and never samples with implicit derivatives | naga, over `compile::wgsl::build`, `build_probe` and `build_pass` | `tests/shader_targets.rs` |
+| Every module the compiler writes — each node unconnected and connected, a solid output through a Render 3D, each probe, every code option's every choice — validates and is written out as MSL, SPIR-V and HLSL, with its uniform struct and bindings where `compile::wgsl` says, and never samples with implicit derivatives | naga, over `compile::wgsl::build`, `build_probe` and `build_pass` | `tests/shader_targets.rs` |
 | No node body names `u_resolution`, `frag_coord`, the position builtin or `gl_FragCoord`: a size in pixels is measured against `nodes::REFERENCE_HEIGHT` instead | `no_node_function_reads_the_resolution` in `nodes/mod.rs`, over every output and shader util of every node and every choice of every option, with no exception | `cargo test` |
 | `invert` of white is black and of black is white | `inverting_white_reads_black` in `tests/gpu_nodes.rs` | `cargo test` |
 | `reframerange` maps 0.5 of [0, 1] onto [0, 10] and reads 5 | `reframerange_maps_a_half_onto_the_middle_of_its_output_range` in `tests/gpu_nodes.rs`, with a `divide` bringing it back inside a color channel | `cargo test` |
@@ -56,6 +58,9 @@ the table below is that the second list is short, and that you know exactly what
 | wgpu renders on the strongest GPU — discrete, then integrated, then other hardware — or on the one `SUPERSILVIA_ADAPTER` names, never on a software adapter unless `SUPERSILVIA_SOFTWARE_GPU=1`, and an override naming nothing refuses rather than falls back; under each variable, unset, its preference — Use GPU's adapter, passed over for the strongest where it is not offered, and Allow a software GPU; every test and bench asks for the integrated GPU, so none renders on a discrete GPU | `render::adapter::choose`, the one rule every wgpu device is made through, kittest's shared device included, and `Asked::integrated` for the tests and benches | its unit tests in `render/adapter.rs`, and `the_test_adapter_is_the_igpu` in `tests/ui.rs` and `the_harness_renders_on_the_igpu` in `tests/gpu_ring.rs` |
 | A `VaryingNumber` never feeds a `UniformNumber`; a `UniformNumber` feeds a `VaryingNumber` for free | `Graph::can_connect` | `tests/uniform.rs` |
 | Types match exactly; `Action` connects only to `Action` | `Graph::can_connect` | `tests/graph.rs` |
+| A `Solid` feeds only a `Solid`, and nothing else feeds one | `Graph::can_connect` | `a_solid_feeds_only_a_solid` in `compile/mod.rs` |
+| A solid compiles whole and as its distance alone, each calling the same variant of its input; the distance alone samples no picture and reads no color; an unconnected solid input is nothing, `SOLID_FAR` away | `CompileContext::solid_input` and the `_d` suffix in `emit` | `a_solid_compiles_whole_and_as_its_distance_alone`, `the_distance_alone_reads_no_picture_and_no_color` and `an_unconnected_solid_input_is_nothing_far_away` in `compile/mod.rs` |
+| A sphere rendered by Render 3D is its color in the middle of the frame and the background round it | `a_rendered_sphere_is_its_color_in_the_middle_and_the_background_round_it` renders it on the GPU and reads the pixels back | `tests/gpu_nodes.rs` |
 | A data input takes one connection; the newest wins | `Graph::connect` | `tests/graph.rs` |
 | An immediate cycle is rejected; a cycle through a delayed port is not | the cycle check ignores delayed edges | `tests/graph.rs`, `tests/feedback.rs` |
 | A cable drag's port states answer as `can_connect` would, from either end, and a reach walked over other cables is not believed | `Graph::reach` and `Graph::can_connect_within`, kept per drag in `CanvasState` | `a_drags_reach_answers_as_can_connect_does` in `tests/graph.rs` |
@@ -183,7 +188,7 @@ the table below is that the second list is short, and that you know exactly what
 
 ## What only a person catches
 
-Six rules, and nothing but attention stands behind them. They are the ones to spend review
+Seven rules, and nothing but attention stands behind them. They are the ones to spend review
 on, because everything above is already spent.
 
 **A `tick` never waits.** Not for a lock, not for a device, not for the GPU. Device threads
@@ -231,6 +236,14 @@ does. A glyph typed in its place renders, and passes every test that finds the w
 text, while sitting off-center in a proportional face. *Read for: a `button`, `menu_button`,
 `selectable_value` or `painter().text` whose text is a lone symbol, or a symbol before a word
 — words, numbers, a key cap's legend and the Status box's grid excepted.*
+
+**A solid's distance never claims more room than there is.** A march steps along a ray by the
+distance a solid reports, so a node that stretches space divides its distance by the most it
+stretches ([nodes.md](nodes.md#a-distance-stays-a-bound)). A distance that overclaims passes
+every test here: the WGSL validates, and a sphere still renders. The symptom is a surface with
+holes and torn edges at some settings and not others. *Read for: a solid generator that moves
+the point other than by a move, a turn or a mirror, and returns its input's distance without
+dividing by how far the move can stretch.*
 
 ## Reading a change without reading Rust
 

@@ -112,11 +112,12 @@ fn build_graph(
             .map(|p| p.key)
             .collect()
     };
-    let (pictures, fields) = (
+    let (pictures, fields, solids) = (
         roots_of(PortType::VaryingColor),
         roots_of(PortType::VaryingNumber),
+        roots_of(PortType::Solid),
     );
-    if pictures.is_empty() && fields.is_empty() || def.is_output && !wired {
+    if pictures.is_empty() && fields.is_empty() && solids.is_empty() || def.is_output && !wired {
         return None;
     }
     let mut g = Graph::new();
@@ -134,6 +135,7 @@ fn build_graph(
                 PortType::VaryingColor => ("checkerboard", "output"),
                 PortType::VaryingNumber => ("vignette", "mask"),
                 PortType::UniformColor => ("color", "output"),
+                PortType::Solid => ("sphere", "solid"),
                 PortType::UniformNumber | PortType::Action => continue,
             };
             let src = add(&mut g, source);
@@ -141,6 +143,12 @@ fn build_graph(
         }
     }
     let mut roots: Vec<PortRef> = pictures.iter().map(|k| PortRef::new(under, k)).collect();
+    // A solid reaches a picture through a render.
+    for key in &solids {
+        let render = add(&mut g, "solidrender");
+        let _ = g.connect(PortRef::new(under, key), PortRef::new(render, "solid"));
+        roots.push(PortRef::new(render, "output"));
+    }
     if !fields.is_empty() {
         let rgba = add(&mut g, "rgba");
         for (field, channel) in fields.iter().zip(["r", "g", "b", "a"]) {

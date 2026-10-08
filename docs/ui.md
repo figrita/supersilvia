@@ -556,9 +556,11 @@ toggles it, which is silvia's Windows key. It is drawn after the canvas and only
 is one: on the project tab there is nothing for a node to land on.
 
 **The categories are `Category::ALL`, in roughly signal order**: Source, Generate, Color,
-Transform, Effect, Convert, Tap, Math, Control, **Gears** and Output. Gears, under `⚙`, holds
+Transform, Effect, Convert, Tap, Math, Control, **Gears**, **Solids** and Output. Gears, under `⚙`, holds
 the Master Gear, the Ratio Gear and Time — the clocks, the one place a rate is set, changed
-or divided — between the values that change over time and what a picture ends in. **A
+or divided — between the values that change over time and what a picture ends in. Solids,
+under `🧊`, holds the shapes in three dimensions and Render 3D, which turns one into a picture
+([nodes.md](nodes.md#solids)). **A
 category of one node is that node**: Output's row has no ▶ and no submenu, and a click or
 `Enter` adds the Output, since a submenu holding one entry of the same name chooses nothing.
 
@@ -2748,7 +2750,7 @@ heading instead —
 both idioms and they are about two different things.
 
 A heading usually sits on the region it folds, which is where the region declares it. An
-Output's Render, Record and Send sections and a moving node's Time fold a run of **rows**, which is not
+Output's Render, Record and Send sections, a moving node's Time and a shape's Transform fold a run of **rows**, which is not
 a band and has nowhere to hang a heading of its own, so the node names each option in
 `NodeDef::row_headings` and `ui/node_widget` draws the same bar over the rows — one
 `widgets::heading_row`, so they cannot drift apart by a point. A registry test holds every
@@ -2773,6 +2775,14 @@ there, and one with nothing on it has no dot, as an output a tick hides has none
 folded row, open its heading. Every node that declares `timing` gets the heading and its mode
 from `nodes::timing`: `node!` writes them, and a hand-written moving node takes them from
 `timing::options!`.
+
+**A solid shape's turn and scale fold the same way, under a Transform heading that starts
+closed** (`nodes::solids::TRANSFORM`, option `transform`): Yaw, Pitch, Roll and Scale, on
+every shape in [the chain](nodes.md#the-chain), which names the heading in `row_headings`. A
+new shape stands as it was made until a hand opens it. The bar is
+`canvas::Row::TransformHeading`, drawn and banded as the Timing bar is, and a folded row with a
+cable gathers on its left edge; it carries no segments. `canvas::INPUT_HEADINGS` is the two
+bars, and `canvas::folded_by` says which one folds an input.
 
 Which options are ticks and which are headings is **the definition's** —
 `NodeDef::checks` and `NodeDef::headings`, counted off its options and read through
@@ -3955,6 +3965,50 @@ on a row is. silvia's readouts show where the puck is; the X and Y rows do that 
 say where the hand put it. **A preset** writes its first edge, its ten numbers and its second
 edge through the bus — one step back, since `history::joins` holds a node's `SetControls` and
 its `SetOption`s together in one press — and sends its flight and its wells as a touch.
+
+## Sections
+
+A **`Region::Section`** is a folding band of a node's own controls, laid out by the
+`nodes::Section` the node declares beside its other regions: a heading, whose state is an
+ordinary option as any region's is, over a list of `nodes::Part`s — a dial with a column of
+parts beside it, an option as a segmented switch (`widgets::segments`), a number as the inset
+s-number, a color as the swatch, and a button that opens a panel of more parts.
+`widgets::section` draws every one; a section takes a 240 body. Render 3D (`solidrender`) is the
+node that has them: **Camera**, **Light** and **Look** open on a new node and **Quality**
+closed, under five port rows — Orbit, Tilt, Distance, Light and Glow — which are what a cable
+or a gear is for.
+
+**What a section draws is the node's own.** Each number and swatch is a hidden control
+([nodes.md](nodes.md#a-nodes-own-values)) and each switch an `OptionDef::in_region` option, so
+none of them has a row or a port, and each is saved, undone through the bus and, a number,
+bound to MIDI by `Alt` + click, with the accessible name `{slug}{id}.{key}` a row would give it
+and `{slug}{id}.{key}.{value}` on each segment. A registry test holds a section to drawing only
+hidden controls, since a port's control already has a row and one name on screen twice is a
+name nothing can find. **Layout is pure**: a switch sits beside its caption where its
+segments are at least 36 points wide, and under it in as few even rows as fit where they are
+not — Shading's six are two rows of three — so `RegionDef::size`, which is handed the region
+for this, answers without a `Ui`.
+
+**The globe** is Camera's dial (`nodes::Dial::Globe`): a sphere in perspective, seen from a
+fixed eye above its front, with a graticule every thirty degrees, the far half dim, the target a
+cross in the middle, the camera a dot in the main hue — a ring where it is round the back — and
+the light a sun in the event hue off the globe in its direction. A drag orbits and tilts the
+camera, half a turn across the whole globe; a click puts it where the globe was clicked; the
+wheel over it moves it nearer or further in ratios, as Distance is logarithmic, and is spent
+there rather than zooming the canvas. With Camera on **Look at**, the same gestures carry From
+round the Target at the distance it stood at, and the dot is From. **The sun disk** is
+Light's (`nodes::Dial::Sun`): the sky seen from above, the rim the horizon and the middle
+straight up, the camera a dot on the rim where it stands; a press or a drag puts the sun under
+the hand, writing Light and Light Height. Each drag writes the same keys in the same order
+every frame, so it is one undo step. The globe and the disk show the controls' own values, so
+a cable into Orbit, Tilt or Light moves the picture and not the dot.
+
+**A panel** opens under its button — Camera's **Target & From…**, Light's **Glow…** and Look's
+**Toon…** — in the popup's own frame at the interface's size, the button lit while it is open.
+It is the editor's state, one panel a node, kept in egui's memory: a click outside it closes
+it, but not one in a popup it opened, a color picker or a range editor; so does `Escape`, and
+its button again. Target & From has a **Reset** that puts the six back as one edit. The panel
+is named `{slug}{id}.{key}.panel`.
 
 ## Pictures in windows of their own
 

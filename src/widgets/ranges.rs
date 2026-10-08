@@ -58,7 +58,7 @@ const BUTTON_GAP: f32 = 3.0;
 
 /// Two captioned rows, the swap under them, and the body's own pad below it, which is the
 /// air any other node has at its foot.
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     2.0 * (CAPTION + BUTTON + GAP) + BUTTON + canvas::BODY_PAD
 }
 

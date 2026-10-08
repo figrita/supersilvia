@@ -36,7 +36,7 @@ const ABOVE: f32 = 4.0;
 const INSET: f32 = 8.0;
 const GAP: f32 = 3.0;
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     ABOVE + press::SIZE + canvas::BODY_PAD
 }
 

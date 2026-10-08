@@ -65,7 +65,7 @@ pub const STEPS: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     PAD * 2.0 + LANE * 4.0 + GAP + HEAD + SLAB * 4.0 + CELL_GAP * 3.0 + GAP + BUTTON
 }
 
@@ -252,7 +252,7 @@ fn declared(node: &Node) -> Option<(&'static str, usize, usize)> {
     })
 }
 
-fn grid_size(node: &Node) -> f32 {
+fn grid_size(node: &Node, _: crate::nodes::Region) -> f32 {
     let lanes = declared(node).map_or(0, |(_, lanes, _)| lanes);
     PAD * 2.0 + LANE * lanes as f32 + GAP + BUTTON
 }

@@ -41,7 +41,7 @@ pub const METERS: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn meters_size(_node: &Node) -> f32 {
+fn meters_size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::METERS_HEIGHT
 }
 
@@ -66,7 +66,7 @@ fn meters_show(r: &mut RegionUi<'_>) -> Vec<RegionEvent> {
 
 /// silvia's canvas is 160 px in a node 320 wide, and the size is load-bearing: at half that
 /// the spectrum is a smear, the handles overlap, and there is nowhere to put a threshold.
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::SCOPE_HEIGHT
 }
 

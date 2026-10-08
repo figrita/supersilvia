@@ -14,7 +14,7 @@ recursive descent from an Output's input.
 
 Everything below follows from that.
 
-### Four kinds of value, and one asymmetry
+### Six port types, and one asymmetry
 
 | | lives | shape |
 | --- | --- | --- |
@@ -23,10 +23,20 @@ Everything below follows from that.
 | `UniformNumber` | CPU | one `f64` per frame, an `f32` where it enters a shader |
 | `UniformColor` | CPU | one `[f32; 4]` per frame |
 | `Action` | CPU | an event, many-to-many, never compiled |
+| `Solid` | GPU | `fn f(p: vec3f) -> vec4f` — a shape in three dimensions: the signed distance in `.x`, the color in `.yzw` |
 
-Four of the five sit on two axes, and `PortType::kind` and `PortType::rate` hand each back: a
+Four of the six sit on two axes, and `PortType::kind` and `PortType::rate` hand each back: a
 **kind**, number or color, and a **rate**, varying or uniform. Every cell of the two-by-two
 is filled. `Action` is an event, and an event has no rate.
+
+**A solid is a kind of its own**, `Kind::Solid`, at the varying rate, since it varies over a
+point rather than a pixel. It feeds only another `Solid`, and nothing else feeds one. No
+Output holds a solid: one reaches a picture through **Render 3D** (`solidrender`), which
+marches a ray per pixel into it and whose output is an ordinary `VaryingColor`, so an Output
+shows it and every video node can take it from there. Every number input on a solid node is
+a `UniformNumber`: a solid has a point and no `uv`, so a field cannot reach one, and a CPU
+node can. [nodes.md](nodes.md#solids) has the generator contract and the library, and
+[rendering.md](rendering.md#render-3d) what a render costs.
 
 A field is meaningful only inside a shader, where `uv` exists. A `UniformNumber` is exactly one
 number on the CPU, and it is the same thing a number control already is — one float, constant
@@ -106,7 +116,7 @@ storage buffer in the fragment stage — `tap: array<atomic<u32>>`, at binding 1
 module — which macOS's OpenGL does not have and wgpu gives every backend
 ([decisions.md](decisions.md#wgpu-not-glow)).
 
-`Action` is the one of the four that never reaches a shader. The type, the many-to-many rule
+`Action` is the one port type that never reaches a shader. The type, the many-to-many rule
 and the square port are modeled in `graph/`; an action output is an event, not a function to
 generate, so the compiler resolves it to nothing and it is delivered inside `tick` instead.
 `button`, `mastergear`, `clockdivider`, `counter` and `adsr` inhabit it, and [cpu.md](cpu.md#the-event-half)
@@ -152,6 +162,10 @@ A **workspace is a view**, not a unit. There is one `Graph`, one `NodeId` space,
 workspace is a `WorkspaceId`, a name, a one-line blurb, a `WorkspaceKind` — `Video`, the only
 kind there is — and a `LayoutMode`. `Graph.workspaces` is every one of them in project order, and a node
 carries `workspaces: BTreeSet<WorkspaceId>` beside its `pos`.
+
+**Solids have no workspace kind.** The Solids category groups their nodes in the menu, and a
+solid graph sits on any workspace, beside the video nodes its render feeds and the CPU nodes
+that drive its numbers.
 
 **The layout mode belongs to the workspace**, not to the graph: one canvas is a plane while
 the one next to it is a strip, and each one's mode rides in its own file. `SetLayout` and
@@ -316,10 +330,10 @@ does too.
 
 | Case | Yields |
 | --- | --- |
-| the port is connected to a field | a call: `checkerboard1_output(uv)` |
+| the port is connected to a field or a solid | a call: `checkerboard1_output(uv)`, `sphere1_solid(p)` |
 | the port is connected to a uniform number | a member of the uniform struct: `u.u_float_audioin3_level`, and no function |
 | unconnected, has a number or color control | a member of the uniform struct: `u.u_control_checkerboard1_frequency` |
-| unconnected, nothing else | a type fallback: `defaultUvMap(uv)` for a varying color, `0.0` for a varying number |
+| unconnected, nothing else | a type fallback: `defaultUvMap(uv)` for a varying color, `0.0` for a varying number, nothing a long way off for a solid |
 
 The generative `defaultUvMap` fallback is why an unplugged color input shows a hue wheel
 rather than black. It is inherited from silvia deliberately: an empty input that shows
@@ -383,6 +397,12 @@ latest of them to any other graph as a `texture_2d<f32>`, an Output is three thi
 
 `render/` is therefore a map of `OutputRenderer`s from the start — and, beside it, a map of
 the worlds it steps. There is no "the" output.
+
+**A solid adds no memory.** No Output holds a solid, and Render 3D owns no target: its
+picture is a function of `uv`, drawn at the size of whatever Output draws it. So an Output is
+also where a march is paid once. A blur fed by a render re-marches every pixel nine times,
+and a blur reading the frame of an Output the render is cabled into samples a texture nine
+times ([rendering.md](rendering.md#render-3d)).
 
 ## Delayed ports and feedback
 

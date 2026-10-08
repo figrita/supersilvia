@@ -88,6 +88,10 @@ pub struct Shader {
     pub grid: u32,
 }
 
+/// How far away "nothing" is in a solid's distance: an unconnected solid input, and the floor
+/// of a scene with no floor. Far past any march's reach, and still exact in an `f32`.
+pub const SOLID_FAR: &str = "1.0e4";
+
 /// A port thumbnail's grid: 16:9, square cells, over the frame the worldspace convention
 /// fixes — `x` from `-16/9` to `16/9`, `y` from `-1` to `1`.
 pub const THUMB_W: usize = 48;
@@ -218,6 +222,9 @@ pub struct CompileContext<'a> {
     thumbs: Vec<(PortRef, PortType, String)>,
     /// The type of the function whose generator is running, for [`CompileContext::untranslated`].
     returning: PortType,
+    /// Which of a solid's two functions is being emitted: the whole of it, distance and
+    /// color, or the distance alone. See [`CompileContext::solid_input`].
+    solid_color: bool,
 }
 
 impl<'a> CompileContext<'a> {
@@ -243,6 +250,7 @@ impl<'a> CompileContext<'a> {
             taps: Vec::new(),
             thumbs: Vec::new(),
             returning: PortType::VaryingColor,
+            solid_color: true,
         }
     }
 
@@ -401,8 +409,10 @@ impl<'a> CompileContext<'a> {
             // then calls through: one per call site, named by its slot.
             let via = format!("{func}_via{slot}");
             if self.emitted.insert(via.clone()) {
+                let param = Self::param(ret);
+                let name = param.split(':').next().unwrap_or("uv");
                 self.functions.push(format!(
-                    "fn {via}(uv: vec2f) -> {} {{\n    atomicAdd(&tap[{base} + {EVAL_WORD}], 1u);\n    return {func}(uv);\n}}",
+                    "fn {via}({param}) -> {} {{\n    atomicAdd(&tap[{base} + {EVAL_WORD}], 1u);\n    return {func}({name});\n}}",
                     Self::wgsl_type(ret)
                 ));
             }
@@ -453,6 +463,30 @@ impl<'a> CompileContext<'a> {
             // emitting a name nothing declares.
             Control::None | Control::Press => Self::fallback(input.ty, uv),
         }
+    }
+
+    /// The expression for one of `id`'s `Solid` inputs at the point `p`: the whole solid —
+    /// its distance and its color — where `color`, and its distance alone where not.
+    ///
+    /// **A solid compiles to two functions.** Marching a ray, finding a normal, a shadow
+    /// and an occlusion call a solid dozens to hundreds of times a pixel and read only its
+    /// distance; its color is wanted once, where the ray landed. So every solid node's
+    /// generator runs twice, once per variant, and the variant without color is named with
+    /// a `_d` suffix. A generator asks [`CompileContext::solid_color`] which it is writing
+    /// and leaves out whatever only colors — a texture's samples above all. The first
+    /// component means the same in both; in the distance-only one the other three are
+    /// whatever was cheapest.
+    pub fn solid_input(&mut self, id: NodeId, key: &'static str, p: &str, color: bool) -> String {
+        let was = std::mem::replace(&mut self.solid_color, color);
+        let expr = self.input(id, key, p);
+        self.solid_color = was;
+        expr
+    }
+
+    /// Whether the solid function being emitted is the whole one, distance and color, or the
+    /// distance alone. See [`CompileContext::solid_input`].
+    pub fn solid_color(&self) -> bool {
+        self.solid_color
     }
 
     /// Is anything plugged into one of `id`'s inputs?
@@ -582,6 +616,8 @@ impl<'a> CompileContext<'a> {
             PortType::UniformColor => "vec4f(0.0)".to_string(),
             PortType::VaryingNumber | PortType::UniformNumber => "0.0".to_string(),
             PortType::Action => String::new(),
+            // Nothing, a long way off: a union with it is the other side alone.
+            PortType::Solid => format!("vec4f({SOLID_FAR}, 0.5, 0.5, 0.5)"),
         }
     }
 
@@ -594,7 +630,18 @@ impl<'a> CompileContext<'a> {
             .push(Diagnostic::Untranslated { node: id, slug });
         match self.returning {
             PortType::VaryingNumber => "    return 0.0;".to_string(),
+            PortType::Solid => format!("    return vec4f({SOLID_FAR}, 1.0, 0.0, 1.0);"),
             _ => "    return vec4f(1.0, 0.0, 1.0, 1.0);".to_string(),
+        }
+    }
+
+    /// The parameter a function of port type `ty` takes: a point for a solid, a pixel's `uv`
+    /// for everything else.
+    fn param(ty: PortType) -> &'static str {
+        if ty.is_solid() {
+            "p: vec3f"
+        } else {
+            "uv: vec2f"
         }
     }
 
@@ -614,7 +661,7 @@ impl<'a> CompileContext<'a> {
             self.diagnostics.push(Diagnostic::NoSuchNode(src.node));
             return None;
         };
-        let func = Self::func_name(src.node, node, src.key);
+        let mut func = Self::func_name(src.node, node, src.key);
         let def = node.def;
         let Some(out) = def.output(src.key) else {
             self.diagnostics.push(Diagnostic::NoSuchOutput {
@@ -623,6 +670,9 @@ impl<'a> CompileContext<'a> {
             });
             return None;
         };
+        if out.ty.is_solid() && !self.solid_color {
+            func.push_str("_d");
+        }
 
         if self.emitted.contains(&func) {
             return Some((func, out.ty));
@@ -648,8 +698,17 @@ impl<'a> CompileContext<'a> {
             let base = self.tap_slot(src.node, TapKind::Evaluations) * TAP_WORDS;
             body = format!("    atomicAdd(&tap[{base} + {EVAL_WORD}], 1u);\n{body}");
         }
+        // A shape in the solids chain: the generator wrote its own shape, which becomes a
+        // function of its own, and the chain's turn, scale and combination wrap it.
+        if out.ty.is_solid() && crate::nodes::solids::is_shape(def) {
+            let own = format!("{func}_own");
+            self.functions
+                .push(format!("fn {own}(p: vec3f) -> vec4f {{\n{body}\n}}"));
+            body = crate::nodes::solids::chain(src.node, self, &own);
+        }
         self.functions.push(format!(
-            "fn {func}(uv: vec2f) -> {} {{\n{body}\n}}",
+            "fn {func}({}) -> {} {{\n{body}\n}}",
+            Self::param(out.ty),
             Self::wgsl_type(out.ty)
         ));
 
@@ -747,6 +806,12 @@ fn build_items(graph: &Graph, items: &[Item]) -> Option<Shader> {
         if let Item::Thumb(src) = item
             && let Some((func, ty)) = ctx.emit(*src)
         {
+            // A solid's thumbnail is a small render of it, which marches its distance alone.
+            if ty.is_solid() {
+                ctx.solid_color = false;
+                let _ = ctx.emit(*src);
+                ctx.solid_color = true;
+            }
             ctx.thumbs.push((*src, ty, func));
         }
     }
@@ -885,5 +950,185 @@ mod tests {
         let body = &prelude[start..];
         let body = &body[..body.find("\n}").expect("the function ends")];
         assert!(!body.contains("u_time"), "{body}");
+    }
+
+    fn add(g: &mut Graph, slug: &str) -> NodeId {
+        nodes::add_to_graph(g, slug, Pos2::ZERO).expect("in the registry")
+    }
+
+    /// The body of the function `name` in `module`, from its signature to its closing brace.
+    fn function<'m>(module: &'m str, name: &str) -> &'m str {
+        let start = module
+            .find(&format!("fn {name}("))
+            .unwrap_or_else(|| panic!("no fn {name} in:\n{module}"));
+        let body = &module[start..];
+        &body[..body.find("\n}").expect("the function ends")]
+    }
+
+    /// `chain`'s nodes cabled solid to solid in order, into a `solidrender`, into an Output:
+    /// the graph, the chain's ids and the Output's.
+    fn solid_chain(chain: &[&str]) -> (Graph, Vec<NodeId>, NodeId) {
+        let mut g = Graph::new();
+        let ids: Vec<NodeId> = chain.iter().map(|slug| add(&mut g, slug)).collect();
+        for pair in ids.windows(2) {
+            g.connect(
+                PortRef::new(pair[0], "solid"),
+                PortRef::new(pair[1], "input"),
+            )
+            .unwrap();
+        }
+        let render = add(&mut g, "solidrender");
+        let out = add(&mut g, "output");
+        g.connect(
+            PortRef::new(*ids.last().unwrap(), "solid"),
+            PortRef::new(render, "solid"),
+        )
+        .unwrap();
+        g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+            .unwrap();
+        (g, ids, out)
+    }
+
+    /// Every solid on the way to a render is two functions of a point: the whole, and the
+    /// distance alone with a `_d` suffix, each calling the same variant of its input.
+    #[test]
+    fn a_solid_compiles_whole_and_as_its_distance_alone() {
+        let (g, ids, out) = solid_chain(&["sphere", "place", "inflate"]);
+        let shader = wgsl::build(&g, out).expect("connected");
+        assert!(shader.diagnostics.is_empty(), "{:?}", shader.diagnostics);
+        let (sphere, place, round) = (ids[0], ids[1], ids[2]);
+        for name in [
+            format!("sphere{sphere}_solid"),
+            format!("place{place}_solid"),
+            format!("inflate{round}_solid"),
+        ] {
+            for variant in [name.clone(), format!("{name}_d")] {
+                assert!(
+                    shader
+                        .body
+                        .contains(&format!("fn {variant}(p: vec3f) -> vec4f {{")),
+                    "{variant}:\n{}",
+                    shader.body
+                );
+            }
+        }
+        let whole = function(&shader.body, &format!("inflate{round}_solid"));
+        assert!(whole.contains(&format!("place{place}_solid(")), "{whole}");
+        assert!(
+            !whole.contains(&format!("place{place}_solid_d(")),
+            "{whole}"
+        );
+        let dist = function(&shader.body, &format!("inflate{round}_solid_d"));
+        assert!(dist.contains(&format!("place{place}_solid_d(")), "{dist}");
+    }
+
+    /// The distance alone of a Texture and of a Paint is its input's distance alone: no
+    /// picture is sampled and no color is read, which the whole of each does.
+    #[test]
+    fn the_distance_alone_reads_no_picture_and_no_color() {
+        let (mut g, ids, out) = solid_chain(&["sphere", "surfacetexture", "paint"]);
+        let (sphere, texture, paint) = (ids[0], ids[1], ids[2]);
+        let picture = add(&mut g, "checkerboard");
+        g.connect(
+            PortRef::new(picture, "output"),
+            PortRef::new(texture, "picture"),
+        )
+        .unwrap();
+        for projection in ["box", "front", "sphere"] {
+            g.get_mut(texture)
+                .unwrap()
+                .options
+                .insert("projection", projection.to_string());
+            let shader = wgsl::build(&g, out).expect("connected");
+            assert!(shader.diagnostics.is_empty(), "{:?}", shader.diagnostics);
+
+            let whole = function(&shader.body, &format!("surfacetexture{texture}_solid"));
+            assert!(whole.contains("checkerboard"), "{projection}: {whole}");
+            let dist = function(&shader.body, &format!("surfacetexture{texture}_solid_d"));
+            assert!(!dist.contains("checkerboard"), "{projection}: {dist}");
+            assert!(!dist.contains("u."), "{projection}: {dist}");
+            assert!(
+                dist.contains(&format!("sphere{sphere}_solid_d(p)")),
+                "{dist}"
+            );
+
+            let whole = function(&shader.body, &format!("paint{paint}_solid"));
+            assert!(whole.contains("u."), "the whole reads its color: {whole}");
+            let dist = function(&shader.body, &format!("paint{paint}_solid_d"));
+            assert!(!dist.contains("u."), "{dist}");
+            assert!(
+                dist.contains(&format!("surfacetexture{texture}_solid_d(p)")),
+                "{dist}"
+            );
+        }
+    }
+
+    /// An unconnected solid input is nothing, `SOLID_FAR` away, in both variants.
+    #[test]
+    fn an_unconnected_solid_input_is_nothing_far_away() {
+        let mut g = Graph::new();
+        let render = add(&mut g, "solidrender");
+        let union = add(&mut g, "union");
+        let nothing = format!("vec4f({SOLID_FAR}, 0.5, 0.5, 0.5)");
+        let mut ctx = CompileContext::new(&g);
+        assert_eq!(ctx.input(render, "solid", "p"), nothing);
+        for color in [true, false] {
+            assert_eq!(ctx.solid_input(render, "solid", "pp", color), nothing);
+            assert_eq!(ctx.solid_input(union, "b", "p", color), nothing);
+        }
+        assert!(
+            ctx.solid_color(),
+            "solid_input restores the variant it found"
+        );
+        assert!(ctx.uniforms.is_empty(), "and declares nothing");
+        assert!(SOLID_FAR.parse::<f32>().is_ok_and(|far| far > 80.0));
+    }
+
+    /// A solid connects to a solid and to nothing else, either way; a field cannot reach a
+    /// solid node's number, which is one value a frame, and a CPU node's number can.
+    #[test]
+    fn a_solid_feeds_only_a_solid() {
+        use PortType::*;
+        let all = [
+            VaryingNumber,
+            VaryingColor,
+            UniformNumber,
+            UniformColor,
+            Action,
+            Solid,
+        ];
+        for ty in all {
+            assert_eq!(Solid.feeds(ty), ty == Solid, "Solid into {ty:?}");
+            assert_eq!(ty.feeds(Solid), ty == Solid, "{ty:?} into Solid");
+        }
+        assert!(!VaryingNumber.feeds(UniformNumber));
+
+        let mut g = Graph::new();
+        let sphere = add(&mut g, "sphere");
+        let union = add(&mut g, "union");
+        let out = add(&mut g, "output");
+        let picture = add(&mut g, "checkerboard");
+        let field = add(&mut g, "vignette");
+        let slew = add(&mut g, "slew");
+        assert!(
+            g.connect(PortRef::new(sphere, "solid"), PortRef::new(out, "input"))
+                .is_err()
+        );
+        assert!(
+            g.connect(PortRef::new(picture, "output"), PortRef::new(union, "a"))
+                .is_err()
+        );
+        assert!(
+            g.connect(PortRef::new(field, "mask"), PortRef::new(sphere, "radius"))
+                .is_err()
+        );
+        assert!(
+            g.connect(PortRef::new(slew, "output"), PortRef::new(sphere, "radius"))
+                .is_ok()
+        );
+        assert!(
+            g.connect(PortRef::new(sphere, "solid"), PortRef::new(union, "a"))
+                .is_ok()
+        );
     }
 }

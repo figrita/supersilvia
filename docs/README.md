@@ -31,15 +31,15 @@ how it got here. A spec, not a changelog.
 
 | Document | What it covers |
 | --- | --- |
-| [architecture.md](architecture.md) | The model: a graph is an expression. Module layering, the four value kinds, the compiler, Output-as-memory, feedback, CPU nodes, workspaces and suspension, the clock, the command bus, and the project on disk — the three tiers of saved state, assets, export and import. |
-| [rendering.md](rendering.md) | The GPU side, on wgpu: the per-Output ring, every Output drawn every tick and the one wait that slows the tick, precision, the paint callbacks and the viewport they are given, and the one device the synth, the editor and every picture window share. |
+| [architecture.md](architecture.md) | The model: a graph is an expression. Module layering, the six port types, the compiler, Output-as-memory, feedback, CPU nodes, workspaces and suspension, the clock, the command bus, and the project on disk — the three tiers of saved state, assets, export and import. |
+| [rendering.md](rendering.md) | The GPU side, on wgpu: the per-Output ring, every Output drawn every tick and the one wait that slows the tick, precision, Render 3D and what a march costs, the paint callbacks and the viewport they are given, and the one device the synth, the editor and every picture window share. |
 | [loop-bounding.md](loop-bounding.md) | The counter wgpu puts into every shader loop: what naga writes, why it is there, what it costs the loop-heavy nodes on the iGPU, every loop in the library, and the options with a recommendation. |
-| [nodes.md](nodes.md) | The node definition model, the recipe for adding one, CPU nodes, and the catalogue of the library. |
+| [nodes.md](nodes.md) | The node definition model, the recipe for adding one, CPU nodes, solids, and the catalogue of the library. |
 | [cpu.md](cpu.md) | What a node computes outside a shader: the `UniformNumber` port type, the tick, and the two kinds of state — which one a saved file holds. |
 | [media.md](media.md) | The real-world sources: the microphone, cameras, screen capture through the desktop portal, the loopback, and video files transcoded on import. The Main Input the rig shares, the analyzer, the scope, and monitoring. |
 | [ui.md](ui.md) | The canvas and its interaction rules. What is ours and what is egui's. The tab bar and the project tab, the menu bar, the three ways to the library, the two side panels, the confirm and the recovery question, what a tester can send — the log file, the notice after a run that went down and Report a problem… — and the preferences kept between runs. |
 | [design-system.md](design-system.md) | The visual token layer, where it comes from, and how to read it. |
-| [invariants.md](invariants.md) | Every claim the rest of these docs make, and what enforces it: the tests and lints that catch a violation, and the four rules that only a reader will. |
+| [invariants.md](invariants.md) | Every claim the rest of these docs make, and what enforces it: the tests and lints that catch a violation, and the seven rules that only a reader will. |
 | [testing.md](testing.md) | The four test layers, what each one catches, and their traps. |
 | [decisions.md](decisions.md) | Consequential choices, and the alternatives that lost. |
 

@@ -773,6 +773,7 @@ fn every_wgsl_node_compiles_connected_and_unconnected() {
         (Category::Convert, 14),
         (Category::Tap, 0),
         (Category::Math, 18),
+        (Category::Solid, 57),
     ];
     for (category, expected) in groups {
         let count = nodes::REGISTRY
@@ -787,10 +788,12 @@ fn every_wgsl_node_compiles_connected_and_unconnected() {
     let mut written = 0;
     for def in nodes::REGISTRY {
         let held = held(def);
-        let has_picture = def
-            .outputs
-            .iter()
-            .any(|p| matches!(p.ty, PortType::VaryingColor | PortType::VaryingNumber));
+        let has_picture = def.outputs.iter().any(|p| {
+            matches!(
+                p.ty,
+                PortType::VaryingColor | PortType::VaryingNumber | PortType::Solid
+            )
+        });
         if !has_picture {
             assert!(
                 !held,
@@ -855,6 +858,7 @@ fn node_graph(def: &'static nodes::NodeDef, wired: bool, strict: bool) -> (Graph
                 PortType::VaryingColor => ("checkerboard", "output"),
                 PortType::VaryingNumber => FIELD,
                 PortType::UniformColor => ("color", "output"),
+                PortType::Solid => ("sphere", "solid"),
                 PortType::UniformNumber | PortType::Action => continue,
             };
             let src = add(&mut g, source);
@@ -881,9 +885,19 @@ fn node_graph(def: &'static nodes::NodeDef, wired: bool, strict: bool) -> (Graph
         .filter(|p| p.ty == PortType::VaryingNumber)
         .map(|p| p.key)
         .collect();
+    // A solid reaches a picture through a render.
+    for p in def.outputs.iter().filter(|p| p.ty.is_solid()) {
+        let render = add(&mut g, "solidrender");
+        connect(
+            &mut g,
+            PortRef::new(under, p.key),
+            PortRef::new(render, "solid"),
+        );
+        roots.push(PortRef::new(render, "output"));
+    }
     assert!(
         !roots.is_empty() || !fields.is_empty(),
-        "{}: the node publishes a picture or a field",
+        "{}: the node publishes a picture, a field or a solid",
         def.slug
     );
     if !fields.is_empty() {
@@ -1052,6 +1066,7 @@ fn sources_with(def: &'static nodes::NodeDef, key: &'static str, value: &str) ->
                     PortType::VaryingColor => ("checkerboard", "output"),
                     PortType::VaryingNumber => FIELD,
                     PortType::UniformColor => ("color", "output"),
+                    PortType::Solid => ("sphere", "solid"),
                     PortType::UniformNumber | PortType::Action => continue,
                 };
                 let src = nodes::add_to_graph(&mut g, source, Pos2::ZERO).unwrap();
@@ -1065,6 +1080,11 @@ fn sources_with(def: &'static nodes::NodeDef, key: &'static str, value: &str) ->
             .filter(|p| p.ty == PortType::VaryingColor)
             .map(|p| PortRef::new(under, p.key))
             .collect();
+        for p in def.outputs.iter().filter(|p| p.ty.is_solid()) {
+            let render = nodes::add_to_graph(&mut g, "solidrender", Pos2::ZERO).unwrap();
+            let _ = g.connect(PortRef::new(under, p.key), PortRef::new(render, "solid"));
+            roots.push(PortRef::new(render, "output"));
+        }
         if roots.is_empty() {
             let rgba = nodes::add_to_graph(&mut g, "rgba", Pos2::ZERO).unwrap();
             for (field, channel) in def

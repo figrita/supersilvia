@@ -27,7 +27,7 @@ pub const STATUS: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::READOUT_ROW_PITCH
 }
 

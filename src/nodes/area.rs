@@ -62,6 +62,9 @@ pub enum Region {
     Gear,
     /// A Ratio Gear's Teeth: its two whole numbers on one row, `p : q`.
     Teeth,
+    /// A folding section of a node's own controls, laid out as its [`Section`] says: Render
+    /// 3D's Camera, Light, Look and Quality.
+    Section(&'static Section),
 }
 
 /// A row of buttons on a node's body, each of which writes some of its node's own options and
@@ -94,6 +97,110 @@ impl PartialEq for Buttons {
 }
 
 impl Eq for Buttons {}
+
+/// A section of a node's body: a heading that folds it, and the node's own controls laid out
+/// under it as [`Part`]s — a dial a hand drags, a segmented switch for an option, a number, a
+/// swatch, and a button that opens a panel of more of them.
+///
+/// **Not everything a node keeps needs a port.** A control a section draws is usually a hidden
+/// one, `NodeDef::hidden`: saved, undone through the bus, bindable to MIDI, resolved by the
+/// compiler as the uniform a row's control is, and with no row and no cable. An option a
+/// section draws is `OptionDef::in_region`, so it has no row either. See docs/ui.md.
+pub struct Section {
+    /// The heading's option, which the node also declares in its own list.
+    pub heading: &'static crate::nodes::OptionDef,
+    /// What the section draws, top to bottom.
+    pub parts: &'static [Part],
+}
+
+/// Declared once as a `static`, so one section is one section: identity is the address.
+impl PartialEq for Section {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self, other)
+    }
+}
+
+impl Eq for Section {}
+
+impl std::fmt::Debug for Section {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Section")
+            .field("heading", &self.heading.key)
+            .field("parts", &self.parts)
+            .finish()
+    }
+}
+
+/// One piece of a [`Section`], or of the panel a [`Popout`] opens. Every key names one of the
+/// node's own controls or options; `caption` is the words drawn beside it.
+#[derive(Debug, Clone, Copy)]
+pub enum Part {
+    /// A dial on the left, with a column of parts beside it.
+    Beside(Dial, &'static [Part]),
+    /// An option as a segmented switch, one segment per choice.
+    Choice {
+        key: &'static str,
+        caption: &'static str,
+    },
+    /// A number control, as the inset s-number.
+    Number {
+        key: &'static str,
+        caption: &'static str,
+    },
+    /// A color control, as the swatch.
+    Swatch {
+        key: &'static str,
+        caption: &'static str,
+    },
+    /// A button that opens a panel of more parts beside the node.
+    Popout(&'static Popout),
+}
+
+/// A button in a section and the panel it opens: hung under the button, closed by a click
+/// outside it, by `Escape` or by the button again. Which panel is open is the editor's, not
+/// the document's.
+#[derive(Debug)]
+pub struct Popout {
+    /// The last part of the button's accessible name, `{slug}{id}.{key}`.
+    pub key: &'static str,
+    /// The button's words, with the ellipsis that says it opens something.
+    pub caption: &'static str,
+    pub parts: &'static [Part],
+    /// The controls a Reset button at the panel's foot puts back to their defaults, as one
+    /// edit. Empty for a panel with no Reset.
+    pub reset: &'static [&'static str],
+}
+
+/// A picture of where something is, which a hand drags to move it.
+#[derive(Debug, Clone, Copy)]
+pub enum Dial {
+    /// A camera on a globe round its target.
+    Globe(&'static Globe),
+    /// A light on the sky seen from above: the rim is the horizon and the middle straight
+    /// up. Both keys are in turns, the height from 0 to a quarter.
+    Sun {
+        azimuth: &'static str,
+        height: &'static str,
+        /// The globe whose camera the disk marks on its rim.
+        camera: &'static Globe,
+    },
+}
+
+/// The controls a globe reads and writes: an orbit and a tilt in turns and a distance, or,
+/// while `mode` is set to `look_at`, a From point round a Target.
+#[derive(Debug)]
+pub struct Globe {
+    pub orbit: &'static str,
+    pub tilt: &'static str,
+    pub distance: &'static str,
+    /// The light's azimuth and height, in turns, drawn as a sun beside the globe.
+    pub light: [&'static str; 2],
+    /// The option that says how the camera is placed, and the value that stands it at From.
+    pub mode: &'static str,
+    pub look_at: &'static str,
+    pub from: [&'static str; 3],
+    pub target: [&'static str; 3],
+}
 
 /// What one press of a node's button writes on its own node.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -142,10 +249,11 @@ impl Region {
     /// its state, so the key cannot name one option here and another on the node.
     pub fn heading(self) -> Option<Heading> {
         let option = match self {
-            Self::Preview(_) => SHOW_PREVIEW,
-            Self::Scope => SHOW_SCOPE,
-            Self::Ranges => reframerange::SHOW_NAMED,
-            Self::Trace | Self::Curve => SHOW_TRACE,
+            Self::Preview(_) => &SHOW_PREVIEW,
+            Self::Scope => &SHOW_SCOPE,
+            Self::Ranges => &reframerange::SHOW_NAMED,
+            Self::Trace | Self::Curve => &SHOW_TRACE,
+            Self::Section(section) => section.heading,
             Self::Render
             | Self::Meters
             | Self::Caption
@@ -189,7 +297,8 @@ impl Region {
             | Self::XyPad
             | Self::Brush
             | Self::Gear
-            | Self::Teeth => None,
+            | Self::Teeth
+            | Self::Section(_) => None,
         }
     }
 }

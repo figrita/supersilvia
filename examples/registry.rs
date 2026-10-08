@@ -23,6 +23,7 @@ fn port_ty(ty: PortType) -> &'static str {
         PortType::UniformNumber => "uniform number",
         PortType::UniformColor => "uniform color",
         PortType::Action => "action",
+        PortType::Solid => "solid",
     }
 }
 

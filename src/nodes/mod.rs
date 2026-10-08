@@ -88,6 +88,7 @@ pub mod slew;
 pub mod sliderule;
 pub mod slimemold;
 pub mod smoothcounter;
+pub mod solids;
 pub mod stargate;
 pub mod stepsequencer;
 pub mod syphon;
@@ -107,7 +108,7 @@ pub mod worldcoordinates;
 pub mod xypad;
 
 pub use action::{Edge, Event, Gate};
-pub use area::{Buttons, Heading, Picture, Region, Settings};
+pub use area::{Buttons, Dial, Globe, Heading, Part, Picture, Popout, Region, Section, Settings};
 pub use bridge::{Bridge, bridges, can_bridge, can_bridge_within};
 pub use cpu::{
     Assets, CpuDef, CpuNode, D3d12Plane, D3d12Texture, DmaBuf, Frame, IoSurface, Layout,
@@ -280,6 +281,9 @@ pub enum Category {
     /// The clocks: the one place a rate is set, changed or divided, and ambient time as a
     /// number.
     Gear,
+    /// Shapes in three dimensions, what changes them, and the render that turns one into a
+    /// picture.
+    Solid,
     /// Terminates a shader.
     Output,
 }
@@ -298,6 +302,7 @@ impl Category {
         Self::Math,
         Self::Control,
         Self::Gear,
+        Self::Solid,
         Self::Output,
     ];
 
@@ -313,6 +318,7 @@ impl Category {
             Self::Math => "Math",
             Self::Control => "Control",
             Self::Gear => "Gears",
+            Self::Solid => "Solids",
             Self::Output => "Output",
         }
     }
@@ -334,6 +340,7 @@ impl Category {
             Self::Math => "🧮",
             Self::Control => "🎛",
             Self::Gear => "⚙",
+            Self::Solid => "🧊",
             Self::Output => "📺",
         }
     }
@@ -1300,6 +1307,64 @@ pub static REGISTRY: &[&NodeDef] = &[
     &imagegif::DEF,
     &drawingcanvas::DEF,
     &text::DEF,
+    // Solids.
+    &solids::primitives::SPHERE,
+    &solids::primitives::BOX,
+    &solids::primitives::TORUS,
+    &solids::primitives::CYLINDER,
+    &solids::primitives::CAPSULE,
+    &solids::primitives::OCTAHEDRON,
+    &solids::primitives::GROUND,
+    &solids::combine::UNION,
+    &solids::combine::SUBTRACT,
+    &solids::combine::INTERSECT,
+    &solids::space::PLACE,
+    &solids::space::STRETCH,
+    &solids::space::MIRROR,
+    &solids::space::TWIST,
+    &solids::space::BEND,
+    &solids::repeat::GRID,
+    &solids::repeat::AROUND,
+    &solids::surface::ROUND,
+    &solids::surface::SHELL,
+    &solids::surface::PAINT,
+    &solids::surface::DISPLACE,
+    &solids::surface::TEXTURE,
+    &solids::more::CONE,
+    &solids::more::HEX_PRISM,
+    &solids::more::PYRAMID,
+    &solids::more::LINK,
+    &solids::more::GYROID,
+    &solids::more::ELONGATE,
+    &solids::more::MORPH,
+    &solids::more::STRIPES,
+    &solids::more::HEIGHT_GRADIENT,
+    &solids::more::fractals::MENGER,
+    &solids::more::fractals::MANDELBULB,
+    &solids::shapes::BOX_FRAME,
+    &solids::shapes::SUPERELLIPSOID,
+    &solids::shapes::ELLIPSOID,
+    &solids::shapes::HELIX,
+    &solids::shapes::SLAB,
+    &solids::shapes::DODECAHEDRON,
+    &solids::shapes::ICOSAHEDRON,
+    &solids::blends::STAIRS_UNION,
+    &solids::blends::COLUMNS_UNION,
+    &solids::blends::XOR,
+    &solids::blends::WARP,
+    &solids::blends::FOLD_PLANE,
+    &solids::blends::WRAP,
+    &solids::iterate::FOLD,
+    &solids::iterate::SCATTER_SPHERE,
+    &solids::iterate::NOISE_DISPLACE,
+    &solids::colorfields::CHECKER,
+    &solids::colorfields::PROXIMITY,
+    &solids::colorfields::FACING,
+    &solids::colorfields::CONTOURS,
+    &solids::profiles::EXTRUDE,
+    &solids::profiles::REVOLVE,
+    &solids::profiles::HEIGHTFIELD,
+    &solids::render::RENDER,
     #[cfg(test)]
     &test_support::DEF,
 ];
@@ -1806,6 +1871,99 @@ mod tests {
         }
     }
 
+    /// A section draws its own node's controls and nothing else: each number and swatch a
+    /// hidden control of the kind it says — one with a port has a row already, and two of it
+    /// on screen is one accessible name twice — each switch an option drawn by a region, and
+    /// each dial's keys the node's own numbers. And every option a region draws on a node with
+    /// sections is drawn by one of them, since nothing else would.
+    #[test]
+    fn a_section_draws_its_own_nodes_controls() {
+        fn number(def: &NodeDef, key: &str) {
+            assert!(
+                matches!(
+                    def.input(key).map(|p| &p.control),
+                    Some(Control::Number { .. })
+                ),
+                "{}.{key}: a section's number is not a number control",
+                def.slug
+            );
+        }
+        fn walk(def: &NodeDef, parts: &[Part], drawn: &mut Vec<&'static str>) {
+            for part in parts {
+                match *part {
+                    Part::Beside(dial, column) => {
+                        match dial {
+                            Dial::Globe(g) => {
+                                for key in [g.orbit, g.tilt, g.distance]
+                                    .iter()
+                                    .chain(&g.light)
+                                    .chain(&g.from)
+                                    .chain(&g.target)
+                                {
+                                    number(def, key);
+                                }
+                                let mode = def.option(g.mode).expect("the globe's mode");
+                                assert!(mode.choices.iter().any(|(v, _)| *v == g.look_at));
+                            }
+                            Dial::Sun {
+                                azimuth, height, ..
+                            } => {
+                                number(def, azimuth);
+                                number(def, height);
+                            }
+                        }
+                        walk(def, column, drawn);
+                    }
+                    Part::Choice { key, .. } => {
+                        let option = def
+                            .option(key)
+                            .unwrap_or_else(|| panic!("{}.{key}: no such option", def.slug));
+                        assert!(option.in_region, "{}.{key}: has a row too", def.slug);
+                        drawn.push(option.key);
+                    }
+                    Part::Number { key, .. } | Part::Swatch { key, .. } => {
+                        let hidden = def.hidden.iter().find(|p| p.key == key);
+                        assert!(
+                            hidden.is_some_and(|p| match part {
+                                Part::Number { .. } => matches!(p.control, Control::Number { .. }),
+                                _ => matches!(p.control, Control::Color { .. }),
+                            }),
+                            "{}.{key}: a section draws a hidden control of its own kind",
+                            def.slug
+                        );
+                    }
+                    Part::Popout(popout) => {
+                        walk(def, popout.parts, drawn);
+                        for key in popout.reset {
+                            number(def, key);
+                        }
+                    }
+                }
+            }
+        }
+        for def in REGISTRY {
+            let mut drawn = Vec::new();
+            let mut any = false;
+            for region in def.regions {
+                if let Region::Section(section) = region {
+                    any = true;
+                    walk(def, section.parts, &mut drawn);
+                }
+            }
+            if !any {
+                continue;
+            }
+            for o in def.options.iter().filter(|o| o.in_region) {
+                assert!(
+                    drawn.contains(&o.key),
+                    "{}.{}: drawn by no section",
+                    def.slug,
+                    o.key
+                );
+            }
+        }
+    }
+
     /// An option a region draws belongs to a node that has a region to draw it, and is none of
     /// the other shapes an option can be: a row nothing draws is a choice nobody can make.
     #[test]
@@ -2237,9 +2395,53 @@ mod tests {
                     // A uniform port or an action is a CPU port; it is named for what
                     // `tick` publishes, not for a field in a shader.
                     PortType::UniformNumber | PortType::UniformColor | PortType::Action => {}
+                    PortType::Solid => assert_eq!(
+                        p.key, "solid",
+                        "{}.{}: a solid is \"solid\"",
+                        def.slug, p.key,
+                    ),
                 }
             }
         }
+    }
+
+    /// Every solid node declares the shared SDF helpers, because the chain wraps a shape in
+    /// `sd_turn` and the booleans call `sd_union`: a module holding one solid node and no
+    /// other — a workspace pass with a lone Extrude — must still have them.
+    #[test]
+    fn every_solid_node_declares_the_sdf_helpers() {
+        let missing: Vec<&str> = REGISTRY
+            .iter()
+            .filter(|d| d.category == Category::Solid)
+            .filter(|d| !d.wgsl_utils.contains(&solids::SDF))
+            .map(|d| d.slug)
+            .collect();
+        assert!(missing.is_empty(), "no SDF helpers: {missing:?}");
+    }
+
+    /// A port is named by its node and its key alone (`PortRef`), and the canvas tells an
+    /// input from an output by looking the key up among the outputs. So no key may name two
+    /// ports of one node: an input and an output, two inputs, two outputs, or a port and a
+    /// hidden control. Two sharing a key once made a cable dragged out of a solid modifier's
+    /// input start from its output.
+    #[test]
+    fn no_two_ports_of_a_node_share_a_key() {
+        let mut clashes = Vec::new();
+        for def in REGISTRY {
+            let keys: Vec<&str> = def
+                .inputs
+                .iter()
+                .chain(def.hidden.iter())
+                .map(|i| i.key)
+                .chain(def.outputs.iter().map(|o| o.key))
+                .collect();
+            for (i, key) in keys.iter().enumerate() {
+                if keys[..i].contains(key) {
+                    clashes.push(format!("{}.{key}", def.slug));
+                }
+            }
+        }
+        assert!(clashes.is_empty(), "keys naming two ports: {clashes:?}");
     }
 
     /// A uniform number is produced by `tick`, so a node publishing one has a CPU half, and
@@ -2832,6 +3034,51 @@ mod tests {
                     );
                 }
             }
+        }
+    }
+
+    /// **A solid is its own family.** Every node in the Solids category publishes a solid but
+    /// the render, which turns one into a picture; every solid output is keyed `solid`; a
+    /// solid port lives on a Solids node alone; and a number on a solid node is one value a
+    /// frame, since a solid is a function of a point and has no `uv` for a field to vary
+    /// over.
+    #[test]
+    fn a_solid_node_publishes_a_solid_and_reads_uniform_numbers() {
+        let solids: Vec<_> = REGISTRY
+            .iter()
+            .filter(|d| d.category == Category::Solid)
+            .collect();
+        assert!(solids.iter().any(|d| d.slug == "solidrender"));
+        for def in &solids {
+            assert!(
+                def.slug == "solidrender" || def.outputs.iter().any(|p| p.ty.is_solid()),
+                "{}: a Solids node publishes a solid",
+                def.slug,
+            );
+            for p in def.inputs {
+                assert!(
+                    p.ty != PortType::VaryingNumber,
+                    "{}.{}: a number on a solid node is a UniformNumber",
+                    def.slug,
+                    p.key,
+                );
+            }
+        }
+        for def in REGISTRY {
+            for p in def.outputs.iter().filter(|p| p.ty.is_solid()) {
+                assert_eq!(
+                    p.key, "solid",
+                    "{}.{}: a solid is \"solid\"",
+                    def.slug, p.key
+                );
+            }
+            let solid_port = def.inputs.iter().any(|p| p.ty.is_solid())
+                || def.outputs.iter().any(|p| p.ty.is_solid());
+            assert!(
+                !solid_port || def.category == Category::Solid,
+                "{}: a solid port belongs on a Solids node",
+                def.slug,
+            );
         }
     }
 }

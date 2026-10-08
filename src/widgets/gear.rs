@@ -68,7 +68,7 @@ pub const GEAR: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     HEIGHT
 }
 
@@ -490,7 +490,7 @@ const SWITCH_GAP: f32 = 4.0;
 
 /// The Teeth's line, the height of a port row's, then the switch's: as far under the numbers
 /// as the numbers are under the region's top.
-fn teeth_size(_node: &Node) -> f32 {
+fn teeth_size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::CONTROL_ROW_PITCH + SWITCH_GAP + super::SEGMENTS_HEIGHT
 }
 

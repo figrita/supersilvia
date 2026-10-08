@@ -28,7 +28,7 @@ pub const CURVE: RegionDef = RegionDef {
     ..RegionDef::EMPTY
 };
 
-fn size(_node: &Node) -> f32 {
+fn size(_node: &Node, _: crate::nodes::Region) -> f32 {
     canvas::CURVE_HEIGHT
 }
 
