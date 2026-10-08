@@ -1615,3 +1615,51 @@ fn a_workspace_binding_more_textures_than_a_pass_may_is_split_into_batches() {
         1
     );
 }
+
+/// sphere -> Render 3D -> output, with the render's Glow at `glow`: the module, and the
+/// render's id.
+fn render_with_glow(glow: f32) -> (String, NodeId) {
+    let mut g = Graph::new();
+    let sphere = add(&mut g, "sphere");
+    let render = add(&mut g, "solidrender");
+    let out = add(&mut g, "output");
+    g.connect(PortRef::new(sphere, "solid"), PortRef::new(render, "solid"))
+        .expect("a solid into the render");
+    g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+        .expect("a picture into the Output");
+    g.get_mut(render)
+        .unwrap()
+        .controls
+        .insert("glowAmount", supersilvia::graph::ControlValue::Float(glow));
+    let shader = compile::wgsl::build(&g, out).expect("connected to the Output");
+    (shader.source(), render)
+}
+
+/// **Render 3D's glow is asked at run time.** Glow Amount is a uniform and a control value is
+/// never baked into the WGSL, so there is no Glow switch to recompile on: the module is the
+/// same at zero and above it, and the march accumulates the glow only behind a branch on the
+/// uniform.
+#[test]
+fn render_3d_gates_its_glow_on_the_uniform() {
+    let (off, render) = render_with_glow(0.0);
+    let (on, _) = render_with_glow(0.6);
+    assert_eq!(off, on, "the same module whatever Glow is");
+    assert!(
+        nodes::find("solidrender").unwrap().option("glow").is_none(),
+        "no Glow switch"
+    );
+    let uniform = format!("u.u_control_solidrender{render}_glowAmount");
+    assert!(
+        off.contains(&format!("let glowing = {uniform} > 0.0;")),
+        "glow is on while its uniform is above zero:\n{off}"
+    );
+    assert!(
+        off.contains("if (glowing) { acc += exp(-hs / reach) * h * relax; }"),
+        "and each step's exponential is behind that branch"
+    );
+    assert!(
+        !off.replace("if (glowing) { acc += exp(-hs / reach)", "")
+            .contains("exp(-hs / reach)"),
+        "and nowhere outside it"
+    );
+}

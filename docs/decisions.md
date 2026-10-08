@@ -6837,6 +6837,10 @@ bindable to MIDI.
 taller than the scene it draws, and a camera is aimed by dragging a globe rather than by
 scrubbing numbers in a column. There is no live preview in the node: the Output it feeds is the preview.
 
+**What lost: a Glow On/Off switch** beside Glow Amount. Chosen by the owner after trying it:
+Glow above zero is glow on, so one number says it, and the off case costs a branch on that
+uniform a step rather than a recompile ([rendering.md](rendering.md#render-3d)).
+
 ### A port key names one port of its node
 
 **Chosen.** No two of a node's ports share a key: not two inputs, not two outputs, not an

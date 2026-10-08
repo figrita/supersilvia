@@ -4071,15 +4071,37 @@ round the Target at the distance it stood at, and the dot is From. **The sun dis
 Light's (`nodes::Dial::Sun`): the sky seen from above, the rim the horizon and the middle
 straight up, the camera a dot on the rim where it stands; a press or a drag puts the sun under
 the hand, writing Light and Light Height. Each drag writes the same keys in the same order
-every frame, so it is one undo step. The globe and the disk show the controls' own values, so
-a cable into Orbit, Tilt or Light moves the picture and not the dot.
+every frame, so it is one undo step. **The globe and the disk show what the render reads this
+frame**: Orbit, Tilt, Distance and Light are each what a cable into it carries, read from the
+uniforms the last tick published as that input's row reads them (`widgets::Live::arriving`,
+`RegionUi::number_now`), so a gear into Orbit turns the dot on the globe and on the disk's rim.
+**A drag leaves a cabled axis alone**, since the cable would overwrite it: with Orbit cabled a
+drag on the globe still tilts, with Tilt cabled it still orbits, and with both the globe is
+inert: drawn fainter, disabled in the accessibility tree, and a drag on it carries the node, as
+one on a cabled knob does. The wheel still moves Distance unless a cable runs into that too. Standing at From, the globe writes From
+and no cable can reach it. With Light cabled, a drag on the disk still sets Light Height. Each
+dial carries what it draws as its accessible value, `orbit 0.453 tilt 0.060 distance 7.000` and
+`light 0.120 height 0.120`.
+
+**A part with no effect is drawn dimmed.** `nodes::Part::When` holds some parts and the
+`nodes::area::Applies` that gives them an effect — an option holding a value, or not, a cable
+into an input — and while it does not hold they are drawn in
+a disabled child `Ui`: faded by egui, deaf to the hand, and disabled in the accessibility tree,
+as an option a cable overrides is. A panel's button drawn dimmed closes its panel. On Render
+3D: the **Toon…** button unless Shading is Toon; **Reflectivity** unless Reflections is One
+bounce; **From X, Y and Z**
+in Target & From unless Camera is Look at, Target applying to both; **Sky Tilt** unless the
+Sky is cabled; and **Floor Height** while Floor is None. Lens is never dimmed: Persp reads it
+as the focal length, Ortho as a zoom and Fisheye as the field of view.
 
 **A panel** opens under its button — Camera's **Target & From…**, Light's **Glow…** and Look's
 **Toon…** — in the popup's own frame at the interface's size, the button lit while it is open.
 It is the editor's state, one panel a node, kept in egui's memory: a click outside it closes
 it, but not one in a popup it opened, a color picker or a range editor; so does `Escape`, and
-its button again. Target & From has a **Reset** that puts the six back as one edit. The panel
-is named `{slug}{id}.{key}.panel`.
+its button again. Target & From has a **Reset** that puts the six back as one edit. Glow's
+panel opens on a **note** — the tiny muted type, `nodes::Part::Note` — saying glow is on while
+the Glow row is above zero, cabled or not; its Color and Reach are never dimmed, so they can be
+set before the glow comes on. The panel is named `{slug}{id}.{key}.panel`.
 
 ## Pictures in windows of their own
 

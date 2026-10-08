@@ -10,6 +10,9 @@ struct Uniforms {
     u_control_solidrender5_distance: f32,
     u_control_solidrender5_floorHeight: f32,
     u_control_solidrender5_fog: f32,
+    u_control_solidrender5_glowAmount: f32,
+    u_control_solidrender5_glowColor: vec4f,
+    u_control_solidrender5_glowReach: f32,
     u_control_solidrender5_lens: f32,
     u_control_solidrender5_light: f32,
     u_control_solidrender5_lightHeight: f32,
@@ -177,10 +180,15 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     var t = 0.0;
     var hit = false;
     var count = 0.0;
+    let glowing = u.u_control_solidrender5_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender5_glowReach, 0.001);
+    var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
-        let h = min((pp.y - fh), solidxor1_solid_d(pp).x);
+        let hs = solidxor1_solid_d(pp).x;
+        let h = min((pp.y - fh), hs);
         if (h < 0.0004 * t + 0.0001) { hit = true; break; }
+        if (glowing) { acc += exp(-hs / reach) * h * relax; }
         t += h * relax;
         count += 1.0;
         if (t > 80.0) { break; }
@@ -194,8 +202,18 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
             if (tf > 0.0 && tf <= 80.0) { t = tf; hit = true; }
         }
     }
+    var gl = vec3f(0.0);
+    var gla = 0.0;
+    if (glowing) {
+        gl = u.u_control_solidrender5_glowAmount * u.u_control_solidrender5_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
+    }
     let heat = count / 128.0;
-    if (!hit) { return bg; }
+    if (!hit) {
+        var res = bg;
+        res = vec4f(res.rgb + gl, res.a + gla * (1.0 - res.a));
+        return res;
+    }
     let pos = ro + rd * t;
     let e = vec2f(1.0, -1.0) * 0.0005 * max(1.0, t * 0.25);
     pp = pos + e.xyy;
@@ -237,7 +255,9 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     let amb = (0.5 + 0.5 * n.y) * ao;
     let spe = pow(max(dot(n, normalize(light - rd)), 0.0), 40.0) * dif * 0.35;
     let col = pow(lin * (dif * 1.25 + amb * 0.30) + spe, vec3f(1.0 / 2.2));
-    return mix(vec4f(col, 1.0), bg, fog);
+    var res = mix(vec4f(col, 1.0), bg, fog);
+    res = vec4f(res.rgb + gl, res.a + gla * (1.0 - res.a));
+    return res;
 }
 
 @fragment

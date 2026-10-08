@@ -154,6 +154,49 @@ pub enum Part {
     },
     /// A button that opens a panel of more parts beside the node.
     Popout(&'static Popout),
+    /// Parts that have an effect only while the node is set a certain way: drawn as any
+    /// others are while it holds, and dimmed and deaf to the hand while it does not.
+    When(Applies, &'static [Part]),
+    /// A few words in the tiny muted type, one entry a line: how a panel's settings take
+    /// effect where that is decided somewhere other than the panel.
+    Note(&'static [&'static str]),
+}
+
+/// What gives some parts of a section an effect, read off the node and its cables: the
+/// condition a [`Part::When`] draws its parts dimmed without.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Applies {
+    /// While an option holds this value.
+    Is {
+        key: &'static str,
+        value: &'static str,
+    },
+    /// While an option holds any value but this one.
+    IsNot {
+        key: &'static str,
+        value: &'static str,
+    },
+    /// While a cable runs into this input.
+    Cabled(&'static str),
+}
+
+impl Applies {
+    /// Whether it holds on `node`, with `cabled` saying whether a cable runs into one of its
+    /// inputs, by key.
+    pub fn holds(self, node: &crate::graph::Node, cabled: impl Fn(&str) -> bool) -> bool {
+        let option = |key: &str| {
+            node.options
+                .get(key)
+                .map(String::as_str)
+                .or_else(|| node.def.option(key).map(|o| o.default))
+                .unwrap_or_default()
+        };
+        match self {
+            Self::Is { key, value } => option(key) == value,
+            Self::IsNot { key, value } => option(key) != value,
+            Self::Cabled(key) => cabled(key),
+        }
+    }
 }
 
 /// A button in a section and the panel it opens: hung under the button, closed by a click

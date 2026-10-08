@@ -14894,7 +14894,15 @@ fn render_3d_has_seven_ports_and_four_sections_with_quality_closed() {
     let inputs: Vec<_> = node.inputs.iter().map(|p| p.key).collect();
     assert_eq!(
         inputs,
-        ["solid", "orbit", "tilt", "distance", "light", "glowAmount", "sky"]
+        [
+            "solid",
+            "orbit",
+            "tilt",
+            "distance",
+            "light",
+            "glowAmount",
+            "sky"
+        ]
     );
     let outputs: Vec<_> = node.outputs.iter().map(|p| p.key).collect();
     assert_eq!(outputs, ["output"]);
@@ -15079,13 +15087,15 @@ fn a_shading_segment_sets_the_shading() {
     assert_eq!(option_value(&h, id, "shading"), "toon");
 }
 
-/// The Glow button opens a panel under it with Glow's own controls; a switch in it sets its
-/// option and leaves it open, and `Escape` or a click away closes it.
+/// The Glow button opens a panel under it with Glow's own controls, Color and Reach; a click
+/// on its swatch opens the picker and leaves the panel open, and `Escape` or a click away
+/// closes it.
 #[test]
 fn the_glow_panel_opens_edits_and_closes() {
     let mut h = tall_harness();
     h.step();
     let id = render_3d(&mut h);
+    set_float(&mut h, id, "glowAmount", 0.6);
     let panel = format!("solidrender{id}.glowPanel.panel");
     let reach = format!("solidrender{id}.glowReach");
     assert!(h.query_by_label(&panel).is_none(), "closed on a new node");
@@ -15101,18 +15111,22 @@ fn the_glow_panel_opens_edits_and_closes() {
         "with Reach in it"
     );
     assert!(
-        h.query_by_label_contains(&format!("solidrender{id}.glowColor"))
-            .is_some()
+        h.query_by_label(&format!("solidrender{id}.glow.on"))
+            .is_none(),
+        "and no switch: Glow above zero is glow on"
     );
 
-    h.get_by_label(&format!("solidrender{id}.glow.on")).click();
+    h.get_by_label_contains(&format!("solidrender{id}.glowColor #"))
+        .click();
     h.run_steps(2);
-    assert_eq!(option_value(&h, id, "glow"), "on");
+    assert!(h.state().open_control().is_some(), "the picker is open");
     assert!(
         h.query_by_label(&panel).is_some(),
-        "a pick inside leaves it open"
+        "and a click inside leaves the panel open"
     );
 
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
     h.key_press(egui::Key::Escape);
     h.run_steps(2);
     assert!(h.query_by_label(&panel).is_none(), "Escape closes it");
@@ -15157,4 +15171,279 @@ fn target_and_froms_reset_puts_the_six_back() {
     assert_eq!(float(&h, id, "targetX"), 0.0);
     assert_eq!(float(&h, id, "fromZ"), 5.7);
     assert_eq!(h.state().undo_len(), steps + 1, "one edit");
+}
+
+/// One of a node's numbers set through the bus as a hand's edit, settled.
+fn set_float(h: &mut Harness<'_, App>, id: supersilvia::graph::NodeId, key: &'static str, v: f32) {
+    h.state_mut()
+        .apply(Command::SetControl {
+            node: id,
+            key,
+            value: supersilvia::graph::ControlValue::Float(v),
+        })
+        .unwrap();
+    h.state_mut().end_gesture();
+    h.run_steps(2);
+}
+
+fn set_option(
+    h: &mut Harness<'_, App>,
+    id: supersilvia::graph::NodeId,
+    key: &'static str,
+    v: &str,
+) {
+    h.state_mut()
+        .apply(Command::SetOption {
+            node: id,
+            key,
+            value: v.to_string(),
+        })
+        .unwrap();
+    h.run_steps(2);
+}
+
+/// Whether the widget whose name starts `name` — a number's name runs on into its value — is
+/// drawn disabled.
+fn dimmed(h: &Harness<'_, App>, name: &str) -> bool {
+    h.get_by_label_contains(name).accesskit_node().is_disabled()
+}
+
+/// **Glow is its amount.** Render 3D has no Glow switch: a new node's Glow is zero, and its
+/// panel says how glow comes on and leaves Color and Reach to be set at any amount.
+#[test]
+fn glow_is_on_while_its_amount_is_above_zero_or_cabled() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let def = h.state().graph().get(id).unwrap().def;
+    assert!(def.option("glow").is_none(), "no Glow switch");
+    assert_eq!(
+        float(&h, id, "glowAmount"),
+        0.0,
+        "a new render does not glow"
+    );
+
+    h.get_by_label(&format!("solidrender{id}.glowPanel"))
+        .click();
+    h.run_steps(2);
+    let (color, reach) = (
+        format!("solidrender{id}.glowColor #"),
+        format!("solidrender{id}.glowReach "),
+    );
+    assert!(
+        !dimmed(&h, &color) && !dimmed(&h, &reach),
+        "set at any amount, ready for when it comes on"
+    );
+}
+
+/// **What does nothing is dimmed.** Each of these is drawn disabled while the setting that
+/// gives it an effect is not made, and is a control again once it is: the Toon button, and a
+/// click on it opens nothing; Reflectivity; Floor Height; Sky Tilt; and From, while Target
+/// applies whichever way the camera stands.
+#[test]
+fn a_setting_that_does_nothing_is_dimmed() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let name = |key: &str| format!("solidrender{id}.{key}");
+
+    let toon = name("toonPanel");
+    assert!(
+        h.get_by_label(&toon).accesskit_node().is_disabled(),
+        "Lit: the Toon button is dimmed"
+    );
+    h.get_by_label(&toon).click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label(&name("toonPanel.panel")).is_none(),
+        "and opens nothing"
+    );
+    h.get_by_label(&name("shading.toon")).click();
+    h.run_steps(2);
+    assert!(
+        !h.get_by_label(&toon).accesskit_node().is_disabled(),
+        "Toon: it applies"
+    );
+    h.get_by_label(&toon).click();
+    h.run_steps(2);
+    assert!(
+        h.query_by_label(&name("toonPanel.panel")).is_some(),
+        "and opens its panel"
+    );
+    h.key_press(egui::Key::Escape);
+    h.run_steps(2);
+
+    let floor_height = name("floorHeight ");
+    assert!(!dimmed(&h, &floor_height), "a Checker floor has a height");
+    set_option(&mut h, id, "floor", "none");
+    assert!(dimmed(&h, &floor_height), "no floor, no height");
+
+    let sky_tilt = name("skyTilt ");
+    assert!(dimmed(&h, &sky_tilt), "no Sky, nothing to tilt");
+    let sky = add_at(&mut h, "checkerboard", Pos2::new(420.0, 20.0));
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(sky, "output"),
+            to: PortRef::new(id, "sky"),
+        })
+        .unwrap();
+    h.run_steps(2);
+    assert!(!dimmed(&h, &sky_tilt), "a Sky cabled in tilts");
+
+    h.get_by_label(&name("qualitySection")).click();
+    h.run_steps(2);
+    let reflectivity = name("reflectivity ");
+    assert!(dimmed(&h, &reflectivity), "no reflections, no Reflectivity");
+    h.get_by_label(&name("reflections.one")).click();
+    h.run_steps(2);
+    assert!(!dimmed(&h, &reflectivity), "One bounce: it applies");
+
+    h.get_by_label(&name("aim")).click();
+    h.run_steps(2);
+    let (target, from) = (name("targetX "), name("fromX "));
+    assert!(!dimmed(&h, &target), "Target applies to an orbit");
+    assert!(dimmed(&h, &from), "From does not");
+    set_option(&mut h, id, "camera", "lookat");
+    assert!(
+        !dimmed(&h, &target) && !dimmed(&h, &from),
+        "standing at From, both apply"
+    );
+}
+
+/// The orbit, tilt and distance the globe draws, as its accessible value says them.
+fn globe_reads(h: &Harness<'_, App>, id: supersilvia::graph::NodeId) -> [f32; 3] {
+    let value = h
+        .get_by_label(&format!("solidrender{id}.globe"))
+        .accesskit_node()
+        .value()
+        .expect("the globe says what it draws");
+    let words: Vec<&str> = value.split(' ').collect();
+    [1, 3, 5].map(|i| words[i].parse().expect("a number"))
+}
+
+/// **The globe draws what the render reads.** With a Number into Orbit, the camera on the
+/// globe stands at the cable's value and not the knob's; a drag then tilts and leaves Orbit
+/// alone, since the cable would overwrite it; and with Tilt cabled too the globe is inert, a
+/// drag on it carrying the node as one on a cabled knob does.
+#[test]
+fn the_globe_draws_the_cabled_orbit_and_a_drag_leaves_it_alone() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let knob = float(&h, id, "orbit");
+    let number = add_at(&mut h, "number", Pos2::new(420.0, 20.0));
+    set_float(&mut h, number, "value", 0.3);
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(number, "output"),
+            to: PortRef::new(id, "orbit"),
+        })
+        .unwrap();
+    h.run_steps(4);
+    let [orbit, tilt, _] = globe_reads(&h, id);
+    assert!(
+        (orbit - 0.3).abs() < 1.0e-3,
+        "the camera is where the cable puts it: {orbit}, the knob {knob}"
+    );
+
+    let globe = h.get_by_label(&format!("solidrender{id}.globe")).rect();
+    drag_with(
+        &mut h,
+        globe.center(),
+        globe.center() + egui::vec2(globe.width() * 0.2, -globe.height() * 0.1),
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(
+        float(&h, id, "orbit"),
+        knob,
+        "Orbit is the cable's: not written"
+    );
+    assert!(
+        float(&h, id, "tilt") > tilt + 0.02,
+        "and the drag tilts: {tilt} to {}",
+        float(&h, id, "tilt")
+    );
+    assert!(
+        !h.get_by_label(&format!("solidrender{id}.globe"))
+            .accesskit_node()
+            .is_disabled()
+    );
+
+    let second = add_at(&mut h, "number", Pos2::new(420.0, 200.0));
+    set_float(&mut h, second, "value", 0.1);
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(second, "output"),
+            to: PortRef::new(id, "tilt"),
+        })
+        .unwrap();
+    h.run_steps(4);
+    let [_, tilt, _] = globe_reads(&h, id);
+    assert!(
+        (tilt - 0.1).abs() < 1.0e-3,
+        "the Tilt drawn is the cable's: {tilt}"
+    );
+    assert!(
+        h.get_by_label(&format!("solidrender{id}.globe"))
+            .accesskit_node()
+            .is_disabled(),
+        "both cabled, the globe is inert"
+    );
+    let tilt = float(&h, id, "tilt");
+    drag_with(
+        &mut h,
+        globe.center(),
+        globe.center() + egui::vec2(globe.width() * 0.2, -globe.height() * 0.1),
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(
+        (float(&h, id, "orbit"), float(&h, id, "tilt")),
+        (knob, tilt),
+        "and a drag on it writes neither"
+    );
+}
+
+/// The sun disk draws the cabled Light, and a drag on it with Light cabled sets its Height
+/// alone.
+#[test]
+fn the_sun_draws_the_cabled_light_and_a_drag_sets_its_height_alone() {
+    let mut h = tall_harness();
+    h.step();
+    let id = render_3d(&mut h);
+    let knob = float(&h, id, "light");
+    let number = add_at(&mut h, "number", Pos2::new(420.0, 20.0));
+    set_float(&mut h, number, "value", -0.2);
+    h.state_mut()
+        .apply(Command::Connect {
+            from: PortRef::new(number, "output"),
+            to: PortRef::new(id, "light"),
+        })
+        .unwrap();
+    h.run_steps(4);
+    let sun = format!("solidrender{id}.sun");
+    let value = h
+        .get_by_label(&sun)
+        .accesskit_node()
+        .value()
+        .expect("the sun says what it draws");
+    assert!(
+        value.starts_with("light -0.200 "),
+        "the cable's Light: {value}"
+    );
+
+    let disk = h.get_by_label(&sun).rect();
+    let radius = disk.width() * 0.5 - 4.0 * h.state().canvas_transform().zoom;
+    drag_with(
+        &mut h,
+        disk.center() + egui::vec2(-radius * 0.3, radius * 0.3),
+        disk.center() + egui::vec2(radius * 0.5, 0.0),
+        egui::Modifiers::NONE,
+    );
+    assert_eq!(
+        float(&h, id, "light"),
+        knob,
+        "Light is the cable's: not written"
+    );
+    let height = float(&h, id, "lightHeight");
+    assert!((height - 0.125).abs() < 0.01, "half way up: {height}");
 }

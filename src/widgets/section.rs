@@ -23,6 +23,13 @@
 //! carry From round the Target at its own distance. The sun disk is the sky seen from above:
 //! the rim is the horizon, the middle straight up, and a press or a drag puts the sun under the
 //! hand. A drag writes the same keys in the same order every frame, so it is one undo step.
+//! Both draw what the render reads this frame, a cable's value where one runs into Orbit, Tilt,
+//! Distance or Light, as the rows' meters do, and neither writes an axis a cable sets, since
+//! the cable would overwrite it: a dial with nothing left to set is inert and drawn fainter.
+//!
+//! **A part with no effect is dimmed.** A [`Part::When`] whose condition does not hold draws
+//! its parts in a disabled child `Ui`, which egui fades and lets no hand reach, so the
+//! accessibility tree says each one is disabled, as it says of an option a cable overrides.
 //!
 //! **A panel is the editor's, not the document's.** Which one is open is kept in egui's memory
 //! by node, one at a time; it hangs under its button in the popup's own frame and closes on a
@@ -34,8 +41,8 @@ use crate::graph::{ControlValue, Node, PortType};
 use crate::nodes::{Control, Dial, Globe, NodeDef, Part, Popout, Region, Section};
 use crate::ui::{canvas, number};
 use eframe::egui::{
-    Align2, Id, Key, Modifiers, Order, Pos2, Rect, Sense, Shape, Stroke, Vec2, WidgetType, pos2,
-    vec2,
+    Align2, Id, Key, Modifiers, Order, Pos2, Rect, Sense, Shape, Stroke, UiBuilder, Vec2,
+    WidgetInfo, WidgetType, pos2, vec2,
 };
 use std::f32::consts::TAU;
 
@@ -57,6 +64,8 @@ const RIGHT: f32 = canvas::ROW_BLOCK_INSET + 8.0;
 const TOP: f32 = 4.0;
 const FOOT: f32 = 6.0;
 const GAP: f32 = 4.0;
+/// One line of a [`Part::Note`]: the tiny type and a little air.
+const NOTE_LINE: f32 = 12.0;
 /// One line of a part beside its caption: an s-number's height.
 const LINE: f32 = number::HEIGHT;
 /// A caption standing over its switch.
@@ -136,6 +145,8 @@ fn part_height(def: &NodeDef, part: &Part, w: f32) -> f32 {
         }
         Part::Number { .. } | Part::Swatch { .. } => LINE,
         Part::Popout(_) => BUTTON,
+        Part::When(_, inner) => parts_height(def, inner, w),
+        Part::Note(lines) => NOTE_LINE * lines.len() as f32,
     }
 }
 
@@ -236,8 +247,54 @@ fn one(r: &mut RegionUi<'_>, part: &Part, band: Rect) -> Vec<RegionEvent> {
             out.extend(r.swatch(cell, key));
         }
         Part::Popout(popout) => out.extend(popout_button(r, popout, band)),
+        Part::When(applies, inner) => {
+            if applies.holds(r.node, |key| r.source(key).is_some()) {
+                out.extend(parts(r, inner, band));
+            } else {
+                dimmed(r, inner, band);
+            }
+        }
+        Part::Note(lines) => {
+            for (i, line) in lines.iter().enumerate() {
+                r.caption(
+                    pos2(band.min.x, band.min.y + (i as f32 + 0.5) * NOTE_LINE * z),
+                    Align2::LEFT_CENTER,
+                    line,
+                    r.theme.text_muted(),
+                );
+            }
+        }
     }
     out
+}
+
+/// Parts that have no effect as the node is set: drawn in a `Ui` of their own that egui fades
+/// and lets no hand reach, so each one is in the accessibility tree disabled, as an option a
+/// cable overrides is.
+fn dimmed(r: &mut RegionUi<'_>, inner: &[Part], band: Rect) {
+    let mut ui = r.ui.new_child(
+        UiBuilder::new()
+            .id_salt("section-dimmed")
+            .max_rect(band)
+            .disabled(),
+    );
+    let mut faded = RegionUi {
+        ui: &mut ui,
+        region: r.region,
+        node: r.node,
+        id: r.id,
+        rect: r.rect,
+        zoom: r.zoom,
+        corner: r.corner,
+        theme: r.theme,
+        live: r.live,
+        grab: None,
+        lock_cursor: r.lock_cursor,
+        learning: r.learning,
+        bindings: r.bindings,
+    };
+    // Deaf: whatever a faded part says is dropped, though egui lets none of them hear a hand.
+    let _ = parts(&mut faded, inner, band);
 }
 
 /// A part's caption, where a row's label stands: the tiny type, at the left of its line.
@@ -308,7 +365,9 @@ fn open_id(r: &RegionUi<'_>) -> Id {
 
 fn popout_button(r: &mut RegionUi<'_>, popout: &'static Popout, band: Rect) -> Vec<RegionEvent> {
     let state = open_id(r);
-    let open = r.ui.data(|d| d.get_temp::<&'static str>(state)) == Some(popout.key);
+    // A button drawn dimmed closes its panel: what is in it has no effect.
+    let open =
+        r.ui.is_enabled() && r.ui.data(|d| d.get_temp::<&'static str>(state)) == Some(popout.key);
     let clicked = super::lit_button(r, band, popout.caption, popout.key, open);
     let open = if clicked { !open } else { open };
     r.ui.data_mut(|d| {
@@ -545,84 +604,129 @@ fn pick(c: Pos2, radius: f32, at: Pos2) -> V3 {
     normalize(add(eye, scale(d, t)))
 }
 
-/// Where the camera is, as an orbit, a tilt and a distance: the controls themselves, or From
-/// round Target while the camera stands at From.
-fn camera(node: &Node, g: &Globe) -> (f32, f32, f32, bool) {
-    if option(node, g.mode) == g.look_at {
-        let at = |keys: [&str; 3]| keys.map(|k| value(node, k));
+/// Where the camera is, as an orbit, a tilt and a distance — each what the render reads this
+/// frame, a cable's where one runs in — or From round Target while the camera stands at From.
+fn camera(r: &RegionUi<'_>, g: &Globe) -> (f32, f32, f32, bool) {
+    if option(r.node, g.mode) == g.look_at {
+        let at = |keys: [&str; 3]| keys.map(|k| r.number_now(k));
         let off = sub(at(g.from), at(g.target));
         let (o, t) = angles(off);
         (o, t, length(off), true)
     } else {
         (
-            value(node, g.orbit),
-            value(node, g.tilt),
-            value(node, g.distance),
+            r.number_now(g.orbit),
+            r.number_now(g.tilt),
+            r.number_now(g.distance),
             false,
         )
     }
 }
 
-/// The edit that puts the camera at an orbit, a tilt and a distance.
-fn place(node: &Node, g: &Globe, orbit: f32, tilt: f32, distance: f32, look: bool) -> RegionEvent {
+/// Which of Orbit and Tilt a hand on the globe can set: standing at From, both, since it
+/// writes From; else each that no cable runs into, as a cable's value overwrites a write.
+fn steerable(r: &RegionUi<'_>, g: &Globe, look: bool) -> [bool; 2] {
+    if look {
+        [true; 2]
+    } else {
+        [g.orbit, g.tilt].map(|key| r.source(key).is_none())
+    }
+}
+
+/// The edit that puts the camera at an orbit, a tilt and a distance, writing only the axes
+/// `free` names: `None` where it would write nothing.
+fn place(
+    node: &Node,
+    g: &Globe,
+    (orbit, tilt, distance): (f32, f32, f32),
+    look: bool,
+    free: [bool; 2],
+) -> Option<RegionEvent> {
     let tilt = clamp_to(node, g.tilt, tilt);
     if look {
         let target = g.target.map(|k| value(node, k));
         let from = add(target, scale(direction(orbit, tilt), distance));
-        RegionEvent::Controls(vec![
+        return Some(RegionEvent::Controls(vec![
             float(g.from[0], from[0]),
             float(g.from[1], from[1]),
             float(g.from[2], from[2]),
-        ])
-    } else {
-        RegionEvent::Controls(vec![
-            float(g.orbit, wrap(node, g.orbit, orbit)),
-            float(g.tilt, tilt),
-        ])
+        ]));
     }
+    let writes: Vec<_> = [
+        float(g.orbit, wrap(node, g.orbit, orbit)),
+        float(g.tilt, tilt),
+    ]
+    .into_iter()
+    .zip(free)
+    .filter_map(|(write, free)| free.then_some(write))
+    .collect();
+    (!writes.is_empty()).then_some(RegionEvent::Controls(writes))
 }
 
+/// How bright a dial is drawn while cables set everything a drag on it would.
+const INERT: f32 = 0.6;
+
 fn globe(r: &mut RegionUi<'_>, g: &'static Globe, square: Rect) -> Vec<RegionEvent> {
+    let (orbit, tilt, distance, look) = camera(r, g);
+    let free = steerable(r, g, look);
+    let steers = free.contains(&true);
+    let nears = look || r.source(g.distance).is_none();
     let w = r.ui.interact(
         square,
         r.ui.id().with(("section-globe", r.id)),
-        Sense::click_and_drag(),
-    );
-    crate::ui::accessible(&w, WidgetType::Other, r.name("globe"));
-    let w = w.on_hover_text(
-        "Drag to orbit and tilt, click to put the camera there, wheel to move nearer",
-    );
-    crate::ui::cursor(
-        &w,
-        if w.dragged() {
-            eframe::egui::CursorIcon::Grabbing
+        if steers {
+            Sense::click_and_drag()
         } else {
-            eframe::egui::CursorIcon::Grab
+            Sense::hover()
         },
     );
+    let name = r.name("globe");
+    w.widget_info(|| {
+        let mut info = WidgetInfo::labeled(WidgetType::Other, steers, &name);
+        info.current_text_value = Some(format!(
+            "orbit {orbit:.3} tilt {tilt:.3} distance {distance:.3}"
+        ));
+        info
+    });
+    let w = w.on_hover_text(match (free, nears) {
+        ([true, true], true) => {
+            "Drag to orbit and tilt, click to put the camera there, wheel to move nearer"
+        }
+        ([true, true], false) => "Drag to orbit and tilt, click to put the camera there",
+        ([false, true], true) => "Drag up and down to tilt, wheel to move nearer: Orbit is cabled",
+        ([false, true], false) => "Drag up and down to tilt: Orbit is cabled",
+        ([true, false], true) => "Drag across to orbit, wheel to move nearer: Tilt is cabled",
+        ([true, false], false) => "Drag across to orbit: Tilt is cabled",
+        ([false, false], true) => "Wheel to move nearer: Orbit and Tilt are cabled",
+        ([false, false], false) => "Orbit, Tilt and Distance are cabled",
+    });
+    if steers {
+        crate::ui::cursor(
+            &w,
+            if w.dragged() {
+                eframe::egui::CursorIcon::Grabbing
+            } else {
+                eframe::egui::CursorIcon::Grab
+            },
+        );
+    } else {
+        crate::ui::refused(&w);
+    }
     let c = square.center();
     let radius = square.width() * 0.5 / SUN_OUT;
-    let (orbit, tilt, distance, look) = camera(r.node, g);
 
     let mut out = Vec::new();
     let d = w.drag_delta();
     if w.dragged() && d != Vec2::ZERO {
         let per = DRAG_TURN / square.width();
-        out.push(place(
-            r.node,
-            g,
-            orbit + d.x * per,
-            tilt - d.y * per,
-            distance,
-            look,
-        ));
+        let to = (orbit + d.x * per, tilt - d.y * per, distance);
+        out.extend(place(r.node, g, to, look, free));
     } else if w.clicked()
         && let Some(at) = w.interact_pointer_pos()
     {
         let (o, t) = angles(pick(c, radius, at));
-        out.push(place(r.node, g, o, t, distance, look));
+        out.extend(place(r.node, g, (o, t, distance), look, free));
     }
-    if w.hovered() {
+    if w.hovered() && nears {
         // Taken rather than read, as a number control takes it: the canvas zooms on whatever
         // wheel input is left at the end of the frame.
         let scroll = r.ui.ctx().input_mut(|i| {
@@ -633,7 +737,13 @@ fn globe(r: &mut RegionUi<'_>, g: &'static Globe, square: Rect) -> Vec<RegionEve
         if scroll != 0.0 {
             let further = distance * (-scroll * WHEEL).exp();
             if look {
-                out.push(place(r.node, g, orbit, tilt, further.max(0.01), true));
+                out.extend(place(
+                    r.node,
+                    g,
+                    (orbit, tilt, further.max(0.01)),
+                    true,
+                    free,
+                ));
             } else {
                 out.push(RegionEvent::Controls(vec![float(
                     g.distance,
@@ -643,16 +753,27 @@ fn globe(r: &mut RegionUi<'_>, g: &'static Globe, square: Rect) -> Vec<RegionEve
         }
     }
 
-    paint_globe(r, g, square, radius, orbit, tilt);
+    paint_globe(r, g, square, radius, (orbit, tilt), steers);
     out
 }
 
-fn paint_globe(r: &RegionUi<'_>, g: &Globe, square: Rect, radius: f32, orbit: f32, tilt: f32) {
+/// The globe, with the camera at `orbit` and `tilt`: faded while `steers` is false.
+fn paint_globe(
+    r: &RegionUi<'_>,
+    g: &Globe,
+    square: Rect,
+    radius: f32,
+    (orbit, tilt): (f32, f32),
+    steers: bool,
+) {
     let z = r.zoom;
     let c = square.center();
-    let painter =
+    let mut painter =
         r.ui.painter()
             .with_clip_rect(r.ui.clip_rect().intersect(square.expand(2.0 * z)));
+    if !steers {
+        painter.multiply_opacity(INERT);
+    }
     let hair = (1.0 * z).max(1.0);
     painter.circle_filled(c, radius, r.theme.bg_primary());
 
@@ -706,7 +827,7 @@ fn paint_globe(r: &RegionUi<'_>, g: &Globe, square: Rect, radius: f32, orbit: f3
     );
 
     // The sun, off the globe in the light's direction, dim where the globe hides it.
-    let light = direction(value(r.node, g.light[0]), value(r.node, g.light[1]));
+    let light = direction(r.number_now(g.light[0]), r.number_now(g.light[1]));
     let (at, depth) = project(c, radius, scale(light, SUN_OUT));
     let hidden = depth < 0.0 && at.distance(c) < radius;
     sun_mark(r, &painter, at, 3.0 * z, if hidden { 0.35 } else { 1.0 });
@@ -761,17 +882,38 @@ fn sun(
     square: Rect,
 ) -> Vec<RegionEvent> {
     let z = r.zoom;
+    let (now_a, now_h) = (r.number_now(azimuth), r.number_now(height));
+    // Each of the two a hand can set, being the one no cable runs into.
+    let free = [azimuth, height].map(|key| r.source(key).is_none());
+    let steers = free.contains(&true);
     let w = r.ui.interact(
         square,
         r.ui.id().with(("section-sun", r.id)),
-        Sense::click_and_drag(),
+        if steers {
+            Sense::click_and_drag()
+        } else {
+            Sense::hover()
+        },
     );
-    crate::ui::accessible(&w, WidgetType::Other, r.name("sun"));
-    let w = w.on_hover_text("Drag the sun: the rim is the horizon, the middle straight up");
-    crate::ui::cursor(&w, eframe::egui::CursorIcon::Crosshair);
+    let name = r.name("sun");
+    w.widget_info(|| {
+        let mut info = WidgetInfo::labeled(WidgetType::Other, steers, &name);
+        info.current_text_value = Some(format!("light {now_a:.3} height {now_h:.3}"));
+        info
+    });
+    let w = w.on_hover_text(match free {
+        [true, true] => "Drag the sun: the rim is the horizon, the middle straight up",
+        [false, true] => "Drag in and out to raise the sun: Light is cabled",
+        [true, false] => "Drag round to turn the sun: its Height is cabled",
+        [false, false] => "Light and its Height are cabled",
+    });
+    if steers {
+        crate::ui::cursor(&w, eframe::egui::CursorIcon::Crosshair);
+    } else {
+        crate::ui::refused(&w);
+    }
     let c = square.center();
     let radius = square.width() * 0.5 - 4.0 * z;
-    let (now_a, now_h) = (value(r.node, azimuth), value(r.node, height));
 
     let mut out = Vec::new();
     if (w.is_pointer_button_down_on() || w.clicked())
@@ -785,17 +927,23 @@ fn sun(
         } else {
             wrap(r.node, azimuth, off.x.atan2(off.y) / TAU)
         };
-        if (a - now_a).abs() > 1.0e-6 || (h - now_h).abs() > 1.0e-6 {
-            out.push(RegionEvent::Controls(vec![
-                float(azimuth, a),
-                float(height, h),
-            ]));
+        let writes: Vec<_> = [(azimuth, a, now_a), (height, h, now_h)]
+            .into_iter()
+            .zip(free)
+            .filter(|((_, to, now), free)| *free && (to - now).abs() > 1.0e-6)
+            .map(|((key, to, _), _)| float(key, to))
+            .collect();
+        if !writes.is_empty() {
+            out.push(RegionEvent::Controls(writes));
         }
     }
 
-    let painter =
+    let mut painter =
         r.ui.painter()
             .with_clip_rect(r.ui.clip_rect().intersect(square.expand(2.0 * z)));
+    if !steers {
+        painter.multiply_opacity(INERT);
+    }
     let hair = (1.0 * z).max(1.0);
     painter.circle_filled(c, radius, r.theme.bg_primary());
     for ring in [1.0 / 3.0, 2.0 / 3.0] {
@@ -807,7 +955,7 @@ fn sun(
     painter.circle_stroke(c, radius, Stroke::new(hair, r.theme.border_normal()));
 
     // The camera, on the horizon where it stands round its target.
-    let (orbit, ..) = camera(r.node, globe);
+    let (orbit, ..) = camera(r, globe);
     let cam = on_disk(c, radius, orbit, 0.0);
     painter.circle_filled(cam, 3.5 * z, r.theme.primary());
 

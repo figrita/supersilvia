@@ -1151,7 +1151,8 @@ in-region options drawn in four folding [sections](ui.md#sections):
 
 - **Camera**: the globe; Camera, Orbit or Look at; Lens Type, Persp, Ortho or Fisheye; Lens;
   and a Target & From panel.
-- **Light**: the sun disk; Shadows, Soft or None; Light Height; Fog; and a Glow panel.
+- **Light**: the sun disk; Shadows, Soft or None; Light Height; Fog; and a Glow panel, with
+  a note that glow is on while the Glow row is above zero, Glow Color and Glow Reach.
 - **Look**: Shading, which is Lit, Toon, Flat, Normals, Depth or Steps; a Toon panel; the
   Background; and the Floor, Checker, Plain or None, with its height.
 - **Quality**, closed on a new node: Steps, 64, 128, 256 or 512; Step; Reflections, None or One
@@ -1159,7 +1160,11 @@ in-region options drawn in four folding [sections](ui.md#sections):
 
 **Step** scales each march step: under 1 is safer, and over 1 is faster and can overstep. The
 floor and the fog are the render's, not solids. Every option is a `Code` option, and at its
-default each emits nothing, so the module is the plain march alone.
+default each emits nothing. **Glow is on while Glow Amount is above zero**, cabled or not, with
+no switch of its own. Glow Amount is a uniform, and a control value is never baked into the
+WGSL, so the glow is always emitted and asked at run time: each step accumulates only inside
+`if (glowing)`, a branch on that uniform that the whole frame takes the same way, and at zero
+nothing is added. So the module at every default is the plain march with that branch.
 
 **What a pixel costs.** A picture is evaluated once a pixel. A render evaluates its solid's
 distance-only function up to Steps times a pixel, against the floor each time, and once more
@@ -1169,7 +1174,8 @@ once, where the ray hit. Toon shades with the shadow and no occlusion, Flat, Nor
 with neither, and Steps stops at the march. **One bounce** marches a second ray along the
 reflection, a quarter of Steps long, and asks for a normal and a color where it lands: up to a
 quarter as much again as the main march, plus five evaluations. Glow costs an exponential a
-step and Toon's outline a comparison a step. Look at, Orthographic and Fisheye change only how
+step while it is on and a branch a step while it is off, and Toon's outline a comparison a
+step. Look at, Orthographic and Fisheye change only how
 a ray starts, and cost nothing. A shape's own work multiplies all of it: a fractal's
 Iterations, and a profile's picture at every step.
 

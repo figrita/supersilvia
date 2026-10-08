@@ -15,7 +15,9 @@
 //! - **Glow** integrates `exp(-d / reach)` along the ray, `d` the solid's distance at each
 //!   step, so a ray that grazes a surface without touching it still carries light: a halo
 //!   against the background. It reads the distance the march already measured, so it costs
-//!   an exponential a step, and nothing at all while the option is Off, which emits no code.
+//!   an exponential a step. It is on while Glow Amount is above zero, and since that is a
+//!   uniform the accumulation is always emitted and asked a step at a time: at zero it costs
+//!   a branch the whole frame takes the same way, and adds nothing.
 //! - **Toon** bands the light and inks an outline where the ray's distance to the solid fell
 //!   to a minimum and rose again — the ray passed the solid's edge, whether it then missed
 //!   everything or hit something behind. The minimum is taken in picture units (the distance
@@ -37,9 +39,9 @@
 //!   pixel, after the march, and once more for a reflection. Sky Tilt tips its pole about x;
 //!   turning it round the pole is a Translate along X before it, so there is no number for it.
 //!
-//! Every one of these but the Sky is a `Code` option, and at its default each emits nothing, as
-//! the Sky unconnected does: the module is the plain march alone, which is also what every
-//! solid node's snapshot holds.
+//! Every one of these but the Glow and the Sky is a `Code` option, and at its default each emits
+//! nothing, as the Sky unconnected does: the module is the plain march with the glow's branch,
+//! which is also what every solid node's snapshot holds.
 //!
 //! **A ray that runs out of steps** short of the far limit is asked its distance once more
 //! where it stopped, and is a hit there if that is within about a pixel; else it lands on the
@@ -62,6 +64,7 @@ use super::{SDF, color, fill, num, num_log, solid, turn};
 use crate::compile::{CompileContext, SOLID_FAR};
 use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
+use crate::nodes::area::Applies;
 use crate::nodes::{
     Category, Control, Dial, Globe, InputDef, NodeDef, OptionDef, OptionKind, OutputDef,
     OutputKind, Part, Popout, Region, Section, TURNS,
@@ -190,7 +193,6 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let floor_kind = chosen(ctx, node, "floor");
     let soft = chosen(ctx, node, "shadows") == "soft";
     let steps: u32 = chosen(ctx, node, "steps").parse().unwrap_or(128);
-    let glow = chosen(ctx, node, "glow") == "on";
     let bounce = chosen(ctx, node, "reflections") == "one";
     let lens_kind = chosen(ctx, node, "projection");
     let look_at = chosen(ctx, node, "camera") == "lookat";
@@ -283,35 +285,30 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         );
         post.push_str("    res = mix(res, {outlineColor}, ink);\n");
     }
-    if glow {
-        track_init.push_str("    let reach = max({glowReach}, 0.001);\n    var acc = 0.0;\n");
-        track.push_str("        acc += exp(-hs / reach) * h * relax;\n");
-        after_march.push_str(
-            "    let gl = max({glowAmount}, 0.0) * {glowColor}.rgb * (1.0 - exp(-acc / reach));
-    let gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
+    // Glow is always emitted and asked at run time, since Glow Amount is a uniform: at zero
+    // each step costs one branch the whole frame takes the same way, and nothing is added.
+    track_init.push_str(
+        "    let glowing = {glowAmount} > 0.0;
+    let reach = max({glowReach}, 0.001);
+    var acc = 0.0;
 ",
-        );
-        post.push_str("    res = vec4f(res.rgb + gl, res.a + gla * (1.0 - res.a));\n");
+    );
+    track.push_str("        if (glowing) { acc += exp(-hs / reach) * h * relax; }\n");
+    after_march.push_str(
+        "    var gl = vec3f(0.0);
+    var gla = 0.0;
+    if (glowing) {
+        gl = {glowAmount} * {glowColor}.rgb * (1.0 - exp(-acc / reach));
+        gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
-    let measure = if toon || glow {
-        format!("        let hs = {dist}.x;\n        let h = min({floor}, hs);\n")
-    } else {
-        format!("        let h = {scene};\n")
-    };
-    // The statements that end the function on the color `expr`, through the outline and the
-    // glow where they are on.
-    let give = |expr: &str| {
-        if post.is_empty() {
-            format!("    return {expr};")
-        } else {
-            format!("    var res = {expr};\n{post}    return res;")
-        }
-    };
-    let miss = if post.is_empty() {
-        "    if (!hit) { return bg; }\n".to_string()
-    } else {
-        format!("    if (!hit) {{\n{}    }}\n", indent(&give("bg")))
-    };
+",
+    );
+    post.push_str("    res = vec4f(res.rgb + gl, res.a + gla * (1.0 - res.a));\n");
+    let measure = format!("        let hs = {dist}.x;\n        let h = min({floor}, hs);\n");
+    // The statements that end the function on the color `expr`, through the outline where
+    // Toon draws one and the glow.
+    let give = |expr: &str| format!("    var res = {expr};\n{post}    return res;");
+    let miss = format!("    if (!hit) {{\n{}    }}\n", indent(&give("bg")));
 
     let shadow = if soft {
         format!(
@@ -524,18 +521,26 @@ static AIM: Popout = Popout {
             key: "targetZ",
             caption: "Target Z",
         },
-        Part::Number {
-            key: "fromX",
-            caption: "From X",
-        },
-        Part::Number {
-            key: "fromY",
-            caption: "From Y",
-        },
-        Part::Number {
-            key: "fromZ",
-            caption: "From Z",
-        },
+        Part::When(
+            Applies::Is {
+                key: "camera",
+                value: "lookat",
+            },
+            &[
+                Part::Number {
+                    key: "fromX",
+                    caption: "From X",
+                },
+                Part::Number {
+                    key: "fromY",
+                    caption: "From Y",
+                },
+                Part::Number {
+                    key: "fromZ",
+                    caption: "From Z",
+                },
+            ],
+        ),
     ],
     reset: &["targetX", "targetY", "targetZ", "fromX", "fromY", "fromZ"],
 };
@@ -544,10 +549,10 @@ static GLOW: Popout = Popout {
     key: "glowPanel",
     caption: "Glow…",
     parts: &[
-        Part::Choice {
-            key: "glow",
-            caption: "Glow",
-        },
+        Part::Note(&[
+            "Glow is on while the Glow row",
+            "is above zero, cabled or not.",
+        ]),
         Part::Swatch {
             key: "glowColor",
             caption: "Color",
@@ -635,23 +640,38 @@ static LOOK: Section = Section {
             key: "shading",
             caption: "Shading",
         },
-        Part::Popout(&TOON),
+        Part::When(
+            Applies::Is {
+                key: "shading",
+                value: "toon",
+            },
+            &[Part::Popout(&TOON)],
+        ),
         Part::Swatch {
             key: "background",
             caption: "Background",
         },
-        Part::Number {
-            key: "skyTilt",
-            caption: "Sky Tilt",
-        },
+        Part::When(
+            Applies::Cabled("sky"),
+            &[Part::Number {
+                key: "skyTilt",
+                caption: "Sky Tilt",
+            }],
+        ),
         Part::Choice {
             key: "floor",
             caption: "Floor",
         },
-        Part::Number {
-            key: "floorHeight",
-            caption: "Floor Height",
-        },
+        Part::When(
+            Applies::IsNot {
+                key: "floor",
+                value: "none",
+            },
+            &[Part::Number {
+                key: "floorHeight",
+                caption: "Floor Height",
+            }],
+        ),
     ],
 };
 
@@ -670,10 +690,16 @@ static QUALITY: Section = Section {
             key: "reflections",
             caption: "Reflections",
         },
-        Part::Number {
-            key: "reflectivity",
-            caption: "Reflectivity",
-        },
+        Part::When(
+            Applies::Is {
+                key: "reflections",
+                value: "one",
+            },
+            &[Part::Number {
+                key: "reflectivity",
+                caption: "Reflectivity",
+            }],
+        ),
     ],
 };
 
@@ -682,12 +708,12 @@ pub static RENDER: NodeDef = NodeDef {
     category: Category::Solid,
     icon: "🎥",
     label: "Render 3D",
-    tooltip: "Turns a solid into a picture: a camera Distance away from the target, orbiting \
-              it and tilted above it — or, with Camera on Look at, standing at From — lit from \
+    tooltip: "Turns a solid into a picture: a camera Distance away from the target, orbiting it \
+              and tilted above it — or, with Camera on Look at, standing at From — lit from \
               Light. Drag the globe to move the camera and the sun to move the light. Plug the \
-              picture into an Output, or into any video node. Steps shading paints how hard \
-              each pixel worked. Glow lights the air near a surface, Toon shading draws light \
-              in Bands with an Outline, and One bounce reflections march a second ray from \
+              picture into an Output, or into any video node. Steps shading paints how hard each \
+              pixel worked. Glow above zero lights the air near a surface, Toon shading draws \
+              light in Bands with an Outline, and One bounce reflections march a second ray from \
               every surface, costing up to a quarter as much again. Plug a picture into Sky and \
               it wraps the whole sphere round the scene: what a ray that hits nothing sees, what \
               fog fades to and what reflections show. A Translate along X before it turns it, \
@@ -699,7 +725,7 @@ pub static RENDER: NodeDef = NodeDef {
         num("tilt", "Tilt", 0.06, -0.24, 0.24, 0.001, TURNS),
         num_log("distance", "Distance", 7.0, 0.5, 80.0, 0.01, "⬓"),
         turn("light", "Light", 0.12, -1.0, 1.0, 0.001),
-        num("glowAmount", "Glow", 0.6, 0.0, 4.0, 0.001, ""),
+        num("glowAmount", "Glow", 0.0, 0.0, 4.0, 0.001, ""),
         InputDef {
             key: "sky",
             label: "Sky",
@@ -785,14 +811,6 @@ pub static RENDER: NodeDef = NodeDef {
             label: "Reflections",
             default: "none",
             choices: &[("none", "None"), ("one", "One bounce")],
-            in_region: true,
-            ..OptionDef::EMPTY
-        },
-        OptionDef {
-            key: "glow",
-            label: "Glow",
-            default: "off",
-            choices: &[("off", "Off"), ("on", "On")],
             in_region: true,
             ..OptionDef::EMPTY
         },

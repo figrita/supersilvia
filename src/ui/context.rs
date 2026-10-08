@@ -112,6 +112,10 @@ impl CanvasFrame<'_> {
             gear: self.gears.get(&id),
             gear_caption: self.gear_captions.get(&id).map(String::as_str),
             ghosts: self.ghosts,
+            arriving: Some(crate::widgets::Arriving {
+                graph: self.graph,
+                uniforms: self.uniforms,
+            }),
             status: self.notes.get(&id).map(|n| n.text.as_str()),
             playhead: self
                 .playheads

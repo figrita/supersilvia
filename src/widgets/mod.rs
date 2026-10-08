@@ -185,6 +185,18 @@ pub struct Live<'a> {
     /// Every control whose fader soft takeover holds out of pick-up, and where the fader is,
     /// so a region's own number wears the ghost mark a row's does.
     pub ghosts: &'a [(crate::midi::Target, f32)],
+    /// The cables into this node's inputs and what each carries this frame, for a region that
+    /// draws what an input does. `None` where nothing is known of either, as in a test that
+    /// stands a region up alone.
+    pub arriving: Option<Arriving<'a>>,
+}
+
+/// The graph a node is drawn from and what its uniform outputs published on the last tick:
+/// what a row's number reads when a cable runs into it.
+#[derive(Clone, Copy)]
+pub struct Arriving<'a> {
+    pub graph: &'a crate::graph::Graph,
+    pub uniforms: crate::ui::Uniforms<'a>,
 }
 
 /// Where the fader bound to `port` is, among `ghosts`, while it is out of pick-up.
@@ -231,6 +243,35 @@ impl RegionUi<'_> {
     /// region's key, the way every other control on a node is named.
     pub fn name(&self, part: &str) -> String {
         format!("{}{}.{part}", self.node.def.slug, self.id)
+    }
+
+    /// The output cabled into this node's input `key`, where one is.
+    pub fn source(&self, key: &str) -> Option<crate::graph::PortRef> {
+        let key = self.node.def.input(key)?.key;
+        self.live
+            .arriving?
+            .graph
+            .source_of(crate::graph::PortRef::new(self.id, key))
+    }
+
+    /// What this node's number `key` is this frame, as its row's control shows it: what arrives
+    /// down the cable into it, where one runs and its far end has published, and its own
+    /// control's value otherwise — the definition's default where nothing is written yet.
+    pub fn number_now(&self, key: &str) -> f32 {
+        let arrived = self
+            .live
+            .arriving
+            .and_then(|a| a.uniforms.arriving(self.source(key)));
+        if let Some(v) = arrived {
+            return v as f32;
+        }
+        if let Some(ControlValue::Float(v)) = self.node.controls.get(key) {
+            return *v;
+        }
+        match self.node.def.input(key).map(|p| &p.control) {
+            Some(crate::nodes::Control::Number { default, .. }) => *default,
+            _ => 0.0,
+        }
     }
 
     /// One of this node's own numbers, drawn as the inset s-number the library already draws
@@ -362,7 +403,7 @@ pub fn lit_button(r: &mut RegionUi<'_>, rect: Rect, caption: &str, part: &str, l
         r.ui.id().with(("region-button", &name)),
         Sense::click(),
     );
-    crate::ui::cursor(&w, eframe::egui::CursorIcon::PointingHand);
+    crate::ui::pointing(&w);
     let radius = eframe::egui::CornerRadius::same(crate::ui::theme::RADIUS_SM);
     let painter = r.ui.painter();
     painter.rect(

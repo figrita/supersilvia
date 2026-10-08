@@ -2060,6 +2060,30 @@ mod tests {
                             number(def, key);
                         }
                     }
+                    // What gives the parts an effect names an option and one of its values,
+                    // or one of the node's inputs.
+                    Part::Note(_) => {}
+                    Part::When(applies, inner) => {
+                        match applies {
+                            area::Applies::Is { key, value }
+                            | area::Applies::IsNot { key, value } => {
+                                let option = def.option(key).unwrap_or_else(|| {
+                                    panic!("{}.{key}: no such option", def.slug)
+                                });
+                                assert!(
+                                    option.choices.iter().any(|(v, _)| *v == value),
+                                    "{}.{key}: no choice {value}",
+                                    def.slug
+                                );
+                            }
+                            area::Applies::Cabled(key) => assert!(
+                                def.inputs.iter().any(|p| p.key == key),
+                                "{}.{key}: no such input",
+                                def.slug
+                            ),
+                        }
+                        walk(def, inner, drawn);
+                    }
                 }
             }
         }
