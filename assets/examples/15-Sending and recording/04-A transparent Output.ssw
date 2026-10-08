@@ -1,0 +1,207 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A transparent Output",
+  "kind": "video",
+  "blurb": "A picture with its alpha kept, to lay over someone else's",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Only the stars are drawn: their Background is fully transparent, and the Output keeps the alpha. Its Render section writes a PNG sequence, which keeps it, as a Snap does; its Send section's Alpha, shown once Syphon or NDI is on, is set to Transparent, so a receiver can lay the stars over its own video. A video render or a recording drops the alpha: the picture over black."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 284.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.42
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "zoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.22
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "tile",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 0.75
+        },
+        "height": {
+          "Float": 0.75
+        },
+        "slide": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "rotate",
+      "pos": {
+        "x": 1380.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1640.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "png",
+        "offline": "on",
+        "send": "on",
+        "transparent": "on"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

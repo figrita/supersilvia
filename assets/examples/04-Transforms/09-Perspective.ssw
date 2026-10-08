@@ -1,0 +1,234 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Perspective",
+  "kind": "video",
+  "blurb": "A checkerboard laid back into a floor that runs to the horizon",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Perspective divides the picture by a leaning plane, so the checkerboard lies down into a floor whose far edge runs off to a horizon. The Translate before it slides the floor toward you one row a loop. Turn Tilt Y, or give it some Tilt X to bank the floor."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            1.0,
+            0.0,
+            0.4313725,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "translate",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 546.0
+      },
+      "controls": {
+        "b": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "perspective",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "tiltY": {
+          "Float": -0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "supersampling",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "quality": "2"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "vignette",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.8
+        },
+        "radius": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1820.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 2.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "y"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

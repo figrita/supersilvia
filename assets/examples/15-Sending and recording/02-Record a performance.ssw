@@ -1,0 +1,237 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Record a performance",
+  "kind": "video",
+  "blurb": "The Output's Record row: what your hands do, written as a video",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Output's Record section is open. Press Record, throw the XY Pad's puck around, and press Stop: the take is a video in recordings/ in the project, as long as you played, picture only. Render steps time a frame at a time, so it cannot follow your hands; Record keeps what really happened. Its FPS is its own, and its line counts any frame the show was too slow to draw."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "xypad",
+      "pos": {
+        "x": 520.0,
+        "y": 440.0
+      },
+      "controls": {
+        "minX": {
+          "Float": -1.4
+        },
+        "maxX": {
+          "Float": 1.4
+        },
+        "minY": {
+          "Float": -0.8
+        },
+        "maxY": {
+          "Float": 0.8
+        },
+        "drag": {
+          "Float": 0.004
+        },
+        "temperature": {
+          "Float": 0.6
+        },
+        "padX": {
+          "Float": 0.4
+        },
+        "padY": {
+          "Float": 0.3
+        },
+        "vx": {
+          "Float": 1.2
+        },
+        "vy": {
+          "Float": -0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.14
+        },
+        "softness": {
+          "Float": 0.05
+        },
+        "foreground": {
+          "Color": [
+            0.6078431,
+            0.9058824,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.995
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 262.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.01
+        },
+        "value": {
+          "Float": 0.975
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1160.0,
+        "y": 262.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 262.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif",
+        "recording": "on"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "x"
+      },
+      "to": {
+        "node": 3,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "y"
+      },
+      "to": {
+        "node": 3,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

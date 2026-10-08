@@ -1,0 +1,235 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "ADSR from a Button",
+  "kind": "video",
+  "blurb": "Hold the Button: the envelope swells the light, and lets it go",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Press and hold Press on the Button. The ADSR rises over its Attack, falls to its Sustain over its Decay and holds there while you hold; let go and it falls away over its Release. Its Value grows the light and its glow, through two Reframe Ranges. Its trace draws the shape: try a long Attack or a Sustain of 0."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "button",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "adsr",
+      "pos": {
+        "x": 520.0,
+        "y": 374.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.35
+        },
+        "decay": {
+          "Float": 0.5
+        },
+        "sustain": {
+          "Float": 0.55
+        },
+        "release": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 852.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.1
+        },
+        "outMax": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 1220.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.3
+        },
+        "outMax": {
+          "Float": 2.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.08
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "bloom",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.4
+        },
+        "radius": {
+          "Float": 0.08
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 3,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "intensity"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

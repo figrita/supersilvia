@@ -1,0 +1,273 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Paint a mandala",
+  "kind": "video",
+  "blurb": "A Drawing Canvas in eightfold symmetry, glowing over a slow palette",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Drawing Canvas is a picture you paint. Drag on its canvas: with Symmetry on R8 every stroke is repeated eight times round the middle, a mandala. It is screened over a slowly cycling palette, so the dark canvas shows the colors through. Pick a Tool and a Color, or press Clear."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 914.0,
+        "y": 638.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "drawingcanvas",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "brushSize": {
+          "Float": 10.0
+        },
+        "brushColor": {
+          "Color": [
+            1.0,
+            0.9098039,
+            0.6901961,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "symmetry": "r8",
+        "canvas_res": "1024x512"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 504.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "pythagorean",
+      "pos": {
+        "x": 914.0,
+        "y": 504.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 1174.0,
+        "y": 504.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.2
+        },
+        "biasG": {
+          "Float": 0.15
+        },
+        "biasB": {
+          "Float": 0.3
+        },
+        "ampR": {
+          "Float": 0.2
+        },
+        "ampG": {
+          "Float": 0.15
+        },
+        "ampB": {
+          "Float": 0.25
+        },
+        "freqR": {
+          "Float": 2.0
+        },
+        "freqG": {
+          "Float": 2.0
+        },
+        "freqB": {
+          "Float": 2.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.45
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "vignette",
+      "pos": {
+        "x": 1554.0,
+        "y": 504.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 1.0
+        },
+        "radius": {
+          "Float": 1.1
+        },
+        "softness": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1814.0,
+        "y": 504.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 2074.0,
+        "y": 504.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 4,
+        "key": "x"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "y"
+      },
+      "to": {
+        "node": 5,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

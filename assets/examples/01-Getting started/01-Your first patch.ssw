@@ -1,0 +1,75 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Your first patch",
+  "kind": "video",
+  "blurb": "A pattern into an Output: the whole of a patch",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A patch is pictures flowing left to right into an Output. This checkerboard is cabled into the Output's Input, and the Output draws it. Drag Frequency on the checkerboard and watch the Output change; pick its colors with the swatches."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 6.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

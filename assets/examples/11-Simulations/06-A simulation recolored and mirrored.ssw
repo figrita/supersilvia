@@ -1,0 +1,196 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A simulation recolored and mirrored",
+  "kind": "video",
+  "blurb": "A slime mold's density through a turning palette, folded six ways",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A simulation's picture is a picture like any other. The slime mold's Density is a number per pixel, so a Cosine Gradient colors it, its palette turned once a loop by the gear, and a Kaleidoscope folds the whole thing into six. Try Mirror in place of the Kaleidoscope, or another preset on the mold."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 668.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "slimemold",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sensorAngle": {
+          "Float": 35.0
+        },
+        "rotationAngle": {
+          "Float": 70.0
+        },
+        "sensorOffset": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "mode": "attract",
+        "gridScale": "16"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        },
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1492.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

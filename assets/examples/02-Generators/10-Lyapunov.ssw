@@ -1,0 +1,157 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Lyapunov",
+  "kind": "video",
+  "blurb": "Where a population model is stable and where it is chaos",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Lyapunov fractal plays a population model at two growth rates, A and B, in the order its Sequence says, and colors each point by whether the result settles (Stable Color) or goes to chaos (Chaos Color). Pick another Sequence, and drag Center A, Center B and Scale."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "lyapunov",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8117647,
+            0.3607843,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.1058824,
+            0.2431373,
+            1.0
+          ]
+        },
+        "centerA": {
+          "Float": 3.4
+        },
+        "centerB": {
+          "Float": 3.4
+        },
+        "scale": {
+          "Float": 1.2
+        },
+        "contrast": {
+          "Float": 3.0
+        }
+      },
+      "options": {
+        "sequence": "AABAB"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 456.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 806.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.12
+        },
+        "offset": {
+          "Float": 3.4
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 2,
+        "key": "centerA"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

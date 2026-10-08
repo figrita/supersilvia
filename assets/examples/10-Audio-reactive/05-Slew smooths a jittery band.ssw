@@ -1,0 +1,257 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Slew smooths a jittery band",
+  "kind": "video",
+  "blurb": "The same High band twice: raw on the left, slewed on the right",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). High jumps about from one frame to the next. The left star reads it straight and jitters; the right one reads it through a Slew, which eases toward each new value, quickly up and slowly down. Turn Rise and Fall down for a lazier star, or switch Shape to Rate Limit."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "on",
+        "events": "off"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 788.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.18
+        },
+        "outMax": {
+          "Float": 0.75
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "slew",
+      "pos": {
+        "x": 520.0,
+        "y": 1156.0
+      },
+      "controls": {
+        "rise": {
+          "Float": 12.0
+        },
+        "fall": {
+          "Float": 2.5
+        }
+      },
+      "options": {
+        "shape": "ease"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "points": {
+          "Float": 7.0
+        },
+        "centerX": {
+          "Float": -0.85
+        },
+        "foreground": {
+          "Color": [
+            0.5607843,
+            0.5411765,
+            0.6509804,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 544.0
+      },
+      "controls": {
+        "points": {
+          "Float": 7.0
+        },
+        "centerX": {
+          "Float": 0.85
+        },
+        "foreground": {
+          "Color": [
+            0.4352941,
+            0.9490196,
+            0.8235294,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "layerblend",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "high"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "innerRadius"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "innerRadius"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

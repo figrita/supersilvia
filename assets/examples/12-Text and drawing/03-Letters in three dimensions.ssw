@@ -1,0 +1,255 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Letters in three dimensions",
+  "kind": "video",
+  "blurb": "A blurred word pushed out into a solid and turned under a light",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Extrude pushes a picture out into a slab: solid where its brightness is over Threshold, Depth deep. The Blur softens the letters' edges first, which is what lets a low Steepness draw them smooth and fast \u2014 unplug it and the edges tear. Threshold is 0.25 so the letters come out full. Try Depth and Bevel, or type another word."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 832.0,
+        "y": 216.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "text",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "textColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "font": "Impact",
+        "size": "420",
+        "weight": "normal"
+      },
+      "values": {
+        "words": {
+          "Text": "SOLID"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "blur",
+      "pos": {
+        "x": 832.0,
+        "y": 40.0
+      },
+      "controls": {
+        "blurX": {
+          "Float": 5.0
+        },
+        "blurY": {
+          "Float": 5.0
+        }
+      },
+      "options": {
+        "size": "7x7"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "extrude",
+      "pos": {
+        "x": 1092.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.2
+        },
+        "depth": {
+          "Float": 0.6
+        },
+        "threshold": {
+          "Float": 0.25
+        },
+        "steepness": {
+          "Float": 8.0
+        },
+        "bevel": {
+          "Float": 0.04
+        },
+        "color": {
+          "Color": [
+            0.9411765,
+            0.6392157,
+            0.3686275,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1472.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 6.0
+        },
+        "tilt": {
+          "Float": 0.06
+        },
+        "light": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1092.0,
+        "y": 406.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.06
+        },
+        "offset": {
+          "Float": 0.03
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1792.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "profile"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

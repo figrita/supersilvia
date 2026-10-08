@@ -1,0 +1,218 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Draw with symmetry",
+  "kind": "video",
+  "blurb": "A drawing canvas that mirrors every stroke six ways, over its guide lines",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Paint on the Drawing Canvas node with the mouse. Symmetry is on 6-Fold, so every stroke comes back six times round the middle; the faint spokes behind are where the copies meet, drawn by Stripes bent round by Polar Coordinates. B, E, L, R, C and F pick pen, eraser, line, rectangle, circle and fill, and [ ] the size. Try Symmetry on HV Mirror for a plain four-way mirror, and press Clear to start again."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "drawingcanvas",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "brushSize": {
+          "Float": 6.0
+        },
+        "brushColor": {
+          "Color": [
+            0.4784314,
+            0.9686275,
+            1.0,
+            1.0
+          ]
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {
+        "symmetry": "r6",
+        "canvas_res": "1024x1024",
+        "wrap": "clamp"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 504.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 3.0
+        },
+        "phase": {
+          "Float": 0.03
+        },
+        "rotation": {
+          "Float": 0.0
+        },
+        "color1": {
+          "Color": [
+            0.3529412,
+            0.2745098,
+            0.5647059,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0470588,
+            0.0313725,
+            0.0901961,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.01
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "polarcoords",
+      "pos": {
+        "x": 914.0,
+        "y": 504.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "to_polar"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1210.0,
+        "y": 504.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "normal"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "bloom",
+      "pos": {
+        "x": 1470.0,
+        "y": 504.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.5
+        },
+        "intensity": {
+          "Float": 0.9
+        },
+        "radius": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1730.0,
+        "y": 504.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

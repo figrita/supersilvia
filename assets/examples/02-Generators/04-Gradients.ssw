@@ -1,0 +1,188 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Gradients",
+  "kind": "video",
+  "blurb": "A linear gradient for the sky, a radial one for the sun, rising and setting",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Two gradients make a sky. The Linear Gradient runs from its Start Color at the bottom to its End Color at the top; the Radial Gradient is the sun, a warm Center Color fading out to the sky, which is cabled into its Edge Color. The Master Gear's Ping-pong raises the sun and sets it. Try the Radial's Radius, and both gradients' colors."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            1.0,
+            0.5490196,
+            0.3529412,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            0.1058824,
+            0.0784314,
+            0.2745098,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        },
+        "frequency": {
+          "Float": 0.55
+        },
+        "center": {
+          "Float": -0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 632.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": -0.75
+        },
+        "outMax": {
+          "Float": 0.35
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.9568627,
+            0.7607843,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.55
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "pingpong"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "edgeColor"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

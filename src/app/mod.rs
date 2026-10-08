@@ -1687,6 +1687,7 @@ impl App {
                     .get_or_insert_with(|| crate::ui::prefs::PrefsState::on(tab));
             }
             MenuAction::OpenMidi => self.midi.open_window(),
+            MenuAction::AddExample(index) => self.add_example(index),
             MenuAction::OpenAbout => self.help.about = true,
             MenuAction::OpenLicences => {
                 self.help.licences.get_or_insert_default();

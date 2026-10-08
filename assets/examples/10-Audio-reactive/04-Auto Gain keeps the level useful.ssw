@@ -1,0 +1,218 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Auto Gain keeps the level useful",
+  "kind": "video",
+  "blurb": "The loudness, stretched to fill 0 to 1 whatever the source",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). A quiet microphone's Level barely leaves zero and a loud song never comes down. Auto Gain follows the floor and the ceiling of what arrives and says where the level sits between them, 0 to 1, so the dots swell just as far for a whisper as for a stadium. Cable Level straight into the Reframe Range to see the difference."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "on",
+        "events": "off"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "autogain",
+      "pos": {
+        "x": 520.0,
+        "y": 542.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.05
+        },
+        "release": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 720.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.18
+        },
+        "outMax": {
+          "Float": 0.48
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.4980392,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.125
+        },
+        "frequency": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "polkadot",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "stagger": {
+          "Float": 0.5
+        },
+        "softness": {
+          "Float": 0.04
+        },
+        "background": {
+          "Color": [
+            0.0901961,
+            0.0431373,
+            0.1490196,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "level"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

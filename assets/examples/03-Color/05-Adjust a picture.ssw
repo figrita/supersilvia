@@ -1,0 +1,322 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Adjust a picture",
+  "kind": "video",
+  "blurb": "Levels, Contrast, Gamma, Saturate and Vibrance, one after another",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The adjusters each change one thing about a picture. Levels sets where black and white are, Contrast and Gamma bend the brightness, Saturate and Vibrance the colorfulness. An Oscillator swings Saturate from gray to vivid. Turn each one's knobs and watch the Output."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.6
+        },
+        "octaves": {
+          "Float": 5.0
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.35
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.35
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.3
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "levels",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "inBlack": {
+          "Float": 0.08
+        },
+        "inWhite": {
+          "Float": 0.92
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "contrast",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "contrast": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "gamma",
+      "pos": {
+        "x": 1680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "gamma": {
+          "Float": 1.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "saturate",
+      "pos": {
+        "x": 2060.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "vibrance",
+      "pos": {
+        "x": 2320.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1680.0,
+        "y": 174.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 1.0
+        },
+        "offset": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 2580.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 10,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}

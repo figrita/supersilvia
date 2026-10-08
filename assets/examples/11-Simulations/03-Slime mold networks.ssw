@@ -1,0 +1,124 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Slime mold networks",
+  "kind": "video",
+  "blurb": "Thousands of agents following each other's scent into veins",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Thousands of agents wander the grid, each sniffing three ways ahead and turning toward the strongest scent, then dropping their own, so trails become veins and veins a network. This is preset 7 of the nine numbered buttons on the node; try the others, or Randomize for sensing angles nobody chose."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "slimemold",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sensorAngle": {
+          "Float": 12.9
+        },
+        "rotationAngle": {
+          "Float": 156.4
+        },
+        "sensorOffset": {
+          "Float": 15.0
+        },
+        "trailColor": {
+          "Color": [
+            1.0,
+            0.8117647,
+            0.4313725,
+            1.0
+          ]
+        },
+        "bgColor": {
+          "Color": [
+            0.0509804,
+            0.027451,
+            0.0862745,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "mode": "attract",
+        "gridScale": "16"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "zoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    }
+  ]
+}

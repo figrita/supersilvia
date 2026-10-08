@@ -1,0 +1,241 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "HSL from numbers",
+  "kind": "video",
+  "blurb": "Hue across the screen and lightness up it, from World Coordinates",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "HSLA builds a color from four numbers: Hue, Saturation, Lightness and Alpha, each 0 to 1. Here World Coordinates give every pixel its own: X, reframed to 0 to 1, is the Hue, and Y is the Lightness, so the screen is a map of every color. The Master Gear turns the hue round. Drag Saturation on the HSLA."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 780.0,
+        "y": 776.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": -1.78
+        },
+        "inMax": {
+          "Float": 1.78
+        },
+        "outMin": {
+          "Float": 0.0
+        },
+        "outMax": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 780.0,
+        "y": 408.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": -1.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.12
+        },
+        "outMax": {
+          "Float": 0.88
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "add",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "modulo",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "hsla",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.85
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1820.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "l"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

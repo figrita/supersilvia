@@ -1,0 +1,109 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Knobs and ranges",
+  "kind": "video",
+  "blurb": "Drag, type and narrow a number: the s-number and its range editor",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Every number on a node is a knob: drag it to scrub (Shift for fine, Ctrl for coarse), click it to type a value, press D over it to put it back. Right-click one for its range editor: the Polka Dot's Radius has been narrowed to 0.10 \u2013 0.50, which is why it wears an accent border, so the whole drag is the useful part. Hover any knob to read its range."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 3.5
+        },
+        "radius": {
+          "Float": 0.32
+        },
+        "softness": {
+          "Float": 0.04
+        },
+        "stagger": {
+          "Float": 0.5
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.1058824,
+            0.0627451,
+            0.2078431,
+            1.0
+          ]
+        }
+      },
+      "options": {},
+      "values": {
+        "radius": {
+          "Range": {
+            "min": 0.1,
+            "max": 0.5,
+            "step": 0.01
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

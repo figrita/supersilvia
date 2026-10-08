@@ -1,0 +1,226 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Color shift over time",
+  "kind": "video",
+  "blurb": "A kaleidoscope whose hue turns round the wheel once a loop",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Color Shift turns a picture's hue round the color wheel: a Hue Shift of 1 is the whole way round and back where it began. The Master Gear's Wrapped turns it once a loop, so this ember-colored kaleidoscope passes through every color. Turn its Saturation and Value too."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.8
+        },
+        "octaves": {
+          "Float": 4.0
+        },
+        "contrast": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "type": "ridged",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.35
+        },
+        "biasB": {
+          "Float": 0.35
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.45
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "saturation": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1716.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "hue"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

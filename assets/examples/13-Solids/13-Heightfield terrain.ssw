@@ -1,0 +1,272 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Heightfield terrain",
+  "kind": "video",
+  "blurb": "Perlin noise raised into a landscape colored by itself, with a lake",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Heightfield raises a picture into ground: each point stands at Base plus Height times the picture's brightness, painted by the picture itself. The picture is a Perlin Noise walking round its loop with the gear, so hills rise and sink, and a Ground chained on after it is a lake. Try Height and the noise's Scale; too low a Steepness tears the slopes, too high makes the march crawl."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 342.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "perlin",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 3.0
+        },
+        "foreground": {
+          "Color": [
+            0.9176471,
+            0.8627451,
+            0.6823529,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.1137255,
+            0.3098039,
+            0.145098,
+            1.0
+          ]
+        },
+        "contrast": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "heightfield",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 4.0
+        },
+        "base": {
+          "Float": -1.0
+        },
+        "height": {
+          "Float": 1.3
+        },
+        "steepness": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "paint": "picture"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "ground",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "height": {
+          "Float": -0.55
+        },
+        "color": {
+          "Color": [
+            0.1803922,
+            0.3529412,
+            0.6039216,
+            1.0
+          ]
+        },
+        "blend": {
+          "Float": 0.05
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 9.0
+        },
+        "tilt": {
+          "Float": 0.1
+        },
+        "fog": {
+          "Float": 0.025
+        },
+        "background": {
+          "Color": [
+            0.6235294,
+            0.7058824,
+            0.8470588,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "floor": "none"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1040.0,
+        "y": 256.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.04
+        },
+        "offset": {
+          "Float": 0.08
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1740.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "picture"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

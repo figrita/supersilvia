@@ -1,0 +1,123 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Send to another app",
+  "kind": "video",
+  "blurb": "The Output's Send rows: Syphon to an app on this Mac, NDI to the network",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Output's Send section is open, and nothing is sent until you press a button. Name is what other apps list it as. Syphon hands it to another app on this Mac \u2014 a VJ app, a mapper, OBS \u2014 and NDI\u00ae sends it to any machine on the network, once the free NDI runtime is installed. A sent Output stays live with its tab closed; the Main Mixer sends the whole mix the same way."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 16.0
+        },
+        "color1": {
+          "Color": [
+            0.6078431,
+            0.9058824,
+            1.0,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0431373,
+            0.1137255,
+            0.227451,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "tunnel3d",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.5
+        },
+        "twist": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "path": "lissajous",
+        "shading": "heavy"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif",
+        "send": "on",
+        "sendName": "supersilvia example"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Words as a picture",
+  "kind": "video",
+  "blurb": "The Text node's letters, colored by a moving palette and waved",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Text node draws its words as a picture: type into its box. Its Text Color here is a Cosine Gradient cycling across the letters, and a Wave ripples the result. Pick another Font or Weight, or cable a pattern into Background Color."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 780.0,
+        "y": 152.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.0
+        },
+        "frequency": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "luminosity",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.33
+        },
+        "phaseB": {
+          "Float": 0.67
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "text",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "backgroundColor": {
+          "Color": [
+            0.0627451,
+            0.0627451,
+            0.1411765,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "font": "Georgia",
+        "weight": "bold",
+        "size": "220"
+      },
+      "values": {
+        "words": {
+          "Text": "super\nsilvia"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "slug": "wave",
+      "pos": {
+        "x": 1732.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.03
+        },
+        "frequency": {
+          "Float": 3.0
+        },
+        "rotation": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "multiply",
+      "pos": {
+        "x": 1420.0,
+        "y": 518.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1992.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "textColor"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 8,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

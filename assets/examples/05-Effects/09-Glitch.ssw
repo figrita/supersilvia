@@ -1,0 +1,201 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Glitch",
+  "kind": "video",
+  "blurb": "A word shoved into broken blocks, a new break eight times a loop",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Glitch cuts the picture into blocks, shoves some sideways and pulls red and blue apart along the shove, like a broken video signal. Its Step picks the pattern: the Master Gear's Wrapped, times 8 and rounded down, gives a new break eight times a loop. Turn Intensity and RGB Split, or type another word into the Text."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 518.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "text",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "textColor": {
+          "Color": [
+            1.0,
+            0.3098039,
+            0.8470588,
+            1.0
+          ]
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0431373,
+            0.0588235,
+            0.227451,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "font": "Impact",
+        "size": "220"
+      },
+      "values": {
+        "words": {
+          "Text": "GLITCH"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 868.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 980.0
+      },
+      "controls": {
+        "b": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "glitch",
+      "pos": {
+        "x": 832.0,
+        "y": 40.0
+      },
+      "controls": {
+        "intensity": {
+          "Float": 0.35
+        },
+        "shift": {
+          "Float": 0.25
+        },
+        "blockSize": {
+          "Float": 0.08
+        },
+        "rgbSplit": {
+          "Float": 0.03
+        }
+      },
+      "options": {
+        "direction": "horizontal"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1092.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "step"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

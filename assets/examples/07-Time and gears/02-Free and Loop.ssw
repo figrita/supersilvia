@@ -1,0 +1,373 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Free and Loop",
+  "kind": "video",
+  "blurb": "One dot runs free with its Speed bent, the other is locked to a gear",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Two Oscillators bob two dots, and the Output's own last frame, slid left, draws their paths. The top one is Free, and an Oscillator swings its Speed, so it rushes and lags; the bottom one is Loop, its Time a gear's count, exactly four waves a loop. Both do four waves a loop, so they meet again at the end. Click Free or Loop on either Timing heading to swap them."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 418.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "gears"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 768.0
+      },
+      "controls": {
+        "p": {
+          "Float": 4.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "display": "rosette",
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1202.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.6
+        },
+        "offset": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1548.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.32
+        },
+        "offset": {
+          "Float": 0.48
+        }
+      },
+      "options": {
+        "timing": "on"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1894.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.32
+        },
+        "offset": {
+          "Float": -0.48
+        }
+      },
+      "options": {
+        "timing": "on",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.07
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "centerX": {
+          "Float": 1.35
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 900.0,
+        "y": 440.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.07
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "centerX": {
+          "Float": 1.35
+        },
+        "foreground": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 262.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "translate",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "x": {
+          "Float": -0.025
+        },
+        "y": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 262.0
+      },
+      "controls": {
+        "value": {
+          "Float": 0.985
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1160.0,
+        "y": 262.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "speed"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "frame"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 12,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

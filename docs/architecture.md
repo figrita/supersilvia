@@ -283,6 +283,7 @@ the folder.
 | `ui/` | `egui` | draws, and returns `Command`s. Never mutates the graph. The canvas is one pass, `ui::show`, handed a `CanvasFrame` — everything it reads this frame, borrowed — and handing back `Effects`, the commands and every request beside them, which `App::apply_canvas` performs in one place. Each node on screen is drawn from a `NodeCtx` and the `canvas::NodeLayout` the pass made of it once. |
 | `widgets/` | `egui`, `ui/`, `nodes/` | what a node draws below its rows: `widgets::def` is the one table from a `nodes::Region` to the widget that sizes and draws it, so the registry names a region without naming the toolkit. |
 | `workspace.rs` | `graph/`, `nodes/` | one workspace as a file: the `.ssw` DTO, its warnings, and the id remap an import needs. |
+| `examples.rs` | nothing | the Example Library: every `assets/examples/` workspace file, compiled in by `build.rs`'s list — [the Example Library](#the-example-library). |
 | `project.rs` | `workspace.rs`, `graph/`, `nodes/` | the folder: `project.ssp`, load and save of the set, adopting strays, `assets/` and the cache beside it. |
 | `synth/` | `clock.rs`, `graph/`, `compile/`, `nodes/`, `audio/`, `video/`, `maininput.rs`, `mixer.rs`, `render/` | the **running state**, the tick over it, and the thread it runs on: the clock, every `CpuNode`, what they published, the Main Input's capture, the offline render — and the `Renderer`, on the `render::Gpu` it was made on, which the renderer holds: a clone of the one device and its one queue. Holds the editor's `Graph` through a shared `Arc`, handed across on an edit, and writes only a copy of its own — a MIDI knob or a node's `write_control`, through `Arc::make_mut`. It names no graphics crate — `tests/rules.rs` keeps `wgpu`, `egui` and `eframe` out — because what a node computes may not depend on what draws it, and because it hands the renderer nothing to draw with: the renderer keeps the handle it was made on. |
 | `app/` | all of them | owns the **document**, applies commands, drives the frame. `App` keeps the view and the frame — the canvas, the tabs, the start menu, the theme, the preferences window, the confirm and the frame meters — and owns the rest as four parts, a struct each whose fields only its own module can reach, so one part reaches another only by being handed it: `document/` is `Document` — the graph, the undo ring, the edit serials and the clipboard, with `apply` its one door; `link/` is `SynthLink` — the synth's host, the snapshot, the plan and its counters, what it keeps per Output and per pass, handed the session by `App::with_link`; `midi` is `MidiDesk` — learning, the monitor, the map as last sent and the barriers; `media` is `Media` — the assets and their pictures, the file dialog, the status line and the offline render's bookkeeping. Where two parts move together it is `App` that says so, at one call site: `edit` is `App::apply`, which hands what an applied command did to whoever owns it. `mod.rs` holds the struct, the workspaces on screen and the frame's housekeeping; `files`, `frame`, `maininput`, `render`, `show` and `undo` each `impl App` over the parts' methods. |
@@ -1092,6 +1093,40 @@ in the folder through an undo, for the same reason Save deletes nothing under `a
 
 **A loose `.ssw` outside any project** goes through the same import: `supersilvia tunnel.ssw`
 makes a project named after the file in the projects directory and imports it into that.
+
+### The Example Library
+
+**An example is a workspace file compiled into the binary, imported as a tab.** The files are
+`assets/examples/<NN-Category>/<NN-Title>.ssw`, the format an export writes. `build.rs` lists
+them into `OUT_DIR` in the order of the two `NN` prefixes, each `include_str!`'d, and
+`examples.rs` includes the list as `examples::EXAMPLES`: a category and a title, both the names
+less their prefix and the extension, and the file's text. The build reads no file's contents,
+only names, and every file is a rerun trigger, so a new example is a rebuild.
+
+Help ▸ Example Library sends `MenuAction::AddExample` with an index into that list, and
+`Command::AddExample` imports that text through `Project::import_workspace_text`, which is the
+import above with the file's text in place of its path and **no folder of media**: every file
+an example named would be reported missing, and nothing is read from disk on its behalf. So an
+example is one undo step, remapped onto this project's ids under a fresh `WorkspaceId`,
+appended, opened and shown, and its warnings go where an import's do. The command carries the
+index, since the list is the binary's own and a redo finds the same file under it, and the
+strip's height: inside the same step the new workspace is made a strip and moved to where
+`ui::layout::arrange` puts it for that height, which `Command::AutoArrange` also runs
+([ui.md](ui.md#the-example-library)).
+
+**The examples are authored by script**, `python3 scripts/examples/make.py`, which runs each
+`scripts/examples/cat_<name>.py` category module — its `ORDER`, its `CATEGORY` and its
+examples — through `scripts/examples/lib.py`: every node, control, option and cable is checked
+against the registry as it is added (`cargo run --example registry` dumps it), each example is
+written as a strip laid out by its dataflow — positions only an import of the file or the
+preview project shows, since the menu arranges its own — and each is held to holding a note
+and an Output, no node that opens a device or a file, and no cable that leaves it. `--only` rewrites some categories,
+`--preview <folder>` also writes a project holding every example as a tab, for the app or
+`loop_gifs`. `tests/examples.rs` holds the written files to importing with no warning, every
+cable connected, a note, an Output, no device and no file, and to arriving as a strip that a
+second arrange moves nothing on, its note at the first column's top; `tests/shader_targets.rs` holds every
+module an example compiles to to no diagnostic and the shader gate — each failure named by its
+category and title, so a node change that breaks an example says which.
 
 ### Saving and opening
 

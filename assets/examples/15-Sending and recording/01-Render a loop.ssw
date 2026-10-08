@@ -1,0 +1,227 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Render a loop",
+  "kind": "video",
+  "blurb": "The Output's Render section, as long as the Master Gear's loop",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Output's Render section is open: a GIF at 25 FPS, four seconds long. That is the Master Gear's caption, loops in 1 cycle \u00b7 4.000 s, since everything moving is on that gear, so the film ends exactly where it began. Press Render and it is written to renders/ in the project. Change the gear's Length, then set Duration to what its caption says."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.4
+        },
+        "octaves": {
+          "Float": 3.0
+        },
+        "gain": {
+          "Float": 0.5
+        },
+        "contrast": {
+          "Float": 1.1
+        }
+      },
+      "options": {
+        "type": "ridged",
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.35
+        },
+        "biasB": {
+          "Float": 0.35
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.45
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "domainwarp",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.3
+        },
+        "frequency": {
+          "Float": 1.2
+        },
+        "octaves": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif",
+        "offline": "on"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

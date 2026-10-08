@@ -373,6 +373,10 @@ pub struct CanvasState {
     height: f32,
     /// Width of it, which with the height is what centring a node on the view needs.
     width: f32,
+    /// Height a strip has in the canvas area, as of the last frame that measured it: the
+    /// canvas's own height on a strip, less the rail on a plane, and measured on the project
+    /// tab too. `Command::AddExample` arranges for it.
+    strip_height: f32,
     /// Top-left of the canvas area last frame, which is the origin world coordinates are
     /// measured from. Recorded for the same reason `height` is: it is known only while
     /// drawing, and something outside needs it afterwards.
@@ -580,6 +584,17 @@ impl CanvasState {
     /// Width of the canvas area last frame.
     pub fn width(&self) -> f32 {
         self.width
+    }
+
+    /// Height a strip has in the canvas area, whichever mode was drawn there last.
+    pub fn strip_height(&self) -> f32 {
+        self.strip_height
+    }
+
+    /// Record the strip's height from the canvas area's: the canvas's every frame, and the
+    /// project tab's in its place.
+    pub fn measure_strip(&mut self, available_height: f32) {
+        self.strip_height = (available_height - RAIL_HEIGHT).max(0.0);
     }
 
     /// Top-left of the canvas area last frame, the origin for `Transform::to_screen`.
@@ -1213,6 +1228,7 @@ fn view(
     );
     state.height = rect.height();
     state.width = rect.width();
+    state.measure_strip(available.y);
     let origin = rect.min;
     state.origin = origin;
     let painter = ui.painter_at(rect);

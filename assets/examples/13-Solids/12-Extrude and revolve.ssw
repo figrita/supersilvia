@@ -1,0 +1,354 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Extrude and revolve",
+  "kind": "video",
+  "blurb": "A word pushed out into letters and a pentagon turned on a lathe",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Pictures into solids: Extrude pushes out a blurred Text wherever it is brighter than Threshold, Depth deep, and Revolve spins the right half of a Polygon round the upright axis like a lathe into a spinning top. The Blur softens the letters' edge so the march can trust it; unplug it and the edges tear. Try Extrude's Depth and Bevel, the Polygon's Sides, and the Text's words."
+        }
+      },
+      "width": 420.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1092.0,
+        "y": 306.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "polygon",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 5.0
+        },
+        "radius": {
+          "Float": 0.7
+        },
+        "rotation": {
+          "Float": 0.1
+        },
+        "softness": {
+          "Float": 0.06
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "revolve",
+      "pos": {
+        "x": 832.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.2
+        },
+        "steepness": {
+          "Float": 10.0
+        },
+        "color": {
+          "Color": [
+            0.8392157,
+            0.6392157,
+            0.3529412,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "place",
+      "pos": {
+        "x": 1092.0,
+        "y": 40.0
+      },
+      "controls": {
+        "x": {
+          "Float": 3.3
+        },
+        "y": {
+          "Float": -0.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "text",
+      "pos": {
+        "x": 520.0,
+        "y": 306.0
+      },
+      "controls": {
+        "textColor": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "size": "420",
+        "font": "Impact",
+        "weight": "bold"
+      },
+      "values": {
+        "words": {
+          "Text": "SOLID"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "slug": "blur",
+      "pos": {
+        "x": 832.0,
+        "y": 384.0
+      },
+      "controls": {
+        "blurX": {
+          "Float": 5.0
+        },
+        "blurY": {
+          "Float": 5.0
+        }
+      },
+      "options": {
+        "size": "7x7"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "extrude",
+      "pos": {
+        "x": 1352.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.2
+        },
+        "depth": {
+          "Float": 0.5
+        },
+        "threshold": {
+          "Float": 0.25
+        },
+        "steepness": {
+          "Float": 8.0
+        },
+        "bevel": {
+          "Float": 0.03
+        },
+        "tYaw": {
+          "Float": 0.04
+        }
+      },
+      "options": {
+        "paint": "picture",
+        "transform": "on"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1732.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.6
+        },
+        "tilt": {
+          "Float": 0.06
+        },
+        "targetX": {
+          "Float": 1.0
+        },
+        "targetY": {
+          "Float": 0.0
+        },
+        "fog": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1352.0,
+        "y": 494.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.05
+        },
+        "offset": {
+          "Float": 0.02
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 2052.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "profile"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "profile"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 10,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}

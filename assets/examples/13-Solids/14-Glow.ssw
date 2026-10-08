@@ -1,0 +1,222 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Glow",
+  "kind": "video",
+  "blurb": "Render 3D's Glow: a halo where rays pass near a surface",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "With Render 3D's Glow on, every ray that passes close to a surface without hitting it picks up Glow Color, more the closer and longer it grazes. Thin shapes on a dark ground show it best: a Box Frame turning round a Helix. Try the Glow port on Render 3D, and Glow Reach and Glow Color in its Light section."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 476.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "boxframe",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 2.0
+        },
+        "height": {
+          "Float": 2.0
+        },
+        "depth": {
+          "Float": 2.0
+        },
+        "edge": {
+          "Float": 0.05
+        },
+        "color": {
+          "Color": [
+            0.1647059,
+            0.1647059,
+            0.227451,
+            1.0
+          ]
+        },
+        "tPitch": {
+          "Float": 0.1
+        }
+      },
+      "options": {
+        "transform": "on"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "helix",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.45
+        },
+        "pitch": {
+          "Float": 0.35
+        },
+        "tube": {
+          "Float": 0.06
+        },
+        "height": {
+          "Float": 1.6
+        },
+        "color": {
+          "Color": [
+            0.9490196,
+            0.9372549,
+            0.9019608,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.0
+        },
+        "tilt": {
+          "Float": 0.05
+        },
+        "orbit": {
+          "Float": 0.08
+        },
+        "fog": {
+          "Float": 0.0
+        },
+        "background": {
+          "Color": [
+            0.027451,
+            0.0235294,
+            0.0470588,
+            1.0
+          ]
+        },
+        "glowAmount": {
+          "Float": 0.5
+        },
+        "glowReach": {
+          "Float": 0.12
+        },
+        "glowColor": {
+          "Color": [
+            0.3490196,
+            0.8470588,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "floor": "none",
+        "glow": "on"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1360.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "tYaw"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

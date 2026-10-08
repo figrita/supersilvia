@@ -26,6 +26,9 @@
 //! `cargo test --test shader_targets -- --nocapture`. `SHADER_TARGETS_DUMP=<dir>` writes each
 //! module, its MSL, or its failure into that directory. `proposals/shader-path.md` is the
 //! record of the decision this gate serves.
+//!
+//! Every module an example in the Example Library compiles to goes through the same gate, by
+//! the example's name, with no diagnostic allowed at all.
 
 use emath::Pos2;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
@@ -513,6 +516,82 @@ fn every_wgsl_module_reaches_msl_spirv_and_hlsl() {
         "{} of {} WGSL modules fail:\n\n{}",
         failures.len(),
         entries.len(),
+        failures.join("\n\n")
+    );
+}
+
+/// Every module an example in the Example Library compiles to — each Output's, its cost
+/// probe and its workspace's pass — has no diagnostic and goes through the gate above, named
+/// by the example's category and title. `tests/examples.rs` holds the rest of what an
+/// example promises.
+#[test]
+fn every_example_compiles_clean_and_reaches_msl_spirv_and_hlsl() {
+    let mut failures = Vec::new();
+    let mut checked = 0;
+    for example in supersilvia::examples::EXAMPLES {
+        let named = format!("{}/{}", example.category, example.title);
+        let mut g = Graph::new();
+        let Ok((id, _)) = supersilvia::project::Project::scratch().import_workspace_text(
+            example.file,
+            example.title,
+            None,
+            &mut g,
+        ) else {
+            failures.push(format!("{named}: does not import"));
+            continue;
+        };
+        let outputs: Vec<NodeId> = g
+            .on_workspace(id)
+            .filter(|(_, n)| n.def.is_output)
+            .map(|(id, _)| id)
+            .collect();
+        let mut entries = Vec::new();
+        for out in outputs {
+            let label = format!("{}{out}", g.get(out).expect("on the workspace").def.slug);
+            match wgsl::build(&g, out) {
+                Some(shader) => entries.push(Entry {
+                    name: format!("example:{named}:{label}"),
+                    shader,
+                }),
+                None => failures.push(format!("{named}: {label} builds no module")),
+            }
+            if let Some(shader) = wgsl::build_probe(&g, out) {
+                entries.push(Entry {
+                    name: format!("example:{named}:{label} probe"),
+                    shader,
+                });
+            }
+        }
+        for (i, shader) in wgsl::build_pass(&g, id, &measured(&g), true)
+            .into_iter()
+            .enumerate()
+        {
+            entries.push(Entry {
+                name: format!("example:{named}:pass {i}"),
+                shader,
+            });
+        }
+        for entry in &entries {
+            checked += 1;
+            if !entry.shader.diagnostics.is_empty() {
+                failures.push(format!(
+                    "{}: diagnostics {:?}",
+                    entry.name, entry.shader.diagnostics
+                ));
+            }
+            if let Err(e) = check(entry) {
+                failures.push(format!("{}: {e}", entry.name));
+            }
+        }
+    }
+    println!(
+        "shader_targets: {checked} modules from {} examples checked",
+        supersilvia::examples::EXAMPLES.len()
+    );
+    assert!(
+        failures.is_empty(),
+        "{} example modules fail:\n\n{}",
+        failures.len(),
         failures.join("\n\n")
     );
 }

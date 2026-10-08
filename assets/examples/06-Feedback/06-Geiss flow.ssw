@@ -1,0 +1,264 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Geiss flow",
+  "kind": "video",
+  "blurb": "A spinning spiral dragged through a swirling flow, like ink in water",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Geiss Flow takes the last frame in its Last Frame, drags it along a swirling flow and fades it under the live picture, so the spiral pours out like ink in water. Distortion is how far a pixel travels each frame, Swirl how much the flow curls. Turn Feedback and Fade for longer-lived ink."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 694.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 2.0
+        },
+        "thickness": {
+          "Float": 0.1
+        },
+        "outerRadius": {
+          "Float": 0.8
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 520.0,
+        "y": 348.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 2.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.5
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.25
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "layerblend",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "multiply"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "geissflow",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "flowScale": {
+          "Float": 3.0
+        },
+        "distortionAmount": {
+          "Float": 0.012
+        },
+        "feedbackAmount": {
+          "Float": 0.95
+        },
+        "fadeAmount": {
+          "Float": 0.985
+        },
+        "swirl": {
+          "Float": 1.4
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 7,
+        "key": "lastFrame"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

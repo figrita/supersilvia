@@ -1,0 +1,200 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Whirl, pinch and fisheye",
+  "kind": "video",
+  "blurb": "A grid twisted by Whirl & Pinch, then bulged through a Fisheye Lens",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Distortions bend the grid instead of moving it whole. Whirl & Pinch twists a disc in the middle, swung back and forth by the Oscillator, and pulls it in with a negative Pinch; the Fisheye Lens then bulges the whole frame like a doorway peephole. Set the Fisheye's Distortion below zero for a pincushion."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 14.0
+        },
+        "color1": {
+          "Color": [
+            0.945098,
+            0.9803922,
+            0.9333333,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.1137255,
+            0.2078431,
+            0.3411765,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "whirlandpinch",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "pinch": {
+          "Float": -0.25
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 546.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.6
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "fisheye",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distortion": {
+          "Float": 0.5
+        },
+        "radius": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "whirl"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -279,12 +279,13 @@ the name; the geometry carries the click** — the same split cables and tags ar
 `ui/menu.rs` and drawn by whichever bar the machine has: `egui::MenuBar`, by `menu::show`, on
 Linux and under every test; AppKit's own on the Mac, where `main` asks for it and
 `platform::menu` builds it, with Settings… (`⌘,`) and Quit (`⌘Q`) in the application menu
-beside About, Services and Hide, and a Window menu after View. **Help** holds Keyboard
+beside About, Services and Hide, and a Window menu after View. **Help** opens on the Example
+Library, see [the Example Library](#the-example-library), then under a rule Keyboard
 shortcuts… (`F1`), see [the keyboard shortcuts window](#the-keyboard-shortcuts-window), then
 About supersilvia and Licences…, see [About and Licences](#about-and-licences), then under a
 rule Report a problem…, see [What a tester can send](#what-a-tester-can-send). On the Mac,
 AppKit's standard About panel in the application menu answers About and Licences, so its Help
-menu holds Keyboard shortcuts… and Report a problem…. There the
+menu holds the Example Library, Keyboard shortcuts… and Report a problem…. There the
 frame-rate meter, [the time readout](#the-time-readout) and [the problems badge](#problems)
 stand at the end of the tab row instead, since the bar they stand in elsewhere is not the
 window's. The
@@ -466,6 +467,28 @@ its backdrop takes the clicks the canvas underneath would answer — and because
 are read inside the canvas rather than through a widget, a list that opens under the question
 is closed on the frame it opened. The arrange offer is the same kind of thing and is the same
 kind of window.
+
+### The Example Library
+
+**Help ▸ Example Library** is a submenu of categories, each a submenu of examples, two levels
+that both bars draw from the one model. Choosing an example **adds it to the project on screen
+as a tab of its own and shows it**: the project stays open, nothing asks for a folder, and the
+step is one undo, named `Add example <title>`, that takes the whole tab back. An example is a
+workspace file compiled into the binary and arrives by the same import a `.ssw` from disk does,
+so whatever that import loses is said the same way, on the status line and in the log —
+[architecture.md](architecture.md#the-example-library). The menu's titles are the files' names:
+`assets/examples/01-Getting started/01-Your first patch.ssw` is Getting started ▸ Your first
+patch, in the order of the `NN-` prefixes. Each example is one small patch with a note saying
+what to look at and what to turn, and names no file and opens no device.
+
+**An example arrives as a strip, auto-arranged.** Its file says `"layout": "linear"`, and the
+command sets the strip regardless, then runs [Auto-arrange](#auto-arrange) over the new tab
+inside the same step — so every example reads left to right the same way, by the app's own
+rule rather than by positions a script wrote, and arranging one again moves nothing.
+The height is the strip this window has, `CanvasState::strip_height` — the canvas's height on a
+strip, less the rail on a plane, measured on the project tab too — and it rides in
+`Command::AddExample` as `AutoArrange`'s does, so a redo lands every node where the first run
+did. The note, which no cable reaches, heads the first column: the first thing on the left.
 
 ### Undo by name
 
@@ -1225,15 +1248,19 @@ source, make each rank a column, split a column taller than the strip, and stack
 with the leftover space spread up to a limit. Available in both modes — it only sets
 positions — but the strip is what keeps a result tidy afterwards.
 
-Two rules carry meaning rather than tidiness. **Action edges do not contribute to a rank**,
+Three rules carry meaning rather than tidiness. **Action edges do not contribute to a rank**,
 because an action cable is a CPU event and not a value; counting one would drag a sequencer
 into the column after the thing it triggers. **A cycle ranks zero** rather than failing:
-feedback graphs are the ordinary case here.
+feedback graphs are the ordinary case here. **A node with no ports heads the first column** —
+a note, the one such kind: it is documentation rather than dataflow, so nothing ranks it, and
+rather than falling among the sources by its id it comes before them, notes in the order they
+were made. A patch's note is then the first thing on the left whenever it was written.
 
 **The height travels inside `Command::AutoArrange`.** Redo replays the command, so an arrange
 that re-read the viewport would place nodes somewhere else if the window had been resized in
 between. It is one command and therefore one undo step, and it runs when asked and never
-otherwise — not on add, not on delete, not on resize. An arrange fired by dragging a window
+otherwise — not on adding a node, not on delete, not on resize — but for an example, which
+Help ▸ Example Library arranges inside its own one step. An arrange fired by dragging a window
 edge would be an undoable edit with no gesture behind it.
 
 Switching to Linear on a graph laid out by hand **offers** an arrange rather than performing
@@ -3976,7 +4003,7 @@ s-number, a color as the swatch, and a button that opens a panel of more parts.
 `widgets::section` draws every one; a section takes a 240 body. Render 3D (`solidrender`) is the
 node that has them: **Camera**, **Light** and **Look** open on a new node and **Quality**
 closed, under five port rows — Orbit, Tilt, Distance, Light and Glow — which are what a cable
-or a gear is for.
+or a gear is for, and the Sky, a picture.
 
 **What a section draws is the node's own.** Each number and swatch is a hidden control
 ([nodes.md](nodes.md#a-nodes-own-values)) and each switch an `OptionDef::in_region` option, so
@@ -4203,9 +4230,11 @@ as a `render::publish::Failure`, read once a frame into the Output's `OutputRead
 
 **Flip** sits under the Syphon row, its label in the status column, while Syphon publishes:
 *Bottom first* | *Top first*. **Alpha** comes once, after the rows, while either way sends:
-*Opaque* | *Transparent*, which both ways read. Each is `press::choice`, the press button's
-field cut into a segment per value, the chosen one raised; a click on the other is one
-`SetOption`. The keys are the ticks' own, `syphonFlip` and `transparent`.
+*Opaque* | *Transparent*, which both ways read. It governs what is sent and nothing else: a
+Snap, a PNG sequence and a GIF always keep the picture's own alpha, and a video drops it
+([rendering.md](rendering.md#the-capture)), so it waits for a way to be on. Each is
+`press::choice`, the press button's field cut into a segment per value, the chosen one raised;
+a click on the other is one `SetOption`. The keys are the ticks' own, `syphonFlip` and `transparent`.
 
 **Static height.** Which rows there are is the options' answer and the machine's, never the
 sender's: a row appears when a hand switches something on, as a fold opens, and what the

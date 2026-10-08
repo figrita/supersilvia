@@ -1,0 +1,220 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Mosaic",
+  "kind": "video",
+  "blurb": "A drifting noise set into stained glass",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Mosaic fills each cell with the color at its center and draws leading between them, so the drifting noise turns into stained glass. Voronoi cells scatter at random; try Shape Hexagon or Square. Turn Cell Freq for smaller pieces and Border Width for thicker leading."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.2
+        },
+        "octaves": {
+          "Float": 4.0
+        },
+        "contrast": {
+          "Float": 1.1
+        }
+      },
+      "options": {
+        "type": "standard",
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "mosaic",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "cellSize": {
+          "Float": 14.0
+        },
+        "randomness": {
+          "Float": 0.9
+        },
+        "borderWidth": {
+          "Float": 0.12
+        },
+        "borderColor": {
+          "Color": [
+            0.0705882,
+            0.0509804,
+            0.0392157,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "shape": "voronoi"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Stripes in polka dots",
+  "kind": "video",
+  "blurb": "Polka dots filled with moving stripes, over a grid",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A pattern's colors are inputs, so a pattern can be painted with another. The Polka Dot's Input is a Stripes, read at the middle of each dot like a sign made of bulbs, and its Background is a Grid. A Master Gear slides the stripes along. Turn the Polka Dot's Frequency, Stagger and Radius, or the Stripes' Rotation."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 528.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "rotation": {
+          "Float": 0.125
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.3019608,
+            0.427451,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.2980392,
+            0.7882353,
+            0.9411765,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "grid",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "cellsX": {
+          "Float": 32.0
+        },
+        "cellsY": {
+          "Float": 18.0
+        },
+        "thickness": {
+          "Float": 0.06
+        },
+        "foreground": {
+          "Color": [
+            0.2392157,
+            0.3529412,
+            0.6,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0784314,
+            0.1019608,
+            0.2,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "polkadot",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        },
+        "radius": {
+          "Float": 0.4
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -485,34 +485,33 @@ impl Document {
                 }
             }
             Command::ImportWorkspace { ref file } => {
-                let (id, report) = env
+                let imported = env
                     .project
                     .import_workspace(file, self.graph_mut())
                     .map_err(|e| CommandError::Failed(format!("import failed: {e}")))?;
-                for w in &report.warnings {
-                    log::warn!("importing {}: {w}", file.display());
-                }
-                for missing in &report.missing {
-                    log::warn!("import could not find {missing}");
-                }
-                // Every Output that arrived has no shader yet, and neither has anything
-                // downstream of a node the import re-pointed.
-                let arrived: Vec<NodeId> = self.graph.on_workspace(id).map(|(n, _)| n).collect();
-                for node in arrived {
-                    self.mark(&mut out, node);
-                }
-                out.imported = Some((id, report.to_string()));
+                self.arrived(&mut out, imported, &file.display().to_string());
+            }
+            Command::AddExample { index, height } => {
+                let example = crate::examples::EXAMPLES
+                    .get(index)
+                    .ok_or_else(|| CommandError::Failed(format!("no example {index}")))?;
+                let imported = env
+                    .project
+                    .import_workspace_text(example.file, example.title, None, self.graph_mut())
+                    .map_err(|e| CommandError::Failed(format!("import failed: {e}")))?;
+                let workspace = imported.0;
+                let from = format!("the example {}/{}", example.category, example.title);
+                self.arrived(&mut out, imported, &from);
+                // A strip at the positions the arrange gives, whatever the file holds.
+                self.graph_mut()
+                    .set_layout(workspace, crate::graph::LayoutMode::Linear);
+                self.arrange(workspace, height);
             }
             Command::AutoArrange { workspace, height } => {
                 if !self.graph.has_workspace(workspace) {
                     return Err(CommandError::NoSuchWorkspace(workspace));
                 }
-                let placed = crate::ui::layout::arrange(&self.graph, workspace, height);
-                for (id, pos) in placed {
-                    if let Some(node) = self.graph_mut().get_mut(id) {
-                        node.pos = pos;
-                    }
-                }
+                self.arrange(workspace, height);
             }
             Command::Duplicate { ref nodes, offset } => {
                 // Copy the node, not its definition's defaults: a duplicate that lost the
@@ -949,6 +948,39 @@ impl Document {
         for output in self.graph.downstream_outputs(node) {
             if !out.stale.contains(&output) {
                 out.stale.push(output);
+            }
+        }
+    }
+
+    /// What an import leaves for the rest of the app, wherever the file came `from`: its
+    /// problems logged, every node it brought marked, and the report.
+    fn arrived(
+        &self,
+        out: &mut Applied,
+        (id, report): (WorkspaceId, crate::project::ImportReport),
+        from: &str,
+    ) {
+        for w in &report.warnings {
+            log::warn!("importing {from}: {w}");
+        }
+        for missing in &report.missing {
+            log::warn!("import could not find {missing}");
+        }
+        // Every Output that arrived has no shader yet, and neither has anything downstream
+        // of a node the import re-pointed.
+        for (node, _) in self.graph.on_workspace(id) {
+            self.mark(out, node);
+        }
+        out.imported = Some((id, report.to_string()));
+    }
+
+    /// Move every node on one workspace to where `ui::layout::arrange` puts it for a strip of
+    /// `height`.
+    fn arrange(&mut self, workspace: WorkspaceId, height: f32) {
+        let placed = crate::ui::layout::arrange(&self.graph, workspace, height);
+        for (id, pos) in placed {
+            if let Some(node) = self.graph_mut().get_mut(id) {
+                node.pos = pos;
             }
         }
     }

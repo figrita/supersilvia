@@ -16,6 +16,7 @@ pub mod check;
 pub mod clock;
 pub mod command;
 pub mod compile;
+pub mod examples;
 pub mod gamepad;
 pub mod graph;
 pub mod maininput;

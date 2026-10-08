@@ -1,0 +1,268 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Notes explain a patch",
+  "kind": "video",
+  "blurb": "A small patch with a note for every node saying what it does",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Note connects to nothing and changes nothing: it is words on the canvas, saved with the patch, for whoever opens it next \u2014 you included. Add one from the library like any node, type into it, and drag its edge to widen it. Arranging puts notes first, so here the one for each node follows this one, in the order the picture flows."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 342.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "perlin",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.5
+        },
+        "contrast": {
+          "Float": 1.4
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "note",
+      "pos": {
+        "x": 520.0,
+        "y": 692.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Master Gear: the clock, one turn every eight seconds, so the noise comes back where it started."
+        }
+      },
+      "width": 240.0
+    },
+    {
+      "id": 8,
+      "slug": "note",
+      "pos": {
+        "x": 520.0,
+        "y": 858.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Perlin Noise: walks one circle a turn of the gear. Its Value is a number per pixel."
+        }
+      },
+      "width": 240.0
+    },
+    {
+      "id": 9,
+      "slug": "note",
+      "pos": {
+        "x": 780.0,
+        "y": 386.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Cosine Gradient: turns that number into a color, one cosine wave per channel."
+        }
+      },
+      "width": 240.0
+    },
+    {
+      "id": 10,
+      "slug": "note",
+      "pos": {
+        "x": 1160.0,
+        "y": 326.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Kaleidoscope: folds the picture into eight mirrored wedges."
+        }
+      },
+      "width": 240.0
+    },
+    {
+      "id": 11,
+      "slug": "note",
+      "pos": {
+        "x": 1456.0,
+        "y": 582.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Output: draws whatever reaches its Input, and renders it to a file."
+        }
+      },
+      "width": 240.0
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

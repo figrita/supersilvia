@@ -1,0 +1,232 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Mandelbrot",
+  "kind": "video",
+  "blurb": "The Mandelbrot set, its palette flowing outward from the edge",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Mandelbrot set, the black shape in the middle. Its Smooth output, how fast each point escapes, runs a Cosine Gradient, and the Master Gear cycles the palette so color streams out of the set. Drag Center X, Center Y and Zoom to explore; raise Iterations as you zoom in."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 816.0,
+        "y": 174.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "mandelbrot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerX": {
+          "Float": -0.62
+        },
+        "centerY": {
+          "Float": 0.0
+        },
+        "zoom": {
+          "Float": 0.78
+        },
+        "iterations": {
+          "Float": 120.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "power",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "exponent": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.35
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.35
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.3
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            0.0196078,
+            0.0117647,
+            0.0470588,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1716.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "smooth"
+      },
+      "to": {
+        "node": 4,
+        "key": "base"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "mask"
+      },
+      "to": {
+        "node": 6,
+        "key": "opacity"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

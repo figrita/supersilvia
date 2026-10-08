@@ -1,0 +1,284 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A beat picks a new look",
+  "kind": "video",
+  "blurb": "Each bass hit rolls a new number of sides and a new hue",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). Each time the bass crosses its threshold \u2014 the square on the Bass bar, which you drag in the panel \u2014 the Main Input fires Bass Event. Each one rolls the turning polygon a new number of sides and its colors a new turn of the hue wheel. Drag the threshold up so only the big hits fire, or cable High Event in its place."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 542.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "off",
+        "events": "on"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "triggeredrandom",
+      "pos": {
+        "x": 520.0,
+        "y": 892.0
+      },
+      "controls": {
+        "min": {
+          "Float": 3.0
+        },
+        "max": {
+          "Float": 8.99
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 1048.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "triggeredrandom",
+      "pos": {
+        "x": 900.0,
+        "y": 566.0
+      },
+      "controls": {
+        "min": {
+          "Float": 0.0
+        },
+        "max": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.945098,
+            0.7215686,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.4980392,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.75
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "loop_mode": "mirror"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "polygon",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.7
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "background": {
+          "Color": [
+            0.0705882,
+            0.0392157,
+            0.1411765,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "bassEvent"
+      },
+      "to": {
+        "node": 4,
+        "key": "trigger"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "value"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "bassEvent"
+      },
+      "to": {
+        "node": 6,
+        "key": "trigger"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "sides"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 8,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "value"
+      },
+      "to": {
+        "node": 9,
+        "key": "hue"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    }
+  ]
+}

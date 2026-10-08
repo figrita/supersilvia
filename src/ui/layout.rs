@@ -3,7 +3,12 @@
 //! Automatic node arrangement: topological rank to column, column to a stack of nodes.
 //!
 //! Pure. It reads a graph and returns positions; nothing here mutates, and the caller turns
-//! the result into one `Command::AutoArrange` step.
+//! the result into one `Command::AutoArrange` step, or an `AddExample`'s.
+//!
+//! A node with no ports — a note — is documentation rather than dataflow: nothing ranks it,
+//! so it is in the first column, and it heads that column rather than falling among the
+//! sources by its id, so a patch's note is the first thing on the left (docs/ui.md,
+//! Auto-arrange).
 
 use crate::graph::{Graph, NodeId, PortType, WorkspaceId};
 use crate::ui::canvas;
@@ -29,12 +34,12 @@ const MAX_SPACING: f32 = 30.0;
 pub fn arrange(graph: &Graph, workspace: WorkspaceId, height: f32) -> Vec<(NodeId, Pos2)> {
     let ranks = ranks(graph);
     let mut by_rank: Vec<(u32, Vec<NodeId>)> = Vec::new();
-    let mut ordered: Vec<(u32, NodeId)> = graph
+    let mut ordered: Vec<(u32, bool, NodeId)> = graph
         .on_workspace(workspace)
-        .filter_map(|(id, _)| Some((*ranks.get(&id)?, id)))
+        .filter_map(|(id, n)| Some((*ranks.get(&id)?, has_ports(n.def), id)))
         .collect();
     ordered.sort();
-    for (rank, id) in ordered {
+    for (rank, _, id) in ordered {
         match by_rank.last_mut() {
             Some((r, ids)) if *r == rank => ids.push(id),
             _ => by_rank.push((rank, vec![id])),
@@ -60,6 +65,11 @@ pub fn arrange(graph: &Graph, workspace: WorkspaceId, height: f32) -> Vec<(NodeI
         x += 2.0 * HORIZONTAL_MARGIN + widest;
     }
     placed
+}
+
+/// Whether a cable can reach this kind of node at all. False for a note.
+fn has_ports(def: &crate::nodes::NodeDef) -> bool {
+    !def.inputs.is_empty() || !def.outputs.is_empty()
 }
 
 /// A node's column index: zero when nothing feeds it, otherwise one past its deepest source.
@@ -258,6 +268,20 @@ mod tests {
         let placed = arrange(app.graph(), ws(&app), tall);
         let xs: std::collections::BTreeSet<i32> = placed.iter().map(|(_, p)| p.x as i32).collect();
         assert_eq!(xs.len(), 1, "room for all three: one column");
+    }
+
+    /// A note added after the sources still heads the first column, above them.
+    #[test]
+    fn a_note_heads_the_first_column_whatever_its_id() {
+        let (mut app, ids) = app_with(&["checkerboard", "output", "note"]);
+        connect(&mut app, (ids[0], "output"), (ids[1], "input"));
+
+        let placed: HashMap<NodeId, Pos2> =
+            arrange(app.graph(), ws(&app), 800.0).into_iter().collect();
+        let (note, source) = (placed[&ids[2]], placed[&ids[0]]);
+        assert_eq!(note, Pos2::new(HORIZONTAL_MARGIN, VERTICAL_MARGIN));
+        assert_eq!(source.x, note.x, "the source shares its column");
+        assert!(source.y > note.y, "under it");
     }
 
     /// Redo replays the command, so the same height must give the same answer.

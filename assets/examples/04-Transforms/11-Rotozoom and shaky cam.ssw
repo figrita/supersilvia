@@ -1,0 +1,225 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Rotozoom and shaky cam",
+  "kind": "video",
+  "blurb": "A houndstooth turned and zoomed on interlocking waves, then shaken by hand",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Rotozoom turns and scales the picture on one pair of waves, so turning and zooming breathe together, and Shaky Cam slides it on four waves that never line up, like a hand-held camera. Both run on the Master Gear, so the loop closes. Turn Rotozoom's Sin and Cos Coefficients, or Shaky Cam's Amplitude."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 240.0
+      },
+      "controls": {
+        "length": {
+          "Float": 10.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "houndstooth",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "colorA": {
+          "Color": [
+            0.9490196,
+            0.9098039,
+            0.8117647,
+            1.0
+          ]
+        },
+        "colorB": {
+          "Color": [
+            0.7372549,
+            0.2784314,
+            0.2862745,
+            1.0
+          ]
+        },
+        "scale": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "rotozoom",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 1.0
+        },
+        "baseZoom": {
+          "Float": 1.0
+        },
+        "sinCoeff": {
+          "Float": 0.5
+        },
+        "cosCoeff": {
+          "Float": 0.4
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "shakycam",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.03
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "vignette",
+      "pos": {
+        "x": 1372.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.7
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1632.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 10.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clockY"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

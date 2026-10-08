@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Links the vendored `Syphon.framework` on macOS, gives the executable its icon and version on
-//! Windows, and does nothing anywhere else.
+//! Bundles the Example Library on every machine, links the vendored `Syphon.framework` on
+//! macOS, and gives the executable its icon and version on Windows.
+//!
+//! **The Example Library** is `assets/examples/<NN-Category>/<NN-Title>.ssw`, workspace files
+//! written by `scripts/examples/make.py`. Each one is compiled in with `include_str!` through a
+//! list written into `OUT_DIR` that `src/examples.rs` includes, ordered by the two `NN`
+//! prefixes, with the category and the title taken from the names less their prefix and the
+//! extension. Nothing here reads a file's contents: a title is its file's name. The folder and
+//! every file in it are rerun triggers, so adding an example rebuilds.
 //!
 //! The framework is `vendor/syphon/`, built from Syphon's source for arm64 (`vendor/README.md`).
 //! Two rpaths find it at run time: `@executable_path/../Frameworks`, where the `.app` carries
@@ -30,6 +37,7 @@ use std::process::Command;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
+    examples(&manifest);
     match std::env::var("CARGO_CFG_TARGET_OS").as_deref() {
         Ok("macos") => syphon(&manifest),
         Ok("windows") => {
@@ -38,6 +46,71 @@ fn main() {
         }
         _ => {}
     }
+}
+
+/// The Example Library's list, as Rust, into `OUT_DIR/examples.rs`.
+fn examples(manifest: &Path) {
+    let root = manifest.join("assets").join("examples");
+    println!("cargo:rerun-if-changed={}", root.display());
+    let mut list = String::from("pub static EXAMPLES: &[Example] = &[\n");
+    for (category, folder) in numbered(&root, None) {
+        println!("cargo:rerun-if-changed={}", folder.display());
+        for (title, file) in numbered(&folder, Some("ssw")) {
+            println!("cargo:rerun-if-changed={}", file.display());
+            let path = file.display().to_string();
+            let _ = writeln!(
+                list,
+                "    Example {{ category: {category:?}, title: {title:?}, file: include_str!({path:?}) }},"
+            );
+        }
+    }
+    list.push_str("];\n");
+    let out = PathBuf::from(std::env::var("OUT_DIR").expect("set by cargo"));
+    std::fs::write(out.join("examples.rs"), list).expect("OUT_DIR is writable");
+}
+
+/// The entries of `dir` named `NN-Name`, folders where `extension` is `None` and files with
+/// that extension otherwise, in the order of `NN`, each as its name less the prefix and the
+/// extension. Anything else is skipped with a warning; a folder that is not there holds
+/// nothing.
+fn numbered(dir: &Path, extension: Option<&str>) -> Vec<(String, PathBuf)> {
+    let Ok(read) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for entry in read.filter_map(Result::ok) {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue;
+        }
+        let stem = match extension {
+            None if path.is_dir() => name.as_str(),
+            Some(ext) if path.is_file() => {
+                match name.strip_suffix(ext).and_then(|s| s.strip_suffix('.')) {
+                    Some(stem) => stem,
+                    None => continue,
+                }
+            }
+            _ => continue,
+        };
+        let parsed = stem
+            .split_once('-')
+            .and_then(|(n, rest)| Some((n.parse::<u32>().ok()?, rest.to_owned())))
+            .filter(|(_, rest)| !rest.is_empty());
+        match parsed {
+            Some((n, rest)) => found.push((n, rest, path)),
+            None => println!(
+                "cargo:warning=assets/examples: {} has no NN- prefix and is not bundled",
+                path.display()
+            ),
+        }
+    }
+    found.sort_by(|a, b| (a.0, &a.1).cmp(&(b.0, &b.1)));
+    found
+        .into_iter()
+        .map(|(_, name, path)| (name, path))
+        .collect()
 }
 
 fn syphon(manifest: &Path) {

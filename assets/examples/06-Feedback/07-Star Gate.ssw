@@ -1,0 +1,223 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Star Gate",
+  "kind": "video",
+  "blurb": "Slit-scan: a thin slit of live noise dragged out into a corridor",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Star Gate shows the live picture only in a thin slit and its Last Frame everywhere else, pushed away from the slit on both sides. Each frame the slit's colors are dragged a little further out, so the drifting noise streams into a corridor of light, the way the last reel of 2001 was shot. Turn Angle and Drift, or add some Perspective."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 3.0
+        },
+        "octaves": {
+          "Float": 4.0
+        },
+        "contrast": {
+          "Float": 1.4
+        }
+      },
+      "options": {
+        "type": "standard",
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "stargate",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "angle": {
+          "Float": 0.0
+        },
+        "width": {
+          "Float": 0.015
+        },
+        "speed": {
+          "Float": 3.0
+        },
+        "perspective": {
+          "Float": 0.01
+        }
+      },
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "value"
+      },
+      "to": {
+        "node": 5,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 6,
+        "key": "lastFrame"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Layering two pictures",
+  "kind": "video",
+  "blurb": "Layer Blend stacks one picture over another",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Layer Blend draws its Foreground over its Background the way a paint program stacks layers. Try its Blend Mode \u2014 Screen, Multiply, Difference \u2014 and drag Opacity. To crossfade from one picture to another instead, put a Mix in its place: Amount 0 is all A, 1 is all B."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 9.0
+        },
+        "rotation": {
+          "Float": 0.125
+        },
+        "color1": {
+          "Color": [
+            0.0588235,
+            0.1882353,
+            0.3411765,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0,
+            0.7176471,
+            0.7607843,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 5.0
+        },
+        "thickness": {
+          "Float": 0.22
+        },
+        "outerRadius": {
+          "Float": 1.9
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.4352941,
+            0.3490196,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "layerblend",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "difference"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

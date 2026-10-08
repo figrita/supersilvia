@@ -1,0 +1,124 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Slime mold strands",
+  "kind": "video",
+  "blurb": "Preset 9: agents that sense close by, drawn into long wandering threads",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The same agents at preset 9: they sense only 4 cells ahead, so instead of a network they pull each other into long threads that wander and loop. Sense Angle, Turn Angle and Sense Dist are the whole of a preset, with Mode; set Mode to Repel and the threads shatter into cells. Decay is how long the scent lingers."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "slimemold",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sensorAngle": {
+          "Float": 35.0
+        },
+        "rotationAngle": {
+          "Float": 70.0
+        },
+        "sensorOffset": {
+          "Float": 4.0
+        },
+        "trailColor": {
+          "Color": [
+            0.5568627,
+            0.9411765,
+            0.7843137,
+            1.0
+          ]
+        },
+        "bgColor": {
+          "Color": [
+            0.0235294,
+            0.0705882,
+            0.1019608,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "mode": "attract",
+        "gridScale": "16"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "zoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    }
+  ]
+}

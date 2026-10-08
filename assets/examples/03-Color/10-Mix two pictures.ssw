@@ -1,0 +1,215 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Mix two pictures",
+  "kind": "video",
+  "blurb": "A crossfade from dots to stripes and back",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Mix crossfades between two pictures: Amount 0 is all A, 1 all B. An Oscillator swings the Amount once a loop, from the dots to the stripes and back. Set Method to Dark fade first or Light fade first, and the crossfade passes through black or white."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 504.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.4
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.9372549,
+            0.2784314,
+            0.4352941,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 12.0
+        },
+        "rotation": {
+          "Float": -0.125
+        },
+        "color1": {
+          "Color": [
+            0.0666667,
+            0.5411765,
+            0.6980392,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.027451,
+            0.2313725,
+            0.2980392,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 854.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        },
+        "offset": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "mix",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

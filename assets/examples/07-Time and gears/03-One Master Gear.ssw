@@ -1,0 +1,267 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "One Master Gear",
+  "kind": "video",
+  "blurb": "One clock drives the noise, the palette and the turn, so they move as one",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "One Master Gear, four seconds long, drives three things: its Cycles walk the noise a cell and slide the palette once a loop, and its Phase turns the kaleidoscope once. Set the gear's Length to 2 and all three go twice as fast, together. Press Hold and everything stops on the same frame; Sync puts it back on the show's time."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "gears"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.6
+        },
+        "octaves": {
+          "Float": 4.0
+        },
+        "gain": {
+          "Float": 0.55
+        },
+        "contrast": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "type": "ridged",
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "rotate",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        },
+        "zoom": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "vignette",
+      "pos": {
+        "x": 1716.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.8
+        },
+        "radius": {
+          "Float": 0.85
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1976.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

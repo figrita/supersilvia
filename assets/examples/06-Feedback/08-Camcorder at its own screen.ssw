@@ -1,0 +1,175 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Camcorder at its own screen",
+  "kind": "video",
+  "blurb": "Video feedback: a CRT camcorder aimed at the screen it is showing",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Camcorder CRT can aim at its own screen: its Last Frame is the Output's Frame Out, and Feedback mixes that back in, zoomed and turned, the way a camcorder pointed at its own monitor makes a corridor of screens. Drag and scroll in its viewfinder to aim it, or turn Zoom, Rotate and Feedback."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 284.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.1
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.6196078,
+            0.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "camcordercrt",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "curvature": {
+          "Float": 0.3
+        },
+        "scanlines": {
+          "Float": 0.4
+        },
+        "glow": {
+          "Float": 0.5
+        },
+        "vignette": {
+          "Float": 0.6
+        },
+        "brightness": {
+          "Float": 0.6
+        },
+        "fbAmount": {
+          "Float": 0.75
+        },
+        "fbZoom": {
+          "Float": 1.06
+        },
+        "fbRotation": {
+          "Float": 0.04
+        }
+      },
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 5,
+        "key": "lastFrame"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,216 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Worley cells",
+  "kind": "video",
+  "blurb": "Cells of Worley noise in palette colors, with their borders drawn",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Worley Noise scatters points and asks, everywhere, which is nearest. Its Cells mode gives each cell a number, which the Cosine Gradient colors; a second Worley in Borders mode draws the lines between them, multiplied on top. Turn Frequency and Randomness on both, and the Distance Metric."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 524.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "worley",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 7.0
+        },
+        "randomness": {
+          "Float": 0.9
+        }
+      },
+      "options": {
+        "mode": "cells"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.45
+        },
+        "biasG": {
+          "Float": 0.55
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.45
+        },
+        "ampG": {
+          "Float": 0.4
+        },
+        "ampB": {
+          "Float": 0.35
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.55
+        },
+        "phaseG": {
+          "Float": 0.35
+        },
+        "phaseB": {
+          "Float": 0.15
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "worley",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 7.0
+        },
+        "randomness": {
+          "Float": 0.9
+        }
+      },
+      "options": {
+        "mode": "borders"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "multiply"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

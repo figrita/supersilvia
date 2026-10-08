@@ -1,0 +1,298 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Skydome",
+  "kind": "video",
+  "blurb": "A glowing green grid wrapped round the whole scene through Render 3D's Sky, turning",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A picture cabled into Render 3D's Sky is wrapped round the whole scene, above and below: its width goes once round the horizon and its height from pole to pole, so a Grid becomes lines of latitude and longitude. Bloom makes the lines glow, and a Translate driven by the Master Gear's Wrapped turns the sphere, since moving the picture along X turns the sky. The shiny ball and ring show it in their reflections. Try Sky Tilt in Render 3D's Look section to tip the pole, or the Grid's Cells."
+        }
+      },
+      "width": 420.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 816.0,
+        "y": 698.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "grid",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            0.2392157,
+            1.0,
+            0.4313725,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0078431,
+            0.0392157,
+            0.0156863,
+            1.0
+          ]
+        },
+        "cellsX": {
+          "Float": 18.0
+        },
+        "cellsY": {
+          "Float": 18.0
+        },
+        "thickness": {
+          "Float": 0.025
+        },
+        "smoothing": {
+          "Float": 0.015
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "bloom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.3
+        },
+        "intensity": {
+          "Float": 1.6
+        },
+        "radius": {
+          "Float": 0.003
+        }
+      },
+      "options": {
+        "quality": "high"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "translate",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 306.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.9
+        },
+        "color": {
+          "Color": [
+            0.0470588,
+            0.1019608,
+            0.0627451,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "torus",
+      "pos": {
+        "x": 816.0,
+        "y": 306.0
+      },
+      "controls": {
+        "ring": {
+          "Float": 1.45
+        },
+        "tube": {
+          "Float": 0.12
+        },
+        "color": {
+          "Color": [
+            0.1137255,
+            0.2313725,
+            0.1490196,
+            1.0
+          ]
+        },
+        "tPitch": {
+          "Float": 0.22
+        },
+        "tRoll": {
+          "Float": 0.06
+        }
+      },
+      "options": {
+        "transform": "on"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1336.0,
+        "y": 306.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 4.6
+        },
+        "tilt": {
+          "Float": 0.04
+        },
+        "orbit": {
+          "Float": 0.08
+        },
+        "fog": {
+          "Float": 0.0
+        },
+        "skyTilt": {
+          "Float": 0.06
+        },
+        "reflectivity": {
+          "Float": 0.85
+        },
+        "lightHeight": {
+          "Float": 0.18
+        }
+      },
+      "options": {
+        "floor": "none",
+        "reflections": "one"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1656.0,
+        "y": 306.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "x"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 7,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "sky"
+      }
+    }
+  ]
+}

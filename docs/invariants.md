@@ -134,6 +134,8 @@ the table below is that the second list is short, and that you know exactly what
 | An import remaps every id and re-points every cable inside the file, and copies its assets in | `Ids::Fresh` and `Project::import_workspace` | `tests/project.rs` |
 | An asset an import cannot find is reported and the rest still arrives | `ImportReport::missing` | `tests/project.rs` |
 | Importing is one undo step, and the command log says where the nodes came from | `Command::ImportWorkspace` | `tests/project.rs` |
+| Every bundled example imports with no warning and every cable connected, holds a note and an Output, opens no device, names no file, and compiles with no diagnostic through the shader gate; the list is the folder, in order | `examples::EXAMPLES`, `Command::AddExample` | `tests/examples.rs`, `tests/shader_targets.rs` |
+| An added example is a strip where Auto-arrange at the height its command carries puts it, its note at the first column's top, in one undo step that a redo replays to the same positions | `Command::AddExample`, `ui::layout::arrange` | `tests/examples.rs`, `tests/menus.rs` |
 | Removing an asset is refused while anything references it, and otherwise takes its cache entries with it | `Project::remove_asset`, `clip::cache_entries` | `tests/assets.rs`, `tests/ui.rs` |
 | A PNG written is the PNG read back | `video/png.rs` through `pngenc`/`pngdec` | `tests/video.rs` |
 | A thumbnail readback never waits on the GPU: the frame that asks does not have it, and a later one does | a staging buffer and `map_async`, collected when its callback has fired | `a_thumbnail_is_read_back_a_frame_late_and_never_waits` in `tests/gpu_readback.rs` |

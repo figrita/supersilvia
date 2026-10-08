@@ -1,0 +1,211 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Tile",
+  "kind": "video",
+  "blurb": "One star repeated across the frame, every other row slid half a tile",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Tile wraps the whole frame onto one rectangle of its input, so a single star repeats forever. Slide at 0.5 shifts every other row half a tile, the way bricks are laid, and the Master Gear walks Offset X one tile a loop. Turn Span for more tiles, or put a Repeater in its place for a grid of copies with gaps between them."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 284.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 6.0
+        },
+        "innerRadius": {
+          "Float": 0.2
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.745098,
+            0.0431373,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.2392157,
+            0.3098039,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 634.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.16666666666666666
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "tile",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 1.2
+        },
+        "height": {
+          "Float": 1.2
+        },
+        "span": {
+          "Float": 2.4
+        },
+        "slide": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 768.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1120.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "offsetX"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

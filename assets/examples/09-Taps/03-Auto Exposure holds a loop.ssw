@@ -1,0 +1,254 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Auto Exposure holds a loop",
+  "kind": "video",
+  "blurb": "A feedback tunnel kept at one brightness by Auto Exposure",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Output's own last frame, zoomed and shifted in hue, is added under a turning star, every frame. Added light only grows, so on its own the loop runs to white; Auto Exposure measures it and scales it so its mean sits at its Target. Turn the Target, or cable the Color Shift straight into the Layer Blend to watch it burn out."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 462.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 6.0
+        },
+        "innerRadius": {
+          "Float": 0.45
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.4784314,
+            0.7215686,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "zoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1596.0,
+        "y": 284.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1080x1080",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 284.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.04
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "colorshift",
+      "pos": {
+        "x": 816.0,
+        "y": 284.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "autoexposure",
+      "pos": {
+        "x": 1076.0,
+        "y": 284.0
+      },
+      "controls": {
+        "target": {
+          "Float": 0.3
+        },
+        "speed": {
+          "Float": 1.0
+        },
+        "max": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1336.0,
+        "y": 284.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "add"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "frame"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

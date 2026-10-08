@@ -68,10 +68,11 @@ cargo build --profile dist              # the shipping binary: lto, one codegen 
 cargo run --release --example graph_bench   # what the graph costs per frame, by graph size
 cargo run --release --example tick_bench -- <project> <tab>   # one tab ticked at 100 Hz, headless
 cargo run --release --example editor_bench -- <project> <tab> [WxH]   # the editor's own painting on the GPU, headless
-cargo run --release --example loop_gifs -- <project> [--only name,name] [--out dir]   # every tab's Output for one loop, as a GIF
+cargo run --release --example loop_gifs -- <project> [--only name]... [--out dir]   # every Output of every tab for one loop, as a GIF
 cargo run --release --example queue_contention   # the editor's latency beside a synthetic synth
 python3 scripts/demo-time.py            # the Time Gears demo project, into <documents>/supersilvia/Time Gears
 python3 scripts/demo-solids.py          # the Solids demo project, what solids do and where they stop, into <documents>/supersilvia/Solids
+python3 scripts/examples/make.py        # the Example Library: every scripts/examples/cat_*.py into assets/examples/, checked against the registry
 packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-linux-x86_64.AppImage, and its symbols beside it
 packaging/appimage/symbolize.sh <log> <symbols>   # a panic in the AppImage's log, its frames named (packaging/README.md)
 packaging/macos/build-app.sh            # macOS: dist/supersilvia.app, its .dmg and .zip

@@ -1,0 +1,313 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Kaleidoscope feedback",
+  "kind": "video",
+  "blurb": "Each frame folded into six wedges and grown outward, so a dot blooms into a mandala",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The last frame goes through a Kaleidoscope before it comes back, so every echo of the wandering dot is folded into six mirrored wedges, again and again, and the pattern blooms. The Kaleidoscope's Zoom just above 1 pushes each fold outward. Turn Segments, or Twist for a spinning flower."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 548.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        },
+        "zoom": {
+          "Float": 1.02
+        },
+        "twist": {
+          "Float": 0.02
+        }
+      },
+      "options": {},
+      "width": 240.0
+    },
+    {
+      "id": 5,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.01
+        },
+        "value": {
+          "Float": 0.97
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 326.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.08
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "foreground": {
+          "Color": [
+            0.2980392,
+            0.7882353,
+            0.9411765,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 898.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1244.0
+      },
+      "controls": {
+        "p": {
+          "Float": 3.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1678.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.3
+        }
+      },
+      "options": {
+        "waveform": "cosine",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "mix",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 8,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "mask"
+      },
+      "to": {
+        "node": 10,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

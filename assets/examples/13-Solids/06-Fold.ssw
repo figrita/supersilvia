@@ -1,0 +1,255 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Fold",
+  "kind": "video",
+  "blurb": "A box folded like a kaleidoscope into a fractal of its own copies",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Fold mirrors space onto one wedge of a symmetry, turns it and scales it, Iterations times, then puts the box in the folded space: a fractal of its copies for the price of one box. An Oscillator swings Turn X either side of 0, so the fractal twists and folds back each loop. Try Scale between 1.5 and 3, Iterations, and the Symmetry on Cube with Scale 3 for a sponge."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 388.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 738.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.03
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 2.0
+        },
+        "height": {
+          "Float": 2.0
+        },
+        "depth": {
+          "Float": 2.0
+        },
+        "rounding": {
+          "Float": 0.03
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.8862745,
+            0.8392157,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "fold",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.0
+        },
+        "tint": {
+          "Float": 0.35
+        },
+        "turnZ": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "symmetry": "tetrahedron",
+        "iterations": "4"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1280.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 4.4
+        },
+        "tilt": {
+          "Float": 0.06
+        },
+        "fog": {
+          "Float": 0.02
+        },
+        "targetY": {
+          "Float": 0.0
+        },
+        "floorHeight": {
+          "Float": -1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 900.0,
+        "y": 368.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.04
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1600.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "turnX"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

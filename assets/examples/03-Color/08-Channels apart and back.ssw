@@ -1,0 +1,213 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Channels apart and back",
+  "kind": "video",
+  "blurb": "A picture split into red, green and blue, put back in another order",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Channel Splitter takes a picture apart into four numbers, R, G, B and A, and RGBA puts four numbers back together. Cabled straight across, the waving flag would come back as it was; here every channel moves one along, so red becomes green, green blue and blue red. Re-cable them, or put a Red, Hue or Lightness node in one's place."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 150.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "prideflag",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "flagType": "rainbow"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "wave",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.05
+        },
+        "frequency": {
+          "Float": 2.0
+        },
+        "rotation": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "channelsplitter",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "rgba",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 500.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "r"
+      },
+      "to": {
+        "node": 6,
+        "key": "g"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "g"
+      },
+      "to": {
+        "node": 6,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "b"
+      },
+      "to": {
+        "node": 6,
+        "key": "r"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Two decks and a crossfade",
+  "kind": "video",
+  "blurb": "One Output on deck A, another on deck B, and the fade between",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Press Show on A on the left Output and Show on B on the right one. In the Main Mixer panel the A / B balance runs from all A at \u22121 to all B at +1; set Crossfade to a wipe or a luminance fade and sweep it. The deck that is off air keeps playing, so change its patch while the other one is on \u2014 that is what two decks are for."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.38
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.2313725,
+            0.0509804,
+            0.172549,
+            1.0
+          ]
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "rotozoom",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.4
+        },
+        "turns": {
+          "Float": 1.0
+        },
+        "sinCoeff": {
+          "Float": 0.5
+        },
+        "cosCoeff": {
+          "Float": 0.7
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "perlin",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.5
+        },
+        "contrast": {
+          "Float": 1.8
+        },
+        "speed": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 388.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.35
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.35
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.3
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1160.0,
+        "y": 582.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        },
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 582.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "color"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "value"
+      },
+      "to": {
+        "node": 6,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

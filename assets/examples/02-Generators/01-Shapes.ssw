@@ -1,0 +1,251 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Shapes",
+  "kind": "video",
+  "blurb": "A star on a hexagon on a circle, each one the next one's background",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Circle, Polygon and Star each draw one shape over a Background. Cable one shape's Color into the next one's Background and they stack: here a star on a hexagon on a circle, turned by a Master Gear. Try the Polygon's Sides, or the Star's Points and Inner Radius."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.82
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "foreground": {
+          "Color": [
+            0.1137255,
+            0.3058824,
+            0.5372549,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0392157,
+            0.1019608,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "polygon",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 6.0
+        },
+        "radius": {
+          "Float": 0.66
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "foreground": {
+          "Color": [
+            0.9647059,
+            0.7686275,
+            0.3254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "star",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.2
+        },
+        "foreground": {
+          "Color": [
+            0.9098039,
+            0.3137255,
+            0.3568627,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 612.0
+      },
+      "controls": {
+        "b": {
+          "Float": -0.16666666666666666
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "multiply",
+      "pos": {
+        "x": 780.0,
+        "y": 306.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

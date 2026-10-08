@@ -1,0 +1,390 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "What the march costs",
+  "kind": "video",
+  "blurb": "A bar twisting harder each loop, Lit on the left and in Steps shading on the right",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The same twisted bar through two Render 3Ds: Lit on the left, and on the right Shading on Steps, which paints how hard the march worked for each pixel, blue for few steps to red for many. An Oscillator winds the Twist's Rate up and back; a twist has to shrink its distance to stay safe, so the harder it winds the hotter it reads, and at 64 Steps rays give up and pink gaps open along the lit bar's edges. Try both renders' Steps at 256 under Quality, or a Displace in place of the Twist."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 478.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "y": {
+          "Float": 0.1
+        },
+        "width": {
+          "Float": 1.4
+        },
+        "height": {
+          "Float": 2.4
+        },
+        "depth": {
+          "Float": 0.5
+        },
+        "rounding": {
+          "Float": 0.03
+        },
+        "color": {
+          "Color": [
+            0.3529412,
+            0.5607843,
+            0.9098039,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "twist",
+      "pos": {
+        "x": 900.0,
+        "y": 544.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 828.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.35
+        },
+        "offset": {
+          "Float": 0.35
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1160.0,
+        "y": 544.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.0
+        },
+        "tilt": {
+          "Float": 0.03
+        },
+        "orbit": {
+          "Float": 0.0
+        },
+        "fog": {
+          "Float": 0.0
+        },
+        "lens": {
+          "Float": 2.0
+        },
+        "background": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.545098,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "floor": "none",
+        "steps": "64"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1160.0,
+        "y": 1540.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.0
+        },
+        "tilt": {
+          "Float": 0.03
+        },
+        "orbit": {
+          "Float": 0.0
+        },
+        "fog": {
+          "Float": 0.0
+        },
+        "lens": {
+          "Float": 2.0
+        },
+        "background": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.545098,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "floor": "none",
+        "steps": "64",
+        "shading": "steps"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "translate",
+      "pos": {
+        "x": 1480.0,
+        "y": 544.0
+      },
+      "controls": {
+        "x": {
+          "Float": -0.89
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "translate",
+      "pos": {
+        "x": 1480.0,
+        "y": 1540.0
+      },
+      "controls": {
+        "x": {
+          "Float": 0.89
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 388.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "threshold",
+      "pos": {
+        "x": 900.0,
+        "y": 388.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.0
+        },
+        "smooth": {
+          "Float": 0.004
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "mix",
+      "pos": {
+        "x": 1740.0,
+        "y": 544.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "output",
+      "pos": {
+        "x": 2000.0,
+        "y": 544.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "rate"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 7,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "x"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    }
+  ]
+}

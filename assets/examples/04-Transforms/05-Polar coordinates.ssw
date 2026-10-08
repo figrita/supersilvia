@@ -1,0 +1,233 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Polar coordinates",
+  "kind": "video",
+  "blurb": "A checkerboard turned into a spiral that zooms forever",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Polar Coordinates in Log-Polar mode reads the picture's X as the angle around the middle and its Y as how far out, on a log scale. So the skewed checkerboard becomes a spiral, and sliding it up a little each frame zooms in forever. Try Mode Cartesian to Polar for plain rings, or turn the Stretch/Skew's Skew X."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 8.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.3647059,
+            0.5607843,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0784314,
+            0.0627451,
+            0.1686275,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "translate",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 546.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "stretchskew",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "skewX": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "polarcoords",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "mode": "to_log_polar"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "supersampling",
+      "pos": {
+        "x": 1596.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "quality": "2"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1856.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "y"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

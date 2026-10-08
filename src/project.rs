@@ -443,7 +443,7 @@ impl Project {
         for (w, mut file) in listed {
             files.insert(w.id, w.file);
             paintings.extend(painting_references(&file));
-            warnings.extend(read_paintings(&mut file, &assets));
+            warnings.extend(read_paintings(&mut file, Some(&assets)));
             warnings.extend(file.insert_into(&mut graph, w.id, Ids::Keep));
         }
 
@@ -530,7 +530,7 @@ impl Project {
             match workspace::read(&path) {
                 Ok(mut file) => {
                     self.paintings.extend(painting_references(&file));
-                    warnings.extend(read_paintings(&mut file, &self.root.join(ASSETS)));
+                    warnings.extend(read_paintings(&mut file, Some(&self.root.join(ASSETS))));
                     let workspace = graph.add_workspace(
                         if file.name.is_empty() {
                             stem(&path)
@@ -995,12 +995,32 @@ impl Project {
         file: &Path,
         graph: &mut Graph,
     ) -> Result<(WorkspaceId, ImportReport), LoadError> {
-        let mut read = workspace::read(file)?;
-        let beside = assets_beside(file);
+        let text = std::fs::read_to_string(file).map_err(LoadError::Io)?;
+        self.import_workspace_text(&text, &stem(file), Some(&assets_beside(file)), graph)
+    }
+
+    /// Take a workspace file's text into this project, as [`Self::import_workspace`] takes a
+    /// file: `name` is the workspace's where the file gives none, and `assets` is the folder
+    /// its media is looked for in.
+    ///
+    /// **With no folder, every file it names is missing**, a painting's included: nothing is
+    /// read from anywhere on its behalf. That is an example out of the binary
+    /// ([`crate::examples`]), which names none.
+    ///
+    /// # Errors
+    /// The text is not a workspace file.
+    pub fn import_workspace_text(
+        &self,
+        text: &str,
+        name: &str,
+        assets: Option<&Path>,
+        graph: &mut Graph,
+    ) -> Result<(WorkspaceId, ImportReport), LoadError> {
+        let mut read = workspace::parse(text)?;
 
         let mut report = ImportReport {
             name: if read.name.is_empty() {
-                stem(file)
+                name.to_owned()
             } else {
                 read.name.clone()
             },
@@ -1017,6 +1037,10 @@ impl Project {
                     continue;
                 }
                 let Some(value) = node.options.get(option.key).filter(|v| !v.is_empty()) else {
+                    continue;
+                };
+                let Some(beside) = assets else {
+                    report.missing.push(value.clone());
                     continue;
                 };
                 let source = match value.strip_prefix(ASSETS).and_then(|r| r.strip_prefix('/')) {
@@ -1036,13 +1060,16 @@ impl Project {
         // Its paintings, read out of the folder it came with. Held in memory from here, they
         // are written into this project's `assets/` by its next save like any painting.
         for reference in painting_references(&read) {
-            if painting_path(&beside, &reference).is_some_and(|p| p.is_file()) {
+            if assets
+                .and_then(|beside| painting_path(beside, &reference))
+                .is_some_and(|p| p.is_file())
+            {
                 report.assets.push(reference);
             } else {
                 report.missing.push(reference);
             }
         }
-        let unread = read_paintings(&mut read, &beside);
+        let unread = read_paintings(&mut read, assets);
         report.assets.sort();
         report.assets.dedup();
 
@@ -1472,7 +1499,7 @@ fn is_painting_name(reference: &str) -> bool {
 /// Read every painting a workspace file names out of `assets`, in place: from here each one is
 /// its pixels. One that cannot be read stays the name it was, opens as a blank canvas, and says
 /// so.
-fn read_paintings(file: &mut WorkspaceFile, assets: &Path) -> Vec<LoadWarning> {
+fn read_paintings(file: &mut WorkspaceFile, assets: Option<&Path>) -> Vec<LoadWarning> {
     let mut warnings = Vec::new();
     for node in &mut file.nodes {
         for value in node.values.values_mut() {
@@ -1480,8 +1507,12 @@ fn read_paintings(file: &mut WorkspaceFile, assets: &Path) -> Vec<LoadWarning> {
                 continue;
             };
             let reference = painting.file().to_string();
-            let read = painting_path(assets, &reference)
-                .ok_or_else(|| "not a painting in assets/".to_string())
+            let read = assets
+                .ok_or_else(|| "no assets/ came with it".to_string())
+                .and_then(|assets| {
+                    painting_path(assets, &reference)
+                        .ok_or_else(|| "not a painting in assets/".to_string())
+                })
                 .and_then(|path| crate::video::png::read(&path));
             match read {
                 Ok(image) if image.width > 0 && image.height > 0 => {

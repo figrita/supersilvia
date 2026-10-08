@@ -1,0 +1,305 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Trails",
+  "kind": "video",
+  "blurb": "A dot on a looping path leaving rainbow trails that turn and fade",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A small dot runs a figure of eight, and every frame it is drawn over the last frame, turned a little, shifted in hue and dimmed, so it leaves a fading rainbow trail. The Color Shift's Value is how long the trail lasts: 0.99 is very long, 0.9 short. Turn its Hue Shift, or the Rotate's Angle the other way."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 440.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "rotate",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "angle": {
+          "Float": 0.003
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.006
+        },
+        "value": {
+          "Float": 0.975
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.08
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.2313725,
+            0.4196078,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 790.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.9
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1136.0
+      },
+      "controls": {
+        "p": {
+          "Float": 2.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1570.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "mix",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 8,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "mask"
+      },
+      "to": {
+        "node": 10,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

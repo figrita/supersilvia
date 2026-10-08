@@ -1,0 +1,127 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Game of Life",
+  "kind": "video",
+  "blurb": "Conway's Life on a wrapping grid, with fading trails",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Conway's Game of Life: a cell is born with three live neighbors and lives on with two or three. Auto-Run steps it thirty times a second, and Trail Decay leaves a fading ghost where cells died. When it settles into blinkers, press Randomize; Init Threshold, read on that press, is how empty the new grid starts. The world wraps round at its edges, so its picture tiles; the Zoom brings one tile up to the frame's height."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "cellularautomata",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "autoRun": {
+          "Float": 1.0
+        },
+        "stepsPerFrame": {
+          "Float": 1.0
+        },
+        "initThreshold": {
+          "Float": 0.7
+        },
+        "trailDecay": {
+          "Float": 0.06
+        },
+        "aliveInput": {
+          "Color": [
+            1.0,
+            0.8784314,
+            0.5411765,
+            1.0
+          ]
+        },
+        "deadInput": {
+          "Color": [
+            0.0431373,
+            0.1019608,
+            0.1803922,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "algorithm": "life",
+        "gridScale": "8"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "zoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 2.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    }
+  ]
+}

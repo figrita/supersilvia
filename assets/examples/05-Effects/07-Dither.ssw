@@ -1,0 +1,152 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Dither",
+  "kind": "video",
+  "blurb": "A soft gradient broken into two-tone dots, like an old handheld screen",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Dither turns a smooth number into just two colors by checking it against a fixed pattern of thresholds, so gray becomes a pattern of dots. Here the number is the brightness of a drifting noise, and the two colors are an old handheld's greens. Turn Scale for bigger pixels, or try Mode Noise."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.4
+        },
+        "octaves": {
+          "Float": 3.0
+        },
+        "contrast": {
+          "Float": 1.8
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "dither",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "light": {
+          "Color": [
+            0.7686275,
+            0.9411765,
+            0.7607843,
+            1.0
+          ]
+        },
+        "dark": {
+          "Color": [
+            0.0588235,
+            0.2196078,
+            0.0588235,
+            1.0
+          ]
+        },
+        "scale": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "mode": "bayer4"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "value"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

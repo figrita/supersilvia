@@ -1,0 +1,180 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A second Output",
+  "kind": "video",
+  "blurb": "An Output's Frame port carries its picture on to another",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "An Output's Frame port is its finished picture, and it cables on like any other. The first Output draws a tunnel flying through a checkerboard; the second folds that frame through a Kaleidoscope. A second Output is how one patch feeds a second screen, a deck of the mixer, or a send of its own \u2014 drag the Kaleidoscope's Segments."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 16.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.9098039,
+            0.7607843,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.227451,
+            0.1098039,
+            0.4431373,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "tunnel3d",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.5
+        },
+        "twist": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "shading": "light"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        },
+        "zoom": {
+          "Float": 1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1632.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "frame"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

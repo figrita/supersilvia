@@ -1,0 +1,491 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Show time and wall time",
+  "kind": "video",
+  "blurb": "The Time node's playhead and the Clock's time of day, each turning a hand",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The gold hand is the Time node, the show's playhead in seconds, a turn every four seconds through its Multiply. The white one is the Clock, the time of day, sweeping once a minute. Pause the show with the button by the time readout, or F8: the gold hand stops and the white one carries on. Back to zero puts only the gold one at the top."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "time",
+      "pos": {
+        "x": 780.0,
+        "y": 684.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "multiply",
+      "pos": {
+        "x": 1040.0,
+        "y": 640.0
+      },
+      "controls": {
+        "b": {
+          "Float": -0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "clock",
+      "pos": {
+        "x": 780.0,
+        "y": 774.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "seconds"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 1040.0,
+        "y": 774.0
+      },
+      "controls": {
+        "b": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.92
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            0.1137255,
+            0.0941176,
+            0.2509804,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "circle",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.06
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.07
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7529412,
+            0.3019608,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "stretchskew",
+      "pos": {
+        "x": 780.0,
+        "y": 262.0
+      },
+      "controls": {
+        "stretchX": {
+          "Float": 2.8
+        },
+        "stretchY": {
+          "Float": 0.2545
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "translate",
+      "pos": {
+        "x": 1040.0,
+        "y": 262.0
+      },
+      "controls": {
+        "y": {
+          "Float": 0.275
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "rotate",
+      "pos": {
+        "x": 1300.0,
+        "y": 262.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 484.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.042
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            0.9568627,
+            0.945098,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "stretchskew",
+      "pos": {
+        "x": 780.0,
+        "y": 484.0
+      },
+      "controls": {
+        "stretchX": {
+          "Float": 2.8
+        },
+        "stretchY": {
+          "Float": 0.1024
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "translate",
+      "pos": {
+        "x": 1040.0,
+        "y": 484.0
+      },
+      "controls": {
+        "y": {
+          "Float": 0.41
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "rotate",
+      "pos": {
+        "x": 1300.0,
+        "y": 484.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 16,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    },
+    {
+      "id": 17,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1820.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    },
+    {
+      "id": 18,
+      "slug": "output",
+      "pos": {
+        "x": 2080.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "seconds"
+      },
+      "to": {
+        "node": 3,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "normalized"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "color"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 16,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "output"
+      },
+      "to": {
+        "node": 17,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 17,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 17,
+        "key": "output"
+      },
+      "to": {
+        "node": 18,
+        "key": "input"
+      }
+    }
+  ]
+}

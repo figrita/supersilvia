@@ -1,0 +1,292 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Counter and Clock Divider",
+  "kind": "video",
+  "blurb": "A beat steps a dot; every fourth beat adds a side",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A quarter-second Master Gear fires its Trigger every beat. One Counter counts the beats round 0 to 3 and steps the dot across. A Clock Divider passes one beat in four to a second Counter, which counts the polygon's sides round 3 to 6. Set the Divide to 2, or the second Counter's Ends to Clamp to stop at the top."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 306.0
+      },
+      "controls": {
+        "length": {
+          "Float": 0.25
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "counter",
+      "pos": {
+        "x": 520.0,
+        "y": 656.0
+      },
+      "controls": {
+        "step": {
+          "Float": 1.0
+        },
+        "min": {
+          "Float": 0.0
+        },
+        "max": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "ends": "wrap"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 920.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 3.0
+        },
+        "outMin": {
+          "Float": -0.9
+        },
+        "outMax": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "clockdivider",
+      "pos": {
+        "x": 520.0,
+        "y": 1288.0
+      },
+      "controls": {
+        "divide": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "counter",
+      "pos": {
+        "x": 520.0,
+        "y": 1574.0
+      },
+      "controls": {
+        "step": {
+          "Float": 1.0
+        },
+        "min": {
+          "Float": 3.0
+        },
+        "max": {
+          "Float": 7.0
+        }
+      },
+      "options": {
+        "ends": "wrap"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "polygon",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.5
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "centerY": {
+          "Float": 0.12
+        },
+        "foreground": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.07
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerY": {
+          "Float": -0.75
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 3,
+        "key": "increment"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 6,
+        "key": "increment"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "value"
+      },
+      "to": {
+        "node": 7,
+        "key": "sides"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

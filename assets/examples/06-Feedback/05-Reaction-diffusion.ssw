@@ -1,0 +1,295 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Reaction-diffusion",
+  "kind": "video",
+  "blurb": "Blur and sharpen fed back until noise grows into a Turing pattern",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Feed a frame back through a Blur and then a hard Sharpen and the two fight: the blur spreads every spot and the sharpen pushes it back into an edge, so a little noise grows into winding stripes, the way chemicals pattern a fish's skin. The two Zooms read the loop three times bigger, which sets the stripes' width. Turn the Sharpen's Amount, or the first Zoom."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 564.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 2116.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.3333333333333333
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "blur",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "blurX": {
+          "Float": 1.5
+        },
+        "blurY": {
+          "Float": 1.5
+        }
+      },
+      "options": {
+        "size": "5x5"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "sharpen",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 5.0
+        }
+      },
+      "options": {
+        "method": "unsharp"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "zoom",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "colorize",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "tint": {
+          "Color": [
+            0.2980392,
+            0.7882353,
+            0.9411765,
+            1.0
+          ]
+        },
+        "amount": {
+          "Float": 1.0
+        },
+        "preserveLuminance": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "simplex",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 6.0
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8392157,
+            0.6470588,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.1058824,
+            0.1490196,
+            0.2313725,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "mix",
+      "pos": {
+        "x": 1856.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.01
+        }
+      },
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

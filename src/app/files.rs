@@ -929,6 +929,24 @@ impl App {
         }
     }
 
+    /// Take one of the Example Library's workspaces into the project on screen, open it and
+    /// show it: Help ▸ Example Library.
+    ///
+    /// The same path as [`Self::import_workspace_file`], one `Command` and so one undo step,
+    /// with the file out of the binary and no media beside it. It arrives as a strip arranged
+    /// for the strip this window has.
+    pub fn add_example(&mut self, index: usize) {
+        self.imported = None;
+        let height = self.canvas.strip_height();
+        if let Err(err) = self.apply(Command::AddExample { index, height }) {
+            self.fail(format!("adding the example failed: {err}"));
+            return;
+        }
+        if let Some(id) = self.imported.take() {
+            self.open_workspace(id);
+        }
+    }
+
     /// Write one workspace out to a folder, and say what stayed behind.
     pub fn export_workspace(&mut self, id: crate::graph::WorkspaceId, dest: &std::path::Path) {
         match self.project.export_workspace(self.doc.graph(), id, dest) {

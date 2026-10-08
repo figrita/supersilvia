@@ -1,0 +1,506 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Color fields on a solid",
+  "kind": "video",
+  "blurb": "Checker 3D, Facing, Height Gradient and Stripes 3D painting four shapes",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A color field paints a solid by where its surface is and leaves its shape alone. Left to right: Checker 3D cuts a ball into cubes of two colors, Facing paints a dodecahedron by which way each face looks, Height Gradient runs a helix from blue to gold, and Stripes 3D bands a torus, the gear sliding the bands up through it. Try Checker 3D's Size, Facing's three colors, and Stripes 3D's Axis."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 1432.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "x": {
+          "Float": -4.2
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "checker3d",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "size": {
+          "Float": 0.4
+        },
+        "colorA": {
+          "Color": [
+            0.9490196,
+            0.9372549,
+            0.9019608,
+            1.0
+          ]
+        },
+        "colorB": {
+          "Color": [
+            0.227451,
+            0.3529412,
+            0.9098039,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "dodecahedron",
+      "pos": {
+        "x": 520.0,
+        "y": 322.0
+      },
+      "controls": {
+        "x": {
+          "Float": -1.4
+        },
+        "y": {
+          "Float": 0.05
+        },
+        "size": {
+          "Float": 1.0
+        },
+        "tYaw": {
+          "Float": 0.07
+        },
+        "tPitch": {
+          "Float": 0.04
+        }
+      },
+      "options": {
+        "transform": "on"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "facing",
+      "pos": {
+        "x": 780.0,
+        "y": 322.0
+      },
+      "controls": {
+        "colorUp": {
+          "Color": [
+            0.9490196,
+            0.9372549,
+            0.9019608,
+            1.0
+          ]
+        },
+        "colorSide": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        },
+        "colorDown": {
+          "Color": [
+            0.227451,
+            0.1647059,
+            0.3529412,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "helix",
+      "pos": {
+        "x": 520.0,
+        "y": 692.0
+      },
+      "controls": {
+        "x": {
+          "Float": 1.4
+        },
+        "y": {
+          "Float": 0.1
+        },
+        "radius": {
+          "Float": 0.6
+        },
+        "pitch": {
+          "Float": 0.4
+        },
+        "tube": {
+          "Float": 0.13
+        },
+        "height": {
+          "Float": 2.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "heightgradient",
+      "pos": {
+        "x": 780.0,
+        "y": 692.0
+      },
+      "controls": {
+        "bottom": {
+          "Float": -1.0
+        },
+        "top": {
+          "Float": 1.2
+        },
+        "colorBottom": {
+          "Color": [
+            0.227451,
+            0.3529412,
+            0.9098039,
+            1.0
+          ]
+        },
+        "colorTop": {
+          "Color": [
+            0.9490196,
+            0.7137255,
+            0.1960784,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "torus",
+      "pos": {
+        "x": 520.0,
+        "y": 1040.0
+      },
+      "controls": {
+        "x": {
+          "Float": 4.2
+        },
+        "y": {
+          "Float": -0.1
+        },
+        "ring": {
+          "Float": 0.8
+        },
+        "tube": {
+          "Float": 0.35
+        },
+        "tPitch": {
+          "Float": 0.15
+        }
+      },
+      "options": {
+        "transform": "on"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 1782.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "stripes3d",
+      "pos": {
+        "x": 780.0,
+        "y": 1040.0
+      },
+      "controls": {
+        "width": {
+          "Float": 0.2
+        },
+        "colorA": {
+          "Color": [
+            0.9098039,
+            0.8862745,
+            0.8392157,
+            1.0
+          ]
+        },
+        "colorB": {
+          "Color": [
+            0.8392157,
+            0.4784314,
+            0.6196078,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "axis": "y"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "union",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "smooth": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 8.2
+        },
+        "tilt": {
+          "Float": 0.07
+        },
+        "fog": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1040.0,
+        "y": 240.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.04
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 15,
+      "slug": "output",
+      "pos": {
+        "x": 1740.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "solid"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "offset"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "c"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "d"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "solid"
+      },
+      "to": {
+        "node": 13,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 14,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "input"
+      }
+    }
+  ]
+}

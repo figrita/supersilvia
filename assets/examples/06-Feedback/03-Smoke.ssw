@@ -1,0 +1,280 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Smoke",
+  "kind": "video",
+  "blurb": "A spinning flame whose last frames rise, blur and fade like smoke",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The last frame comes back nudged up by the Translate, swayed by the Wave, softened by the Blur and dimmed by the Color Shift, under a small spinning star. Old frames keep rising, swaying and spreading until they fade, so the star smokes. Turn the Wave's Amplitude for wilder smoke, or the Translate's Y Offset below zero to let it fall."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 440.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1856.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "translate",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "y": {
+          "Float": 0.012
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "wave",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.012
+        },
+        "frequency": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "blur",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "blurX": {
+          "Float": 2.5
+        },
+        "blurY": {
+          "Float": 2.5
+        }
+      },
+      "options": {
+        "size": "5x5"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": -0.004
+        },
+        "value": {
+          "Float": 0.985
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.05
+        },
+        "centerY": {
+          "Float": -0.6
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7176471,
+            0.0117647,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "mix",
+      "pos": {
+        "x": 1596.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 8,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "mask"
+      },
+      "to": {
+        "node": 9,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    }
+  ]
+}

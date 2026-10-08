@@ -1,0 +1,199 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Blend modes",
+  "kind": "video",
+  "blurb": "A turning hexagon laid over stripes by Difference, so it inverts them",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Layer Blend lays a Foreground over a Background by a Blend Mode. In Difference, black leaves the background alone and white turns it inside out, so the stripes invert inside the white hexagon. Try Multiply, Screen, Overlay and Exclusion, and lower Opacity."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 528.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 9.0
+        },
+        "rotation": {
+          "Float": 0.125
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.1137255,
+            0.2078431,
+            0.3411765,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.15
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "polygon",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 6.0
+        },
+        "radius": {
+          "Float": 0.7
+        },
+        "softness": {
+          "Float": 0.004
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "layerblend",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "difference"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 878.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.16666666666666666
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

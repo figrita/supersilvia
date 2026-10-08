@@ -1,0 +1,224 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Chromatic aberration and CRT",
+  "kind": "video",
+  "blurb": "Color bars through a cheap lens and onto an old television",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Chromatic Aberration pulls red, green and blue apart the way a cheap lens does, harder toward the edges. Camcorder CRT then bends the picture onto a curved tube with scanlines and phosphor glow. Turn Spread on the first, and Curvature, Scanlines and Glow on the second."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 780.0,
+        "y": 218.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "prideflag",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "flagType": "gilbert_baker"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "rotate",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "angle": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "shakycam",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.015
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "chromaticaberration",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "offset": {
+          "Float": 0.025
+        }
+      },
+      "options": {
+        "mode": "radial"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "camcordercrt",
+      "pos": {
+        "x": 1596.0,
+        "y": 40.0
+      },
+      "controls": {
+        "curvature": {
+          "Float": 0.3
+        },
+        "aberration": {
+          "Float": 0.6
+        },
+        "scanlines": {
+          "Float": 0.6
+        },
+        "glow": {
+          "Float": 0.7
+        },
+        "brightness": {
+          "Float": 1.1
+        },
+        "vignette": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1856.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clockY"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

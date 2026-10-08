@@ -1,0 +1,328 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Mux by number",
+  "kind": "video",
+  "blurb": "A number picks one of four pictures, or blends between them",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Mux (Number) shows one of its four inputs by its Select: 0 is the first, 3 the last. A gear's Ping-pong, times 3, sweeps it up and back down, and in Crossfade mode each picture melts into the next. Set the Mode to Switch and it cuts instead. Drag Select yourself after pulling its cable."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 968.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 1318.0
+      },
+      "controls": {
+        "b": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "muxnumber",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "crossfade"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 10.0
+        },
+        "rotation": {
+          "Float": 0.125
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.1686275,
+            0.1137255,
+            0.3607843,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 7.0
+        },
+        "radius": {
+          "Float": 0.38
+        },
+        "stagger": {
+          "Float": 0.5
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.1686275,
+            0.1137255,
+            0.3607843,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 504.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 6.0
+        },
+        "color1": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.1686275,
+            0.1137255,
+            0.3607843,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 660.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 6.0
+        },
+        "thickness": {
+          "Float": 0.25
+        },
+        "outerRadius": {
+          "Float": 2.0
+        },
+        "foreground": {
+          "Color": [
+            0.6078431,
+            0.8980392,
+            0.3921569,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.1686275,
+            0.1137255,
+            0.3607843,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "vignette",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.6
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "output",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "pingpong"
+      },
+      "to": {
+        "node": 3,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input0"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input1"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input2"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input3"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "select"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    }
+  ]
+}

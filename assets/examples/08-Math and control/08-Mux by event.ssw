@@ -1,0 +1,374 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Mux by event",
+  "kind": "video",
+  "blurb": "A gear's Trigger steps through four effects; a Button jumps at random",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Mux (Event) holds one of four inputs and moves on an event: Next, Prev, Random or Reset. Here a one-second gear's Trigger presses Next, so the picture steps through four effects of one pattern, a beat each. Press the Button to jump to one at random, or Reset on the mux to go back to the first."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1040.0,
+        "y": 174.0
+      },
+      "controls": {
+        "length": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "pythagorean",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.62
+        },
+        "biasG": {
+          "Float": 0.55
+        },
+        "biasB": {
+          "Float": 0.65
+        },
+        "ampR": {
+          "Float": 0.35
+        },
+        "ampG": {
+          "Float": 0.35
+        },
+        "ampB": {
+          "Float": 0.3
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.33
+        },
+        "phaseB": {
+          "Float": 0.67
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "tile",
+      "pos": {
+        "x": 1680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 0.8
+        },
+        "height": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1680.0,
+        "y": 304.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        },
+        "zoom": {
+          "Float": 1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "wave",
+      "pos": {
+        "x": 1680.0,
+        "y": 590.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.12
+        },
+        "frequency": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "mode": "radial",
+        "displacement": "ripple"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "muxevent",
+      "pos": {
+        "x": 1984.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "button",
+      "pos": {
+        "x": 1680.0,
+        "y": 894.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 2244.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 4,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input0"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input1"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input2"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input3"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 10,
+        "key": "next"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 10,
+        "key": "rand"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,593 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Step Sequencer",
+  "kind": "video",
+  "blurb": "Four lanes of a sequencer fire four envelopes, a light each",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Master Gear two seconds long is a bar, and the Step Sequencer walks its sixteen steps across it. Each lane fires an ADSR when it reaches a lit cell, and each envelope pops one light. Click cells in the grid to change the rhythm; set the Master Gear's Length to 1 for double time."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "gears"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stepsequencer",
+      "pos": {
+        "x": 520.0,
+        "y": 612.0
+      },
+      "controls": {
+        "gateLength": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      },
+      "values": {
+        "pattern": {
+          "Cells": [
+            "x...x...x...x...",
+            "....x.......x..x",
+            "..x...x...x...x.",
+            "x..x..x...x..x.."
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "adsr",
+      "pos": {
+        "x": 520.0,
+        "y": 992.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.005
+        },
+        "decay": {
+          "Float": 0.45
+        },
+        "sustain": {
+          "Float": 0.0
+        },
+        "release": {
+          "Float": 0.05
+        }
+      },
+      "options": {
+        "trace": "off"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 1470.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.1
+        },
+        "outMax": {
+          "Float": 0.36
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": -1.2
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "adsr",
+      "pos": {
+        "x": 520.0,
+        "y": 1838.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.005
+        },
+        "decay": {
+          "Float": 0.45
+        },
+        "sustain": {
+          "Float": 0.0
+        },
+        "release": {
+          "Float": 0.05
+        }
+      },
+      "options": {
+        "trace": "off"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 2316.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.1
+        },
+        "outMax": {
+          "Float": 0.36
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "circle",
+      "pos": {
+        "x": 932.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": -0.4
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "adsr",
+      "pos": {
+        "x": 520.0,
+        "y": 2684.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.005
+        },
+        "decay": {
+          "Float": 0.45
+        },
+        "sustain": {
+          "Float": 0.0
+        },
+        "release": {
+          "Float": 0.05
+        }
+      },
+      "options": {
+        "trace": "off"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "reframerange",
+      "pos": {
+        "x": 932.0,
+        "y": 740.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.1
+        },
+        "outMax": {
+          "Float": 0.36
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "circle",
+      "pos": {
+        "x": 1312.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": 0.4
+        },
+        "foreground": {
+          "Color": [
+            0.6078431,
+            0.8980392,
+            0.3921569,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "adsr",
+      "pos": {
+        "x": 932.0,
+        "y": 262.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.005
+        },
+        "decay": {
+          "Float": 0.45
+        },
+        "sustain": {
+          "Float": 0.0
+        },
+        "release": {
+          "Float": 0.05
+        }
+      },
+      "options": {
+        "trace": "off"
+      }
+    },
+    {
+      "id": 14,
+      "slug": "reframerange",
+      "pos": {
+        "x": 1312.0,
+        "y": 262.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.1
+        },
+        "outMax": {
+          "Float": 0.36
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "circle",
+      "pos": {
+        "x": 1572.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": 1.2
+        },
+        "foreground": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "slug": "bloom",
+      "pos": {
+        "x": 1832.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.4
+        },
+        "intensity": {
+          "Float": 1.2
+        },
+        "radius": {
+          "Float": 0.05
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "slug": "output",
+      "pos": {
+        "x": 2092.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane1"
+      },
+      "to": {
+        "node": 4,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "value"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane2"
+      },
+      "to": {
+        "node": 7,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "value"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane3"
+      },
+      "to": {
+        "node": 10,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "value"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 12,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane4"
+      },
+      "to": {
+        "node": 13,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "value"
+      },
+      "to": {
+        "node": 14,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "color"
+      },
+      "to": {
+        "node": 15,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "color"
+      },
+      "to": {
+        "node": 16,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "color"
+      },
+      "to": {
+        "node": 17,
+        "key": "input"
+      }
+    }
+  ]
+}

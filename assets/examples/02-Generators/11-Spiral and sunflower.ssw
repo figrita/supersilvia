@@ -1,0 +1,226 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Spiral and sunflower",
+  "kind": "video",
+  "blurb": "Seeds set at the golden angle, over a turning spiral",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Phyllotaxis sets seed after seed a fixed Angle round from the last, as a sunflower does; at the golden angle, 0.382 of a turn, they pack without gaps. An Oscillator rocks the Angle a hair either side, and the seeds swirl into spiral arms. Its Background is a Spiral, turned by the Master Gear. Try Count and Dot Size."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 348.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 6.0
+        },
+        "thickness": {
+          "Float": 0.22
+        },
+        "outerRadius": {
+          "Float": 1.9
+        },
+        "foreground": {
+          "Color": [
+            0.227451,
+            0.1647059,
+            0.4470588,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0705882,
+            0.0509804,
+            0.1490196,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "type": "logarithmic"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 698.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.0025
+        },
+        "offset": {
+          "Float": 0.382
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "phyllotaxis",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 420.0
+        },
+        "radius": {
+          "Float": 0.95
+        },
+        "dotSize": {
+          "Float": 0.034
+        },
+        "fg": {
+          "Color": [
+            1.0,
+            0.8,
+            0.3019608,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 1044.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "bg"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

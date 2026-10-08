@@ -1,0 +1,367 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Random on the beat",
+  "kind": "video",
+  "blurb": "A beat count picks a Random number and rerolls a Random Hurl",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Random gives the same number for the same Seed, so a seed that steps gives a new number each step. Here a half-second gear's Cycles, floored and wrapped round 8 by Modulo, is the seed: three Randoms place and size the dot, and Random Hurl, a random color a pixel, rerolls the static inside it. Every eighth beat the pattern comes back; set the Modulo to 16 for a longer one."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 152.0
+      },
+      "controls": {
+        "length": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 502.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "modulo",
+      "pos": {
+        "x": 520.0,
+        "y": 614.0
+      },
+      "controls": {
+        "b": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "random",
+      "pos": {
+        "x": 780.0,
+        "y": 218.0
+      },
+      "controls": {
+        "min": {
+          "Float": 0.1
+        },
+        "max": {
+          "Float": 0.42
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 748.0
+      },
+      "controls": {
+        "b": {
+          "Float": 37.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 882.0
+      },
+      "controls": {
+        "b": {
+          "Float": 71.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "random",
+      "pos": {
+        "x": 780.0,
+        "y": 374.0
+      },
+      "controls": {
+        "min": {
+          "Float": -1.2
+        },
+        "max": {
+          "Float": 1.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "random",
+      "pos": {
+        "x": 780.0,
+        "y": 530.0
+      },
+      "controls": {
+        "min": {
+          "Float": -0.5
+        },
+        "max": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "randomhurl",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "colorize",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "tint": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "amount": {
+          "Float": 0.8
+        },
+        "preserveLuminance": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "circle",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "softness": {
+          "Float": 0.01
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "output",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "color"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "color"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    }
+  ]
+}

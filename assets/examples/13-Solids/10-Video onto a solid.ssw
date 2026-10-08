@@ -1,0 +1,585 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Video onto a solid",
+  "kind": "video",
+  "blurb": "A video patch worn by a box, a cylinder and a ball through three Textures",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Texture puts any picture on a solid's skin \u2014 here a turning kaleidoscope of checkers built in the same patch. Each Texture's Mapping makes a picture out of the surface its own way: Box wraps it from six sides, Around rolls it round the cylinder, Sphere maps it onto the ball. Try each Texture's Mapping and Scale, or move a Place before its Texture and the shape slides through the picture like a projector."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 1372.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.945098,
+            0.7215686,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.2941176,
+            0.1647059,
+            0.6588235,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "rotate",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        }
+      },
+      "options": {},
+      "width": 240.0
+    },
+    {
+      "id": 6,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.3686275,
+            0.4941176,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            0.1803922,
+            0.7686275,
+            0.7137255,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.6
+        }
+      },
+      "options": {
+        "loop_mode": "mirror"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1396.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "multiply"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 438.0
+      },
+      "controls": {
+        "width": {
+          "Float": 1.8
+        },
+        "height": {
+          "Float": 1.8
+        },
+        "depth": {
+          "Float": 1.8
+        },
+        "rounding": {
+          "Float": 0.06
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "surfacetexture",
+      "pos": {
+        "x": 1656.0,
+        "y": 438.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 0.9
+        }
+      },
+      "options": {
+        "projection": "box"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "place",
+      "pos": {
+        "x": 1916.0,
+        "y": 438.0
+      },
+      "controls": {
+        "x": {
+          "Float": -3.6
+        },
+        "y": {
+          "Float": -0.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "cylinder",
+      "pos": {
+        "x": 520.0,
+        "y": 786.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.9
+        },
+        "height": {
+          "Float": 2.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "surfacetexture",
+      "pos": {
+        "x": 1656.0,
+        "y": 786.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "projection": "around"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "place",
+      "pos": {
+        "x": 1916.0,
+        "y": 786.0
+      },
+      "controls": {
+        "x": {
+          "Float": 0.0
+        },
+        "y": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 1090.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "surfacetexture",
+      "pos": {
+        "x": 1656.0,
+        "y": 1090.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "projection": "sphere"
+      }
+    },
+    {
+      "id": 16,
+      "slug": "place",
+      "pos": {
+        "x": 1916.0,
+        "y": 1090.0
+      },
+      "controls": {
+        "x": {
+          "Float": 3.6
+        },
+        "y": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "slug": "union",
+      "pos": {
+        "x": 2176.0,
+        "y": 438.0
+      },
+      "controls": {
+        "smooth": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 18,
+      "slug": "solidrender",
+      "pos": {
+        "x": 2556.0,
+        "y": 438.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 8.0
+        },
+        "tilt": {
+          "Float": 0.07
+        },
+        "fog": {
+          "Float": 0.03
+        },
+        "light": {
+          "Float": 0.08
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 19,
+      "slug": "oscillator",
+      "pos": {
+        "x": 2176.0,
+        "y": 638.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.07
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 20,
+      "slug": "output",
+      "pos": {
+        "x": 2876.0,
+        "y": 438.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "picture"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "solid"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "picture"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "solid"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "solid"
+      },
+      "to": {
+        "node": 15,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "picture"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "solid"
+      },
+      "to": {
+        "node": 16,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "solid"
+      },
+      "to": {
+        "node": 17,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "solid"
+      },
+      "to": {
+        "node": 17,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "solid"
+      },
+      "to": {
+        "node": 17,
+        "key": "c"
+      }
+    },
+    {
+      "from": {
+        "node": 17,
+        "key": "solid"
+      },
+      "to": {
+        "node": 18,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 19,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 19,
+        "key": "output"
+      },
+      "to": {
+        "node": 18,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 18,
+        "key": "output"
+      },
+      "to": {
+        "node": 20,
+        "key": "input"
+      }
+    }
+  ]
+}

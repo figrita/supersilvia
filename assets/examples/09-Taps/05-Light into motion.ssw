@@ -1,0 +1,252 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Light into motion",
+  "kind": "video",
+  "blurb": "A Tap's centroid follows the bright part of a moving noise",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Tap's X and Y say where its quantity is, weighted by how much of it there is: the center of the light. Here the Tap measures the bright blobs a Smoothstep cuts out of the noise, through its Number input, and the diamond is put where they are, so it drifts after the light. Move the Smoothstep's edges to choose how bright counts."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 386.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "simplex",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.4
+        },
+        "contrast": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "smoothstep",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "edgeA": {
+          "Float": 0.55
+        },
+        "edgeB": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "hsla",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "h": {
+          "Float": 0.08
+        },
+        "s": {
+          "Float": 0.85
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "tap",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "polygon",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.09
+        },
+        "rotation": {
+          "Float": 0.125
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1820.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1080x1080",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "l"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "number"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "x"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "y"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

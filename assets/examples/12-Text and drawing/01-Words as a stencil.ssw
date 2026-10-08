@@ -1,0 +1,270 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Words as a stencil",
+  "kind": "video",
+  "blurb": "The Text node's Ink as a mask: letters as windows onto moving color",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Type into the Text node's box; a new line is a new line on screen, and Font, Size and Align are its menus. Besides its colored picture, Text has Ink: white letters on black, the shape of the words alone. Here Ink, read as a number, mixes a dim copy of a drifting palette into a bright one, so the letters are windows. Try another word, or Ink into a Blur first for soft edges."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 906.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 1.6
+        },
+        "contrast": {
+          "Float": 1.3
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 832.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1212.0,
+        "y": 40.0
+      },
+      "controls": {
+        "value": {
+          "Float": 0.22
+        },
+        "saturation": {
+          "Float": 0.7
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "text",
+      "pos": {
+        "x": 520.0,
+        "y": 428.0
+      },
+      "controls": {},
+      "options": {
+        "font": "Impact",
+        "size": "250",
+        "weight": "normal"
+      },
+      "values": {
+        "words": {
+          "Text": "look\nthrough"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "slug": "luminosity",
+      "pos": {
+        "x": 832.0,
+        "y": 428.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "mix",
+      "pos": {
+        "x": 1472.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1732.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "ink"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

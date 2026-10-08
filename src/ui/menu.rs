@@ -79,6 +79,9 @@ pub enum MenuAction {
     /// The tab at this position in `TabBar::order`, the project tab first. `Ctrl+1` to
     /// `Ctrl+9`, which no entry carries: the tabs are their entries.
     GoToTab(usize),
+    /// Help ▸ Example Library ▸ a category ▸ an example: the example at this index of
+    /// [`crate::examples::EXAMPLES`], added to the project as a tab of its own and shown.
+    AddExample(usize),
     /// Help ▸ About supersilvia: the name, the version, the licence and the source.
     OpenAbout,
     /// Help ▸ Licences…: supersilvia's licence and every third-party notice.
@@ -527,6 +530,35 @@ fn recent_entry(path: &Path) -> Item {
         .into()
 }
 
+/// Help ▸ Example Library: a submenu per category, and in each an entry per example, in the
+/// order `build.rs` listed them.
+fn example_library() -> Item {
+    let mut start = 0;
+    let items = crate::examples::categories()
+        .map(|(category, run)| {
+            let items = (start..start + run.len())
+                .zip(run)
+                .map(|(index, example)| {
+                    Entry::new(example.title, MenuAction::AddExample(index)).into()
+                })
+                .collect();
+            start += run.len();
+            Item::Submenu {
+                title: category,
+                items,
+            }
+        })
+        .collect::<Vec<_>>();
+    Item::Submenu {
+        title: "Example Library",
+        items: if items.is_empty() {
+            vec![Entry::note("Nothing yet").into()]
+        } else {
+            items
+        },
+    }
+}
+
 /// Why a greyed-out entry is greyed out, in the words its hover says it in.
 pub mod why {
     pub const FILE_DIALOG: &str = "A file dialog is open.";
@@ -774,6 +806,8 @@ pub fn model(state: &MenuState<'_>) -> Vec<Menu> {
         title: "Help",
         hint: None,
         items: vec![
+            example_library(),
+            Item::Separator,
             Entry::new("Keyboard shortcuts…", MenuAction::OpenShortcuts)
                 .shortcut(keys::SHORTCUTS)
                 .hint("Every key supersilvia answers, and where")
@@ -1015,6 +1049,40 @@ pub(crate) mod tests {
         assert_eq!(last.label, "Report a problem…");
         assert_eq!(last.action, Some(MenuAction::ReportProblem));
         assert!(last.enabled);
+    }
+
+    /// Help opens on the Example Library: a submenu per category in the list's order, and in
+    /// each an entry per example that adds that one.
+    #[test]
+    fn help_opens_on_the_example_library() {
+        let menus = model(&quiet());
+        let help = menus.iter().find(|m| m.title == "Help").expect("Help");
+        let [Item::Submenu { title, items }, Item::Separator, ..] = help.items.as_slice() else {
+            panic!("Help opens on a submenu under a rule: {:?}", help.items);
+        };
+        assert_eq!(*title, "Example Library");
+        let mut listed = Vec::new();
+        for item in items {
+            let Item::Submenu { title, items } = item else {
+                panic!("a category is a submenu: {item:?}");
+            };
+            for item in items {
+                let Item::Entry(entry) = item else {
+                    panic!("an example is an entry: {item:?}");
+                };
+                let Some(MenuAction::AddExample(index)) = entry.action else {
+                    panic!("{} adds an example", entry.label);
+                };
+                let example = crate::examples::EXAMPLES[index];
+                assert_eq!((example.category, example.title), (*title, &*entry.label));
+                listed.push(index);
+            }
+        }
+        assert_eq!(
+            listed,
+            (0..crate::examples::EXAMPLES.len()).collect::<Vec<_>>(),
+            "every example, in order"
+        );
     }
 
     /// Every shortcut is the entry it stands for, and the one with Shift held is never also

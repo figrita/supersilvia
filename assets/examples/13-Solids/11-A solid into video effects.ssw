@@ -1,0 +1,302 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A solid into video effects",
+  "kind": "video",
+  "blurb": "A Render 3D picture folded by a Kaleidoscope and shifted in hue",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Render 3D's picture is an ordinary picture, so any video node can take it: a turning ring of balls and a torus is folded by a Kaleidoscope and tinted by a Color Shift. Try the Kaleidoscope's Segments and Zoom, or cable Render 3D straight into the Output to see what is being folded. A blur after a render is costly \u2014 it marches the scene again for every tap."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1040.0,
+        "y": 344.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.3
+        },
+        "color": {
+          "Color": [
+            0.3529412,
+            0.9098039,
+            0.7843137,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "repeataround",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "copies": {
+          "Float": 10.0
+        },
+        "radius": {
+          "Float": 2.1
+        },
+        "tint": {
+          "Float": 0.8
+        },
+        "seed": {
+          "Float": 2.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "torus",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "ring": {
+          "Float": 1.2
+        },
+        "tube": {
+          "Float": 0.32
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        },
+        "blend": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "place",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "pitch": {
+          "Float": 0.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.0
+        },
+        "tilt": {
+          "Float": 0.1
+        },
+        "fog": {
+          "Float": 0.0
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0392157,
+            0.0784314,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "floor": "none"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1880.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        },
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {},
+      "width": 240.0
+    },
+    {
+      "id": 9,
+      "slug": "colorshift",
+      "pos": {
+        "x": 2200.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "output",
+      "pos": {
+        "x": 2460.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "yaw"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 7,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 9,
+        "key": "hue"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    }
+  ]
+}

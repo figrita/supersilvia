@@ -1,0 +1,142 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A first solid",
+  "kind": "video",
+  "blurb": "A sphere into Render 3D into an Output",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A solid is a shape in three dimensions, and Render 3D is what makes it a picture: it shoots a ray from a camera through every pixel and lights what the ray lands on. The Master Gear turns the camera's Orbit once a loop, so the checker floor and the shadow swing round the ball. Drag the Sphere's Radius and Color, or unplug the Orbit and drag Orbit, Tilt and Distance on Render 3D yourself."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 322.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "y": {
+          "Float": -0.1
+        },
+        "radius": {
+          "Float": 0.9
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "solidrender",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 4.2
+        },
+        "tilt": {
+          "Float": 0.07
+        },
+        "fog": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1100.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

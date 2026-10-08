@@ -1,0 +1,290 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Words leaving trails",
+  "kind": "video",
+  "blurb": "A turning word, and the Output's last frame zoomed and fading under it",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The word turns back and forth on an Oscillator through Rotate, over a clear background. Under it is the Output's own last frame, zoomed in a little and dimmed with a hue step, so every frame leaves an echo that grows outward and changes color. Try the Zoom below 1 to pull the echoes inward, or Value nearer 1 for longer trails."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 696.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "text",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "textColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {
+        "font": "Impact",
+        "size": "230",
+        "weight": "normal"
+      },
+      "values": {
+        "words": {
+          "Text": "echo"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1046.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.06
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "rotate",
+      "pos": {
+        "x": 900.0,
+        "y": 696.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1716.0,
+        "y": 518.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 518.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.03
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 518.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.025
+        },
+        "value": {
+          "Float": 0.93
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "colorize",
+      "pos": {
+        "x": 1160.0,
+        "y": 696.0
+      },
+      "controls": {
+        "tint": {
+          "Color": [
+            1.0,
+            0.4156863,
+            0.2392157,
+            1.0
+          ]
+        },
+        "amount": {
+          "Float": 1.0
+        },
+        "preserveLuminance": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1456.0,
+        "y": 518.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "normal"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "frame"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

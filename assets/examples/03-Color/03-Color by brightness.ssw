@@ -1,0 +1,152 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Color by brightness",
+  "kind": "video",
+  "blurb": "A gray noise graded into shadows, midtones and highlights",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Color Mapping grades a picture by its brightness: the dark parts take the Shadows color, the bright parts the Highlights, and the middle the Midtones. Its input here is a plain gray noise. Pick the three swatches; or put a Colorize in its place, which tints the whole picture with one color."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 386.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "simplex",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.5
+        },
+        "contrast": {
+          "Float": 1.6
+        }
+      },
+      "options": {
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "colormapping",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "shadows": {
+          "Color": [
+            0.0784314,
+            0.0431373,
+            0.2039216,
+            1.0
+          ]
+        },
+        "midtones": {
+          "Color": [
+            0.7607843,
+            0.2117647,
+            0.4784314,
+            1.0
+          ]
+        },
+        "highlights": {
+          "Color": [
+            1.0,
+            0.8235294,
+            0.4784314,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

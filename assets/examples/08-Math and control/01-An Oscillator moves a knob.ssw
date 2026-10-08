@@ -1,0 +1,159 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "An Oscillator moves a knob",
+  "kind": "video",
+  "blurb": "A sine wave cabled into a Polygon's Radius",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A cable into a knob takes it over. The Oscillator's Output goes into the Polygon's Radius, so the hexagon breathes: Amplitude is how far it swings, Level the radius it swings around, Speed how many waves a second. Try the Waveform: Triangle, Square, Sawtooth. The trace on the Oscillator draws what it sends."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.5
+        },
+        "amplitude": {
+          "Float": 0.18
+        },
+        "offset": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            1.0,
+            0.3098039,
+            0.545098,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.7
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "polygon",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 6.0
+        },
+        "softness": {
+          "Float": 0.006
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "rotation": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

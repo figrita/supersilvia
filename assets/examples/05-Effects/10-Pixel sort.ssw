@@ -1,0 +1,220 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Pixel sort",
+  "kind": "video",
+  "blurb": "A Julia set's columns sorted by brightness into a waterfall",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Pixel Sort cuts every column into chunks and sorts the pixels in each by brightness, so the fractal runs down the screen like wet paint. Chunks whose contrast is under Threshold are left alone. Turn Threshold, or set Sort By to Hue and Direction to Horizontal."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 454.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "juliaset",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.7
+        },
+        "iterations": {
+          "Float": 60.0
+        },
+        "cReal": {
+          "Float": -0.75
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 804.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.06
+        },
+        "offset": {
+          "Float": 0.18
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.35
+        },
+        "biasB": {
+          "Float": 0.35
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.45
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "pixelsort",
+      "pos": {
+        "x": 1280.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "direction": "vertical",
+        "chunkSize": "32"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1540.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "cImag"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "smooth"
+      },
+      "to": {
+        "node": 5,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

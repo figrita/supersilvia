@@ -1,0 +1,199 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Knobs ready for MIDI",
+  "kind": "video",
+  "blurb": "Alt+click a knob, turn a controller's: the ranges are set for it",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Alt+click any knob, then turn a knob on a MIDI controller: they are bound, and the knob wears a dot. A controller sweeps the knob's own range, so the ones worth playing here have been narrowed \u2014 Twist 0 to 3, Segments 3 to 12, Hue Shift 0 to 1 \u2014 and wear accent borders. Bindings are kept in the project rather than in a workspace: Project \u25b8 MIDI\u2026 lists them and clears them."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 16.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.1058824,
+            0.0627451,
+            0.2078431,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "tunnel3d",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.6
+        },
+        "twist": {
+          "Float": 1.5
+        }
+      },
+      "options": {},
+      "values": {
+        "twist": {
+          "Range": {
+            "min": 0.0,
+            "max": 3.0,
+            "step": 0.01
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        },
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {},
+      "values": {
+        "segments": {
+          "Range": {
+            "min": 3.0,
+            "max": 12.0,
+            "step": 1.0
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.0
+        },
+        "saturation": {
+          "Float": 1.3
+        }
+      },
+      "options": {},
+      "values": {
+        "hue": {
+          "Range": {
+            "min": 0.0,
+            "max": 1.0,
+            "step": 0.01
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1596.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

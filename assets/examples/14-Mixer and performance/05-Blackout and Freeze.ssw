@@ -1,0 +1,220 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Blackout and Freeze",
+  "kind": "video",
+  "blurb": "The two presses that save a set, under the Main Mixer's fade",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Press Show on A, then press Freeze in the Main Mixer: the projector holds this frame while the patch races on underneath, and pressing it again cuts back to it live. Blackout takes the projector to black until it is pressed again. Both hold wherever the mix is shown \u2014 a window, Syphon, NDI \u2014 and Alt+click puts either on a MIDI pad."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.42
+        },
+        "input": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "rotozoom",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 1.0
+        },
+        "baseZoom": {
+          "Float": 0.8
+        },
+        "sinCoeff": {
+          "Float": 0.6
+        },
+        "cosCoeff": {
+          "Float": 0.8
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "colorize",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "tint": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.4980392,
+            1.0
+          ]
+        },
+        "amount": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1372.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1632.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 2.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "hue"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

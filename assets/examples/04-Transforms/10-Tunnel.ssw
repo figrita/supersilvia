@@ -1,0 +1,177 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Tunnel",
+  "kind": "video",
+  "blurb": "A flight down a curving tube with a checkerboard on its walls",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Tunnel wraps its Texture around the inside of a tube and flies a camera down it. The Ratio Gear at 1 : 4 flies a quarter of a flight a loop, which is how often the Helix path comes back. Turn Twist for a wilder path and Zoom for a wider lens, or cable a noise into Texture."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 546.0
+      },
+      "controls": {
+        "p": {
+          "Float": 1.0
+        },
+        "q": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 8.0
+        },
+        "color1": {
+          "Color": [
+            0.5019608,
+            1.0,
+            0.8588235,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.3686275,
+            0.1686275,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "tunnel3d",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "twist": {
+          "Float": 1.2
+        },
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "path": "helix",
+        "shading": "light",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Snapshots",
+  "kind": "video",
+  "blurb": "Snap writes the frame in front of you as a full-size PNG",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Press Snap on the Output, or the Button cabled into it, and the frame in front of you is written as a PNG at the Output's full resolution into snaps/ in the project, while the show plays on. Snap is an action like Show on A, so a sequencer lane or a MIDI pad can take pictures too: Alt+click the Button's Press and hit a pad."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 612.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.006
+        },
+        "offset": {
+          "Float": 0.382
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "phyllotaxis",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 420.0
+        },
+        "radius": {
+          "Float": 1.25
+        },
+        "dotSize": {
+          "Float": 0.045
+        },
+        "bg": {
+          "Color": [
+            0.0784314,
+            0.0392157,
+            0.1411765,
+            1.0
+          ]
+        },
+        "fg": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "bloom",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.5
+        },
+        "intensity": {
+          "Float": 0.8
+        },
+        "radius": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "button",
+      "pos": {
+        "x": 900.0,
+        "y": 238.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 7,
+        "key": "snap"
+      }
+    }
+  ]
+}

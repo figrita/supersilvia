@@ -1,0 +1,293 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A button and an XY pad",
+  "kind": "video",
+  "blurb": "Throw the puck to steer the picture; hold the button to flash it",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Throw the puck in the XY Pad: its X twists the Kaleidoscope and its Y zooms it, and it bounces on by itself until Drag slows it. Hold the Button for a flash of white \u2014 the ADSR shapes it, so its Decay is how fast the flash fades. Alt+click the Button's Press, then hit a pad on a MIDI controller, to play it from there."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "simplex",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.0
+        },
+        "contrast": {
+          "Float": 1.3
+        },
+        "speed": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.4
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.4
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.45
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 8.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "xypad",
+      "pos": {
+        "x": 780.0,
+        "y": 386.0
+      },
+      "controls": {
+        "minX": {
+          "Float": -1.5
+        },
+        "maxX": {
+          "Float": 1.5
+        },
+        "minY": {
+          "Float": 0.6
+        },
+        "maxY": {
+          "Float": 2.4
+        },
+        "drag": {
+          "Float": 0.01
+        },
+        "padX": {
+          "Float": 0.3
+        },
+        "padY": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "button",
+      "pos": {
+        "x": 780.0,
+        "y": 928.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "adsr",
+      "pos": {
+        "x": 1160.0,
+        "y": 326.0
+      },
+      "controls": {
+        "attack": {
+          "Float": 0.01
+        },
+        "decay": {
+          "Float": 0.35
+        },
+        "sustain": {
+          "Float": 0.25
+        },
+        "release": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1540.0,
+        "y": 40.0
+      },
+      "controls": {
+        "opacity": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "blend_mode": "add"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1800.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "value"
+      },
+      "to": {
+        "node": 3,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "x"
+      },
+      "to": {
+        "node": 4,
+        "key": "twist"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "y"
+      },
+      "to": {
+        "node": 4,
+        "key": "zoom"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "trigger"
+      },
+      "to": {
+        "node": 7,
+        "key": "gate"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "value"
+      },
+      "to": {
+        "node": 8,
+        "key": "opacity"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

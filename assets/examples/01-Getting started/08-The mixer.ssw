@@ -1,0 +1,206 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "The mixer",
+  "kind": "video",
+  "blurb": "Two Outputs on the Main Mixer's two decks",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Main Mixer panel, on the right, crossfades two decks into what the audience sees. Press Show on A on the first Output and Show on B on the second, then drag the A / B balance in the panel from one to the other, and try its Crossfade methods. The mix goes to a projector from the same panel: Project to background, Pop out or Fullscreen."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "phyllotaxis",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 360.0
+        },
+        "radius": {
+          "Float": 1.2
+        },
+        "dotSize": {
+          "Float": 0.05
+        },
+        "bg": {
+          "Color": [
+            0.0784314,
+            0.0392157,
+            0.1411765,
+            1.0
+          ]
+        },
+        "fg": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "worley",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 6.0
+        },
+        "contrast": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "mode": "cells"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 816.0,
+        "y": 582.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.35
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.35
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.3
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 582.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "value"
+      },
+      "to": {
+        "node": 5,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

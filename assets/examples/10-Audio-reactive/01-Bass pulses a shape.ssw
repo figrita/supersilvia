@@ -1,0 +1,241 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Bass pulses a shape",
+  "kind": "video",
+  "blurb": "The bass band swells a turning hexagon",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). The Main Input's Bass is a number from 0 to 1; the Reframe Range turns it into a Radius from 0.4 to 0.95, so silence is a small hexagon and a kick swells it. Try Out Max higher for a bigger punch, or cable Mid or High in place of Bass."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 542.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "on",
+        "events": "off"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 892.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.4
+        },
+        "outMax": {
+          "Float": 0.95
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.8862745,
+            0.6039216,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            1.0,
+            0.1843137,
+            0.4784314,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "polygon",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 6.0
+        },
+        "softness": {
+          "Float": 0.012
+        },
+        "background": {
+          "Color": [
+            0.0784314,
+            0.0392157,
+            0.1411765,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "bloom",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.55
+        },
+        "intensity": {
+          "Float": 0.8
+        },
+        "radius": {
+          "Float": 0.03
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "bass"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

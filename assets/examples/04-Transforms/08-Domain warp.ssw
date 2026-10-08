@@ -1,0 +1,184 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Domain warp",
+  "kind": "video",
+  "blurb": "Straight stripes melted into marble by a fractal noise",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Domain Warp moves every pixel by a fractal noise, and each iteration reads the noise where the last one moved it, so straight stripes melt into marble. The Master Gear walks the noise one cell a loop, and Repeat 1 brings it back. Turn Amplitude for more melt, or set Iterations to 3."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 3.0
+        },
+        "rotation": {
+          "Float": 0.1
+        },
+        "color1": {
+          "Color": [
+            0.9568627,
+            0.9137255,
+            0.8470588,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.4784314,
+            0.1803922,
+            0.1137255,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "domainwarp",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        },
+        "frequency": {
+          "Float": 0.9
+        },
+        "octaves": {
+          "Float": 3.0
+        }
+      },
+      "options": {
+        "iterations": "2",
+        "repeat": "1",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "vignette",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.6
+        },
+        "radius": {
+          "Float": 0.95
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

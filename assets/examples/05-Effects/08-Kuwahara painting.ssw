@@ -1,0 +1,117 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Kuwahara painting",
+  "kind": "video",
+  "blurb": "The Main Input painted in flat strokes that keep their edges",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Kuwahara averages whichever corner around a pixel is the smoothest, so flat areas melt into strokes of color while the edges stay sharp, and a camera picture looks painted. Choose a camera or a clip in the Main Input panel to feed it. Set Size larger for broader strokes, at more cost."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "kuwahara",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "size": "9x9"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "vibrance",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "frame"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}

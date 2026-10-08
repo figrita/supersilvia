@@ -1,0 +1,222 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "RGB from numbers",
+  "kind": "video",
+  "blurb": "Red across, green up, blue swinging: RGBA from three numbers",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "RGBA builds a color from how much red, green and blue light it has, each 0 to 1. Red rises left to right and green bottom to top, from World Coordinates; an Oscillator swings the blue up and down once a loop. Pull a cable out and drag that channel by hand, or swap the X and Y cables."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 130.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "reframerange",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": -1.78
+        },
+        "inMax": {
+          "Float": 1.78
+        },
+        "outMin": {
+          "Float": 0.0
+        },
+        "outMax": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 780.0,
+        "y": 408.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": -1.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.0
+        },
+        "outMax": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "oscillator",
+      "pos": {
+        "x": 780.0,
+        "y": 776.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        },
+        "offset": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "rgba",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "r"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "g"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,341 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A set built of gears",
+  "kind": "video",
+  "blurb": "One Master Gear's beat under both decks, so every cut lands on it",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "One Master Gear half a second long is the beat, and Ratio Gears divide it into a bar (1 : 4) and a four-bar phrase (1 : 16). Both decks run on them, so whatever is on air stays on the beat. Turn the Master Gear's Length to retime the whole set at once \u2014 it bends, never jumps \u2014 and use its Hold and Reset to stop it and start again on the downbeat."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 438.0
+      },
+      "controls": {
+        "length": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "display": "gears"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 788.0
+      },
+      "controls": {
+        "p": {
+          "Float": 1.0
+        },
+        "q": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1222.0
+      },
+      "controls": {
+        "p": {
+          "Float": 1.0
+        },
+        "q": {
+          "Float": 16.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 16.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.4352941,
+            0.3490196,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0431373,
+            0.1137255,
+            0.227451,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "tunnel3d",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "twist": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "shading": "light",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 0.5
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        },
+        "radius": {
+          "Float": 0.4
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0784314,
+            0.0392157,
+            0.1411765,
+            1.0
+          ]
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1656.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.4
+        },
+        "offset": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "waveform": "sawtooth",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 900.0,
+        "y": 446.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 582.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 0.5
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 10,
+        "key": "offset"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "zoom"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}

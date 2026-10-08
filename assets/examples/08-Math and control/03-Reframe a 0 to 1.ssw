@@ -1,0 +1,237 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Reframe a 0 to 1",
+  "kind": "video",
+  "blurb": "A gear's Ping-pong, 0 to 1, made into a radius and a rocking turn",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Gears and envelopes give 0 to 1, and a knob wants its own range. Reframe Range maps the Ping-pong onto a radius of 0.2 to 0.8 in one node; a Multiply then an Add does the same by hand, times 0.3 and minus 0.15 making a rock of 0.15 turn either way. Math on numbers gives numbers, the diamond ports: try Out Min above Out Max to turn the pulse round."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 632.0
+      },
+      "controls": {
+        "outMin": {
+          "Float": 0.2
+        },
+        "outMax": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 1000.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 1134.0
+      },
+      "controls": {
+        "b": {
+          "Float": -0.15
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            0.6078431,
+            0.8980392,
+            0.3921569,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            0.1647059,
+            0.6156863,
+            0.5607843,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "polygon",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 5.0
+        },
+        "softness": {
+          "Float": 0.006
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "pingpong"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "pingpong"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

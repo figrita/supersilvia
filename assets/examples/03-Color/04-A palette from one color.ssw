@@ -1,0 +1,484 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A palette from one color",
+  "kind": "video",
+  "blurb": "Palette fans one color out into eight that go with it, shown as rings",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Palette takes one color and gives eight that go with it, A to H, its hue fanned along an arc. Here the one color is an HSLA whose hue the Master Gear turns, and the eight are drawn as rings, A outside to H in the middle. Turn the Palette's Spread, L Spread and C Spread."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "hsla",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.7
+        },
+        "l": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "palette",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "spread": {
+          "Float": 0.45
+        },
+        "lSpread": {
+          "Float": 0.7
+        },
+        "cSpread": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "circle",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.95
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.84
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "circle",
+      "pos": {
+        "x": 1560.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.73
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 1820.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.6199999999999999
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "circle",
+      "pos": {
+        "x": 2080.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.51
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "circle",
+      "pos": {
+        "x": 2340.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.3999999999999999
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "circle",
+      "pos": {
+        "x": 2600.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.2899999999999999
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "circle",
+      "pos": {
+        "x": 2860.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.17999999999999994
+        },
+        "softness": {
+          "Float": 0.004
+        },
+        "background": {
+          "Color": [
+            0.0509804,
+            0.0431373,
+            0.0901961,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "output",
+      "pos": {
+        "x": 3120.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "a"
+      },
+      "to": {
+        "node": 5,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "b"
+      },
+      "to": {
+        "node": 6,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "c"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "d"
+      },
+      "to": {
+        "node": 8,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "e"
+      },
+      "to": {
+        "node": 9,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "f"
+      },
+      "to": {
+        "node": 10,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "g"
+      },
+      "to": {
+        "node": 11,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "color"
+      },
+      "to": {
+        "node": 11,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "h"
+      },
+      "to": {
+        "node": 12,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "color"
+      },
+      "to": {
+        "node": 12,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "color"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    }
+  ]
+}

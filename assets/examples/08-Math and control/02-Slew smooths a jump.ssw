@@ -1,0 +1,334 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Slew smooths a jump",
+  "kind": "video",
+  "blurb": "A square wave raw and through a Slew, drawn side by side",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A square-wave Oscillator jumps between two levels. The gold dot follows it raw; the blue one follows it through a Slew, which eases toward each new level instead of jumping. The Output's own last frame, slid left, draws both paths. Turn the Slew's Rise and Fall, or set its Shape to Rate for a straight ramp with a corner."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 418.0
+      },
+      "controls": {
+        "speed": {
+          "Float": 0.5
+        },
+        "amplitude": {
+          "Float": 0.3
+        }
+      },
+      "options": {
+        "waveform": "square"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "slew",
+      "pos": {
+        "x": 520.0,
+        "y": 764.0
+      },
+      "controls": {
+        "rise": {
+          "Float": 6.0
+        },
+        "fall": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "shape": "ease"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 940.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.45
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 1074.0
+      },
+      "controls": {
+        "b": {
+          "Float": -0.45
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.06
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "centerX": {
+          "Float": 1.35
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "circle",
+      "pos": {
+        "x": 900.0,
+        "y": 440.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.06
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "centerX": {
+          "Float": 1.35
+        },
+        "foreground": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 262.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "translate",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "x": {
+          "Float": -0.025
+        },
+        "y": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 262.0
+      },
+      "controls": {
+        "value": {
+          "Float": 0.985
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1160.0,
+        "y": 262.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "frame"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 11,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

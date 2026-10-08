@@ -1,0 +1,217 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Bloom",
+  "kind": "video",
+  "blurb": "A thin neon spiral made to glow",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Bloom gathers everything brighter than Threshold from around each pixel and adds it back, so the thin spiral glows like neon tubing. The Oscillator swings Intensity up and down. Turn Radius for a wider halo, or lower Threshold until the dark parts glow too."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 348.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 3.0
+        },
+        "thickness": {
+          "Float": 0.03
+        },
+        "outerRadius": {
+          "Float": 0.95
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.2352941,
+            0.6745098,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.027451,
+            0.0078431,
+            0.1019608,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "type": "archimedean"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 698.0
+      },
+      "controls": {
+        "b": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "bloom",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "threshold": {
+          "Float": 0.2
+        },
+        "radius": {
+          "Float": 0.12
+        }
+      },
+      "options": {
+        "quality": "high"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 832.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 1.2
+        },
+        "offset": {
+          "Float": 1.8
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "intensity"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

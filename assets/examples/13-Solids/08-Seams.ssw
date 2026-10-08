@@ -1,0 +1,526 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Seams",
+  "kind": "video",
+  "blurb": "Stairs Union, Columns Union and Exclusive, each joining two solids",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Three ways to meet two solids other than a plain union. Stairs Union joins a floor and a wall with a flight of steps; Columns Union fills the seam of a floor and a post with fluted columns; Exclusive keeps only where exactly one of two balls is, and a Box set to Subtract cuts the front open so the hollow overlap shows. Try Stairs Union's Steps and Radius, and Columns Union's Columns."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1040.0,
+        "y": 1736.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "x": {
+          "Float": -4.0
+        },
+        "y": {
+          "Float": -0.8
+        },
+        "width": {
+          "Float": 2.6
+        },
+        "height": {
+          "Float": 0.4
+        },
+        "depth": {
+          "Float": 1.6
+        },
+        "rounding": {
+          "Float": 0.02
+        },
+        "color": {
+          "Color": [
+            0.7882353,
+            0.7686275,
+            0.8392157,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 388.0
+      },
+      "controls": {
+        "x": {
+          "Float": -4.9
+        },
+        "y": {
+          "Float": 0.2
+        },
+        "width": {
+          "Float": 0.5
+        },
+        "height": {
+          "Float": 2.4
+        },
+        "depth": {
+          "Float": 1.6
+        },
+        "rounding": {
+          "Float": 0.02
+        },
+        "color": {
+          "Color": [
+            0.3529412,
+            0.5607843,
+            0.9098039,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "stairsunion",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.8
+        },
+        "steps": {
+          "Float": 5.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 736.0
+      },
+      "controls": {
+        "y": {
+          "Float": -0.8
+        },
+        "width": {
+          "Float": 2.6
+        },
+        "height": {
+          "Float": 0.4
+        },
+        "depth": {
+          "Float": 1.6
+        },
+        "rounding": {
+          "Float": 0.02
+        },
+        "color": {
+          "Color": [
+            0.7882353,
+            0.7686275,
+            0.8392157,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "cylinder",
+      "pos": {
+        "x": 520.0,
+        "y": 1084.0
+      },
+      "controls": {
+        "y": {
+          "Float": 0.3
+        },
+        "radius": {
+          "Float": 0.35
+        },
+        "height": {
+          "Float": 2.4
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "columnsunion",
+      "pos": {
+        "x": 780.0,
+        "y": 736.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.5
+        },
+        "columns": {
+          "Float": 5.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 1388.0
+      },
+      "controls": {
+        "x": {
+          "Float": 3.6
+        },
+        "radius": {
+          "Float": 0.9
+        },
+        "color": {
+          "Color": [
+            0.8392157,
+            0.4784314,
+            0.6196078,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 1670.0
+      },
+      "controls": {
+        "x": {
+          "Float": 4.6
+        },
+        "radius": {
+          "Float": 0.9
+        },
+        "color": {
+          "Color": [
+            0.5607843,
+            0.8196078,
+            0.4784314,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "solidxor",
+      "pos": {
+        "x": 780.0,
+        "y": 1388.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "box",
+      "pos": {
+        "x": 1040.0,
+        "y": 1388.0
+      },
+      "controls": {
+        "x": {
+          "Float": 4.1
+        },
+        "z": {
+          "Float": 1.0
+        },
+        "width": {
+          "Float": 3.0
+        },
+        "height": {
+          "Float": 3.0
+        },
+        "depth": {
+          "Float": 2.0
+        },
+        "color": {
+          "Color": [
+            0.9490196,
+            0.7137255,
+            0.1960784,
+            1.0
+          ]
+        }
+      },
+      "options": {
+        "mode": "subtract"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "union",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "smooth": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 9.5
+        },
+        "tilt": {
+          "Float": 0.08
+        },
+        "fog": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1300.0,
+        "y": 240.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.05
+        },
+        "offset": {
+          "Float": 0.03
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 16,
+      "slug": "output",
+      "pos": {
+        "x": 2000.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "solid"
+      },
+      "to": {
+        "node": 11,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "solid"
+      },
+      "to": {
+        "node": 11,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "solid"
+      },
+      "to": {
+        "node": 12,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 13,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 13,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "solid"
+      },
+      "to": {
+        "node": 13,
+        "key": "c"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "solid"
+      },
+      "to": {
+        "node": 14,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 15,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "input"
+      }
+    }
+  ]
+}

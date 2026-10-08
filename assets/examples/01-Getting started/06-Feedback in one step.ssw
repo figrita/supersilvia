@@ -1,0 +1,228 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Feedback in one step",
+  "kind": "video",
+  "blurb": "An Output reading its own frame: trails",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The Output's Frame is cabled back into its own patch: each frame is the last one, zoomed in a little, turned and dimmed, with the triangle drawn over it \u2014 so the triangle leaves trails. Feedback always reads the frame before, which is what makes the loop allowed. Turn Color Shift's Value toward 1 for longer trails, or the Zoom below 1 to pull them inward."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 484.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "polygon",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 3.0
+        },
+        "radius": {
+          "Float": 0.32
+        },
+        "softness": {
+          "Float": 0.005
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 306.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.04
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "rotate",
+      "pos": {
+        "x": 780.0,
+        "y": 306.0
+      },
+      "controls": {
+        "angle": {
+          "Float": 0.01
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1040.0,
+        "y": 306.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.03
+        },
+        "value": {
+          "Float": 0.94
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1300.0,
+        "y": 306.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "output",
+      "pos": {
+        "x": 1560.0,
+        "y": 306.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "frame"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    }
+  ]
+}

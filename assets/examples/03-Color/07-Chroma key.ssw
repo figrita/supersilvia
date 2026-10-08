@@ -1,0 +1,225 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Chroma key",
+  "kind": "video",
+  "blurb": "A star shot on a green screen, the green swapped for a sky",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Chroma Key cuts one Key Color out of a picture and shows its Background through the hole. The green-screen shot here is a turning Star on pure green, and the Background is a gradient sky. Turn Threshold and Softness; to key a camera, cable a Main Input's Frame into Input and pick its Key Color."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 526.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "star",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 6.0
+        },
+        "innerRadius": {
+          "Float": 0.3
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 284.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.4196078,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            0.1764706,
+            0.1058824,
+            0.4117647,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        },
+        "frequency": {
+          "Float": 0.5
+        },
+        "center": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "chromakey",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "keyColor": {
+          "Color": [
+            0.0,
+            1.0,
+            0.0,
+            1.0
+          ]
+        },
+        "threshold": {
+          "Float": 0.4
+        },
+        "softness": {
+          "Float": 0.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 876.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.16666666666666666
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1112.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

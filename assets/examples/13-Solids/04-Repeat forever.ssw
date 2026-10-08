@@ -1,0 +1,243 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Repeat forever",
+  "kind": "video",
+  "blurb": "A grid of copies to the horizon, each scattered, spun, sized and tinted",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "One rounded box, repeated on a grid that goes on forever: the Repeat folds every point into one cell, so endless copies cost what one does. Each copy is moved, turned, shrunk and tinted by its cell and the Seed, and the Ground after the Repeat is not repeated, since a modifier changes only what is cabled into it. Try the Repeat's Seed, Scatter, Spin, Size and Tint, or Render 3D's Lens Type on Fisheye."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1040.0,
+        "y": 256.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 1.1
+        },
+        "height": {
+          "Float": 1.1
+        },
+        "depth": {
+          "Float": 1.1
+        },
+        "rounding": {
+          "Float": 0.18
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.8862745,
+            0.8392157,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "repeatgrid",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "spacingX": {
+          "Float": 2.6
+        },
+        "spacingZ": {
+          "Float": 2.6
+        },
+        "scatter": {
+          "Float": 0.2
+        },
+        "spin": {
+          "Float": 1.0
+        },
+        "size": {
+          "Float": 0.5
+        },
+        "tint": {
+          "Float": 0.85
+        },
+        "seed": {
+          "Float": 7.0
+        }
+      },
+      "options": {
+        "extent": "forever"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "ground",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "height": {
+          "Float": -0.6
+        },
+        "color": {
+          "Color": [
+            0.4156863,
+            0.372549,
+            0.5411765,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 9.0
+        },
+        "tilt": {
+          "Float": 0.035
+        },
+        "targetY": {
+          "Float": 0.5
+        },
+        "fog": {
+          "Float": 0.05
+        },
+        "background": {
+          "Color": [
+            0.4156863,
+            0.372549,
+            0.5411765,
+            1.0
+          ]
+        },
+        "lens": {
+          "Float": 1.4
+        },
+        "step": {
+          "Float": 0.6
+        }
+      },
+      "options": {
+        "floor": "none"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1620.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 5,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

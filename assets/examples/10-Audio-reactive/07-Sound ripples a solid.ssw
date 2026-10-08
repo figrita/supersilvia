@@ -1,0 +1,264 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Sound ripples a solid",
+  "kind": "video",
+  "blurb": "The bass band sets how far a ball's surface ripples",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). Bass, scaled from 0.04 to 0.3, is the Amount of a Displace on a ball: in silence it breathes gently, and a kick throws its surface out. The gear turns the ripples round. Try Mid into the Displace's Frequency as well."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 582.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "on",
+        "events": "off"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 1.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 932.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.04
+        },
+        "outMax": {
+          "Float": 0.3
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "displace",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "heightgradient",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {
+        "colorBottom": {
+          "Color": [
+            0.2313725,
+            0.1647059,
+            0.8784314,
+            1.0
+          ]
+        },
+        "colorTop": {
+          "Color": [
+            1.0,
+            0.5411765,
+            0.7843137,
+            1.0
+          ]
+        },
+        "bottom": {
+          "Float": -1.4
+        },
+        "top": {
+          "Float": 1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1420.0,
+        "y": 300.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 5.2
+        },
+        "tilt": {
+          "Float": 0.05
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1740.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "bass"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 8,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    }
+  ]
+}

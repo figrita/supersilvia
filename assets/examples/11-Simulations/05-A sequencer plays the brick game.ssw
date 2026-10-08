@@ -1,0 +1,218 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A sequencer plays the brick game",
+  "kind": "video",
+  "blurb": "Two sequencer lanes hold the paddle left and right",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Brick Game is played with events. Lane 1 of the Step Sequencer holds Paddle Left for half a bar and Lane 2 holds Paddle Right for the other half, so the paddle sweeps back and forth, catching the ball now and then, and Auto Reset starts a new game when it misses. Each broken brick fires Brick Broken, which picks a new color; click cells to play better, or turn on Auto Play."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 520.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stepsequencer",
+      "pos": {
+        "x": 520.0,
+        "y": 870.0
+      },
+      "controls": {
+        "gateLength": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      },
+      "values": {
+        "pattern": {
+          "Cells": [
+            "xxxxxxxx........",
+            "........xxxxxxxx",
+            "................",
+            "................"
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "brickgame",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "autoReset": {
+          "Float": 1.0
+        },
+        "paddleWidth": {
+          "Float": 0.4
+        },
+        "paddleSpeed": {
+          "Float": 0.02
+        },
+        "backgroundColor": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "triggeredcolor",
+      "pos": {
+        "x": 520.0,
+        "y": 1250.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "colorize",
+      "pos": {
+        "x": 932.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 1.0
+        },
+        "preserveLuminance": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1228.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane1"
+      },
+      "to": {
+        "node": 4,
+        "key": "leftPaddle"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane2"
+      },
+      "to": {
+        "node": 4,
+        "key": "rightPaddle"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "brickBroken"
+      },
+      "to": {
+        "node": 5,
+        "key": "trigger"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "tint"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

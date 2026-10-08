@@ -1,0 +1,184 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Blur",
+  "kind": "video",
+  "blurb": "Polka dots blurred, the blur swinging wide and back",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Blur averages the pixels around each one, so the dots go soft. Its Blur X and Blur Y are swung by the Oscillator together; set them apart, say Blur X at 20 and Blur Y at 0, for a sideways smear. Size is how far each sample reaches: a bigger kernel is smoother and costs more."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "input": {
+          "Color": [
+            1.0,
+            0.3019608,
+            0.427451,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0745098,
+            0.0352941,
+            0.2313725,
+            1.0
+          ]
+        },
+        "frequency": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.3
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "blur",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "size": "7x7"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 632.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 6.0
+        },
+        "offset": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "blurX"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "blurY"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "color"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

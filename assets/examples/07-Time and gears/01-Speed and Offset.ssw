@@ -1,0 +1,190 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Speed and Offset",
+  "kind": "video",
+  "blurb": "A Julia set drifting on its own Speed, and its Offset to place it",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Everything that moves has a Timing heading, open here on the Julia Set, whose Time slides the rainbow round the set's orbits. Speed is how fast it runs, a multiple of its own pace: 2 is twice as fast, 0 holds it still and -1 runs it backwards. Offset is where it is in its cycle, 0 to 1. Set Speed to 0 and drag Offset to scrub through the whole drift by hand."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "worldcoordinates",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "juliaset",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.9
+        },
+        "iterations": {
+          "Float": 120.0
+        },
+        "speed": {
+          "Float": 1.0
+        },
+        "strength": {
+          "Float": 0.6
+        }
+      },
+      "options": {
+        "timing": "on"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "vignette",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "strength": {
+          "Float": 0.6
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1716.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "x"
+      },
+      "to": {
+        "node": 3,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "map"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

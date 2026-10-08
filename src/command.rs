@@ -359,6 +359,17 @@ pub enum Command {
     ImportWorkspace {
         file: std::path::PathBuf,
     },
+    /// Take the example at this index of [`crate::examples::EXAMPLES`] into this project as a
+    /// new workspace, as `ImportWorkspace` takes a file: fresh ids, one undo step. The list is
+    /// the binary's own, so a redo finds the same file under the index.
+    ///
+    /// The workspace arrives as a strip, auto-arranged for a strip of `height` inside the same
+    /// step, so where an example's nodes sit is the app's arrange rather than the file's. The
+    /// height travels in the command for the reason `AutoArrange`'s does.
+    AddExample {
+        index: usize,
+        height: f32,
+    },
     /// Rank one workspace's nodes into columns and stack them, for a strip of this height.
     ///
     /// The height travels in the command because redo replays it: an arrange that re-read
@@ -538,6 +549,10 @@ impl Command {
                 file.file_stem()
                     .map_or_else(|| "workspace".into(), |s| s.to_string_lossy())
             ),
+            Self::AddExample { index, .. } => crate::examples::EXAMPLES.get(*index).map_or_else(
+                || "Add example".to_owned(),
+                |e| format!("Add example {}", e.title),
+            ),
             Self::AutoArrange { .. } => "Auto-arrange".to_owned(),
         }
     }
@@ -585,7 +600,9 @@ impl Command {
             | Self::SetBlurb { id, .. }
             | Self::MoveWorkspace { id, .. }
             | Self::DuplicateWorkspace { id, .. } => (Vec::new(), Some(*id)),
-            Self::AddWorkspace { .. } | Self::ImportWorkspace { .. } => (Vec::new(), None),
+            Self::AddWorkspace { .. } | Self::ImportWorkspace { .. } | Self::AddExample { .. } => {
+                (Vec::new(), None)
+            }
         };
         Subject { nodes, workspace }
     }

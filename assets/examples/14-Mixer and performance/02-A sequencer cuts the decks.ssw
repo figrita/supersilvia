@@ -1,0 +1,436 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A sequencer cuts the decks",
+  "kind": "video",
+  "blurb": "Step Sequencer lanes pressing Show on A on three Outputs",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Each lane of the Step Sequencer is cabled into one Output's Show on A, so deck A cuts between three patches on the Master Gear's beat. Turn the Main Mixer's balance to A to watch the cuts, and click cells in the grid to move them. Cable a lane into a Show on B instead and the sequence cuts the other deck."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 680.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "stepsequencer",
+      "pos": {
+        "x": 816.0,
+        "y": 1020.0
+      },
+      "controls": {},
+      "options": {
+        "clockMode": "loop"
+      },
+      "values": {
+        "pattern": {
+          "Cells": [
+            "x.......x.......",
+            "....x.......x...",
+            "......x.......x.",
+            "................"
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "checkerboard",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            0.9098039,
+            0.7607843,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.227451,
+            0.1098039,
+            0.4431373,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "rotozoom",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 1.0
+        },
+        "sinCoeff": {
+          "Float": 0.6
+        },
+        "cosCoeff": {
+          "Float": 0.6
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1228.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "polkadot",
+      "pos": {
+        "x": 520.0,
+        "y": 196.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 6.0
+        },
+        "radius": {
+          "Float": 0.4
+        },
+        "input": {
+          "Color": [
+            1.0,
+            0.4352941,
+            0.3490196,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.1137255,
+            0.227451,
+            1.0
+          ]
+        },
+        "stagger": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 816.0,
+        "y": 388.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 10.0
+        },
+        "zoom": {
+          "Float": 1.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "output",
+      "pos": {
+        "x": 1228.0,
+        "y": 582.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "worley",
+      "pos": {
+        "x": 520.0,
+        "y": 438.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 4.0
+        },
+        "contrast": {
+          "Float": 1.1
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 816.0,
+        "y": 674.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.35
+        },
+        "biasB": {
+          "Float": 0.35
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.45
+        },
+        "ampB": {
+          "Float": 0.45
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.1
+        },
+        "phaseB": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 1228.0,
+        "y": 1124.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 8,
+        "key": "offset"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 11,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "value"
+      },
+      "to": {
+        "node": 11,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane1"
+      },
+      "to": {
+        "node": 6,
+        "key": "show_a"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane2"
+      },
+      "to": {
+        "node": 9,
+        "key": "show_a"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "lane3"
+      },
+      "to": {
+        "node": 12,
+        "key": "show_a"
+      }
+    }
+  ]
+}

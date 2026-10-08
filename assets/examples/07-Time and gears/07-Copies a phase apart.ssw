@@ -1,0 +1,589 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Copies a phase apart",
+  "kind": "video",
+  "blurb": "Six Oscillators on one gear, each Offset a sixth further: a wave",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Six copies of one Oscillator on one Master Gear, each with its Offset a sixth of a wave further on, bob six dots. Together they make a wave that travels across. Set every Offset to 0 and they bob as one; spread them by a twelfth instead and the wave is twice as long."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 612.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": -1.25
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 958.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": -0.1667
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": -0.75
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.4823529,
+            0.4823529,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 900.0,
+        "y": 262.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": -0.3333
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 1280.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": -0.25
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.6431373,
+            0.3607843,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1280.0,
+        "y": 262.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": -0.5
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "circle",
+      "pos": {
+        "x": 1660.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": 0.25
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1660.0,
+        "y": 262.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": -0.6667
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "circle",
+      "pos": {
+        "x": 2040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": 0.75
+        },
+        "foreground": {
+          "Color": [
+            0.6078431,
+            0.8980392,
+            0.3921569,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "oscillator",
+      "pos": {
+        "x": 2040.0,
+        "y": 262.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        },
+        "phaseOffset": {
+          "Float": -0.8333
+        }
+      },
+      "options": {
+        "timing": "on",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 14,
+      "slug": "circle",
+      "pos": {
+        "x": 2420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.13
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "centerX": {
+          "Float": 1.25
+        },
+        "foreground": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "output",
+      "pos": {
+        "x": 2680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 6,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 11,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "color"
+      },
+      "to": {
+        "node": 12,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 13,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "color"
+      },
+      "to": {
+        "node": 14,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "color"
+      },
+      "to": {
+        "node": 15,
+        "key": "input"
+      }
+    }
+  ]
+}

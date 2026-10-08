@@ -1,0 +1,431 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Two Outputs feeding each other",
+  "kind": "video",
+  "blurb": "Each Output draws its shape over the other's last frame",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Here are two Outputs, and each one reads the other's Frame Out: the left draws a warm circle over the right's last frame turned, the right a cool square over the left's last frame shrunk. Every frame goes back and forth between them, so each picture holds the other's echoes. Watch both Outputs, and turn either Rotate or Zoom."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 706.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "output",
+      "pos": {
+        "x": 2496.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "rotate",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "angle": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.01
+        },
+        "value": {
+          "Float": 0.96
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "zoom",
+      "pos": {
+        "x": 1716.0,
+        "y": 40.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 0.96
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1976.0,
+        "y": 40.0
+      },
+      "controls": {
+        "hue": {
+          "Float": -0.01
+        },
+        "value": {
+          "Float": 0.96
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.12
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.6235294,
+            0.1098039,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1056.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.6
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "polygon",
+      "pos": {
+        "x": 520.0,
+        "y": 440.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 4.0
+        },
+        "radius": {
+          "Float": 0.18
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            0.1803922,
+            0.7686275,
+            0.7137255,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1402.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        }
+      },
+      "options": {
+        "waveform": "cosine",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "mix",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "mix",
+      "pos": {
+        "x": 2236.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 4,
+        "key": "frame"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "frame"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 10,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 11,
+        "key": "rotation"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 12,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 13,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "mask"
+      },
+      "to": {
+        "node": 13,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "color"
+      },
+      "to": {
+        "node": 14,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "mask"
+      },
+      "to": {
+        "node": 14,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,441 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Three against two",
+  "kind": "video",
+  "blurb": "Two Ratio Gears on one Master Gear: three turns against two",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Two Ratio Gears count the same Master Gear: Teeth 3 : 1 turn the outer comet three times a loop and 2 : 1 turn the inner one twice, three against two. They only meet at the top, once a loop. Change either gear's Teeth, to 5 : 1 say, and it lands at once where it would be had it always run so; click Reverse to send it the other way."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 662.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "gears"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1012.0
+      },
+      "controls": {
+        "p": {
+          "Float": 3.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "display": "rosette",
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1446.0
+      },
+      "controls": {
+        "p": {
+          "Float": 2.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "display": "rosette",
+        "direction": "forward"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1880.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.78
+        }
+      },
+      "options": {
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 2226.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.78
+        }
+      },
+      "options": {
+        "waveform": "cosine",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.06
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.7019608,
+            0.2784314,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 2572.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        }
+      },
+      "options": {
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 2918.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.45
+        }
+      },
+      "options": {
+        "waveform": "cosine",
+        "trace": "off",
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.06
+        },
+        "softness": {
+          "Float": 0.03
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.372549,
+            0.6352941,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "layerblend",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 484.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "colorshift",
+      "pos": {
+        "x": 520.0,
+        "y": 484.0
+      },
+      "controls": {
+        "value": {
+          "Float": 0.95
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1160.0,
+        "y": 484.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "screen"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 8,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 9,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 11,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "color"
+      },
+      "to": {
+        "node": 11,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "frame"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    }
+  ]
+}

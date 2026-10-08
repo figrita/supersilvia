@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 //! Layer 2: the menu bar's own help — undo by name, the Undo History, the keyboard shortcuts
-//! window, a greyed entry's reason, the editor's zoom and the Nodes button's keys — driven
+//! window, a greyed entry's reason, the editor's zoom, the Nodes button's keys and the Example
+//! Library — driven
 //! headless through the accessibility tree, as `tests/ui.rs` drives the rest.
 //!
 //! No test here takes a snapshot, so no harness reaches the GPU: kittest's lazy renderer is
@@ -254,5 +255,59 @@ fn the_nodes_button_names_its_keys() {
     assert!(
         h.query_by_label_contains("N opens this menu; / searches it")
             .is_some()
+    );
+}
+
+/// Help ▸ Example Library ▸ Getting started ▸ Your first patch adds that example to the
+/// project on screen as a tab of its own, and shows it: a strip, arranged for the strip this
+/// window has.
+#[test]
+fn an_example_from_help_is_a_tab_of_its_own_and_showing() {
+    let mut h = harness();
+    let root = h.state().project().root().to_path_buf();
+    let before = h.state().graph().workspaces().len();
+    open(&mut h, "Help");
+    h.get_by_label("Example Library").click();
+    h.run_steps(2);
+    h.get_by_label("Getting started").click();
+    h.run_steps(2);
+    h.get_by_label("Your first patch").click();
+    h.run_steps(2);
+
+    let id = h
+        .state()
+        .active_workspace()
+        .expect("a workspace is showing");
+    assert_eq!(
+        h.state().graph().workspace(id).map(|w| w.name.as_str()),
+        Some("Your first patch"),
+        "the example is the tab showing"
+    );
+    assert_eq!(h.state().graph().workspaces().len(), before + 1);
+    assert_eq!(
+        h.state().project().root(),
+        root,
+        "in the project that was open"
+    );
+    assert!(
+        h.query_by_label("tab Your first patch").is_some(),
+        "its tab is on the bar"
+    );
+
+    let graph = h.state().graph();
+    assert_eq!(graph.layout_of(id), supersilvia::graph::LayoutMode::Linear);
+    let Some(Command::AddExample { height, .. }) = h.state().history().last().cloned() else {
+        panic!("the last step adds the example: {:?}", h.state().history());
+    };
+    assert!(
+        height > 0.0 && height < 900.0,
+        "the strip's height in this window, under the rail: {height}"
+    );
+    let placed = supersilvia::ui::layout::arrange(graph, id, height);
+    assert!(
+        placed
+            .iter()
+            .all(|(node, at)| graph.get(*node).map(|n| n.pos) == Some(*at)),
+        "where Auto-arrange puts it"
     );
 }

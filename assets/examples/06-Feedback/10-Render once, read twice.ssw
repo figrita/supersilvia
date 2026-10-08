@@ -1,0 +1,404 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Render once, read twice",
+  "kind": "video",
+  "blurb": "A heavy fractal drawn once into an Output, its frame read in two places by another",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "An Output is also a buffer: the deep Mandelbrot is drawn once, small, into the first Output, and the second reads its Frame Out twice, tiled behind and turning in the porthole, for the price of two texture reads instead of two fractals. Turn the Mandelbrot's Iterations and only the first Output pays for it."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 632.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "mandelbrot",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerX": {
+          "Float": -0.7436
+        },
+        "centerY": {
+          "Float": 0.1318
+        },
+        "zoom": {
+          "Float": 250.0
+        },
+        "iterations": {
+          "Float": 400.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.5
+        },
+        "biasB": {
+          "Float": 0.5
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.5
+        },
+        "ampB": {
+          "Float": 0.5
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.8
+        },
+        "phaseG": {
+          "Float": 0.9
+        },
+        "phaseB": {
+          "Float": 0.3
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "tile",
+      "pos": {
+        "x": 1492.0,
+        "y": 40.0
+      },
+      "controls": {
+        "width": {
+          "Float": 1.0
+        },
+        "height": {
+          "Float": 1.0
+        },
+        "span": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "multiply",
+      "pos": {
+        "x": 1196.0,
+        "y": 582.0
+      },
+      "controls": {
+        "b": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "colorshift",
+      "pos": {
+        "x": 1796.0,
+        "y": 40.0
+      },
+      "controls": {
+        "saturation": {
+          "Float": 0.6
+        },
+        "value": {
+          "Float": 0.45
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "rotate",
+      "pos": {
+        "x": 1492.0,
+        "y": 304.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "multiply",
+      "pos": {
+        "x": 1196.0,
+        "y": 716.0
+      },
+      "controls": {
+        "b": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 410.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.75
+        },
+        "softness": {
+          "Float": 0.01
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "mix",
+      "pos": {
+        "x": 2056.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "output",
+      "pos": {
+        "x": 2316.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "smooth"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "offsetY"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "frame"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "frame"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "mask"
+      },
+      "to": {
+        "node": 12,
+        "key": "amount"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    }
+  ]
+}

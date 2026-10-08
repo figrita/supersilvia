@@ -1,0 +1,269 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "The waveform as a picture",
+  "kind": "video",
+  "blurb": "The oscilloscope bent into a ring that leaves rainbow echoes",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). The Main Input's Oscilloscope is the sound's own wave as a line, flat in silence; Polar Coordinates bends it into a ring that an Oscillator breathes. The Output's last frame, zoomed in and shifted in hue, comes back under it as echoes. Try the Zoom below 1 to send the echoes inward."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 478.0
+      },
+      "controls": {
+        "length": {
+          "Float": 2.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 828.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.08
+        },
+        "offset": {
+          "Float": 0.9
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "off",
+        "events": "off"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "polarcoords",
+      "pos": {
+        "x": 900.0,
+        "y": 478.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "to_polar_smooth"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "colorize",
+      "pos": {
+        "x": 1196.0,
+        "y": 478.0
+      },
+      "controls": {
+        "tint": {
+          "Color": [
+            0.2901961,
+            0.9490196,
+            1.0,
+            1.0
+          ]
+        },
+        "amount": {
+          "Float": 1.0
+        },
+        "preserveLuminance": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1752.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 2.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "zoom",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.035
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "colorshift",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {
+        "hue": {
+          "Float": 0.03
+        },
+        "value": {
+          "Float": 0.94
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1492.0,
+        "y": 300.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "add"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "oscilloscope"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "scale"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "frame"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

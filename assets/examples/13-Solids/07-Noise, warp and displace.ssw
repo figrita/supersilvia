@@ -1,0 +1,381 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Noise, warp and displace",
+  "kind": "video",
+  "blurb": "A ball roughened into a rock, a torus pushed about, a ball rippling",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Three modifiers that move a surface, one branch each. Noise Displace roughens a ball into a rock; Warp pushes the space round a torus by a smooth noise, flowing as the gear turns its Phase; Displace ripples a ball by a wave the gear rolls round it. Try Noise Displace's Octaves and Roughness, Warp's Amount, and Displace's Frequency."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 996.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "x": {
+          "Float": -3.0
+        },
+        "radius": {
+          "Float": 1.0
+        },
+        "color": {
+          "Color": [
+            0.6588235,
+            0.6039216,
+            0.5411765,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "noisedisplace",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.28
+        },
+        "frequency": {
+          "Float": 1.6
+        },
+        "roughness": {
+          "Float": 0.55
+        }
+      },
+      "options": {
+        "octaves": "5"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "torus",
+      "pos": {
+        "x": 520.0,
+        "y": 322.0
+      },
+      "controls": {
+        "ring": {
+          "Float": 0.8
+        },
+        "tube": {
+          "Float": 0.32
+        },
+        "color": {
+          "Color": [
+            0.3529412,
+            0.8196078,
+            0.7686275,
+            1.0
+          ]
+        },
+        "tPitch": {
+          "Float": 0.2
+        }
+      },
+      "options": {
+        "transform": "on"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "warp",
+      "pos": {
+        "x": 780.0,
+        "y": 322.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.35
+        },
+        "frequency": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "sphere",
+      "pos": {
+        "x": 520.0,
+        "y": 714.0
+      },
+      "controls": {
+        "x": {
+          "Float": 3.0
+        },
+        "radius": {
+          "Float": 0.95
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.572549,
+            0.3529412,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "displace",
+      "pos": {
+        "x": 780.0,
+        "y": 714.0
+      },
+      "controls": {
+        "amount": {
+          "Float": 0.1
+        },
+        "frequency": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "union",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "smooth": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 7.8
+        },
+        "tilt": {
+          "Float": 0.07
+        },
+        "fog": {
+          "Float": 0.02
+        },
+        "targetY": {
+          "Float": 0.1
+        }
+      },
+      "options": {
+        "steps": "256"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "oscillator",
+      "pos": {
+        "x": 1040.0,
+        "y": 240.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.04
+        },
+        "offset": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 1740.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "640x360",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "solid"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 6,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 8,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "c"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "solid"
+      },
+      "to": {
+        "node": 10,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 11,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    }
+  ]
+}

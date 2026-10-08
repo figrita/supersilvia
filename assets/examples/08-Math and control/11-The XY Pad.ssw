@@ -1,0 +1,216 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "The XY Pad",
+  "kind": "video",
+  "blurb": "A puck thrown round a pad steers the kaleidoscope's center",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "The XY Pad is a puck in a box, with physics. Its X and Y move the kaleidoscope's center, and its Temp keeps it wandering on its own. Drag the puck to throw it; right-drag to drop a gravity well it falls toward, and right-click the well to take it away. Set Temp to 0 and it slides to rest."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "xypad",
+      "pos": {
+        "x": 780.0,
+        "y": 386.0
+      },
+      "controls": {
+        "temperature": {
+          "Float": 1.2
+        },
+        "drag": {
+          "Float": 0.01
+        },
+        "bounce": {
+          "Float": 0.9
+        },
+        "minX": {
+          "Float": -0.6
+        },
+        "maxX": {
+          "Float": 0.6
+        },
+        "minY": {
+          "Float": -0.4
+        },
+        "maxY": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "fractal",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.0
+        },
+        "octaves": {
+          "Float": 4.0
+        },
+        "contrast": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "type": "turbulence"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "cosinegradient",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "biasR": {
+          "Float": 0.5
+        },
+        "biasG": {
+          "Float": 0.4
+        },
+        "biasB": {
+          "Float": 0.6
+        },
+        "ampR": {
+          "Float": 0.5
+        },
+        "ampG": {
+          "Float": 0.4
+        },
+        "ampB": {
+          "Float": 0.4
+        },
+        "freqR": {
+          "Float": 1.0
+        },
+        "freqG": {
+          "Float": 1.0
+        },
+        "freqB": {
+          "Float": 1.0
+        },
+        "phaseR": {
+          "Float": 0.0
+        },
+        "phaseG": {
+          "Float": 0.2
+        },
+        "phaseB": {
+          "Float": 0.45
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "segments": {
+          "Float": 6.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "output",
+      "pos": {
+        "x": 1456.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "t"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "x"
+      },
+      "to": {
+        "node": 5,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "y"
+      },
+      "to": {
+        "node": 5,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    }
+  ]
+}

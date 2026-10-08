@@ -783,6 +783,7 @@ impl eframe::App for App {
             // The project tab replaces the canvas. The preview panel stays either way, so an
             // Output goes on rendering while the project is being looked at.
             let Some(workspace) = self.active_workspace() else {
+                self.canvas.measure_strip(ui.available_height());
                 self.show_project_tab(ui);
                 return;
             };

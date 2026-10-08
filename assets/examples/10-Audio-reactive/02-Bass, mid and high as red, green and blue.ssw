@@ -1,0 +1,384 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Bass, mid and high as red, green and blue",
+  "kind": "video",
+  "blurb": "Three circles, one a band, added together",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). Bass grows the red circle, Mid the green and High the blue, and Layer Blend adds them, so where they overlap the colors mix as light does: yellow, cyan, magenta, white in the middle. A bass line turns the picture red; a cymbal, blue."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "on",
+        "events": "off"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 966.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.42
+        },
+        "outMax": {
+          "Float": 0.8
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            1.0,
+            0.1176471,
+            0.2352941,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "centerX": {
+          "Float": 0.0
+        },
+        "centerY": {
+          "Float": 0.27
+        },
+        "softness": {
+          "Float": 0.015
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 1334.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.42
+        },
+        "outMax": {
+          "Float": 0.8
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 522.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            0.1176471,
+            1.0,
+            0.3529412,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "centerX": {
+          "Float": -0.234
+        },
+        "centerY": {
+          "Float": -0.135
+        },
+        "softness": {
+          "Float": 0.015
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "reframerange",
+      "pos": {
+        "x": 520.0,
+        "y": 1702.0
+      },
+      "controls": {
+        "inMin": {
+          "Float": 0.0
+        },
+        "inMax": {
+          "Float": 1.0
+        },
+        "outMin": {
+          "Float": 0.42
+        },
+        "outMax": {
+          "Float": 0.8
+        }
+      },
+      "options": {
+        "clamp": "on",
+        "named": "off"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "circle",
+      "pos": {
+        "x": 520.0,
+        "y": 744.0
+      },
+      "controls": {
+        "foreground": {
+          "Color": [
+            0.1647059,
+            0.3607843,
+            1.0,
+            1.0
+          ]
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        "centerX": {
+          "Float": 0.234
+        },
+        "centerY": {
+          "Float": -0.135
+        },
+        "softness": {
+          "Float": 0.015
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "layerblend",
+      "pos": {
+        "x": 900.0,
+        "y": 300.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "add"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "layerblend",
+      "pos": {
+        "x": 1160.0,
+        "y": 300.0
+      },
+      "controls": {},
+      "options": {
+        "blend_mode": "add"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 1420.0,
+        "y": 300.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "bass"
+      },
+      "to": {
+        "node": 3,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "mid"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "high"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "radius"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "color"
+      },
+      "to": {
+        "node": 9,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}

@@ -1,0 +1,135 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Cables and conversion",
+  "kind": "video",
+  "blurb": "Fields into a color through an RGBA, and the conversion menu",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A port's color says what it carries: a picture, a field (a number at every pixel), or one number (a diamond). The Perlin's Value and the Spiral's Mask are fields, and the RGBA builds a color from them, one per channel. Drag a field onto a color port \u2014 try the Spiral's Mask onto the Output \u2014 and the port rings with dashes: let go, and a menu offers Grayscale, Red Only and the rest, putting the RGBA in for you."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "perlin",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "scale": {
+          "Float": 2.0
+        },
+        "contrast": {
+          "Float": 1.3
+        },
+        "speed": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 3,
+      "slug": "spiral",
+      "pos": {
+        "x": 520.0,
+        "y": 342.0
+      },
+      "controls": {
+        "turns": {
+          "Float": 5.0
+        },
+        "thickness": {
+          "Float": 0.12
+        },
+        "outerRadius": {
+          "Float": 1.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "rgba",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "g": {
+          "Float": 0.18
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "output",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "value"
+      },
+      "to": {
+        "node": 4,
+        "key": "r"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "mask"
+      },
+      "to": {
+        "node": 4,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    }
+  ]
+}
