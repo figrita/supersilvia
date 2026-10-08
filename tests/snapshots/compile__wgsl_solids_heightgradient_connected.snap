@@ -151,6 +151,15 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    if (!hit && t <= 80.0) {
+        pp = ro + rd * t;
+        if (min((pp.y - fh), heightgradient1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender6_lens, 0.001))) {
+            hit = true;
+        } else if (rd.y < 0.0) {
+            let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
+            if (tf > 0.0 && tf <= 80.0) { t = tf; hit = true; }
+        }
+    }
     let heat = count / 128.0;
     if (!hit) { return bg; }
     let pos = ro + rd * t;

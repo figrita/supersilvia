@@ -14596,11 +14596,12 @@ fn option_value(h: &Harness<'_, App>, id: supersilvia::graph::NodeId, key: &str)
 }
 
 /// **Render 3D is five numbers a cable is for and four sections for the rest.** Its ports are
-/// the Solid, Orbit, Tilt, Distance, Light and Glow, and the picture out; it has no option rows;
+/// the Solid, Orbit, Tilt, Distance, Light, Glow and the Sky, and the picture out; it has no
+/// option rows;
 /// Camera, Light and Look are open on a new node and Quality is closed until its heading is
 /// clicked.
 #[test]
-fn render_3d_has_six_ports_and_four_sections_with_quality_closed() {
+fn render_3d_has_seven_ports_and_four_sections_with_quality_closed() {
     let mut h = tall_harness();
     h.step();
     let id = render_3d(&mut h);
@@ -14608,7 +14609,7 @@ fn render_3d_has_six_ports_and_four_sections_with_quality_closed() {
     let inputs: Vec<_> = node.inputs.iter().map(|p| p.key).collect();
     assert_eq!(
         inputs,
-        ["solid", "orbit", "tilt", "distance", "light", "glowAmount"]
+        ["solid", "orbit", "tilt", "distance", "light", "glowAmount", "sky"]
     );
     let outputs: Vec<_> = node.outputs.iter().map(|p| p.key).collect();
     assert_eq!(outputs, ["output"]);

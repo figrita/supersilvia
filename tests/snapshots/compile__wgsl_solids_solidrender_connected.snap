@@ -6,7 +6,9 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
-    u_control_solidrender1_background: vec4f,
+    u_control_checkerboard4_color1: vec4f,
+    u_control_checkerboard4_color2: vec4f,
+    u_control_checkerboard4_frequency: f32,
     u_control_solidrender1_distance: f32,
     u_control_solidrender1_floorHeight: f32,
     u_control_solidrender1_fog: f32,
@@ -14,6 +16,7 @@ struct Uniforms {
     u_control_solidrender1_light: f32,
     u_control_solidrender1_lightHeight: f32,
     u_control_solidrender1_orbit: f32,
+    u_control_solidrender1_skyTilt: f32,
     u_control_solidrender1_step: f32,
     u_control_solidrender1_targetX: f32,
     u_control_solidrender1_targetY: f32,
@@ -111,6 +114,16 @@ fn sphere3_solid(p: vec3f) -> vec4f {
     return me;
 }
 
+fn checkerboard4_output(uv: vec2f) -> vec4f {
+    let frequency = u.u_control_checkerboard4_frequency;
+    let scaled_uv = uv * (frequency / 2.0);
+    let grid = floor(scaled_uv);
+    let checker = floor_mod(grid.x + grid.y, 2.0);
+    let c1 = u.u_control_checkerboard4_color1;
+    let c2 = u.u_control_checkerboard4_color2;
+    return mix(c1, c2, checker);
+}
+
 fn solidrender1_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
     let orbit = u.u_control_solidrender1_orbit * tau;
@@ -122,7 +135,6 @@ fn solidrender1_output(uv: vec2f) -> vec4f {
     let up = cross(right, fwd);
     let rd = normalize(fwd * u.u_control_solidrender1_lens + right * uv.x + up * uv.y);
     let fh = u.u_control_solidrender1_floorHeight;
-    let bg = u.u_control_solidrender1_background;
     let relax = u.u_control_solidrender1_step;
     var pp = vec3f(0.0);
     var t = 0.0;
@@ -136,7 +148,19 @@ fn solidrender1_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    if (!hit && t <= 80.0) {
+        pp = ro + rd * t;
+        if (min((pp.y - fh), sphere3_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender1_lens, 0.001))) {
+            hit = true;
+        } else if (rd.y < 0.0) {
+            let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
+            if (tf > 0.0 && tf <= 80.0) { t = tf; hit = true; }
+        }
+    }
     let heat = count / 128.0;
+    let bg_t = u.u_control_solidrender1_skyTilt * tau;
+    let bg_d = vec3f(rd.x, rd.y * cos(bg_t) - rd.z * sin(bg_t), rd.y * sin(bg_t) + rd.z * cos(bg_t));
+    let bg = checkerboard4_output(vec2f(atan2(bg_d.x, bg_d.z) / PI * (16.0 / 9.0), asin(clamp(bg_d.y, -1.0, 1.0)) / (PI * 0.5)));
     if (!hit) { return bg; }
     let pos = ro + rd * t;
     let e = vec2f(1.0, -1.0) * 0.0005 * max(1.0, t * 0.25);

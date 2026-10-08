@@ -1144,7 +1144,9 @@ Video effects can follow it. See
 [decisions.md](decisions.md#render-3d-is-a-node-whose-output-is-a-picture-not-a-kind-of-output).
 
 **Five numbers are ports**: Orbit, Tilt, Distance, Light and Glow, so a MIDI knob or a gear
-flies the camera and moves the light. Everything else is the node's own, hidden controls and
+flies the camera and moves the light. Orbit and Light turn the scene by pure rotation, so they
+are read round a turn (`Control::turn`) and a gear's count into one loops. **The Sky is a port
+too**, being a picture. Everything else is the node's own, hidden controls and
 in-region options drawn in four folding [sections](ui.md#sections):
 
 - **Camera**: the globe; Camera, Orbit or Look at; Lens Type, Persp, Ortho or Fisheye; Lens;
@@ -1160,7 +1162,8 @@ floor and the fog are the render's, not solids. Every option is a `Code` option,
 default each emits nothing, so the module is the plain march alone.
 
 **What a pixel costs.** A picture is evaluated once a pixel. A render evaluates its solid's
-distance-only function up to Steps times a pixel, against the floor each time; then four times
+distance-only function up to Steps times a pixel, against the floor each time, and once more
+where a ray that ran out of steps stopped; then four times
 for the normal, up to 32 for a soft shadow and five for Lit's occlusion; and the whole function
 once, where the ray hit. Toon shades with the shadow and no occlusion, Flat, Normals and Depth
 with neither, and Steps stops at the march. **One bounce** marches a second ray along the
@@ -1172,6 +1175,26 @@ Iterations, and a profile's picture at every step.
 
 **Steps shading paints the march's work**: each pixel's step count over Steps, as heat from
 blue through yellow to red. A loose bound, a strong warp or a low Step reads hot.
+
+**A ray that runs out of steps is not the background.** A shape that shrinks the step — Noise
+Displace, Warp, Twist, Stretch, Displace — and a ray grazing the floor toward the horizon can
+use up Steps short of the surface they are closing on, nearer than the far limit, 80 units out.
+Such a ray is asked its distance once more where it stopped. Within about a pixel of a surface
+(at the reference height), it is a hit there, shaded and fogged as any. Otherwise, heading down,
+it lands on the floor where it would cross it, if that is within the far limit. Otherwise it is
+the background, as a ray that passed the far limit is. One bounce's ray follows the same rule.
+Steps shading still paints such a ray red, since it counts steps. A ray that ran out beside a
+surface it would have passed shows the floor behind it or the background, never the surface:
+see [decisions.md](decisions.md#a-ray-that-runs-out-of-steps-ends-where-it-stopped).
+
+**The Sky is the whole sphere round the scene.** A picture cabled into it is what a ray that
+hits nothing sees in its direction, mapped as Texture's Sphere mapping maps a picture: its width
+once round the horizon, its height pole to pole, so a grid becomes lines of latitude and
+longitude meeting at the poles. Fog fades to the sky in each direction rather than to Background,
+and a reflection that hits nothing shows the sky the way it points. The picture is asked once a
+pixel after the march, and once more for a reflection; with nothing cabled the Background is
+what it was. Sky Tilt tips the pole; turning the sky round it is a Translate along X ahead of
+the Sky input, so there is no number for it.
 
 **A video effect after a render multiplies the march.** A field is a function, so a blur that
 taps its input nine times runs the whole render nine times a pixel. An Output between them

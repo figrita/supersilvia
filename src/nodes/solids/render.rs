@@ -30,12 +30,27 @@
 //!   behind the camera, so a plane of origins as tall as the view does not begin under the
 //!   floor; fog and Depth count from the camera. Fisheye is equidistant, `1 / Lens`
 //!   radians from the middle to the top edge, and paints the background past a half turn.
+//! - **Sky**, a picture cabled in, is the whole sphere round the scene: a ray that hits nothing
+//!   shows it in its direction, mapped as Texture's Sphere maps a picture — its width once round
+//!   the horizon, its height pole to pole — and fog fades to it rather than to Background, as a
+//!   reflection's does to the sky in the reflected direction. The picture is asked once a
+//!   pixel, after the march, and once more for a reflection. Sky Tilt tips its pole about x;
+//!   turning it round the pole is a Translate along X before it, so there is no number for it.
 //!
-//! Every one of these is a `Code` option, and at its default each emits nothing: the module is
-//! the plain march alone, which is also what every solid node's snapshot holds.
+//! Every one of these but the Sky is a `Code` option, and at its default each emits nothing, as
+//! the Sky unconnected does: the module is the plain march alone, which is also what every
+//! solid node's snapshot holds.
+//!
+//! **A ray that runs out of steps** short of the far limit is asked its distance once more
+//! where it stopped, and is a hit there if that is within about a pixel; else it lands on the
+//! floor where it would cross it; else it is the background. A bound that shrinks the step and
+//! a ray grazing the floor toward the horizon run out before they arrive, and showed the
+//! background as a ring round the surface and a ragged horizon. The ray's closest approach is
+//! not used: a bound that shrinks the step under-reports the distance, so it accepted rays that
+//! pass pixels clear of the surface and grew a crust round it.
 //!
 //! **Five numbers are ports**: Orbit, Tilt, Distance, Light and Glow, so a MIDI knob or a gear
-//! flies the camera and moves the light. Everything else is the node's own: hidden controls and
+//! flies the camera and moves the light; the Sky is a port too, being a picture. Everything else is the node's own: hidden controls and
 //! in-region options, drawn in four folding sections (`Region::Section`) — Camera's globe, which
 //! a hand drags to orbit and tilt and wheels to move nearer, Light's sun disk, Look and Quality
 //! — and in the panels three of their buttons open. Each is still a control or an option: saved,
@@ -43,13 +58,13 @@
 
 use std::fmt::Write;
 
-use super::{SDF, color, fill, num, num_log, solid};
+use super::{SDF, color, fill, num, num_log, solid, turn};
 use crate::compile::{CompileContext, SOLID_FAR};
 use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
 use crate::nodes::{
-    Category, Dial, Globe, NodeDef, OptionDef, OptionKind, OutputDef, OutputKind, Part, Popout,
-    Region, Section, TURNS,
+    Category, Control, Dial, Globe, InputDef, NodeDef, OptionDef, OptionKind, OutputDef,
+    OutputKind, Part, Popout, Region, Section, TURNS,
 };
 
 /// Where the solid is asked in the march: `pp`, a variable the body moves.
@@ -82,6 +97,83 @@ fn indent(src: &str) -> String {
         .collect()
 }
 
+/// How near a ray that runs out of steps must have come to a surface, in picture units, to be
+/// shaded as a hit there: about a pixel at [`REFERENCE_HEIGHT`](crate::nodes::REFERENCE_HEIGHT).
+const NEAR: &str = "0.003";
+
+/// How much world one unit of `uv` spans at `depth` along a ray, through the lens `kind`.
+fn per_unit(kind: &str, depth: &str) -> String {
+    if kind == "orthographic" {
+        "oh".to_string()
+    } else {
+        format!("(max({depth}, 0.001) / max({{lens}}, 0.001))")
+    }
+}
+
+/// One march's names: its depth and hit flag, the point and direction its ray leaves along,
+/// and its hit test's tolerance where the ray leaves.
+struct March<'a> {
+    t: &'a str,
+    hit: &'a str,
+    from: &'a str,
+    dir: &'a str,
+    tolerance: &'a str,
+}
+
+impl March<'_> {
+    /// After the loop: a ray that ran out of steps short of the far limit is a hit where it
+    /// ended, if it ended within [`NEAR`] of a surface; else on the floor, where `floor` and
+    /// the ray come within the hit test's tolerance of it; else a miss. `scene` is the
+    /// distance at [`AT`] and `unit` the world one unit of `uv` spans at the depth.
+    fn exhausted(&self, scene: &str, unit: &str, floor: bool) -> String {
+        let March {
+            t,
+            hit,
+            from,
+            dir,
+            tolerance,
+        } = *self;
+        let crossing = if floor {
+            format!(
+                " else if ({dir}.y < 0.0) {{
+            let tf = ({from}.y - fh - {tolerance}) / (0.0004 - {dir}.y);
+            if (tf > 0.0 && tf <= 80.0) {{ {t} = tf; {hit} = true; }}
+        }}"
+            )
+        } else {
+            String::new()
+        };
+        format!(
+            "    if (!{hit} && {t} <= 80.0) {{
+        {AT} = {from} + {dir} * {t};
+        if ({scene} < {NEAR} * {unit}) {{
+            {hit} = true;
+        }}{crossing}
+    }}
+"
+        )
+    }
+}
+
+/// Statements binding `name` to the Sky input's color in the direction `dir`: the direction
+/// tipped by Sky Tilt about x, then mapped over the whole sphere, the picture's width once round
+/// the horizon and its height pole to pole.
+fn sky_at(ctx: &mut CompileContext, node: NodeId, name: &str, dir: &str) -> String {
+    let color = ctx.input(
+        node,
+        "sky",
+        &format!(
+            "vec2f(atan2({name}_d.x, {name}_d.z) / PI * (16.0 / 9.0), asin(clamp({name}_d.y, -1.0, 1.0)) / (PI * 0.5))"
+        ),
+    );
+    format!(
+        "    let {name}_t = {{skyTilt}} * tau;
+    let {name}_d = vec3f({dir}.x, {dir}.y * cos({name}_t) - {dir}.z * sin({name}_t), {dir}.y * sin({name}_t) + {dir}.z * cos({name}_t));
+    let {name} = {color};
+"
+    )
+}
+
 /// The floor's color at the point named `at`.
 fn floor_albedo(plain: bool, at: &str) -> String {
     if plain {
@@ -103,6 +195,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let lens_kind = chosen(ctx, node, "projection");
     let look_at = chosen(ctx, node, "camera") == "lookat";
     let toon = shading == "toon";
+    let sky = ctx.connected(node, "sky");
 
     let dist = ctx.solid_input(node, "solid", AT, false);
     let whole = ctx.solid_input(node, "solid", "pos", true);
@@ -112,6 +205,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     };
     let scene = format!("min({floor}, {dist}.x)");
     let plain = floor_kind == "plain";
+    let has_floor = floor_kind != "none";
 
     let camera = if look_at {
         "    let aim = vec3f({targetX}, {targetY}, {targetZ});
@@ -130,9 +224,9 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
 "
     };
-    // The rays: how they start, where the march starts them from, how much world one unit of
-    // `uv` spans at depth `t`, and the depth fog and Depth count.
-    let (start, origin, per_unit, seen) = match lens_kind {
+    // The rays: how they start, where the march starts them from, and the depth fog and Depth
+    // count.
+    let (start, origin, seen) = match lens_kind {
         "orthographic" => (
             "    let pull = length(aim - ro);
     let oh = pull / max({lens}, 0.001);
@@ -140,7 +234,6 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let rd = fwd;
 ",
             "org",
-            "oh",
             "max(t - pull, 0.0)",
         ),
         "fisheye" => (
@@ -151,15 +244,21 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let rd = fwd * cos(theta) + (right * across.x + up * across.y) * sin(theta);
 ",
             "ro",
-            "(max(t, 0.001) / max({lens}, 0.001))",
             "t",
         ),
         _ => (
             "    let rd = normalize(fwd * {lens} + right * uv.x + up * uv.y);\n",
             "ro",
-            "(max(t, 0.001) / max({lens}, 0.001))",
             "t",
         ),
+    };
+    let unit = per_unit(lens_kind, "t");
+    let main = March {
+        t: "t",
+        hit: "hit",
+        from: origin,
+        dir: "rd",
+        tolerance: "0.0001",
     };
 
     let mut track_init = String::new();
@@ -173,7 +272,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
             track,
             "        if (hs > last_hs) {{ rim = min(rim, last_w); }}
         last_hs = hs;
-        last_w = hs / {per_unit};
+        last_w = hs / {unit};
 "
         );
         after_march.push_str(
@@ -234,6 +333,20 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let reflection = if bounce {
         let whole2 = ctx.solid_input(node, "solid", "p2", true);
         let albedo2 = floor_albedo(plain, "p2");
+        let bounce = March {
+            t: "t2",
+            hit: "hit2",
+            from: "ro2",
+            dir: "rd2",
+            tolerance: "(0.0004 * t + 0.0001)",
+        };
+        let unit2 = per_unit(lens_kind, "t + t2");
+        // What the reflected ray sees where it hits nothing, and what its fog fades to.
+        let (far2, beyond2) = if sky {
+            (sky_at(ctx, node, "sky2", "rd2"), "sky2")
+        } else {
+            (String::new(), "bg")
+        };
         format!(
             "    let rd2 = reflect(rd, n);
     let ro2 = pos + n * 0.002;
@@ -246,7 +359,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         t2 += h * relax;
         if (t2 > 80.0) {{ break; }}
     }}
-    var rcol = bg.rgb;
+{}{far2}    var rcol = {beyond2}.rgb;
     if (hit2) {{
         let p2 = ro2 + rd2 * t2;
         let e2 = vec2f(1.0, -1.0) * 0.0005 * max(1.0, (t + t2) * 0.25);
@@ -265,13 +378,14 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         let dif2 = max(dot(n2, light), 0.0);
         let amb2 = 0.5 + 0.5 * n2.y;
         let col2 = pow(pow(albedo2, vec3f(2.2)) * (dif2 * 1.25 + amb2 * 0.30), vec3f(1.0 / 2.2));
-        rcol = mix(col2, bg.rgb, 1.0 - exp(-{{fog}} * t2));
+        rcol = mix(col2, {beyond2}.rgb, 1.0 - exp(-{{fog}} * t2));
     }}
     let gloss = clamp({{reflectivity}}, 0.0, 1.0);
     let fres = gloss + (1.0 - gloss) * pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 5.0);
     col = mix(col, rcol, fres);
 ",
-            (steps / 4).max(1)
+            (steps / 4).max(1),
+            bounce.exhausted(&scene, &unit2, has_floor),
         )
     } else {
         String::new()
@@ -308,11 +422,24 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         ),
     };
     let albedo_floor = floor_albedo(plain, "pos");
+    // Steps shading paints the count alone, so it asks nothing of a ray that ran out.
+    let exhausted = if shading == "steps" {
+        String::new()
+    } else {
+        main.exhausted(&scene, &unit, has_floor)
+    };
+    // With the Sky connected, what a ray that hits nothing sees and what fog fades to is the
+    // sky in its direction, asked once the march is done; otherwise it is the Background.
+    let (bg_before, bg_after) = if sky {
+        (String::new(), sky_at(ctx, node, "bg", "rd"))
+    } else {
+        ("    let bg = {background};\n".to_string(), String::new())
+    };
     let rest = if shading == "steps" {
         "    return vec4f(clamp(vec3f(2.0 * heat, 2.0 - 2.0 * abs(2.0 * heat - 1.0) * 1.0, 1.0 - 2.0 * heat), vec3f(0.0), vec3f(1.0)), 1.0);".to_string()
     } else {
         format!(
-            "{miss}    let pos = {origin} + rd * t;
+            "{bg_after}{miss}    let pos = {origin} + rd * t;
     let e = vec2f(1.0, -1.0) * 0.0005 * max(1.0, t * 0.25);
     {AT} = pos + e.xyy;
     let n0 = {scene};
@@ -341,8 +468,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
             "    let tau = 6.2831853;
 {camera}    let up = cross(right, fwd);
 {start}    let fh = {{floorHeight}};
-    let bg = {{background}};
-    let relax = {{step}};
+{bg_before}    let relax = {{step}};
     var {AT} = vec3f(0.0);
     var t = 0.0;
     var hit = false;
@@ -354,7 +480,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         count += 1.0;
         if (t > 80.0) {{ break; }}
     }}
-{after_march}    let heat = count / {steps}.0;
+{exhausted}{after_march}    let heat = count / {steps}.0;
 {rest}"
         ),
     )
@@ -514,6 +640,10 @@ static LOOK: Section = Section {
             key: "background",
             caption: "Background",
         },
+        Part::Number {
+            key: "skyTilt",
+            caption: "Sky Tilt",
+        },
         Part::Choice {
             key: "floor",
             caption: "Floor",
@@ -558,14 +688,24 @@ pub static RENDER: NodeDef = NodeDef {
               picture into an Output, or into any video node. Steps shading paints how hard \
               each pixel worked. Glow lights the air near a surface, Toon shading draws light \
               in Bands with an Outline, and One bounce reflections march a second ray from \
-              every surface, costing up to a quarter as much again.",
+              every surface, costing up to a quarter as much again. Plug a picture into Sky and \
+              it wraps the whole sphere round the scene: what a ray that hits nothing sees, what \
+              fog fades to and what reflections show. A Translate along X before it turns it, \
+              and Sky Tilt tips it. The sky picture is worked out once a pixel, and once more \
+              for a reflection.",
     inputs: &[
         solid("solid", "Solid"),
-        num("orbit", "Orbit", 0.08, -1.0, 1.0, 0.001, TURNS),
+        turn("orbit", "Orbit", 0.08, -1.0, 1.0, 0.001),
         num("tilt", "Tilt", 0.06, -0.24, 0.24, 0.001, TURNS),
         num_log("distance", "Distance", 7.0, 0.5, 80.0, 0.01, "⬓"),
-        num("light", "Light", 0.12, -1.0, 1.0, 0.001, TURNS),
+        turn("light", "Light", 0.12, -1.0, 1.0, 0.001),
         num("glowAmount", "Glow", 0.6, 0.0, 4.0, 0.001, ""),
+        InputDef {
+            key: "sky",
+            label: "Sky",
+            ty: VaryingColor,
+            control: Control::None,
+        },
     ],
     hidden: &[
         num("targetX", "Target X", 0.0, -20.0, 20.0, 0.01, "⬓"),
@@ -580,6 +720,7 @@ pub static RENDER: NodeDef = NodeDef {
         num("fog", "Fog", 0.03, 0.0, 1.0, 0.001, ""),
         num("step", "Step", 0.9, 0.2, 1.5, 0.01, "x"),
         color("background", "Background", "#141019ff"),
+        turn("skyTilt", "Sky Tilt", 0.0, -0.5, 0.5, 0.001),
         num("reflectivity", "Reflectivity", 0.25, 0.0, 1.0, 0.001, ""),
         color("glowColor", "Glow Color", "#59d8ffff"),
         num_log("glowReach", "Glow Reach", 0.25, 0.01, 4.0, 0.001, "⬓"),
