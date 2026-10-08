@@ -213,8 +213,8 @@ that is all it means about the project — a closed workspace is still in it, is
 and is not on disk in any different way.
 
 **Closed means suspended, not unloaded.** The nodes stay in the graph with their state:
-`link::live_nodes` is every node shown on at least one open workspace, and a node outside it
-is suspended.
+`link::live_nodes` is every node shown on at least one open workspace, with everything those
+read and everything on air, and a node outside it is suspended.
 
 - Its `tick` is not called. Its `CpuNode` state is kept, so a camera's pipeline and a
   microphone's stream are not torn down and rebuilt by a tab being closed. **Its time is
@@ -241,12 +241,11 @@ editor must not freeze the show. `link::live_nodes` walks the connections back f
 claimed Output and adds what it finds. See
 [rendering.md](rendering.md#the-mixer).
 
-**A clock read outranks closed** the same way. A gear — a Master Gear, a Ratio Gear, the Time
-node — cabled straight into a node shown on an open workspace is live, and every node upstream
-of it, so a Master Gear on a closed tab keeps counting for the noise it drives on an open one,
-and the chain of gears above it with it. `link::live_nodes` adds each such gear and walks
-back from it as from a deck. Any other producer on a closed tab is suspended and holds its
-last value for the open node reading it.
+**A read outranks closed** the same way. Anything cabled into a node shown on an open workspace
+is live, and every node upstream of it: a Master Gear on a closed tab keeps counting for the
+noise it drives on an open one, an oscillator keeps moving the number an open node reads, and
+an Output keeps drawing the frame a Texture on an open tab samples. `link::live_nodes` walks
+back from every shown node as from a deck. What nothing awake reads sleeps.
 
 ### Session state: which are open, which is showing, and each view
 

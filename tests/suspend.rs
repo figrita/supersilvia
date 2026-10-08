@@ -125,12 +125,12 @@ fn a_node_on_a_closed_and_an_open_workspace_ticks() {
     );
 }
 
-/// A suspended producer holds its last value for a consumer that is still running.
-///
-/// Not a zero and not a gap: the number is still in the graph's published table, because
-/// the node is still in the graph. It is the same hold a dropped frame gets.
+/// **A producer on a closed tab keeps running while an open tab reads it.** A slew on a
+/// workspace whose tab is closed, cabled into a slew on an open one, still ticks: set to a
+/// new target after its tab closed, it moves towards it, and its consumer follows. What an
+/// open tab shows never freezes because the tab its producer sits on closed.
 #[test]
-fn a_suspended_producer_holds_its_last_value_for_a_running_consumer() {
+fn a_producer_on_a_closed_tab_keeps_running_while_an_open_tab_reads_it() {
     let mut app = App::headless();
     let first = app.graph().default_workspace();
     let other = second(&mut app);
@@ -152,21 +152,26 @@ fn a_suspended_producer_holds_its_last_value_for_a_running_consumer() {
     assert_eq!(app.uniform(PortRef::new(producer, "output")), Some(6.0));
 
     app.close_workspace(other);
+    app.apply(Command::SetControl {
+        node: producer,
+        key: "input",
+        value: ControlValue::Float(0.0),
+    })
+    .unwrap();
     for _ in 0..30 {
         app.tick(FRAME);
     }
-    assert_eq!(
-        app.uniform(PortRef::new(producer, "output")),
-        Some(6.0),
-        "held, not cleared"
+    let moved = app
+        .uniform(PortRef::new(producer, "output"))
+        .expect("the producer is read from an open tab and runs");
+    assert!(
+        moved < 6.0,
+        "the producer ticked towards its new target: {moved}"
     );
     let seen = app
         .uniform(PortRef::new(consumer, "output"))
         .expect("the consumer is on an open workspace and runs");
-    assert!(
-        seen > 0.0,
-        "the consumer slewed towards the held value: {seen}"
-    );
+    assert!(seen < 6.0, "and the consumer follows it: {seen}");
 }
 
 /// **A gear on a closed tab keeps running while an open tab reads it.** A one-second Master
@@ -270,6 +275,43 @@ fn an_output_shown_only_on_a_closed_workspace_is_not_in_the_render_set() {
 
     app.open_workspace(other);
     assert!(drawn(&mut app, there), "reopened, it draws again");
+}
+
+/// **An Output on a closed tab keeps drawing while an open tab reads its frame.** Its frame
+/// cabled into an Output on an open workspace, closing its own tab leaves it in the render
+/// set; with the cable gone, it sleeps like any Output nothing awake reads.
+#[test]
+fn an_output_whose_frame_an_open_tab_reads_keeps_drawing_when_its_tab_closes() {
+    let mut app = App::headless();
+    let first = app.graph().default_workspace();
+    let other = second(&mut app);
+
+    let here = add_on(&mut app, "output", first);
+    let there = add_on(&mut app, "output", other);
+    let source = add_on(&mut app, "checkerboard", other);
+    app.apply(Command::Connect {
+        from: PortRef::new(source, "output"),
+        to: PortRef::new(there, "input"),
+    })
+    .unwrap();
+    let frame = Command::Connect {
+        from: PortRef::new(there, "frame"),
+        to: PortRef::new(here, "input"),
+    };
+    app.apply(frame).unwrap();
+
+    app.close_workspace(other);
+    assert!(drawn(&mut app, here), "the open one draws");
+    assert!(
+        drawn(&mut app, there),
+        "and the closed one it reads draws for it"
+    );
+
+    app.apply(Command::Disconnect {
+        to: PortRef::new(here, "input"),
+    })
+    .unwrap();
+    assert!(!drawn(&mut app, there), "read by nothing awake, it sleeps");
 }
 
 /// An edit made while a workspace is closed is built on the frame its tab comes back.

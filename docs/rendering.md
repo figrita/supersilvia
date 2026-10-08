@@ -137,7 +137,7 @@ Output with a shader as drawing, with the reason, or **idle** (`synth::Mode`, `s
   for another machine — with nothing on screen showing it (`Why::Sent`); being captured by
   [the render](#the-render-job). A deck and a sent Output are **on air**: each wakes itself and
   everything upstream of it whatever its tabs are doing (`live_nodes`), so a closed tab never
-  takes it off the air.
+  takes it off the air. An Output whose frame an open tab reads is awake the same way.
 - **Loops.** In a cycle of data edges, delayed ones included: its `frame` reaching its own
   upstream directly, through other Outputs' frames, through a tap's reading, or through any
   mix of them. A loop is a simulation with its own history and keeps its full temporal
@@ -1186,10 +1186,10 @@ on the strip.
 [Texture](nodes.md#texture) on a distant surface samples one texel where a pixel covers many,
 and shimmers as it moves. See [decisions.md](decisions.md#no-mipmaps-on-a-solids-textures).
 
-**A frame from a closed tab holds.** An Output on a closed workspace is suspended unless it is
-on air, on a deck or sent ([which Outputs draw](#which-outputs-draw)), and its `frame` is the
-last one it drew. A Texture on an open tab reading that frame shows it standing still until
-the Output's tab is open again.
+**A frame from a closed tab keeps coming.** An Output on a closed workspace whose `frame` a node
+on an open tab reads — a Texture on a solid, a video node — is awake and draws, as one on a
+deck or sent is ([which Outputs draw](#which-outputs-draw)), so a solid textured with another
+workspace's picture moves while that workspace's tab is closed.
 
 ## The workspace pass
 

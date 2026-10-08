@@ -273,12 +273,12 @@ delivered the frame its position names says so, and the render holds its frame. 
 A node that publishes nothing this frame keeps its last published value. That is what makes a
 dropped frame or a device that has not delivered yet a hold rather than a gap.
 
-**A node on no open workspace does not tick at all.** It is suspended — see
-[architecture.md](architecture.md#open-and-closed-and-what-suspension-means) — and the same
-rule covers it: **a uniform number published by a suspended producer and read by a running
-consumer holds its last value.** Nothing is cleared, because the node is still in the graph and
-so is what it published; a suspended producer looks to its consumer exactly like a device that
-has not delivered a new number yet. Its `CpuNode` state is kept too, so closing a tab does not
+**A node on no open workspace does not tick at all**, unless something awake reads it. It is
+suspended — see [architecture.md](architecture.md#open-and-closed-and-what-suspension-means).
+A producer on a closed tab that a node on an open tab reads is not suspended: it ticks with
+the show, so a number an open tab shows never freezes because another tab closed. A suspended
+node's published numbers stay in the table — nothing is cleared, because the node is still in
+the graph — and nothing awake reads them until its tab opens again. Its `CpuNode` state is kept too, so closing a tab does not
 close a microphone. Its time is not suspended: the tick it wakes on hands it the whole
 distance the transport moved while it slept, as a jump, so a gear on it is born again where
 the playhead puts it and a node on ambient time reads the playhead as it is —

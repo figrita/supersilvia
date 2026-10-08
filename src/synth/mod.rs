@@ -875,10 +875,9 @@ impl Synth {
         // the same way must agree about where the hand is.
         let pointer = self.pointer.read();
 
-        // A node on no open workspace is suspended: it does not tick. What it published last
-        // is still in `uniforms` and `frames`, because the node is still in the graph — so a
-        // running consumer reading a suspended producer holds its last value rather than
-        // seeing a gap.
+        // A node nothing shown, on air or read needs is suspended: it does not tick. What it
+        // published last is still in `uniforms` and `frames`, because the node is still in
+        // the graph, and it is there again the moment something wakes it.
         let order: Vec<NodeId> = graph.tick_order().to_vec();
         // What the ticks asked to write onto their own knobs — a roll, a scrub. Gathered across
         // the walk and applied after it, because writing one mid-walk would change the graph

@@ -126,42 +126,32 @@ pub(super) struct InputsKey {
 }
 
 /// Every node shown on a workspace that is open, everything feeding a deck or an Output
-/// sent out over Syphon or NDI, and every gear a node on an open workspace reads, with its own
+/// sent out over Syphon or NDI, and everything any of those reads over a cable, with its own
 /// upstream.
 ///
 /// A node on no open workspace is **suspended**: its `tick` is not called and its Output is
-/// not drawn. **On air outranks closed**: an Output on a mixer deck renders, and everything
-/// upstream of it ticks, whatever its tabs are doing, so tidying the editor never freezes the
-/// show. An Output another app takes over Syphon or NDI is on air there, and is held the same.
-/// **A clock read outranks closed** the same way: a gear cabled into a node on an open tab
-/// keeps counting, and what it counts with it, so closing the tab a gear sits on never stops
-/// the time of what is shown.
+/// not drawn — unless something awake reads it. Three things outrank closed, for one reason:
+/// what is being shown must not change because a view of something else closed. **On air**: an
+/// Output on a mixer deck renders, and everything upstream of it ticks, whatever its tabs are
+/// doing, so tidying the editor never freezes the show. **Sent**: an Output another app takes
+/// over Syphon or NDI is on air there, and is held the same. **Read**: anything cabled into a
+/// node on an open tab — a gear's count, an oscillator's number, an Output's frame — is awake
+/// with its own upstream, so closing the tab a producer sits on never freezes what an open tab
+/// shows of it. What nothing awake reads sleeps.
 pub(in crate::app) fn live_nodes(
     graph: &Graph,
     open: &BTreeSet<WorkspaceId>,
     mixer: &Mixer,
     sent: &BTreeSet<NodeId>,
 ) -> HashSet<NodeId> {
-    let mut live: HashSet<NodeId> = graph
+    let shown = graph
         .iter()
         .filter(|(_, n)| n.workspaces.iter().any(|w| open.contains(w)))
-        .map(|(id, _)| id)
-        .collect();
-    let clocks: Vec<NodeId> = live
-        .iter()
-        .flat_map(|id| graph.cables_into(*id))
-        .map(|c| c.from.node)
-        .filter(|from| {
-            !live.contains(from)
-                && graph
-                    .get(*from)
-                    .is_some_and(|n| n.def.category == crate::nodes::Category::Gear)
-        })
-        .collect();
-    for root in mixer.claimed().chain(sent.iter().copied()).chain(clocks) {
-        live.extend(upstream_over_any_cable(graph, root));
-    }
-    live
+        .map(|(id, _)| id);
+    upstream_of_all(
+        graph,
+        shown.chain(mixer.claimed()).chain(sent.iter().copied()),
+    )
 }
 
 /// Which workspace's pass measures each awake measured node: per workspace, in id order.
@@ -194,11 +184,11 @@ fn measured_on(
     on
 }
 
-/// Every node `from` is computed from, over any cable, delayed ones included: the walk that
-/// keeps a deck's upstream awake.
-fn upstream_over_any_cable(graph: &Graph, from: NodeId) -> HashSet<NodeId> {
+/// Every root and every node a root is computed from, over any cable, delayed ones included:
+/// the walk that keeps what is shown, on air or sent awake with what it reads.
+fn upstream_of_all(graph: &Graph, roots: impl Iterator<Item = NodeId>) -> HashSet<NodeId> {
     let mut seen = HashSet::new();
-    let mut stack = vec![from];
+    let mut stack: Vec<NodeId> = roots.collect();
     while let Some(id) = stack.pop() {
         if graph.get(id).is_none() || !seen.insert(id) {
             continue;

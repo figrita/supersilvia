@@ -3441,10 +3441,12 @@ graph the same way.
 
 **On air outranks closed.** An Output on a deck, and everything feeding it, is live whatever
 its workspaces' tabs are doing. The alternative — closing the live deck's tab freezes the
-show — is a trap for exactly the moment nobody can afford one. **A gear read from an open tab
-is live too**, with its own upstream: a clock that stops because the tab it sits on closed
-stops the time of everything on the open tab that counts it. Other producers on a closed tab
-still hold their last value; a gear is the one whose value is a time.
+show — is a trap for exactly the moment nobody can afford one. **Anything an open tab reads
+is live too**, with its own upstream: a gear, an oscillator, an Output whose frame a Texture
+samples. What is shown must not change because a view of something else closed, and a deck,
+a send and a read are the same case of it. **Rejected: only gears outranking closed**, every
+other producer holding its last value — a frame cabled into a solid on an open tab stood
+still, and a number from a closed tab froze, with nothing on screen saying why.
 
 **A deck is cropped to the mix, not letterboxed into it.** silvia's rule: each deck is scaled
 about its center to the mix's height, so a deck of another shape loses its sides or mirrors
