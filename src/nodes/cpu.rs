@@ -749,6 +749,9 @@ pub struct TickContext<'a> {
     /// Producers tick before consumers, so an entry is complete by the time anything
     /// downstream reads it.
     actions: &'a mut HashMap<PortRef, Vec<Event>>,
+    /// Every event fired on the tick before, which a cable the tick's order runs backwards
+    /// delivers on this one ([`Graph::reads_late`]).
+    late_actions: &'a HashMap<PortRef, Vec<Event>>,
     /// The number outputs put somewhere this frame rather than moved there. See
     /// [`Self::jump`].
     jumps: &'a mut HashSet<PortRef>,
@@ -800,6 +803,7 @@ impl<'a> TickContext<'a> {
         frames: &'a mut HashMap<PortRef, Arc<Frame>>,
         sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
         actions: &'a mut HashMap<PortRef, Vec<Event>>,
+        late_actions: &'a HashMap<PortRef, Vec<Event>>,
         jumps: &'a mut HashSet<PortRef>,
         held: &'a HashSet<PortRef>,
         readbacks: &'a HashMap<NodeId, [u32; crate::compile::TAP_WORDS]>,
@@ -824,6 +828,7 @@ impl<'a> TickContext<'a> {
             frames,
             sims,
             actions,
+            late_actions,
             jumps,
             held,
             readbacks,
@@ -1096,13 +1101,22 @@ impl<'a> TickContext<'a> {
     /// and it is sorted: a consumer integrating between events needs one timeline, not one
     /// per cable. Two sources firing `Down` in one frame are two events — collapsing them
     /// would drop a beat, which is the whole reason a counter can trust this.
+    ///
+    /// A cable an action loop breaks on ([`Graph::reads_late`]) delivers what its source
+    /// fired on the tick before, each event at the top of this frame, ahead of this frame's.
     pub fn edges(&self, id: NodeId, key: &'static str) -> Vec<Event> {
+        let to = PortRef::new(id, key);
         let mut out = Vec::new();
-        for src in self.graph.sources_of(PortRef::new(id, key)) {
-            if let Some(events) = self.actions.get(&src) {
-                out.extend_from_slice(events);
+        let mut now = Vec::new();
+        for src in self.graph.sources_of(to) {
+            if self.graph.reads_late(src, to) {
+                let events = self.late_actions.get(&src).map_or(&[][..], Vec::as_slice);
+                out.extend(events.iter().map(|e| Event::at(e.edge, 0.0)));
+            } else if let Some(events) = self.actions.get(&src) {
+                now.extend_from_slice(events);
             }
         }
+        out.append(&mut now);
         // Stable, so two sources firing at the same moment stay in graph order.
         out.sort_by(|a, b| a.at.total_cmp(&b.at));
         out

@@ -236,7 +236,7 @@ pub struct Graph {
     /// stays `&self`; a clone shares a built one, which is exact because each is a function
     /// of the nodes and cables the clone shares.
     topo: OnceLock<Arc<[NodeId]>>,
-    tick_topo: OnceLock<Arc<[NodeId]>>,
+    tick_topo: OnceLock<Arc<order::TickOrder>>,
     /// Every workspace, in project order. Never empty.
     workspaces: Arc<Vec<Workspace>>,
     /// Next workspace id to hand out. Monotonic per project, like `next_id`.

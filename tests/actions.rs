@@ -1272,6 +1272,194 @@ fn a_cable_works_a_clocks_transport() {
     );
 }
 
+// ---------------------------------------------------------------- a loop
+
+/// A port, as a node and a key.
+type End = (NodeId, &'static str);
+
+/// Connect each pair through the bus.
+fn wire(app: &mut App, cables: &[(End, End)]) {
+    for ((from, out), (to, input)) in cables {
+        app.apply(Command::Connect {
+            from: PortRef::new(*from, out),
+            to: PortRef::new(*to, input),
+        })
+        .unwrap();
+    }
+}
+
+/// **An event that loops back into its own node arrives a frame late, and is not lost.**
+/// `brickgame`'s Brick Broken triggers a `triggeredcolor` whose color is the same game's
+/// Foreground: the color is read this frame, so the trigger ticks first and the event that
+/// fires it is the one the loop breaks on. Both creation orders, since the break must not
+/// depend on which id is lower.
+#[test]
+fn an_event_looped_back_into_its_own_node_arrives_a_frame_late() {
+    const MAGENTA: [f32; 4] = [1.0, 0.0, 1.0, 1.0];
+    for game_first in [true, false] {
+        let mut app = App::headless();
+        let (game, color) = if game_first {
+            let game = add_to(&mut app, "brickgame");
+            (game, add_to(&mut app, "triggeredcolor"))
+        } else {
+            let color = add_to(&mut app, "triggeredcolor");
+            (add_to(&mut app, "brickgame"), color)
+        };
+        for key in ["autoReset", "autoPlay"] {
+            app.apply(Command::SetControl {
+                node: game,
+                key,
+                value: ControlValue::Float(1.0),
+            })
+            .unwrap();
+        }
+        wire(
+            &mut app,
+            &[
+                ((game, "brickBroken"), (color, "trigger")),
+                ((color, "color"), (game, "foregroundColor")),
+            ],
+        );
+
+        let broken = PortRef::new(game, "brickBroken");
+        let swatch = PortRef::new(color, "color");
+        let mut ticks = 0;
+        loop {
+            app.tick(FRAME);
+            ticks += 1;
+            assert!(
+                ticks < 60 * 120,
+                "no brick broke in two minutes of autoplay"
+            );
+            if app.edges(broken).iter().any(|e| e.is_down()) {
+                break;
+            }
+            assert_eq!(
+                app.uniform_color(swatch),
+                Some(MAGENTA),
+                "nothing broke yet"
+            );
+        }
+        assert_eq!(
+            app.uniform_color(swatch),
+            Some(MAGENTA),
+            "the trigger ticked before the game this frame"
+        );
+        app.tick(FRAME);
+        assert_ne!(
+            app.uniform_color(swatch),
+            Some(MAGENTA),
+            "the brick that broke never reached the color (game first: {game_first})"
+        );
+    }
+}
+
+/// The same loop in general: an action output into a node whose uniform number feeds the
+/// node that fired it. The consumer ticks first, so every event reaches it on the frame after
+/// it was fired — each one once, a press and a release one count.
+#[test]
+fn an_action_loop_through_a_uniform_input_delivers_every_event_once() {
+    let mut app = App::headless();
+    let button = add_to(&mut app, "button");
+    let divider = add_to(&mut app, "clockdivider");
+    let counter = add_to(&mut app, "counter");
+    app.apply(Command::SetControl {
+        node: counter,
+        key: "step",
+        value: ControlValue::Float(1.0),
+    })
+    .unwrap();
+    app.apply(Command::SetControl {
+        node: counter,
+        key: "max",
+        value: ControlValue::Float(8.0),
+    })
+    .unwrap();
+    // Normalized is never past 1, which Divide rounds up to 1: every beat passes.
+    wire(
+        &mut app,
+        &[
+            ((button, "trigger"), (divider, "input")),
+            ((divider, "trigger"), (counter, "increment")),
+            ((counter, "normalized"), (divider, "divide")),
+        ],
+    );
+    let value = PortRef::new(counter, "value");
+    let out = PortRef::new(divider, "trigger");
+    app.tick(FRAME);
+    assert_eq!(app.uniform(value), Some(0.0));
+
+    for expected in 1..=3u8 {
+        app.press(PortRef::new(button, "press"), true);
+        app.tick(FRAME);
+        assert_eq!(
+            kinds(&app, out),
+            [Edge::Down],
+            "the divider passed the beat"
+        );
+        assert_eq!(
+            app.uniform(value),
+            Some(f64::from(expected - 1)),
+            "the counter ticked before the divider fired"
+        );
+        app.press(PortRef::new(button, "press"), false);
+        app.tick(FRAME);
+        assert_eq!(
+            app.uniform(value),
+            Some(f64::from(expected)),
+            "the beat arrived a frame late, once"
+        );
+        app.tick(FRAME);
+        assert_eq!(
+            app.uniform(value),
+            Some(f64::from(expected)),
+            "and only once"
+        );
+    }
+}
+
+/// A loop of actions alone breaks at its lowest id, and the event that closes it reaches the
+/// break a frame late: two dividers passing every beat to each other pass one beat round the
+/// loop once a frame.
+#[test]
+fn a_loop_of_actions_alone_carries_its_event_round_once_a_frame() {
+    let mut app = App::headless();
+    let first = add_to(&mut app, "clockdivider");
+    let second = add_to(&mut app, "clockdivider");
+    for node in [first, second] {
+        app.apply(Command::SetControl {
+            node,
+            key: "divide",
+            value: ControlValue::Float(1.0),
+        })
+        .unwrap();
+    }
+    wire(
+        &mut app,
+        &[
+            ((first, "trigger"), (second, "input")),
+            ((second, "trigger"), (first, "input")),
+        ],
+    );
+    let (a, b) = (
+        PortRef::new(first, "trigger"),
+        PortRef::new(second, "trigger"),
+    );
+    app.press(PortRef::new(first, "input"), true);
+    app.tick(FRAME);
+    assert_eq!(kinds(&app, a), [Edge::Down], "the hand on the break");
+    assert_eq!(
+        kinds(&app, b),
+        [Edge::Down],
+        "and through to the next in the frame"
+    );
+    for frame in 0..4 {
+        app.tick(FRAME);
+        assert_eq!(kinds(&app, a), [Edge::Down], "round again, frame {frame}");
+        assert_eq!(kinds(&app, b), [Edge::Down], "frame {frame}");
+    }
+}
+
 // ---------------------------------------------------------------- muxevent
 
 /// The channel wraps in both directions: `next` past the last one is the first again, and

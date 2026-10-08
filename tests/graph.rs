@@ -429,6 +429,49 @@ fn a_tick_runs_what_an_action_loop_fires_after_it() {
     );
 }
 
+/// The cables a tick reads a frame late are the action cables its order runs backwards and
+/// no others: the one an action loop breaks on, and the event closing a loop through a value
+/// read this frame.
+#[test]
+fn a_tick_reads_late_exactly_the_action_cables_it_runs_backwards() {
+    let mut g = Graph::new();
+    let (a, b, c) = (
+        add_loopable(&mut g),
+        add_loopable(&mut g),
+        add_loopable(&mut g),
+    );
+    let fire = |n| PortRef::new(n, "fire");
+    let act = |n| PortRef::new(n, "act");
+    g.connect(fire(a), act(b)).unwrap();
+    g.connect(fire(b), act(a)).unwrap();
+    g.connect(fire(b), act(c)).unwrap();
+    assert_eq!(g.tick_order(), [a, b, c]);
+    assert!(g.reads_late(fire(b), act(a)), "the break");
+    assert!(!g.reads_late(fire(a), act(b)), "inside the loop, forwards");
+    assert!(!g.reads_late(fire(b), act(c)), "downstream of the loop");
+
+    // A value read this frame decides the break: `m` feeds `n` now, so `n`'s event into `m`
+    // is the one that waits, whichever id is lower.
+    let n = add_loopable(&mut g);
+    let m = add_loopable(&mut g);
+    g.connect(PortRef::new(m, "out"), PortRef::new(n, "a"))
+        .unwrap();
+    g.connect(fire(n), act(m)).unwrap();
+    assert!(at(g.tick_order(), m) < at(g.tick_order(), n));
+    assert!(g.reads_late(fire(n), act(m)));
+
+    assert!(
+        !g.reads_late(PortRef::new(m, "out"), PortRef::new(n, "a")),
+        "a value is never late"
+    );
+
+    assert!(g.disconnect_edge(fire(b), act(a)));
+    assert!(
+        !g.reads_late(fire(b), act(a)),
+        "a cable that is gone is not late"
+    );
+}
+
 /// A CPU chain behind a tap loop ticks producer first, where the loop elsewhere upstream
 /// once put the whole of it in id order.
 #[test]

@@ -11,9 +11,22 @@
 //! everything downstream of a loop still follows it, and only a loop's own members read one
 //! another a tick late. On a graph with no loop every component is one node and this is Kahn,
 //! seeded in id order. See docs/architecture.md, *Delayed ports and feedback*.
+//!
+//! **An action cable the tick's order runs backwards is read a tick late.** Where an action
+//! loop is broken, the node the break lands on ticks before the node firing into it, so what
+//! it reads on that cable is what was fired on the tick before; the set of those cables is
+//! kept beside the order it is a function of. See docs/cpu.md, *The tick*.
 
-use super::{Flow, Graph, NodeId};
+use super::{Flow, Graph, NodeId, PortRef};
 use std::collections::{HashMap, HashSet, VecDeque};
+
+/// The order `tick` runs a graph in, and the action cables that order runs backwards.
+#[derive(Debug)]
+pub(super) struct TickOrder {
+    order: Vec<NodeId>,
+    /// Every action cable, `(from, to)`, whose target ticks no later than its source.
+    late: HashSet<(PortRef, PortRef)>,
+}
 
 impl Graph {
     /// Nodes in dependency order: every producer before its consumers. Data edges only.
@@ -30,13 +43,39 @@ impl Graph {
     /// An event lives for one frame and is delivered inside the tick that fired it, so a node
     /// receiving one must run after the node firing it or the whole event half gains a frame
     /// of latency per hop. Action edges are not cycle-checked — a divider feeding a clock's
-    /// reset is a legal graph — so a loop among them is broken at its lowest id, and the node
-    /// the break lands on sees its input one frame late. That is what a loop means.
+    /// reset is a legal graph — so a loop among them is broken at its lowest id that reads no
+    /// value of this frame from the loop, and the node the break lands on sees its input one
+    /// frame late. That is what a loop means; [`Self::reads_late`] names the cables it lands
+    /// on.
     ///
     /// Separate from `topological_order` because nothing else may see an action edge: the
     /// compiler does not walk them and `downstream_outputs` must not mark a recompile for one.
     pub fn tick_order(&self) -> &[NodeId] {
-        self.tick_topo.get_or_init(|| self.order(|_| true).into())
+        &self.tick().order
+    }
+
+    /// Whether the action cable from `from` into `to` is read a tick late: its target ticks
+    /// no later than its source in `tick_order`, so what a tick reads on it is what was fired
+    /// on the tick before. The cables an action loop is broken on.
+    pub fn reads_late(&self, from: PortRef, to: PortRef) -> bool {
+        let late = &self.tick().late;
+        !late.is_empty() && late.contains(&(from, to))
+    }
+
+    /// The tick's order and its late cables, built together and cached together.
+    fn tick(&self) -> &TickOrder {
+        self.tick_topo.get_or_init(|| {
+            let order = self.order(|_| true);
+            let at: HashMap<NodeId, usize> =
+                order.iter().enumerate().map(|(i, id)| (*id, i)).collect();
+            let late = order
+                .iter()
+                .flat_map(|id| self.cables.leaving(*id))
+                .filter(|c| c.flow == Flow::Action && at[&c.to.node] <= at[&c.from.node])
+                .map(|c| (c.from, c.to))
+                .collect();
+            TickOrder { order, late }.into()
+        })
     }
 
     /// Nodes in dependency order over immediate data edges alone, which the cycle check keeps

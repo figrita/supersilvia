@@ -151,6 +151,9 @@ pub struct Synth {
     /// Every action edge fired this frame, by the output port that fired it. Cleared at the
     /// top of each tick: an event lives for one frame.
     actions: HashMap<PortRef, Vec<Event>>,
+    /// What `actions` held at the end of the tick before: what a cable the tick's order runs
+    /// backwards delivers this tick ([`Graph::reads_late`]).
+    late_actions: HashMap<PortRef, Vec<Event>>,
     /// The number outputs put somewhere this frame rather than moved there: a gear's Reset.
     /// Cleared at the top of each tick, as an event is. [`TickContext::jump`].
     jumps: HashSet<PortRef>,
@@ -415,6 +418,7 @@ impl Default for Synth {
             frames: HashMap::new(),
             sims: HashMap::new(),
             actions: HashMap::new(),
+            late_actions: HashMap::new(),
             jumps: HashSet::new(),
             seeks: HashMap::new(),
             touches: HashMap::new(),
@@ -839,7 +843,9 @@ impl Synth {
         self.paces
             .retain(|id, _| graph.get(*id).is_some_and(crate::nodes::timing::runs_free));
         // Edges do not survive a frame. A consumer that wants to remember one remembers it
-        // itself, which is what keeps a stale event from firing twice.
+        // itself, which is what keeps a stale event from firing twice. Last tick's are kept
+        // for one more, for the cables an action loop breaks on and nothing else.
+        std::mem::swap(&mut self.actions, &mut self.late_actions);
         self.actions.clear();
         self.jumps.clear();
         self.held_pointer.retain(|p| graph.get(p.node).is_some());
@@ -950,6 +956,7 @@ impl Synth {
                     &mut self.frames,
                     &mut self.sims,
                     &mut self.actions,
+                    &self.late_actions,
                     &mut self.jumps,
                     &self.held,
                     &self.readbacks,
@@ -997,6 +1004,7 @@ impl Synth {
                 &mut self.frames,
                 &mut self.sims,
                 &mut self.actions,
+                &self.late_actions,
                 &mut self.jumps,
                 &self.held,
                 &self.readbacks,
@@ -1429,6 +1437,7 @@ impl Synth {
         self.uniforms.clear();
         self.uniform_colors.clear();
         self.actions.clear();
+        self.late_actions.clear();
         self.jumps.clear();
         // A reset node is born again on its next tick, and what was queued for the world it
         // had is not that world's.

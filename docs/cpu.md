@@ -128,7 +128,12 @@ it, so a node receiving one has to run after the node firing it, or the event ha
 a frame of latency per hop. Action edges are not cycle-checked, so a loop among them is ordered
 as a feedback loop is, as one block ahead of everything it fires, and broken inside at its
 lowest id that reads no value of this frame from the loop; the node the break lands on sees
-its event one frame late — which is what a loop means. Nothing else may see an action edge:
+its event one frame late — which is what a loop means. **Late, not lost**: the cables the
+order runs backwards (`Graph::reads_late`) deliver what their source fired on the tick
+before, each event at the top of the frame and ahead of this frame's, and no other cable
+reads it. So where an event closes a loop through a value read this frame — Brick Game's
+Brick Broken triggering the Triggered Color that is its own Foreground — the color ticks
+first, and changes on the frame after the brick. Nothing else may see an action edge:
 the compiler does not walk them and `downstream_outputs` must not mark a recompile for one.
 
 **Two things get evaluated in that walk.** A node with a `cpu` half has its `tick` run, which
@@ -699,7 +704,9 @@ far as this source knows, now*, which is what a hand on a button means.
 Three consequences worth stating:
 
 - Events live for **exactly one frame**. The synth's `actions` are cleared at the top of each tick, so
-  a consumer that wants to remember something remembers it itself.
+  a consumer that wants to remember something remembers it itself. The one exception is the
+  cable a loop breaks on, which delivers the frame before's events, each of them once
+  ([the tick](#the-tick)).
 - Several events on one port in one frame are several events. A clock whose subdivision is
   faster than the display emits all of its beats, in order, each stamped; a counter that
   collapsed them would drift against the clock driving it.
