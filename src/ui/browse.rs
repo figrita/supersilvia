@@ -523,7 +523,7 @@ pub fn paint_row(
 }
 
 /// One port of a row's signature, in the shape the node draws it: a circle for a varying value,
-/// a diamond for a uniform, a rounded square for an action. The signature is the node in
+/// a diamond for a uniform, two for a list, a rounded square for an action. The signature is the node in
 /// miniature, so it tells the rates apart the way the node does, by shape and not by shade.
 fn glyph(painter: &eframe::egui::Painter, c: Pos2, ty: crate::graph::PortType, theme: &Theme) {
     let color = theme.port(ty);
@@ -534,18 +534,29 @@ fn glyph(painter: &eframe::egui::Painter, c: Pos2, ty: crate::graph::PortType, t
             eframe::egui::CornerRadius::same((side * 0.25) as u8),
             color,
         );
-    } else if ty.is_uniform() {
+    } else if ty.is_uniform() || ty.is_list() {
         let r = DOT * 1.4;
-        painter.add(eframe::egui::Shape::convex_polygon(
-            vec![
-                Pos2::new(c.x, c.y - r),
-                Pos2::new(c.x + r, c.y),
-                Pos2::new(c.x, c.y + r),
-                Pos2::new(c.x - r, c.y),
-            ],
-            color,
-            Stroke::NONE,
-        ));
+        let diamond = |c: Pos2, r: f32, stroke: Stroke| {
+            eframe::egui::Shape::convex_polygon(
+                vec![
+                    Pos2::new(c.x, c.y - r),
+                    Pos2::new(c.x + r, c.y),
+                    Pos2::new(c.x, c.y + r),
+                    Pos2::new(c.x - r, c.y),
+                ],
+                color,
+                stroke,
+            )
+        };
+        if ty.is_list() {
+            // Two overlapping diamonds, as the node draws a list port.
+            let (r, half) = (r * 0.85, r * 0.3);
+            let edge = Stroke::new(1.0, color.lerp_to_gamma(eframe::egui::Color32::BLACK, 0.55));
+            painter.add(diamond(c - vec2(half, 0.0), r, Stroke::NONE));
+            painter.add(diamond(c + vec2(half, 0.0), r, edge));
+        } else {
+            painter.add(diamond(c, r, Stroke::NONE));
+        }
     } else {
         painter.circle_filled(c, DOT, color);
     }

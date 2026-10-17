@@ -837,6 +837,7 @@ two facts an offline render needs, in [cpu.md](cpu.md#lifetime). `connected(id, 
 node whose behavior depends on it. The context resolves inputs the way the compiler does — a
 connected uniform number reads its producer's published value, an unconnected one reads its
 control — and takes what the node publishes: `publish(id, port, f32)` for a uniform,
+`publish_list(id, port, items)` for a list, read downstream with `list(id, key)`,
 `publish_frame(id, Arc<Frame>)` for a texture, and `publish_sim(id, port, Simulation)` for a
 world the node steps on the GPU. `error()` reaches the status line; `status()`
 and `progress()` describe work in progress and are drawn on the node itself — a transcoding
@@ -861,6 +862,31 @@ no `cpu` half: the synth writes their Time ([Timing](#timing)).
 `ctx.downs(id, key, &mut gate)` is how a node reads a button that may also have a cable in
 it: the number of downs this frame, hand included, so a toggle flips once per press wherever
 the press came from.
+
+## Lists
+
+A list is any number of values a frame, held on the CPU: the list **rate**
+(`graph::Rate::List`) of the number kind, `ListNumber`. Its length may change every frame and
+may be zero, and its items are `f64`s, as a number between nodes is. A producer publishes at
+most `nodes::list::CAP` items (1,024); `TickContext::publish_list` drops the rest and turns a
+NaN into zero, as `publish` does.
+
+**A list feeds a list and nothing else**, and a single number feeds a list input as a list of
+one, so a knob or an oscillator reaches every item alike. A one-value input — a number, a field, a setting —
+never reads a quiet first item. A list dragged onto a number shows the conversion ring, and
+letting go offers **Item**, a Get whose Index starts at the first item, and **Count**, a
+Length (`nodes::bridge`). The shape lost: a field input reading a list per copy, which made what
+a node read depend on a repeat downstream of it.
+
+| node | ports | what it does |
+| --- | --- | --- |
+| **Range** (`range`) | Count, From, To, Ends → List | Count values evenly spaced From one To the other; Ends set to From Only leaves the last out, so a Range of turns closes a ring |
+| **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. An empty list publishes nothing |
+| **Length** (`length`) | List → Count | How many items |
+
+A list's row draws its items as a bar chart the height of the row, from zero, with its count
+beside it (`×8`). The chart's width is fixed, so a list that grows never moves the label; past
+one item a pixel column, a column draws the lowest and highest of the items under it.
 
 ## Dual outputs
 
@@ -1079,6 +1105,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
 | `Math` | `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`, `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`, `smoothstep`, `threshold`, `random` |
+| `List` | `range`, `get`, `length` |
 | `Control` | `number`, `clock`, `oscillator`, `animation`, `automation`, `slew`, `autogain`, `button`, `clockdivider`, `counter`, `adsr`, `smoothcounter`, `triggeredrandom`, `triggeredcolor`, `randomfire`, `euclideanrhythm`, `stepsequencer`, `xypad` |
 | `Gear` | `mastergear`, `ratiogear`, `time` |
 | `Solid` | `sphere`, `box`, `torus`, `cylinder`, `capsule`, `octahedron`, `ground`, `union`, `solidsubtract`, `intersect`, `place`, `stretch`, `solidmirror`, `twist`, `bend`, `repeatgrid`, `repeataround`, `inflate`, `shell`, `paint`, `displace`, `surfacetexture`, `cone`, `hexprism`, `pyramid`, `link`, `gyroid`, `elongate`, `morph`, `stripes3d`, `heightgradient`, `menger`, `mandelbulb`, `boxframe`, `superellipsoid`, `ellipsoid`, `helix`, `slab`, `dodecahedron`, `icosahedron`, `stairsunion`, `columnsunion`, `solidxor`, `warp`, `foldplane`, `wrap`, `fold`, `scattersphere`, `noisedisplace`, `checker3d`, `proximity`, `facing`, `distancebands`, `extrude`, `revolve`, `heightfield`, `solidrender` |

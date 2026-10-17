@@ -22,6 +22,8 @@ fn port_ty(ty: PortType) -> &'static str {
         PortType::VaryingColor => "varying color",
         PortType::UniformNumber => "uniform number",
         PortType::UniformColor => "uniform color",
+        PortType::ListNumber => "number list",
+        PortType::ListColor => "color list",
         PortType::Action => "action",
         PortType::Solid => "solid",
     }
@@ -77,6 +79,7 @@ fn main() {
                         OutputKind::Shader => "shader",
                         OutputKind::Texture => "texture",
                         OutputKind::Uniform => "uniform",
+                        OutputKind::List => "list",
                         OutputKind::Action => "action",
                     },
                     "range": o.range, "delayed": port.delayed, "dual": o.eval.is_some(),

@@ -859,7 +859,10 @@ fn node_graph(def: &'static nodes::NodeDef, wired: bool, strict: bool) -> (Graph
                 PortType::VaryingNumber => FIELD,
                 PortType::UniformColor => ("color", "output"),
                 PortType::Solid => ("sphere", "solid"),
-                PortType::UniformNumber | PortType::Action => continue,
+                PortType::UniformNumber
+                | PortType::ListNumber
+                | PortType::ListColor
+                | PortType::Action => continue,
             };
             let src = add(&mut g, source);
             connect(
@@ -1067,7 +1070,10 @@ fn sources_with(def: &'static nodes::NodeDef, key: &'static str, value: &str) ->
                     PortType::VaryingNumber => FIELD,
                     PortType::UniformColor => ("color", "output"),
                     PortType::Solid => ("sphere", "solid"),
-                    PortType::UniformNumber | PortType::Action => continue,
+                    PortType::UniformNumber
+                    | PortType::ListNumber
+                    | PortType::ListColor
+                    | PortType::Action => continue,
                 };
                 let src = nodes::add_to_graph(&mut g, source, Pos2::ZERO).unwrap();
                 let _ = g.connect(PortRef::new(src, from), PortRef::new(under, port.key));

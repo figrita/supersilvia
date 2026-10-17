@@ -143,6 +143,9 @@ pub struct Synth {
     /// uniform and a number on a row, the other a `vec4` and a swatch — and a map per kind
     /// keeps both lookups a plain `get` with nothing to unwrap.
     uniform_colors: HashMap<PortRef, [f32; 4]>,
+    /// What every number list output published this frame, a third map beside the two for
+    /// the third rate.
+    lists: HashMap<PortRef, Vec<f64>>,
     /// What every texture-publishing CPU node published this frame.
     frames: HashMap<PortRef, Arc<Frame>>,
     /// Every simulation a node steps on the GPU: its shape as the last tick left it, and the
@@ -415,6 +418,7 @@ impl Default for Synth {
             cpu: HashMap::new(),
             uniforms: HashMap::new(),
             uniform_colors: HashMap::new(),
+            lists: HashMap::new(),
             frames: HashMap::new(),
             sims: HashMap::new(),
             actions: HashMap::new(),
@@ -837,6 +841,7 @@ impl Synth {
         self.uniforms.retain(|p, _| graph.get(p.node).is_some());
         self.uniform_colors
             .retain(|p, _| graph.get(p.node).is_some());
+        self.lists.retain(|p, _| graph.get(p.node).is_some());
         self.frames.retain(|p, _| graph.get(p.node).is_some());
         self.sims.retain(|p, _| graph.get(p.node).is_some());
         self.seen.retain(|id, _| graph.get(*id).is_some());
@@ -953,6 +958,7 @@ impl Synth {
                     graph,
                     &mut self.uniforms,
                     &mut self.uniform_colors,
+                    &mut self.lists,
                     &mut self.frames,
                     &mut self.sims,
                     &mut self.actions,
@@ -1001,6 +1007,7 @@ impl Synth {
                 graph,
                 &mut self.uniforms,
                 &mut self.uniform_colors,
+                &mut self.lists,
                 &mut self.frames,
                 &mut self.sims,
                 &mut self.actions,
@@ -1436,6 +1443,7 @@ impl Synth {
         }
         self.uniforms.clear();
         self.uniform_colors.clear();
+        self.lists.clear();
         self.actions.clear();
         self.late_actions.clear();
         self.jumps.clear();
@@ -1927,6 +1935,7 @@ impl Synth {
         }
         out.uniforms.clone_from(&self.uniforms);
         out.uniform_colors.clone_from(&self.uniform_colors);
+        out.lists.clone_from(&self.lists);
         out.frames.clone_from(&self.frames);
         out.actions.clone_from(&self.actions);
         out.held.clone_from(&self.held);

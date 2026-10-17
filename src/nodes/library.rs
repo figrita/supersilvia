@@ -225,6 +225,7 @@ mod tests {
                 "Convert",
                 "Tap",
                 "Math",
+                "List",
                 "Control",
                 "Gears",
                 "Solids",
@@ -242,7 +243,15 @@ mod tests {
     fn a_solids_menu_leads_with_the_families_and_holds_video_as_a_group() {
         let top = menu(WorkspaceKind::Solids);
         let mut want: Vec<_> = Family::ALL.iter().map(|f| f.label()).collect();
-        want.extend(["Math", "Control", "Gears", "Video", "Render 3D", "Output"]);
+        want.extend([
+            "Math",
+            "List",
+            "Control",
+            "Gears",
+            "Video",
+            "Render 3D",
+            "Output",
+        ]);
         assert_eq!(labels(&top), want);
         assert_eq!(
             labels(group(&top, "Video")),

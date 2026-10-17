@@ -677,7 +677,8 @@ impl<'a> CompileContext<'a> {
             PortType::VaryingColor => format!("defaultUvMap({uv})"),
             PortType::UniformColor => "vec4f(0.0)".to_string(),
             PortType::VaryingNumber | PortType::UniformNumber => "0.0".to_string(),
-            PortType::Action => String::new(),
+            // An event and a list never reach a shader.
+            PortType::Action | PortType::ListNumber | PortType::ListColor => String::new(),
             // Nothing, a long way off: a union with it is the other side alone.
             PortType::Solid => format!("vec4f({SOLID_FAR}, 0.5, 0.5, 0.5)"),
         }

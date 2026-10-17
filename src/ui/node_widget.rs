@@ -850,6 +850,30 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
             taken = side + READOUT_GAP * zoom;
             at.x -= taken;
         }
+        // A list draws its items as a bar chart the height of the row, with how many there are
+        // beside it. The chart's width is fixed, so a list that grows never moves the label.
+        let published_list = (is_output && port.ty == PortType::ListNumber)
+            .then(|| cx.frame.uniforms.list(PortRef::new(cx.id, port.key)))
+            .flatten();
+        if let Some(items) = published_list {
+            let h = (band.height() - 2.0 * READOUT_SWATCH_INSET * zoom).max(0.0);
+            let w = h * LIST_CHART_ASPECT;
+            let rect = Rect::from_min_size(pos2(at.x - w, at.y - h / 2.0), vec2(w, h));
+            list_chart(ui.painter(), rect, items, theme, zoom);
+            taken += w + READOUT_GAP * zoom;
+            at.x -= w + READOUT_GAP * zoom;
+            number.clear();
+            {
+                use std::fmt::Write as _;
+                let _ = write!(number, "×{}", items.len());
+            }
+            let drawn = ui
+                .painter()
+                .text(at, align, &number, small.clone(), theme.readout());
+            let width = at.x - (drawn.min.x - READOUT_GAP * zoom);
+            taken += width;
+            at.x -= width;
+        }
         let thumb = (is_output && port.ty.is_varying())
             .then(|| cx.frame.thumbs.get(&PortRef::new(cx.id, port.key)))
             .flatten();
@@ -903,6 +927,60 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
         let (shown, _) = fit_text(ui.ctx(), &small, label, room, Keep::Start);
         ui.painter()
             .text(at, align, &shown, small.clone(), theme.text_secondary());
+    }
+}
+
+/// A list chart's width, as a multiple of its height.
+const LIST_CHART_ASPECT: f32 = 2.4;
+
+/// A list's items as bars in `rect`, from zero, scaled so the largest reaches an edge. Where
+/// there are more items than pixel columns, each column draws the lowest and highest of the
+/// items under it, so a spike is never skipped.
+fn list_chart(
+    painter: &eframe::egui::Painter,
+    rect: Rect,
+    items: &[f64],
+    theme: &crate::ui::theme::Theme,
+    zoom: f32,
+) {
+    painter.rect_filled(rect, 0.0, theme.port_hole(PortType::ListNumber));
+    if items.is_empty() {
+        return;
+    }
+    let lo = items.iter().copied().fold(0.0_f64, f64::min);
+    let hi = items.iter().copied().fold(0.0_f64, f64::max);
+    let span = if hi > lo { hi - lo } else { 1.0 };
+    let y = |v: f64| rect.bottom() - ((v - lo) / span) as f32 * rect.height();
+    let zero = y(0.0);
+    let ink = theme.readout();
+    let columns = (rect.width() / zoom.max(0.01)).floor().max(1.0) as usize;
+    if items.len() <= columns {
+        let step = rect.width() / items.len() as f32;
+        let gap = if step >= 3.0 * zoom { zoom } else { 0.0 };
+        for (i, v) in items.iter().enumerate() {
+            let x = rect.left() + step * i as f32;
+            let (a, b) = (y(*v), zero);
+            let bar =
+                Rect::from_x_y_ranges(x..=x + step - gap, a.min(b)..=a.max(b).max(a.min(b) + 0.5));
+            painter.rect_filled(bar, 0.0, ink);
+        }
+    } else {
+        let per = items.len() as f32 / columns as f32;
+        let width = rect.width() / columns as f32;
+        for c in 0..columns {
+            let start = (c as f32 * per) as usize;
+            let end = (((c + 1) as f32 * per) as usize).clamp(start + 1, items.len());
+            let under = &items[start..end];
+            let low = under.iter().copied().fold(f64::INFINITY, f64::min).min(0.0);
+            let high = under
+                .iter()
+                .copied()
+                .fold(f64::NEG_INFINITY, f64::max)
+                .max(0.0);
+            let x = rect.left() + width * c as f32;
+            let bar = Rect::from_x_y_ranges(x..=x + width, y(high)..=y(low));
+            painter.rect_filled(bar, 0.0, ink);
+        }
     }
 }
 
@@ -4118,7 +4196,7 @@ pub fn port(
     let ring = Stroke::new(1.5 * t.zoom, color);
     if connected || !slot.is_input || slot.ty == PortType::Action {
         painter.add(dot(color, Stroke::NONE));
-    } else if slot.ty.is_uniform() {
+    } else if slot.ty.is_uniform() || slot.ty.is_list() {
         painter.add(dot(theme.port_hole(slot.ty), ring));
     } else {
         painter.add(dot(theme.port_hole(slot.ty), Stroke::NONE));
@@ -4166,9 +4244,18 @@ pub fn port(
     response
 }
 
+/// A list port's diamond, as a share of a uniform's.
+const LIST_DIAMOND: f32 = 0.85;
+/// How far apart a list port's two diamonds sit, as a share of one diamond's radius.
+const LIST_SPREAD: f32 = 0.7;
+/// The width of the edge that parts a filled list port's two diamonds, in world units.
+const LIST_EDGE: f32 = 1.0;
+
 /// A port's own shape on screen, `gap` world units outside the dot: a rounded square for an
-/// action, a diamond for a uniform and a circle for everything else. The dot is a gap of zero
-/// and the cable-color ring is `OUTLINE_GAP`, so the two cannot disagree about the shape.
+/// action, a diamond for a uniform, two overlapping diamonds for a list — the second a little to
+/// the right, so a list reads as several of the uniform's diamond — and a circle for everything
+/// else. The dot is a gap of zero and the cable-color ring is `OUTLINE_GAP`, so the two cannot
+/// disagree about the shape.
 fn port_shape(slot: &PortSlot, zoom: f32, gap: f32, fill: Color32, stroke: Stroke) -> Shape {
     let c = slot.center;
     if slot.ty == PortType::Action {
@@ -4184,19 +4271,37 @@ fn port_shape(slot: &PortSlot, zoom: f32, gap: f32, fill: Color32, stroke: Strok
         ));
     }
     let r = canvas::PORT_RADIUS * zoom + gap * zoom;
-    if slot.ty.is_uniform() {
-        let points = vec![
-            Pos2::new(c.x, c.y - r),
-            Pos2::new(c.x + r, c.y),
-            Pos2::new(c.x, c.y + r),
-            Pos2::new(c.x - r, c.y),
-        ];
-        return Shape::Path(PathShape {
-            points,
+    let diamond = |c: Pos2, r: f32, fill: Color32, stroke: Stroke| {
+        Shape::Path(PathShape {
+            points: vec![
+                Pos2::new(c.x, c.y - r),
+                Pos2::new(c.x + r, c.y),
+                Pos2::new(c.x, c.y + r),
+                Pos2::new(c.x - r, c.y),
+            ],
             closed: true,
             fill,
             stroke: stroke.into(),
-        });
+        })
+    };
+    if slot.ty.is_list() {
+        // Each diamond a little smaller than a uniform's, so the pair spans about what one
+        // port does. A filled pair would merge into one blob, so the front one is edged in a
+        // darker shade of its fill where no stroke is asked for.
+        let r = r * LIST_DIAMOND;
+        let half = r * LIST_SPREAD * 0.5;
+        let edge = if stroke == Stroke::NONE && fill != Color32::TRANSPARENT {
+            Stroke::new(LIST_EDGE * zoom, fill.lerp_to_gamma(Color32::BLACK, 0.55))
+        } else {
+            stroke
+        };
+        return Shape::Vec(vec![
+            diamond(c - vec2(half, 0.0), r, fill, stroke),
+            diamond(c + vec2(half, 0.0), r, fill, edge),
+        ]);
+    }
+    if slot.ty.is_uniform() {
+        return diamond(c, r, fill, stroke);
     }
     Shape::Circle(CircleShape {
         center: c,

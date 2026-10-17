@@ -52,6 +52,7 @@ pub mod gradients;
 pub mod hsla;
 pub mod imagegif;
 pub mod library;
+pub mod list;
 pub mod macros;
 pub mod maininput;
 pub mod math;
@@ -136,9 +137,10 @@ pub type GenFn = fn(node: NodeId, ctx: &mut CompileContext, func: &str) -> Strin
 /// [Dual outputs](../../docs/nodes.md#dual-outputs).
 pub type EvalFn = fn(node: NodeId, ctx: &TickContext<'_>) -> f64;
 
-/// The generator every `OutputKind::Uniform` and `OutputKind::Action` output carries, and any
-/// output nobody has written a body for. A uniform number is resolved to a uniform before the
-/// compiler could ever call it and an action never reaches the compiler at all, so a call is a
+/// The generator every `OutputKind::Uniform`, `OutputKind::List` and `OutputKind::Action`
+/// output carries, and any output nobody has written a body for. A uniform number is resolved
+/// to a uniform before the compiler could ever call it and a list or an action never reaches
+/// the compiler at all, so a call is a
 /// placeholder of the function's type and a
 /// [`Diagnostic::Untranslated`](crate::compile::Diagnostic::Untranslated) naming the node.
 pub fn no_wgsl(node: NodeId, ctx: &mut CompileContext, _func: &str) -> String {
@@ -304,6 +306,8 @@ pub enum Category {
     Effect,
     /// Arithmetic on numbers.
     Math,
+    /// Makes, reads and reshapes lists: any number of values a frame.
+    List,
     /// Values that change over time on the CPU.
     Control,
     /// The clocks: the one place a rate is set, changed or divided, and ambient time as a
@@ -328,6 +332,7 @@ impl Category {
         Self::Convert,
         Self::Tap,
         Self::Math,
+        Self::List,
         Self::Control,
         Self::Gear,
         Self::Solid,
@@ -344,6 +349,7 @@ impl Category {
             Self::Transform => "Transform",
             Self::Effect => "Effect",
             Self::Math => "Math",
+            Self::List => "List",
             Self::Control => "Control",
             Self::Gear => "Gears",
             Self::Solid => "Solids",
@@ -366,6 +372,7 @@ impl Category {
             // is: the name did not change, so neither should the mark a silvia hand scans
             // the menu for.
             Self::Math => "🧮",
+            Self::List => "📋",
             Self::Control => "🎛",
             Self::Gear => "⚙",
             Self::Solid => "🧊",
@@ -387,7 +394,7 @@ impl Category {
             | Self::Transform
             | Self::Effect => Some(WorkspaceKind::Video),
             Self::Solid => Some(WorkspaceKind::Solids),
-            Self::Math | Self::Control | Self::Gear | Self::Output => None,
+            Self::Math | Self::List | Self::Control | Self::Gear | Self::Output => None,
         }
     }
 }
@@ -468,6 +475,9 @@ pub enum OutputKind {
     /// consumer as the uniform `u_float_{slug}{id}_{key}`. The port type is a uniform one;
     /// the generator is never called.
     Uniform,
+    /// A list, published by the node's CPU half from `tick`. The port type is a list one; it
+    /// never reaches the compiler, and the generator is never called.
+    List,
     /// An event, fired by the node's CPU half from `tick`. The port type is `Action`; it
     /// never reaches the compiler, never becomes a uniform, and the generator is never
     /// called.
@@ -1393,6 +1403,9 @@ pub static REGISTRY: &[&NodeDef] = &[
     &math::THRESHOLD,
     &random::DEF,
     &reframerange::REFRAMERANGE,
+    &list::RANGE,
+    &list::GET,
+    &list::LENGTH,
     &number::DEF,
     &slew::DEF,
     &oscillator::DEF,
@@ -2562,9 +2575,13 @@ mod tests {
                             p.key,
                         );
                     }
-                    // A uniform port or an action is a CPU port; it is named for what
+                    // A uniform port, a list or an action is a CPU port; it is named for what
                     // `tick` publishes, not for a field in a shader.
-                    PortType::UniformNumber | PortType::UniformColor | PortType::Action => {}
+                    PortType::UniformNumber
+                    | PortType::UniformColor
+                    | PortType::ListNumber
+                    | PortType::ListColor
+                    | PortType::Action => {}
                     PortType::Solid => assert_eq!(
                         p.key, "solid",
                         "{}.{}: a solid is \"solid\"",
@@ -2620,14 +2637,15 @@ mod tests {
     #[test]
     fn uniform_outputs_and_cpu_state_come_together() {
         for def in REGISTRY {
-            let publishes = def
+            let publishes = def.outputs.iter().any(|p| {
+                matches!(
+                    p.kind,
+                    OutputKind::Uniform | OutputKind::List | OutputKind::Action
+                )
+            }) || def
                 .outputs
                 .iter()
-                .any(|p| matches!(p.kind, OutputKind::Uniform | OutputKind::Action))
-                || def
-                    .outputs
-                    .iter()
-                    .any(|p| p.kind == OutputKind::Texture && !def.is_output);
+                .any(|p| p.kind == OutputKind::Texture && !def.is_output);
             assert_eq!(
                 publishes,
                 def.cpu.is_some(),
@@ -3213,6 +3231,15 @@ mod tests {
                 assert_eq!(
                     p.ty.is_uniform(),
                     p.kind == OutputKind::Uniform,
+                    "{}.{}: type {:?} against kind {:?}",
+                    def.slug,
+                    p.key,
+                    p.ty,
+                    p.kind,
+                );
+                assert_eq!(
+                    p.ty.is_list(),
+                    p.kind == OutputKind::List,
                     "{}.{}: type {:?} against kind {:?}",
                     def.slug,
                     p.key,

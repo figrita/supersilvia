@@ -236,7 +236,10 @@ fn wired_graph(
                 PortType::VaryingNumber => ("vignette", "mask"),
                 PortType::UniformColor => ("color", "output"),
                 PortType::Solid => ("sphere", "solid"),
-                PortType::UniformNumber | PortType::Action => continue,
+                PortType::UniformNumber
+                | PortType::ListNumber
+                | PortType::ListColor
+                | PortType::Action => continue,
             };
             let src = add(&mut g, source);
             g.connect(PortRef::new(src, from), PortRef::new(under, port.key))

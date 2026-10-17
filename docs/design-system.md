@@ -81,8 +81,9 @@ These are things the handoff specified that a reasonable person would guess wron
   nor per-row rounding. `canvas::row_block` is the one function that answers where a row's own
   background sits, so the fill, a label's room and a control's slot cannot disagree about it.
 - **Shape carries the type alongside color**, so the distinction survives a grayscale theme and
-  a colorblind viewer. Three shapes: an action port is a rounded square, a uniform number port
-  is a diamond, everything else is a circle. **An unconnected input is a ring, not a filled
+  a colorblind viewer. Four shapes: an action port is a rounded square, a uniform number port
+  is a diamond, a list port is two overlapping diamonds on one level, the second a little to
+  the right and edged darker so the pair stays two, and everything else is a circle. **An unconnected input is a ring, not a filled
   dot** — the one thing silvia's uniformly filled ports do not say. Its interior is not empty
   canvas: it is a hole, the port's own hue sunk to `Theme::port_hole` (`s * 0.5`, `l = 0.12`),
   filled edge to edge under the stroke rather than a second, smaller dot floating inside a

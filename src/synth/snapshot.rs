@@ -177,6 +177,8 @@ pub struct Snapshot {
     /// moves with time is under its Time key.
     pub uniforms: HashMap<PortRef, f64>,
     pub uniform_colors: HashMap<PortRef, [f32; 4]>,
+    /// Every number list published, each at most [`crate::nodes::list::CAP`] items.
+    pub lists: HashMap<PortRef, Vec<f64>>,
     pub frames: HashMap<PortRef, Arc<Frame>>,
     pub actions: HashMap<PortRef, Vec<Event>>,
     pub held: HashSet<PortRef>,
@@ -247,6 +249,7 @@ impl Snapshot {
         self.gears.clear();
         self.uniforms.clear();
         self.uniform_colors.clear();
+        self.lists.clear();
         self.frames.clear();
         self.actions.clear();
         self.held.clear();
@@ -314,9 +317,9 @@ impl Snapshot {
     }
 }
 
-/// A view of the two uniform maps, for the canvas.
+/// A view of the two uniform maps and the list map, for the canvas.
 ///
-/// `Copy` and two words wide, so threading it to every node costs no copy of either map. It
+/// `Copy` and three words wide, so threading it to every node costs no copy of any map. It
 /// is the whole of what the canvas knows about live values: `ui/` reads it and nothing else,
 /// and it is declared in `synth/` so reading it costs no dependency on the tree that draws
 /// it.
@@ -324,19 +327,32 @@ impl Snapshot {
 pub struct Uniforms<'a> {
     numbers: &'a HashMap<PortRef, f64>,
     colors: &'a HashMap<PortRef, [f32; 4]>,
+    lists: &'a HashMap<PortRef, Vec<f64>>,
 }
 
 // One caller inside this crate; a hasher parameter here would spread across every function
 // the view is handed to.
 #[allow(clippy::implicit_hasher)]
 impl<'a> Uniforms<'a> {
-    pub fn new(numbers: &'a HashMap<PortRef, f64>, colors: &'a HashMap<PortRef, [f32; 4]>) -> Self {
-        Self { numbers, colors }
+    pub fn new(
+        numbers: &'a HashMap<PortRef, f64>,
+        colors: &'a HashMap<PortRef, [f32; 4]>,
+        lists: &'a HashMap<PortRef, Vec<f64>>,
+    ) -> Self {
+        Self {
+            numbers,
+            colors,
+            lists,
+        }
     }
 
     /// Everything one snapshot published, which is what the canvas is handed.
     pub fn of(snapshot: &'a Snapshot) -> Self {
-        Self::new(&snapshot.uniforms, &snapshot.uniform_colors)
+        Self::new(
+            &snapshot.uniforms,
+            &snapshot.uniform_colors,
+            &snapshot.lists,
+        )
     }
 
     /// What a port published this tick, exactly: what its row prints, so a gear's Cycles
@@ -357,6 +373,11 @@ impl<'a> Uniforms<'a> {
     /// What a uniform color port published, on the same terms as [`Self::get`].
     pub fn color(self, port: PortRef) -> Option<[f32; 4]> {
         self.colors.get(&port).copied()
+    }
+
+    /// What a number list port published this tick, on the same terms as [`Self::get`].
+    pub fn list(self, port: PortRef) -> Option<&'a [f64]> {
+        self.lists.get(&port).map(Vec::as_slice)
     }
 
     /// What arrives at an input whose source is `source`.

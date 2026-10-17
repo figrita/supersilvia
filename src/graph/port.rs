@@ -4,18 +4,22 @@
 
 use crate::graph::NodeId;
 
-/// The port types: four that carry data, on two axes, the event, and the solid.
+/// The port types: six that carry data, on two axes, the event, and the solid.
 ///
-/// A data port has a [`Kind`] — a number or a color — and a [`Rate`]. `Fragment` is one
+/// A data port has a [`Kind`] — a number or a color — and a [`Rate`]. `Varying` is one
 /// value per pixel, `float f(vec2 uv)` or `vec4 f(vec2 uv)`, meaningful only inside a
 /// shader. `Uniform` is one value per frame, held on the CPU and uploaded as a uniform.
-/// `Action` is an event and carries no value. All four cells of kind × rate are filled, so
-/// everything here reads a kind and a rate rather than matching a variant.
+/// `List` is any number of values per frame, held on the CPU, its length free to change
+/// every frame and to be zero. `Action` is an event and carries no value. All six cells of
+/// kind × rate are filled, so everything here reads a kind and a rate rather than matching a
+/// variant.
 ///
 /// Connections match exactly, with one asymmetry that is physics rather than policy: a
 /// uniform may feed a varying input of its own kind, because broadcasting one value across
 /// every pixel costs nothing — it is a uniform, which is what an unconnected control already
-/// is. The reverse needs a render pass and a readback, and is a node.
+/// is. The reverse needs a render pass and a readback, and is a node. A uniform feeds a list
+/// input of its kind too, as a list of one. A list feeds a list alone: a one-value input is
+/// offered a node that picks a value out of it (`nodes::bridge`), never a quiet first item.
 ///
 /// `Solid` is a shape in three dimensions: `vec4 f(vec3 p)`, the signed distance to its
 /// surface and the color there. It varies over a point rather than a pixel, connects only to
@@ -26,6 +30,8 @@ pub enum PortType {
     VaryingColor,
     UniformNumber,
     UniformColor,
+    ListNumber,
+    ListColor,
     Action,
     Solid,
 }
@@ -39,18 +45,20 @@ pub enum Kind {
     Solid,
 }
 
-/// How often a data port's value varies: once per pixel, or once per frame.
+/// How often a data port's value varies: once per pixel, once per frame, or once per item of
+/// a list each frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Rate {
     Varying,
     Uniform,
+    List,
 }
 
 impl PortType {
     pub fn kind(self) -> Kind {
         match self {
-            Self::VaryingNumber | Self::UniformNumber => Kind::Number,
-            Self::VaryingColor | Self::UniformColor => Kind::Color,
+            Self::VaryingNumber | Self::UniformNumber | Self::ListNumber => Kind::Number,
+            Self::VaryingColor | Self::UniformColor | Self::ListColor => Kind::Color,
             Self::Action => Kind::Event,
             Self::Solid => Kind::Solid,
         }
@@ -61,6 +69,7 @@ impl PortType {
         match self {
             Self::VaryingNumber | Self::VaryingColor | Self::Solid => Some(Rate::Varying),
             Self::UniformNumber | Self::UniformColor => Some(Rate::Uniform),
+            Self::ListNumber | Self::ListColor => Some(Rate::List),
             Self::Action => None,
         }
     }
@@ -73,6 +82,10 @@ impl PortType {
         self.rate() == Some(Rate::Uniform)
     }
 
+    pub fn is_list(self) -> bool {
+        self.rate() == Some(Rate::List)
+    }
+
     /// The same kind at the other rate. An event is itself, having no rate to move between.
     #[must_use]
     pub fn with_rate(self, rate: Rate) -> Self {
@@ -81,6 +94,8 @@ impl PortType {
             (Kind::Number, Rate::Uniform) => Self::UniformNumber,
             (Kind::Color, Rate::Varying) => Self::VaryingColor,
             (Kind::Color, Rate::Uniform) => Self::UniformColor,
+            (Kind::Number, Rate::List) => Self::ListNumber,
+            (Kind::Color, Rate::List) => Self::ListColor,
             (Kind::Event | Kind::Solid, _) => self,
         }
     }
@@ -92,6 +107,8 @@ impl PortType {
             Self::VaryingColor => "varying color",
             Self::UniformNumber => "uniform number",
             Self::UniformColor => "uniform color",
+            Self::ListNumber => "number list",
+            Self::ListColor => "color list",
             Self::Action => "action",
             Self::Solid => "solid",
         }
@@ -110,12 +127,16 @@ impl PortType {
 
     /// Ports whose value lives on the CPU rather than in a shader.
     pub fn is_cpu(self) -> bool {
-        self.is_uniform() || !self.is_data()
+        self.is_uniform() || self.is_list() || !self.is_data()
     }
 
     /// May an output of this type feed an input of `to`?
+    ///
+    /// A uniform feeds a varying input and a list input of its own kind: one value broadcast
+    /// over every pixel, or a list of one.
     pub fn feeds(self, to: Self) -> bool {
-        self == to || (self.kind() == to.kind() && self.is_uniform() && to.is_varying())
+        self == to
+            || (self.kind() == to.kind() && self.is_uniform() && (to.is_varying() || to.is_list()))
     }
 }
 

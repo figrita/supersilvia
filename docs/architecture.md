@@ -14,7 +14,7 @@ recursive descent from an Output's input.
 
 Everything below follows from that.
 
-### Six port types, and one asymmetry
+### Eight port types, and one asymmetry
 
 | | lives | shape |
 | --- | --- | --- |
@@ -22,12 +22,18 @@ Everything below follows from that.
 | `VaryingColor` | GPU | `fn f(uv: vec2f) -> vec4f` — a field |
 | `UniformNumber` | CPU | one `f64` per frame, an `f32` where it enters a shader |
 | `UniformColor` | CPU | one `[f32; 4]` per frame |
+| `ListNumber` | CPU | any number of `f64`s per frame, at most `nodes::list::CAP`, and maybe none |
+| `ListColor` | CPU | any number of colors per frame |
 | `Action` | CPU | an event, many-to-many, never compiled |
 | `Solid` | GPU | `fn f(p: vec3f) -> vec4f` — a shape in three dimensions: the signed distance in `.x`, the color in `.yzw` |
 
-Four of the six sit on two axes, and `PortType::kind` and `PortType::rate` hand each back: a
-**kind**, number or color, and a **rate**, varying or uniform. Every cell of the two-by-two
-is filled. `Action` is an event, and an event has no rate.
+Six of the eight sit on two axes, and `PortType::kind` and `PortType::rate` hand each back: a
+**kind**, number or color, and a **rate**, varying, uniform or list. Every cell of the
+two-by-three is filled. `Action` is an event, and an event has no rate.
+
+**A list feeds a list and nothing else**, and a uniform feeds a list input as a list of one.
+A list's length may change every frame, so a one-value input never takes one quietly: a list dropped there is offered a node that picks a
+value out of it, through the conversion menu ([nodes.md](nodes.md#lists)).
 
 **A solid is a kind of its own**, `Kind::Solid`, at the varying rate, since it varies over a
 point rather than a pixel. It feeds only another `Solid`, and nothing else feeds one. No

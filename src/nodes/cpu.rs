@@ -739,6 +739,9 @@ pub struct TickContext<'a> {
     /// gear's Cycles a million cycles in are the count itself.
     uniforms: &'a mut HashMap<PortRef, f64>,
     uniform_colors: &'a mut HashMap<PortRef, [f32; 4]>,
+    /// Every number list published so far this frame, each at most [`crate::nodes::list::CAP`]
+    /// items, in `f64` as a number is.
+    lists: &'a mut HashMap<PortRef, Vec<f64>>,
     frames: &'a mut HashMap<PortRef, Arc<Frame>>,
     /// Every simulation published so far, with the passes the renderer has not run yet.
     sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
@@ -800,6 +803,7 @@ impl<'a> TickContext<'a> {
         graph: &'a Graph,
         uniforms: &'a mut HashMap<PortRef, f64>,
         uniform_colors: &'a mut HashMap<PortRef, [f32; 4]>,
+        lists: &'a mut HashMap<PortRef, Vec<f64>>,
         frames: &'a mut HashMap<PortRef, Arc<Frame>>,
         sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
         actions: &'a mut HashMap<PortRef, Vec<Event>>,
@@ -825,6 +829,7 @@ impl<'a> TickContext<'a> {
             graph,
             uniforms,
             uniform_colors,
+            lists,
             frames,
             sims,
             actions,
@@ -913,6 +918,27 @@ impl<'a> TickContext<'a> {
         match self.graph.get(id).and_then(|n| n.controls.get(key)) {
             Some(ControlValue::Color(v)) => *v,
             _ => [0.0; 4],
+        }
+    }
+
+    /// The number list on one of `id`'s list inputs this frame: what a list cabled in published,
+    /// a list of one where a single number is cabled in or the row has a knob, and empty where
+    /// nothing is cabled into a row with no knob or nothing was published.
+    pub fn list(&self, id: NodeId, key: &'static str) -> std::borrow::Cow<'_, [f64]> {
+        use std::borrow::Cow;
+        let port = PortRef::new(id, key);
+        match self.graph.source_of(port) {
+            Some(src) => match self.lists.get(&src) {
+                Some(items) => Cow::Borrowed(items.as_slice()),
+                None => match self.uniforms.get(&src) {
+                    Some(v) => Cow::Owned(vec![*v]),
+                    None => Cow::Borrowed(&[]),
+                },
+            },
+            None => match self.graph.get(id).and_then(|n| n.controls.get(key)) {
+                Some(ControlValue::Float(v)) => Cow::Owned(vec![f64::from(*v)]),
+                _ => Cow::Borrowed(&[]),
+            },
         }
     }
 
@@ -1040,6 +1066,25 @@ impl<'a> TickContext<'a> {
         // one on a number would.
         let color = color.map(|c| if c.is_finite() { c } else { 0.0 });
         self.uniform_colors.insert(PortRef::new(id, port), color);
+    }
+
+    /// Publish one of `id`'s number list outputs for this frame: its first
+    /// [`crate::nodes::list::CAP`] items, a NaN or an infinity as zero. The list's storage is
+    /// kept from frame to frame, so a list of the same length allocates nothing.
+    pub fn publish_list(
+        &mut self,
+        id: NodeId,
+        port: &'static str,
+        items: impl IntoIterator<Item = f64>,
+    ) {
+        let list = self.lists.entry(PortRef::new(id, port)).or_default();
+        list.clear();
+        list.extend(
+            items
+                .into_iter()
+                .take(crate::nodes::list::CAP)
+                .map(|v| if v.is_finite() { v } else { 0.0 }),
+        );
     }
 
     /// Take one of `id`'s uniform number outputs out of this frame.

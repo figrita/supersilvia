@@ -22,7 +22,7 @@
 //! The menu that shows these is `ui/bridge.rs`; `can_bridge` below is the port state it draws.
 
 use crate::graph::{Graph, PortRef, PortType};
-use crate::nodes::{NodeDef, decompose, rgba, tap};
+use crate::nodes::{NodeDef, decompose, list, rgba, tap};
 
 /// One casting: the node that performs it, the input or inputs the cable fans out to, the
 /// output that carries on to the target, and the name the row wears.
@@ -115,13 +115,21 @@ static FRAGMENT_TO_UNIFORM: &[Bridge] = &[
     cast!("Lowest", "🌑", tap::DEF, ["number"] => "min"),
 ];
 
+/// A number list onto a number: an item out of it, or how many there are. A list never lands
+/// on a one-value input by itself, so this is how one gets there. One row for an item, not a
+/// First Item beside an Item…: both would land the same Get, whose Index starts at the first.
+static LIST_TO_NUMBER: &[Bridge] = &[
+    cast!("Item", "👉", list::GET, ["list"] => "item"),
+    cast!("Count", "📏", list::LENGTH, ["list"] => "count"),
+];
+
 /// The castings offered for a cable of type `from` released on an input of type `to`.
 ///
 /// Empty where `from` feeds `to`, since a cable is then the whole answer — a uniform number
 /// into a varying number input promotes with nothing in between — and empty where either
 /// side is an `Action`, which has nothing to cast to or from.
 pub fn bridges(from: PortType, to: PortType) -> &'static [Bridge] {
-    use PortType::{UniformColor, UniformNumber, VaryingColor, VaryingNumber};
+    use PortType::{ListNumber, UniformColor, UniformNumber, VaryingColor, VaryingNumber};
     match (from, to) {
         // A uniform color is a color that already fits every one of these nodes' inputs, so
         // it reads the same two tables a varying color does, for the same reason a uniform
@@ -132,6 +140,7 @@ pub fn bridges(from: PortType, to: PortType) -> &'static [Bridge] {
         (VaryingNumber | UniformNumber, VaryingColor) => NUMBER_TO_COLOR,
         (VaryingNumber, UniformNumber) => FRAGMENT_TO_UNIFORM,
         (VaryingColor, UniformColor) => COLOR_TO_UNIFORM_COLOR,
+        (ListNumber, UniformNumber | VaryingNumber) => LIST_TO_NUMBER,
         _ => &[],
     }
 }
@@ -224,13 +233,23 @@ mod tests {
             PortType::UniformColor,
             COLOR_TO_UNIFORM_COLOR,
         ),
+        (
+            PortType::ListNumber,
+            PortType::UniformNumber,
+            LIST_TO_NUMBER,
+        ),
+        (
+            PortType::ListNumber,
+            PortType::VaryingNumber,
+            LIST_TO_NUMBER,
+        ),
     ];
 
     /// A hand-written table can name a port that is not there, which a registry query never
     /// could. So the ports are checked here instead: every row names a node in the registry,
-    /// inputs the source can feed, and an output of the target's own type — the last being
-    /// what lets `can_bridge` answer for the whole menu at once, since a row whose output is
-    /// the target's type is a row whose far cable lands.
+    /// inputs the source can feed, and an output that feeds the target — the last being what
+    /// lets `can_bridge` answer for the whole menu at once, since such a row is a row whose far
+    /// cable lands.
     #[test]
     fn every_casting_names_a_node_and_ports_that_line_up() {
         for (from, to, table) in TABLES {
@@ -259,9 +278,26 @@ mod tests {
                 let output = def
                     .output(cast.output)
                     .unwrap_or_else(|| panic!("{name}: no output {}", cast.output));
-                assert_eq!(output.ty, *to, "{name}: the output is not a {to:?}");
+                assert!(
+                    output.ty.feeds(*to),
+                    "{name}: the output does not feed a {to:?}"
+                );
             }
         }
+    }
+
+    /// A list onto a number is an item of it or its count, onto a number and a field alike, and
+    /// a list feeds nothing else: a color takes no row from one.
+    #[test]
+    fn a_list_onto_a_number_is_an_item_or_a_count() {
+        for to in [PortType::UniformNumber, PortType::VaryingNumber] {
+            let labels: Vec<_> = bridges(PortType::ListNumber, to)
+                .iter()
+                .map(|b| b.label)
+                .collect();
+            assert_eq!(labels, ["Item", "Count"]);
+        }
+        assert!(bridges(PortType::ListNumber, PortType::UniformColor).is_empty());
     }
 
     /// silvia's two tables, row for row, which is what the menu shows for the two pairs it
