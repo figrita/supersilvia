@@ -93,7 +93,7 @@ pub struct Shader {
 pub const SOLID_FAR: &str = "1.0e4";
 
 /// The point inside a solid a field is being read at, for a node that casts a field onto a
-/// solid by a projection of its own (`nodes::solids::copies::CAST`): `.xyz` the point, `.w` 1
+/// solid by a projection of its own (`nodes::solids::cast::CAST`): `.xyz` the point, `.w` 1
 /// while a solid is asking and 0 in a picture. Set round each read by
 /// [`CompileContext::input_at_point`], which reads the field itself at the point's front
 /// view, `p.xy`.
@@ -549,26 +549,6 @@ impl<'a> CompileContext<'a> {
             ));
         }
         format!("{name}({p})")
-    }
-
-    /// Does anything upstream of `id`'s input `key` read which copy it is in?
-    ///
-    /// A repeat asks before it says which copy it is drawing (`nodes::solids::copies`), so a
-    /// repeat nothing reads costs what it did before there was anything to read. A node that
-    /// reads the copy declares the copy's state among its helpers, so the question is whether
-    /// one is upstream at all.
-    pub fn reads_copy(&self, id: NodeId, key: &'static str) -> bool {
-        let Some(src) = self.graph.source_of(PortRef::new(id, key)) else {
-            return false;
-        };
-        let reads = |n: NodeId| {
-            self.graph.get(n).is_some_and(|node| {
-                node.def
-                    .wgsl_utils
-                    .contains(&crate::nodes::solids::copies::COPY_STATE)
-            })
-        };
-        reads(src.node) || self.graph.upstream_of(src.node).into_iter().any(reads)
     }
 
     /// Is anything plugged into one of `id`'s inputs?

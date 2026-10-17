@@ -21,15 +21,13 @@
 //!
 //! **Every number input of a solid takes a field**, as a video node's does. A solid has a point
 //! and a field a `uv`, so a field is read at the point's front view, `p.xy`
-//! (`CompileContext::input_at_point`), and Cast reads it by another projection. Which copy a
-//! repeat is drawing reaches a solid's numbers the same way, as a field ([`copies`]). Render
-//! 3D's numbers are uniforms: its camera is not inside any solid.
+//! (`CompileContext::input_at_point`), and Cast reads it by another projection. Render 3D's
+//! numbers are uniforms: its camera is not inside any solid.
 
 pub mod blends;
 pub mod cast;
 pub mod colorfields;
 pub mod combine;
-pub mod copies;
 pub mod iterate;
 pub mod more;
 pub mod primitives;

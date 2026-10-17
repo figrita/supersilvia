@@ -1834,8 +1834,7 @@ alone.
 
 **Every number input on a solid node takes a field**, as a video node's does, and a uniform
 number and a control as before. So a CPU node — a slew, an oscillator, a gear, a MIDI knob —
-reaches any of them, a copy's reading reaches them through maths like any other field
-([Copies](#copies)), and Noise into a Sphere's Radius makes a lumpy ball. Nothing on a solid
+reaches any of them, and Noise into a Sphere's Radius makes a lumpy ball. Nothing on a solid
 moves by itself: a gear's Cycles into Displace's Phase moves the ripple, and an oscillator into
 a Sphere's Radius moves the ball.
 
@@ -1853,7 +1852,7 @@ its own input as a picture, so a Cast inside a Cast projects once.
 the whole picture.
 
 `a_solid_node_publishes_a_solid` in `nodes/mod.rs` holds every Solids node to publishing a
-solid keyed `solid`, but Render 3D and the nodes that read the copy or the point, and every
+solid keyed `solid`, but Render 3D and Cast, which reads the point, and every
 solid port to a node in the Solids category.
 
 ### A distance stays a bound
@@ -1919,48 +1918,8 @@ tooltip says so. An endless repeat ends where the march gives up, 80 units out, 
 **The repeats vary their copies themselves**, from the cell: Repeat's Scatter, Spin, Size and
 Tint, Repeat Around's steps of Rise, Turn and Grow and its Tint, and Scatter on Sphere's Spin,
 Size and Tint. Each random one is `sd_hash3` of the cell and the Seed, integer arithmetic, so a
-scatter is the same on every GPU and in every session. Anything else that should differ per
-copy reads the copy ([Copies](#copies)).
-
-### Copies
-
-**A repeat says which copy it is drawing**, and any number on a solid inside it can read that
-(`nodes/solids/copies.rs`). Round the call into its input the repeat sets `sd_copy`, a private
-variable of the module, and puts back what was there after. A reader upstream hands out an
-ordinary field, so it goes wherever a number goes — a solid's number, maths on the way there,
-an RGBA — and a sphere's Radius cabled from Per Copy is a different radius in every copy,
-and the copies still cost what one does. Normals, shadows and the distance-only variant all go
-back through the repeat, so every one of them sees the same copy.
-
-| Node | What it hands out |
-| --- | --- |
-| **Copy** (`copy`) | Order, 0 at the first copy to 1 at the last; Random, the repeat's own hash, reshuffled by its Seed; Number, 0, 1, 2…; Count; X, Y and Z, how far along each axis of a grid |
-| **Per Copy** (`percopy`) | From the first copy To the last, By Order, Random, Alternate, Middle (out from the middle copy) or one axis of a grid, bent by Curve; Seed reshuffles Random |
-
-**Order counts the copies a repeat has.** A counted Repeat numbers its block of Count either
-side, X fastest, then Y, then Z; an axis it leaves alone is one copy wide. **A Forever Repeat
-repeats the counted block's numbering** every 2 × Count + 1 cells, so Count still means
-something there. Repeat Around numbers its copies round the ring, and Scatter on Sphere from
-the top of the sphere down.
-
-**Nearest first.** A repeat inside a repeat sets its own copy and moves the one round it to
-`sd_copy_outer`. Each reader's Repeat option picks Nearest or Outer, so a ring inside a grid can
-size its spheres by the ring and color them by the grid. **Outside every repeat a reader reads
-a count of zero**: Order 0, and Per Copy's From.
-
-**A repeat nothing reads says nothing.** It asks `CompileContext::reads_copy` whether a node
-that declares the copy's state among its helpers is upstream of its input, and writes the
-variable only then. A
-project with no reader compiles to the shaders it compiled to before.
-
-**Copies that differ are measured against their neighbor.** The fold is right while every copy
-is the same shape: no copy is nearer to a point than the one in its own cell. A copy taller
-than the one beside it is, and a ray stepping by the shorter one's distance runs into it. So a
-read Repeat measures the nearest copy and the one on the near side of each axis it repeats
-along, and a read Repeat Around the nearest and the one on the near side round the ring, and
-each keeps the nearer: twice the work for a row or a ring, four times for a grid in three
-dimensions. Scatter on Sphere's cells are not a grid and it measures the nearest alone, so a
-spiky scatter wants Render 3D's Step lowered.
+scatter is the same on every GPU and in every session. Nothing else differs per copy: whatever
+is upstream of a repeat is the same solid in every cell.
 
 ### Texture
 

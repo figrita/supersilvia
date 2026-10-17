@@ -87,7 +87,7 @@ fn corpus() -> Vec<Entry> {
         }
     }
     entries.push(measured_alone());
-    entries.extend(copies());
+    entries.extend(fields());
     entries.extend(crowded());
     entries.push(everything());
     let mut seen = HashSet::new();
@@ -205,26 +205,26 @@ fn measured(g: &Graph) -> Vec<NodeId> {
         .collect()
 }
 
-/// Repeats whose input reads which copy it is in: a sphere sized per copy in each repeat,
-/// by every walk Per Copy takes, and a repeat inside a repeat read from the outside. Each
-/// through an Output, its probe and its pass.
-fn copies() -> Vec<Entry> {
+/// Fields on solids: a field onto a sphere's numbers, through maths and straight on, and Cast
+/// by every projection, onto a solid and into a picture. Each through an Output, its probe and
+/// its pass.
+fn fields() -> Vec<Entry> {
     let mut entries = Vec::new();
     let mut push = |name: String, g: &Graph, out: NodeId| {
         let shader = wgsl::build(g, out).expect("an Output");
         entries.push(Entry {
-            name: format!("copies:{name}"),
+            name: format!("fields:{name}"),
             shader,
         });
         if let Some(shader) = wgsl::build_probe(g, out) {
             entries.push(Entry {
-                name: format!("copies:{name}:probe"),
+                name: format!("fields:{name}:probe"),
                 shader,
             });
         }
         for shader in wgsl::build_pass(g, g.default_workspace(), &measured(g), true) {
             entries.push(Entry {
-                name: format!("copies:{name}:pass"),
+                name: format!("fields:{name}:pass"),
                 shader,
             });
         }
@@ -254,48 +254,19 @@ fn copies() -> Vec<Entry> {
                 .expect("picture into picture");
             (g, out, rep)
         };
-    for repeat in ["repeatgrid", "repeataround", "scattersphere"] {
-        for key in ["order", "random", "number", "count", "x", "y", "z"] {
-            let (g, out, _) = build(repeat, "copy", key, &[]);
-            push(format!("{repeat}:copy.{key}"), &g, out);
-        }
-    }
-    for by in ["order", "random", "alternate", "middle", "x", "y", "z"] {
-        let (g, out, _) = build("repeatgrid", "percopy", "value", &[("by", by)]);
-        push(format!("repeatgrid:percopy.by={by}"), &g, out);
-    }
-    // A ring inside a grid, its spheres sized by the grid's copy.
-    let (mut g, out, ring) = build("repeataround", "percopy", "value", &[("of", "outer")]);
-    let render = g
-        .iter()
-        .find(|(_, n)| n.def.slug == "solidrender")
-        .map(|(id, _)| id)
-        .expect("a render");
-    let grid = add(&mut g, "repeatgrid");
-    g.connect(PortRef::new(ring, "solid"), PortRef::new(grid, "input"))
-        .expect("solid into solid");
-    g.connect(PortRef::new(grid, "solid"), PortRef::new(render, "solid"))
-        .expect("solid into solid");
-    push("nested".to_string(), &g, out);
-
-    // A copy's reading through maths, and a field straight onto a solid, cast from the front.
-    let (mut g, out, _) = build("repeatgrid", "copy", "order", &[]);
+    // A field through maths onto a solid, and a field straight onto one, cast from the front.
+    let (mut g, out, _) = build("repeatgrid", "vignette", "mask", &[]);
     let sphere = g
         .iter()
         .find(|(_, n)| n.def.slug == "sphere")
         .map(|(id, _)| id)
         .expect("a sphere");
-    let copy = g
-        .iter()
-        .find(|(_, n)| n.def.slug == "copy")
-        .map(|(id, _)| id)
-        .expect("a copy");
+    let mask = add(&mut g, "vignette");
     let times = add(&mut g, "multiply");
-    g.connect(PortRef::new(copy, "random"), PortRef::new(times, "a"))
+    g.connect(PortRef::new(mask, "mask"), PortRef::new(times, "a"))
         .expect("a field into maths");
     g.connect(PortRef::new(times, "output"), PortRef::new(sphere, "y"))
         .expect("maths into a solid");
-    let mask = add(&mut g, "vignette");
     g.connect(PortRef::new(mask, "mask"), PortRef::new(sphere, "blend"))
         .expect("a field into a solid");
     push("maths and a field".to_string(), &g, out);

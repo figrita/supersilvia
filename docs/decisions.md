@@ -6785,35 +6785,35 @@ as well — eight in a plane, twenty-six in space — and keeping the nearest wo
 overhanging copy whole, at that many times the cost of every step of every march. The slice
 shows, and says what to do: widen the spacing.
 
-### A repeat says which copy it is drawing, and any number can read it
+### A solid's numbers take fields
 
-**Chosen** by the owner, who asked for per-instance control of a solid's numbers. Scatter, Spin, Size, Tint and Repeat Around's steps stay on the repeat node,
-each from a deterministic integer hash of the cell and a Seed. Beside them, the repeat sets a
-private variable of the module round the call into its input, and Copy and Per Copy read it and
-hand it out as an ordinary field ([nodes.md](nodes.md#copies)).
+**Chosen.** A solid's numbers take fields, read at the point's front view, and Cast picks
+another projection ([nodes.md](nodes.md#numbers-on-a-solid)). Every texture read in the program
+has an explicit level and no node takes a screen derivative, so a field evaluated inside a
+march is as defined as one evaluated per pixel.
 
-**A solid's numbers take fields**, read at the point's front view, and Cast picks another
-projection ([nodes.md](nodes.md#numbers-on-a-solid)). Every texture read in the program has an
-explicit level and no node takes a screen derivative, so a field evaluated inside a march is as
-defined as one evaluated per pixel.
+**What lost:** "Project" for Cast's name. It is already the file, the Project menu and the
+mixer's Projection section. Cast's option, and Texture's, is Projection.
+
+### Copies vary on the repeat alone
+
+**Chosen** by the owner. Scatter, Spin, Size, Tint and Repeat Around's steps are rows of the
+repeat node, each from a deterministic integer hash of the cell and a Seed, and whatever is
+upstream of a repeat is the same solid in every cell.
 
 **What lost:**
 
+- **Copy and Per Copy**, which read which copy a repeat was drawing and handed it out as an
+  ordinary field: the repeat set a private variable of the module round the call into its
+  input, and a reader upstream read it. Built and struck by the owner, who could not explain
+  it: the link that decided a reader's number was drawn nowhere. A reader had no cable from the
+  repeat, its number depended on which repeat lay *downstream* of it, and outside every repeat
+  it quietly gave its From.
 - **A port type of its own for a number per copy**, which only a solid's number took. Built and
-  struck by the owner: a Copy that could not reach an RGBA or a Multiply broke the
-  rule that a number goes wherever a number goes.
-- **A copy argument on every solid function.** Exact, but every generator and every call would
-  change, and every module with it. The private variable is set and put back by the repeat
-  alone, nests by saving the one round it, and costs nothing where nothing reads it.
-- **"Project" for Cast's name.** It is already the file, the Project menu and the mixer's
-  Projection section. Cast's option, and Texture's, is Projection.
-
-**Copies that differ measure their near neighbor too** ([nodes.md](nodes.md#copies)): a read
-Repeat or Repeat Around evaluates the nearest copy and the one on the near side of each axis,
-and keeps the nearer. **What lost:** holding each step to the cell's wall, which held a ray
-running beside a wall to steps of a few hundredths until it ran out of them, and painted the
-sky with specks; and lowering Render 3D's Step, which slows every pixel to hide notches it
-does not remove.
+  struck by the owner: it broke the rule that a number goes wherever a number goes.
+- **Holding each step to the cell's wall**, so a ray could not step into a taller neighbor. It
+  held a ray running beside a wall to steps of a few hundredths until it ran out of them, and
+  painted the sky with specks.
 
 ### No mipmaps on a solid's textures
 

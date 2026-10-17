@@ -1360,23 +1360,20 @@ fn a_pinned_input_is_offered_the_taps_rows() {
 }
 
 /// **A solid's number takes whatever a number takes.** A field lands on a sphere's Radius as on
-/// a zoom's, and a copy's reading reaches it through maths like any other field.
+/// a zoom's, and through maths as well.
 #[test]
-fn a_solids_number_takes_a_field_and_a_copy_through_maths() {
+fn a_solids_number_takes_a_field_and_maths() {
     let mut g = Graph::new();
     let sphere = nodes::add_to_graph(&mut g, "sphere", Pos2::ZERO).unwrap();
     let f = field(&mut g);
     g.connect(f, PortRef::new(sphere, "radius"))
         .expect("a field feeds a solid's number");
 
-    let copy = nodes::add_to_graph(&mut g, "copy", Pos2::ZERO).unwrap();
     let times = nodes::add_to_graph(&mut g, "multiply", Pos2::ZERO).unwrap();
-    g.connect(PortRef::new(copy, "order"), PortRef::new(times, "a"))
-        .expect("a copy's reading feeds maths");
+    let f = field(&mut g);
+    g.connect(f, PortRef::new(times, "a"))
+        .expect("a field feeds maths");
     assert_eq!(out_ty(&g, times, "output"), PortType::VaryingNumber);
     g.connect(PortRef::new(times, "output"), PortRef::new(sphere, "x"))
         .expect("and the maths feeds the solid");
-    let rgba = nodes::add_to_graph(&mut g, "rgba", Pos2::ZERO).unwrap();
-    g.connect(PortRef::new(copy, "random"), PortRef::new(rgba, "r"))
-        .expect("and a picture");
 }

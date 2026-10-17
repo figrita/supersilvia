@@ -1478,8 +1478,6 @@ pub static REGISTRY: &[&NodeDef] = &[
     &solids::blends::WRAP,
     &solids::iterate::FOLD,
     &solids::iterate::SCATTER_SPHERE,
-    &solids::copies::COPY,
-    &solids::copies::PER_COPY,
     &solids::cast::CAST,
     &solids::iterate::NOISE_DISPLACE,
     &solids::colorfields::CHECKER,
@@ -3250,9 +3248,9 @@ mod tests {
     }
 
     /// **A solid is its own family.** Every node in the Solids category publishes a solid but
-    /// the render, which turns one into a picture, and the nodes that read where inside a solid
-    /// they are — which copy, or which point — and hand it out as a field; every solid output
-    /// is keyed `solid`; and a solid port lives on a Solids node alone.
+    /// the render, which turns one into a picture, and Cast, which reads the point inside a
+    /// solid a field is asked at and hands out a field; every solid output is keyed `solid`;
+    /// and a solid port lives on a Solids node alone.
     #[test]
     fn a_solid_node_publishes_a_solid() {
         let solids: Vec<_> = REGISTRY
@@ -3261,13 +3259,9 @@ mod tests {
             .collect();
         assert!(solids.iter().any(|d| d.slug == "solidrender"));
         for def in &solids {
-            let reads_where = def
-                .wgsl_utils
-                .iter()
-                .any(|u| *u == solids::copies::COPY_STATE || *u == crate::compile::POINT_STATE);
             assert!(
                 def.slug == "solidrender"
-                    || reads_where
+                    || def.wgsl_utils.contains(&crate::compile::POINT_STATE)
                     || def.outputs.iter().any(|p| p.ty.is_solid()),
                 "{}: a Solids node publishes a solid",
                 def.slug,
