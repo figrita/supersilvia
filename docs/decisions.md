@@ -1215,7 +1215,9 @@ obvious narrowing is differs from tool to tool, and a list that does nothing vis
 like a broken cable, so the conversion menu makes the choice once, as a node. *A node fed a
 list and a field reads the list per pixel*: what it read would depend on a repeat downstream of
 it, which no cable shows. *A Gather node beside Get*: the same lookup twice, where a list on
-Get's own Index says the same thing with one node fewer to find.
+Get's own Index says the same thing with one node fewer to find. *A hand-made List storing
+its numbers as they are*: each bar is a share of Min to Max instead, so the range can be
+moved, or cabled, without redrawing the bars.
 
 ### GStreamer for video, and RGBA through an appsink first
 

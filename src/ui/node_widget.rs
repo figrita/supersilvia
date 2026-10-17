@@ -3246,10 +3246,11 @@ fn value_rows(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects) {
                 }
             }
             // Drawn in a region, which has no row to find here — see `widgets::curve`,
-            // `widgets::steps` and `widgets::paint`.
+            // `widgets::steps`, `widgets::paint` and `widgets::bars`.
             nodes::ValueKind::Points { .. }
             | nodes::ValueKind::Cells { .. }
-            | nodes::ValueKind::Painting => {}
+            | nodes::ValueKind::Painting
+            | nodes::ValueKind::Numbers => {}
         }
     }
 }

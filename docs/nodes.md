@@ -331,7 +331,7 @@ to. That code knows four shapes: a select, a file button, a tick, a one-line fie
 can declare a choice and get a row for free, without anyone writing drawing code for it.
 
 **A value is drawn by the node's own code**, so the list of shapes stays open. There are
-four: `Text`, a box of prose; `Points`, a curve a hand performed — `{ time, value }` each,
+five: `Text`, a box of prose; `Points`, a curve a hand performed — `{ time, value }` each,
 with the ends it is drawn against on the declaration; `Cells`, a grid of `lanes` by
 `steps` a hand lights one cell at a time — `stepsequencer`'s pattern, stored as one string a
 lane, `x` for a lit cell and `.` for an unlit one, the notation every rhythm table uses, so the
@@ -339,11 +339,15 @@ lane, `x` for a lit cell and `.` for an unlit one, the notation every rhythm tab
 unlit, and a new node holds no value at all, which is every cell dark; and `Painting`, a
 picture a hand painted — RGBA8 pixels behind an `Arc` in memory, and in the `.ssw` the
 reference to a PNG the project's save writes into `assets/`, named by its content (see
-[decisions.md](decisions.md#a-painting-is-saved-with-the-project)). A pad, a step grid and a paint surface arrive with the rest of the node-body controls.
+[decisions.md](decisions.md#a-painting-is-saved-with-the-project)); and `Numbers`, the List
+node's bars, each its share of the way from the node's Min to its Max, `0` to `1`, so moving
+Min or Max rescales what was drawn rather than rewriting it, and a bar past the stored ones is
+at Min. A pad, a step grid and a paint surface arrive with the rest of the node-body controls.
 
-A value is a row of the node unless its kind takes none: `Points`, `Cells` and `Painting` are
-drawn in one of the node's own regions instead — the ordered list in `NodeDef::regions` —
-because a curve, a grid and a picture want the width of the body, and `ValueDef::rows`
+A value is a row of the node unless its kind takes none: `Points`, `Cells`, `Painting` and
+`Numbers` are drawn in one of the node's own regions instead — the ordered list in
+`NodeDef::regions` — because a curve, a grid, a picture and a row of bars want the width of
+the body, and `ValueDef::rows`
 returning zero is what says so. The region reads the saved value straight off the `Node`, so a
 patch just opened draws its performance, its pattern or its picture before anything has ticked.
 A region that edits one sends `RegionEvent::Value`, which is the `SetValue` a click is: one
@@ -879,7 +883,8 @@ downstream of it.
 
 **One matching rule, stretch.** Wherever a list of `n` items is read over `m`, item `i` reads
 item `floor(i · n / m)` of it (`nodes::list::stretch`): three items over twelve is AAAA BBBB
-CCCC. A list read over its own length reads itself, and a single number is a list of one.
+CCCC. A list read over its own length reads itself, a single number is a list of one, and
+wrapping and averaging are nodes of their own, Cycle and Resample.
 
 **The dual maths runs per item.** A list cabled into any input of a [dual](#dual-outputs) node
 — the eighteen Math nodes, Reframe Range and Slide Rule — puts it in **list mode**: its output
@@ -899,9 +904,21 @@ rates, `OutputDef::gathers`, so the graph types it as it types the maths.
 
 | node | ports | what it does |
 | --- | --- | --- |
+| **List** (`list`) | Count, Min, Max → List | Numbers drawn by hand on the node's own bars (`Region::Bars`): a drag sets the bar under it and every bar it sweeps across, and each bar is its share of the way from Min to Max, saved as the node's own `Value::Numbers` |
 | **Range** (`range`) | Count, From, To, Ends → List | Count values evenly spaced From one To the other; Ends set to From Only leaves the last out, so a Range of turns closes a ring |
+| **Random** (`randomlist`) | Count, Min, Max, Seed → List | Count numbers between Min and Max, item `i` a hash of the seed and `i`, so a bigger Count keeps the items already there |
+| **Circle Points** (`circlepoints`) | Count, Radius, Center X, Center Y, Start, Spread → X, Y, Angle | Points round a circle; Angle in turns from Start, Spread the share of a turn they cover. A whole turn spaces them evenly with none on top of the first; an arc runs from end to end |
+| **Grid Points** (`gridpoints`) | Columns, Rows, Width, Height, Center X, Center Y → X, Y, Column, Row | The middle of each cell of a lattice over the rectangle, row after row from the bottom left |
 | **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. A list of indices gathers. An empty list publishes nothing |
 | **Length** (`length`) | List → Count | How many items |
+| **Reduce** (`reduce`) | List, Mode → Value | Sum, Mean, Min, Max or Argmax, the index of the first of the highest. An empty list sums to zero and publishes nothing for the rest |
+| **Lookup** (`lookup`) | List, Position, Mode → Value | The list at Position, 0 to 1 and round again: Step holds each item for its share, Linear glides to the next and the last back to the first. A phase on Position is a step sequencer |
+| **Resample** (`resample`) | List, Count, Mode → List | The list over Count items: Nearest stretches, Linear glides first to last, Average gives each item the mean of the ones under it |
+| **Slice** (`slice`) | List, Start, Count → List | Count items from Start, stopping at the end |
+| **Join** (`join`) | A, B → List | A, then B |
+| **Reverse** (`reverse`) | List → List | Last first |
+| **Sort** (`sort`) | List → Sorted, Order | Lowest first, equal items in the order they came; Order is where each sorted item was |
+| **Cycle** (`cycle`) | List, Count, Shift → List | The list repeated round to Count, moved Shift places towards the end |
 
 A list's row draws its items as a bar chart the height of the row, from zero, with its count
 beside it (`×8`). The chart's width is fixed, so a list that grows never moves the label; past
@@ -1135,7 +1152,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
 | `Math` | `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`, `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`, `smoothstep`, `threshold`, `random` |
-| `List` | `range`, `get`, `length` |
+| `List` | `list`, `range`, `randomlist`, `circlepoints`, `gridpoints`, `get`, `length`, `reduce`, `lookup`, `resample`, `slice`, `join`, `reverse`, `sort`, `cycle` |
 | `Control` | `number`, `clock`, `oscillator`, `animation`, `automation`, `slew`, `autogain`, `button`, `clockdivider`, `counter`, `adsr`, `smoothcounter`, `triggeredrandom`, `triggeredcolor`, `randomfire`, `euclideanrhythm`, `stepsequencer`, `xypad` |
 | `Gear` | `mastergear`, `ratiogear`, `time` |
 | `Solid` | `sphere`, `box`, `torus`, `cylinder`, `capsule`, `octahedron`, `ground`, `union`, `solidsubtract`, `intersect`, `place`, `stretch`, `solidmirror`, `twist`, `bend`, `repeatgrid`, `repeataround`, `inflate`, `shell`, `paint`, `displace`, `surfacetexture`, `cone`, `hexprism`, `pyramid`, `link`, `gyroid`, `elongate`, `morph`, `stripes3d`, `heightgradient`, `menger`, `mandelbulb`, `boxframe`, `superellipsoid`, `ellipsoid`, `helix`, `slab`, `dodecahedron`, `icosahedron`, `stairsunion`, `columnsunion`, `solidxor`, `warp`, `foldplane`, `wrap`, `fold`, `scattersphere`, `noisedisplace`, `checker3d`, `proximity`, `facing`, `distancebands`, `extrude`, `revolve`, `heightfield`, `solidrender` |

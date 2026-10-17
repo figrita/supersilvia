@@ -676,6 +676,9 @@ pub enum ValueKind {
     /// `drawingcanvas`'s. Held as a [`crate::graph::Painting`], and written into the project
     /// folder as a picture file of its own rather than into the `.ssw`.
     Painting,
+    /// Numbers a hand drags as bars in one of the node's own regions: the List node's. Takes
+    /// no row. A new node holds no value here, which is every bar at the bottom.
+    Numbers,
 }
 
 /// One piece of state a node declares for itself: not a port's value, and not a choice out of
@@ -700,7 +703,10 @@ impl ValueDef {
     pub const fn rows(&self) -> u8 {
         match self.kind {
             ValueKind::Text { rows, .. } => rows,
-            ValueKind::Points { .. } | ValueKind::Cells { .. } | ValueKind::Painting => 0,
+            ValueKind::Points { .. }
+            | ValueKind::Cells { .. }
+            | ValueKind::Painting
+            | ValueKind::Numbers => 0,
         }
     }
 
@@ -711,7 +717,10 @@ impl ValueDef {
             ValueKind::Text { default, .. } => default,
             // A curve starts with no points; the default is `Value::Points(Vec::new())`,
             // built at the call site since it is not `&'static str`.
-            ValueKind::Points { .. } | ValueKind::Cells { .. } | ValueKind::Painting => "",
+            ValueKind::Points { .. }
+            | ValueKind::Cells { .. }
+            | ValueKind::Painting
+            | ValueKind::Numbers => "",
         }
     }
 }
@@ -1413,9 +1422,21 @@ pub static REGISTRY: &[&NodeDef] = &[
     &math::THRESHOLD,
     &random::DEF,
     &reframerange::REFRAMERANGE,
+    &list::LIST,
     &list::RANGE,
+    &list::RANDOM,
+    &list::CIRCLE_POINTS,
+    &list::GRID_POINTS,
     &list::GET,
     &list::LENGTH,
+    &list::REDUCE,
+    &list::LOOKUP,
+    &list::RESAMPLE,
+    &list::SLICE,
+    &list::JOIN,
+    &list::REVERSE,
+    &list::SORT,
+    &list::CYCLE,
     &number::DEF,
     &slew::DEF,
     &oscillator::DEF,

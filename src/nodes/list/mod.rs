@@ -8,14 +8,27 @@
 //! is.
 //!
 //! **A list feeds a list and nothing else.** A one-value input never reads a quiet first
-//! item: a list dropped there is offered a node that picks a value out of it — Get or Length —
-//! through the conversion menu (`nodes::bridge`). The dual maths takes one and runs
+//! item: a list dropped there is offered a node that picks a value out of it — Get, Length or
+//! Reduce — through the conversion menu (`nodes::bridge`). The dual maths takes one and runs
 //! per item instead, list out. The design is [docs/nodes.md](../../docs/nodes.md#lists).
 //!
 //! **One matching rule, stretch.** Wherever a list of `n` items is read over `m`, item `i`
 //! reads item `floor(i · n / m)` of it ([`stretch`]): elementwise maths as long as its longest
 //! input, a shorter input stretched across it, and an empty one making the answer empty. A
-//! single number is a list of one, so it reaches every item alike.
+//! single number is a list of one, so it reaches every item alike. Wrapping and averaging are
+//! nodes of their own, Cycle and Resample.
+//!
+//! The nodes are in four files: this one holds the rules, Range, Get and Length; [`make`]
+//! the lists made from numbers; [`reshape`] the lists made from lists; [`read`] the numbers
+//! read out of one.
+
+pub mod make;
+pub mod read;
+pub mod reshape;
+
+pub use make::{CIRCLE_POINTS, GRID_POINTS, LIST, RANDOM};
+pub use read::{LOOKUP, REDUCE};
+pub use reshape::{CYCLE, JOIN, RESAMPLE, REVERSE, SLICE, SORT};
 
 use crate::graph::NodeId;
 use crate::graph::PortType::{ListNumber, UniformNumber};
@@ -69,6 +82,17 @@ const fn number_in(key: &'static str, label: &'static str, control: Control) -> 
 /// A count of items: a whole number from none to [`CAP`].
 const fn count_in(key: &'static str, label: &'static str, default: f32) -> InputDef {
     number_in(key, label, Control::num(default, 0.0, CAP as f32, 1.0, ""))
+}
+
+/// A uniform number output, published by the node's tick.
+const fn number_out(key: &'static str, label: &'static str) -> OutputDef {
+    OutputDef {
+        key,
+        label,
+        ty: UniformNumber,
+        kind: OutputKind::Uniform,
+        ..OutputDef::EMPTY
+    }
 }
 
 /// An option a tick alone reads.

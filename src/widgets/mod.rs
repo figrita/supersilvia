@@ -17,6 +17,7 @@
 //!
 //! See docs/ui.md and proposals/node-body-controls.md.
 
+pub mod bars;
 pub mod buttons;
 pub mod curve;
 pub mod gear;
@@ -94,6 +95,7 @@ pub fn def(region: Region) -> &'static RegionDef {
         Region::Curve => &curve::CURVE,
         Region::Palette => &palette::PALETTE,
         Region::Steps => &steps::STEPS,
+        Region::Bars => &bars::BARS,
         Region::Grid => &steps::GRID,
         Region::Ranges => &ranges::RANGES,
         Region::Viewfinder => &viewfinder::VIEWFINDER,

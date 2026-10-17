@@ -1872,7 +1872,7 @@ once and read the same wherever on the node the pointer landed.
   toolkit in it, and `widgets::def` is the one table from that name to the
   `widgets::RegionDef` that sizes and draws it. Nothing above a region knows what kind it is:
   `ui/` walks the list, hands each band to `widgets::show`, and turns what comes back into
-  commands. The eighteen there are live under `src/widgets/` — `Render` for an Output's own
+  commands. The nineteen there are live under `src/widgets/` — `Render` for an Output's own
   render, `Preview(port)` for a source showing what it publishes, `Scope` and `Meters`,
   `Trace` with `Caption` under it, `Status`, one line of what the node's own
   `CpuNode::status` says, which is where `clockdivider` counts down to its next pass,
@@ -1884,7 +1884,8 @@ once and read the same wherever on the node the pointer landed.
   settings, [below](#a-nodes-own-buttons), `XyPad`, the square
   [an XY Pad's puck](#the-xy-pad) is thrown around, `Paint(port)` with `Brush` under it,
   the surface a `drawingcanvas` is painted on and the tools, size and colors it is painted
-  with, and `Gear`, [a gear's picture](#the-gear-region) turning at its real rate — and a
+  with, `Bars`, the List node's hand-drawn numbers, and `Gear`, [a gear's
+  picture](#the-gear-region) turning at its real rate — and a
   node has **every** region it declares rather than
   the one a ladder picked, which is why `video` keeps its meters *and* its clip.
 
@@ -2030,6 +2031,15 @@ once and read the same wherever on the node the pointer landed.
   back, and Clear sends the whole grid dark in one more. So the region claims no pointer — a
   drag that starts on a cell or between two carries the node. Its height is the lanes the
   value declares and never what is lit, so lighting a cell moves nothing.
+
+  **A region may be dragged like Max's `multislider`.** `widgets::bars` draws the List node's
+  numbers, a [`Numbers` value](nodes.md#a-nodes-own-values), as Count bars across a 72 point
+  band, in the list chart's own ground and ink, each from the floor to its share of the way
+  from Min to Max. It claims the pointer: a press sets the bar under it to the pointer's
+  height, and every frame of the drag sets each bar between the last place and this one on a
+  straight line, so a quick sweep leaves no gaps. Each frame is a `SetValue` of the whole list,
+  and the gesture the press opened takes them all, so a stroke is one step back. The bar under
+  the hand prints its number and value in the band's top corner.
 
   **A region may be painted on.** `widgets::paint` is `drawingcanvas`'s custom area, silvia's
   geometry for geometry: `Paint(port)`, a 300 point canvas in a 1 point `border_normal` frame

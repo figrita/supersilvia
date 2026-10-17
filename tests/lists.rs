@@ -502,3 +502,143 @@ fn a_list_on_gets_index_gathers() {
     assert_eq!(app.uniform(item), Some(10.0));
     assert_eq!(list(&app, item), None);
 }
+
+/// Sort's Order on a Get's Index puts a sibling list in the sorted order: the one Order
+/// reorders X, Y and a size alike.
+#[test]
+fn sorts_order_reorders_a_sibling_list_through_get() {
+    let mut app = App::headless();
+    let keys = added(&mut app, "randomlist");
+    let sibling = added(&mut app, "range");
+    let sort = added(&mut app, "sort");
+    let get = added(&mut app, "get");
+    set(&mut app, keys, "count", 6.0);
+    set(&mut app, keys, "seed", 3.0);
+    set(&mut app, sibling, "count", 6.0);
+    set(&mut app, sibling, "to", 5.0);
+    cable(
+        &mut app,
+        PortRef::new(keys, "list"),
+        PortRef::new(sort, "list"),
+    );
+    cable(
+        &mut app,
+        PortRef::new(sort, "order"),
+        PortRef::new(get, "index"),
+    );
+    cable(
+        &mut app,
+        PortRef::new(sibling, "list"),
+        PortRef::new(get, "list"),
+    );
+    app.tick(1.0 / 60.0);
+    let keys = list(&app, PortRef::new(keys, "list")).unwrap();
+    let sorted = list(&app, PortRef::new(sort, "sorted")).unwrap();
+    let order = list(&app, PortRef::new(sort, "order")).unwrap();
+    assert!(sorted.windows(2).all(|w| w[0] <= w[1]));
+    // The sibling is 0 to 5, so gathered by the Order it is the Order itself.
+    assert_eq!(list(&app, PortRef::new(get, "item")), Some(order.clone()));
+    let regathered: Vec<f64> = order.iter().map(|i| keys[*i as usize]).collect();
+    assert_eq!(regathered, sorted);
+}
+
+// ---------------------------------------------------------------- the list nodes in a tick
+
+/// Circle Points and Grid Points publish their parallel lists in one frame, and a List
+/// publishes its own bars between Min and Max.
+#[test]
+fn the_layouts_and_the_hand_made_list_publish_their_lists() {
+    let mut app = App::headless();
+    let circle = added(&mut app, "circlepoints");
+    let grid = added(&mut app, "gridpoints");
+    let hand = added(&mut app, "list");
+    set(&mut app, circle, "count", 4.0);
+    set(&mut app, grid, "columns", 2.0);
+    set(&mut app, grid, "rows", 3.0);
+    set(&mut app, hand, "count", 3.0);
+    set(&mut app, hand, "min", -1.0);
+    set(&mut app, hand, "max", 1.0);
+    app.apply(Command::SetValue {
+        node: hand,
+        key: "values",
+        value: supersilvia::graph::Value::Numbers(vec![1.0, 0.5]),
+    })
+    .unwrap();
+    app.tick(1.0 / 60.0);
+    let x = list(&app, PortRef::new(circle, "x")).unwrap();
+    assert!(close(&x, &[0.5, 0.0, -0.5, 0.0]), "{x:?}");
+    assert_eq!(
+        list(&app, PortRef::new(circle, "angle")),
+        Some(vec![0.0, 0.25, 0.5, 0.75])
+    );
+    assert_eq!(
+        list(&app, PortRef::new(grid, "column")),
+        Some(vec![0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+    );
+    assert_eq!(
+        list(&app, PortRef::new(grid, "row")),
+        Some(vec![0.0, 0.0, 1.0, 1.0, 2.0, 2.0])
+    );
+    assert_eq!(
+        list(&app, PortRef::new(hand, "list")),
+        Some(vec![1.0, 0.0, -1.0]),
+        "a bar past the stored ones is at Min"
+    );
+}
+
+// ---------------------------------------------------------------- the file
+
+fn round_trip(g: &Graph) -> Graph {
+    let nodes: std::collections::BTreeSet<NodeId> = g.iter().map(|(id, _)| id).collect();
+    let file = supersilvia::workspace::WorkspaceFile::of(g, &g.workspaces()[0], &nodes);
+    let json = serde_json::to_string_pretty(&file).unwrap();
+    let (back, warnings) = supersilvia::workspace::from_str(&json).unwrap();
+    assert!(warnings.is_empty(), "{warnings:?}");
+    back
+}
+
+/// A list-mode Multiply and a gathering Get open as they were saved, with every cable, and a
+/// List's bars come back.
+#[test]
+fn a_saved_list_mode_patch_reopens_the_same() {
+    let mut g = Graph::new();
+    let range = add(&mut g, "range");
+    let multiply = add(&mut g, "multiply");
+    let get = add(&mut g, "get");
+    let hand = add(&mut g, "list");
+    let length = add(&mut g, "length");
+    g.connect(PortRef::new(range, "list"), PortRef::new(multiply, "a"))
+        .unwrap();
+    g.connect(PortRef::new(multiply, "output"), PortRef::new(get, "index"))
+        .unwrap();
+    g.connect(PortRef::new(hand, "list"), PortRef::new(get, "list"))
+        .unwrap();
+    g.connect(PortRef::new(get, "item"), PortRef::new(length, "list"))
+        .unwrap();
+    g.get_mut(hand).unwrap().values.insert(
+        "values",
+        supersilvia::graph::Value::Numbers(vec![0.25, 0.75]),
+    );
+
+    let back = round_trip(&g);
+    assert_eq!(back.connections().len(), 4);
+    for (node, key) in [(multiply, "output"), (get, "item")] {
+        assert_eq!(
+            back.get(node).unwrap().output(key).unwrap().ty,
+            PortType::ListNumber,
+            "{key}"
+        );
+    }
+    assert_eq!(
+        back.get(multiply).unwrap().input("b").unwrap().ty,
+        PortType::ListNumber
+    );
+    assert_eq!(
+        back.get(hand)
+            .unwrap()
+            .values
+            .get("values")
+            .and_then(supersilvia::graph::Value::numbers),
+        Some(&[0.25, 0.75][..])
+    );
+}
