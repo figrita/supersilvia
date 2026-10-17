@@ -93,6 +93,7 @@ pub mod slimemold;
 pub mod smoothcounter;
 pub mod solids;
 pub mod spectrum;
+pub mod stamp;
 pub mod stargate;
 pub mod stepsequencer;
 pub mod syphon;
@@ -1382,6 +1383,7 @@ pub static REGISTRY: &[&NodeDef] = &[
     &region::REGIONABSOLUTE,
     &region::REGIONSIZED,
     &distort::SCATTER,
+    &stamp::STAMP,
     &distort::TUNNEL3D,
     &wallpaper::WALLPAPER,
     &geissflow::DEF,

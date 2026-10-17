@@ -1133,6 +1133,49 @@ fn pixel_at(pixels: &[[u8; 4]], size: usize, x: f32, y: f32) -> [u8; 4] {
     pixels[at(y) * size + at(x)]
 }
 
+/// Stamp's Points lays copy i at its Offset: three items into Count and Offset X are three
+/// copies along the row Offset Y's knob puts them on, over the background, and nothing between.
+#[test]
+fn stamp_points_lays_each_copy_at_its_offset() {
+    const SIZE: usize = 64;
+    let mut g = Graph::new();
+    let red = swatch(&mut g, [1.0, 0.0, 0.0, 1.0]);
+    let stamp = add(&mut g, "stamp");
+    let xs = add(&mut g, "range");
+    let out = add(&mut g, "output");
+    g.get_mut(stamp)
+        .unwrap()
+        .options
+        .insert("layout", "points".to_string());
+    set(&mut g, stamp, "size", 0.2);
+    set(&mut g, stamp, "copyY", 0.25);
+    set_color(&mut g, stamp, "bgColor", BLUE);
+    g.connect(PortRef::new(red, "output"), PortRef::new(stamp, "input"))
+        .unwrap();
+    for key in ["count", "copyX"] {
+        g.connect(PortRef::new(xs, "list"), PortRef::new(stamp, key))
+            .unwrap();
+    }
+    g.connect(PortRef::new(stamp, "output"), PortRef::new(out, "input"))
+        .unwrap();
+    let pixels = rendered_lists(&g, out, SIZE as u32, &|_| 0.0, &|_| vec![-0.5, 0.0, 0.5]);
+
+    for x in [-0.5, 0.0, 0.5] {
+        assert_eq!(
+            pixel_at(&pixels, SIZE, x, 0.25),
+            [255, 0, 0, 255],
+            "a copy at {x}"
+        );
+    }
+    for (x, y) in [(-0.25, 0.25), (0.25, 0.25), (0.0, -0.25), (0.8, 0.25)] {
+        assert_eq!(
+            pixel_at(&pixels, SIZE, x, y),
+            [0, 0, 255, 255],
+            "the background at {x}, {y}"
+        );
+    }
+}
+
 /// A two-item list into Tile's Scale X is a checkerboard of whole tiles and half-width ones:
 /// the cell at column c and row r reads item (c + r) mod 2, and a tile narrowed inside its
 /// rectangle leaves the rest of it transparent.

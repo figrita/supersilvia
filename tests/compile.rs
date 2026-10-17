@@ -768,7 +768,7 @@ fn every_wgsl_node_compiles_connected_and_unconnected() {
     let groups = [
         (Category::Generate, 24),
         (Category::Color, 21),
-        (Category::Transform, 22),
+        (Category::Transform, 23),
         (Category::Effect, 21),
         (Category::Convert, 14),
         (Category::Tap, 0),

@@ -521,13 +521,14 @@ within a small constant number of iterations, in one of three shapes:
   a literal: `lyapunov`'s exponent (10), the box, sharpen, 3-tap and 3×3 kernels in `convolve.rs`, `bloom`'s arms and rings,
   `kuwahara`'s window and its quadrant loop, the sinc window, the directional and radial blurs'
   sixteen taps and the supersampling grid in `multisample.rs`, `scatter`'s three layers and
-  neighbourhood in `distort.rs`, `edgedetection`'s 3×3, `screentone`'s loops, the cellular
+  neighbourhood in `distort.rs`, `stamp`'s neighbours on a grid, a ring or a line (1, or 9 and
+  3 with Overlap), `edgedetection`'s 3×3, `screentone`'s loops, the cellular
   noise's 3×3 in `noise.rs`, and `slimemold`'s diffusion 3×3.
 - **A constant ceiling with an early exit.** The written bound is a literal and a `break`
   stops it sooner at a count that is a field: the polygon in `shapes.rs`
   (12), the three spirals (20), `phyllotaxis` (500), the fractal noise's octaves in `noise.rs`
-  (8), `tunnel3d`'s ray march (32), and `pixelsort`'s gather loop and the outer loop of its
-  sort.
+  (8), `tunnel3d`'s ray march (32), `stamp`'s Points (256, [below](#stamps-cap)), and
+  `pixelsort`'s gather loop and the outer loop of its sort.
 - **A bound that is not a literal, but is bounded.** `mandelbrot` and `juliaset` run
   `for (; i < maxIter; i++)`, where `maxIter` is `i32(clamp({iterations}, 1.0, 500.0))`, so at
   most 500. `pixelsort`'s inner sort loop runs `j` from `i - 1` down to 0, where `i` is below
@@ -553,6 +554,22 @@ meets it: it compares with the literal 0 and steps down by one. `mandelbrot` and
 not, since `maxIter` is not a constant, and would be rewritten to the ceiling-and-break shape
 the rest of the library uses. A `loop` or `while` in a node's WGSL would fail the gate. So would
 any future node that took WGSL from a person.
+
+### Stamp's cap
+
+`stamp`'s Points layout places each copy at its own Offset, so no fold finds the copy a
+fragment is in: every fragment looks at every copy, `for (var j = 0; j < 256; j++)` with a
+`break` once `j` reaches the Count, or once the fragment is covered. **The cap is 256**, the
+Count knob's top end (`nodes::stamp::CAP`); a list longer than that into Count draws its first
+256 copies on Points, while Grid, Ring and Line fold and draw any count.
+
+A copy costs its rows — up to five list items read from the uniform block and a color — and a
+box test, and the picture is read only for a copy whose box holds the fragment. So the loop
+costs what the Count asks, not what the cap allows: twenty points cost twenty rounds. At the cap
+it runs half as many rounds as `phyllotaxis`'s 500, each heavier by its reads. That is an
+estimate; nothing here measured it. Past a few hundred copies the answer is not a higher cap
+but fewer copies looked at: the copies binned into a coarse grid on the CPU each frame, a
+fragment reading its bin alone, or instanced quads drawn in a pass of their own.
 
 ## The options
 

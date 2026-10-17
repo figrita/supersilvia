@@ -310,13 +310,35 @@ fn fields() -> Vec<Entry> {
         }
     }
 
-    // Every picture's repeat with a list in every per-copy row and every count row: the rows
-    // read by the tile, the cell, the wedge and the lattice.
-    let pictures: [(&str, &[&str], Options); 4] = [
+    // Every picture's repeat with a list in every per-copy row and every count row, and Stamp
+    // on every layout with Overlap off and on: the rows read by the cell, the wedge, the
+    // lattice and the stamp.
+    let pictures: [(&str, &[&str], Options); 9] = [
         ("tile", &[], &[]),
         ("repeater", &["rows", "columns"], &[]),
         ("kaleidoscope", &["segments"], &[("style", "spiral")]),
         ("scatter", &[], &[("overlap", "on")]),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "grid"), ("overlap", "on")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "ring"), ("overlap", "on")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "ring"), ("overlap", "off")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "line"), ("overlap", "on")],
+        ),
+        ("stamp", &["count"], &[("layout", "points")]),
     ];
     for (slug, counts, options) in pictures {
         let mut g = Graph::new();

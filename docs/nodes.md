@@ -1118,7 +1118,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Source` | `audioin`, `camera`, `screencapture`, `syphon`, `ndi`, `maininput`, `video`, `imagegif`, `drawingcanvas`, `text`, `mouseinput`, `gamepad` |
 | `Generate` | `color`, `checkerboard`, `circle`, `polygon`, `star`, `stripes`, `grid`, `polkadot`, `houndstooth`, `spiral`, `phyllotaxis`, `prideflag`, `lineargradient`, `radialgradient`, `mandelbrot`, `juliaset`, `lyapunov`, `sierpinski`, `perlin`, `simplex`, `worley`, `fractal`, `static`, `randomhurl`, `cellularautomata`, `slimemold`, `brickgame`, `worldcoordinates` |
 | `Color` | `rgba`, `hsla`, `mix`, `layerblend`, `muxevent`, `muxnumber`, `cosinegradient`, `contrast`, `gamma`, `levels`, `invert`, `posterize`, `vignette`, `simplelight`, `saturate`, `vibrance`, `wavefold`, `palette`, `colorize`, `colormapping`, `colorshift`, `chromakey` |
-| `Transform` | `zoom`, `rotate`, `fisheye`, `translate`, `mirror`, `stretchskew`, `perspective`, `polarcoords`, `rotozoom`, `shakycam`, `wave`, `whirlandpinch`, `kaleidoscope`, `tile`, `repeater`, `regionabsolute`, `regionsized`, `domainwarp`, `scatter`, `tunnel3d`, `wallpaper`, `geissflow` |
+| `Transform` | `zoom`, `rotate`, `fisheye`, `translate`, `mirror`, `stretchskew`, `perspective`, `polarcoords`, `rotozoom`, `shakycam`, `wave`, `whirlandpinch`, `kaleidoscope`, `tile`, `repeater`, `regionabsolute`, `regionsized`, `domainwarp`, `scatter`, `stamp`, `tunnel3d`, `wallpaper`, `geissflow` |
 | `Effect` | `edgedetection`, `chromaticaberration`, `autoexposure`, `blur`, `sharpen`, `emboss`, `bloom`, `dilate`, `erode`, `heighttonormal`, `halftone`, `mosaic`, `dither`, `kuwahara`, `motionblur`, `radialblur`, `sincfilter`, `supersampling`, `pixelsort`, `stargate`, `glitch`, `camcordercrt` |
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
@@ -1432,8 +1432,9 @@ one picture.
 | Repeater | the cell | counted: `row · columns + column` of rows × columns, from the bottom left |
 | Kaleidoscope | the wedge, counted round from the angle's zero | counted: of Segments |
 | Scatter | the lattice cell, the layer added | endless: `(x + y + layer) mod n` |
+| Stamp | the stamp | counted: of Count |
 
-**A copy is cut at its cell.** Tile and Repeater read the one cell a
+**A copy is cut at its cell.** Tile, Repeater and Stamp's folding layouts read the one cell a
 fragment is in, so a copy its rows move or grow past the cell is sliced at the cell's edge;
 Tile and Repeater draw nothing outside a copy's rectangle, Tile transparent and Repeater its
 background. A Kaleidoscope's rows move, turn and size what its wedge samples about the center,
@@ -1441,6 +1442,19 @@ and the wedge's edge is its cut. Repeater's Rows and Columns and Kaleidoscope's 
 count rows: a list cabled in is a count of its length, as Count is on Repeat. Repeater lays a
 copy over its background, so a half-transparent picture or Color shows the background through
 it.
+
+**Stamp** (`stamp`, `nodes::stamp`) copies its Picture's middle square, −1 to 1 each way, Count
+times, each Size across, over its Background. Its **Layout** is Grid — rows of Columns from the
+bottom left, Spacing apart, centered — Ring, round a circle of Radius from the angle's zero, Line,
+along x Spacing apart and centered, or Points. **Grid, Ring and Line fold**: the stamp a
+fragment is in comes from its uv, so the Picture is read once a fragment whatever the count,
+and **Overlap** reads the neighbors as well, two on a ring or a line and eight round a grid
+cell, for a copy moved or grown a little past its cell. **Points puts copy i at its Offset**,
+so lists into Offset X and Y are where the copies go, and a fragment loops over every copy, at
+most 256 ([loop-bounding.md](loop-bounding.md#stamps-cap)); a copy's box rejects a fragment
+outside it before its picture is read. The last copy is in front: copies composite front to
+back from the last, `acc + copy · (1 − acc.a)`, the background goes under them all, and Points
+stops at a fragment already covered. Count takes a list's length.
 
 `slew` is the reference CPU node: three `UniformNumber` inputs — `input`, `rise` and `fall` —
 one `UniformNumber` out, and a `tick` that integrates `dt`. `Shape` picks which of the two
@@ -2000,7 +2014,7 @@ stretches over the copies, and on a Forever Repeat item `(x + y + z) mod n` of t
 coordinates, so the list cycles and each row starts one further along. A Range into Offset Y
 is a spiral stair on Repeat Around; Random into Turn scatters the copies' headings. Nothing
 else differs per copy: whatever is upstream of a repeat is the same solid in every cell. The
-picture repeats — Tile, Repeater, Kaleidoscope and Scatter — take the same rows in two
+picture repeats — Tile, Repeater, Kaleidoscope, Scatter and Stamp — take the same rows in two
 dimensions, as [the library](#the-library)'s Transform paragraphs say.
 
 **Copies that differ are measured against their neighbor.** While every copy is the same shape

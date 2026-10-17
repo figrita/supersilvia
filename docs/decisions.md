@@ -6813,7 +6813,7 @@ mixer's Projection section. Cast's option, and Texture's, is Projection.
 
 **Chosen** by the owner. A repeat moves, turns, sizes and colors its copies by its own Per
 copy rows, each a knob or a list ([nodes.md](nodes.md#repetition)), and whatever is upstream of
-a repeat is the same solid in every cell, or the same picture in every tile, cell or wedge.
+a repeat is the same solid in every cell, or the same picture in every tile, cell, wedge or stamp.
 
 **What lost:**
 
