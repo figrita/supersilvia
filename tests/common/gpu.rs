@@ -257,10 +257,23 @@ pub fn one_node(slug: &str) -> (Graph, NodeId, NodeId) {
 pub fn compiled(g: &Graph, out: NodeId) -> (Arc<Shader>, Vec<(Arc<str>, UniformValue)>) {
     let shader = wgsl::build(g, out).expect("connected");
     assert!(shader.diagnostics.is_empty(), "{:?}", shader.diagnostics);
+    let duals = supersilvia::nodes::cpu::evaluate_duals(g);
     let values = shader
         .uniforms
         .iter()
         .filter_map(|(name, p)| {
+            // A color or a number a dual node works out from its knobs, as the synth would.
+            if let UniformProvider::NodeUniform { node, port, .. } = p {
+                let at = PortRef::new(*node, port);
+                if let Some(c) = duals.colors.get(&at) {
+                    let c = supersilvia::nodes::alpha::premultiply(*c);
+                    return Some((Arc::clone(name), UniformValue::Vec4(c)));
+                }
+                return duals
+                    .numbers
+                    .get(&at)
+                    .map(|v| (Arc::clone(name), UniformValue::Float(*v as f32)));
+            }
             let UniformProvider::Control { node, key, .. } = p else {
                 return None;
             };
@@ -279,6 +292,7 @@ pub fn compiled(g: &Graph, out: NodeId) -> (Arc<Shader>, Vec<(Arc<str>, UniformV
 /// The values the app would resolve for `shader` from `g`: every control and option, every
 /// texture from its port, and every published uniform at zero.
 pub fn resolved(g: &Graph, shader: &Shader) -> Vec<(Arc<str>, UniformValue)> {
+    let duals = supersilvia::nodes::cpu::evaluate_duals(g);
     shader
         .uniforms
         .iter()
@@ -295,8 +309,16 @@ pub fn resolved(g: &Graph, shader: &Shader) -> Vec<(Arc<str>, UniformValue)> {
                 UniformProvider::NodeTexture { node, port } => {
                     UniformValue::NodeTexture(PortRef::new(*node, port))
                 }
-                UniformProvider::NodeUniform { ty, .. } => match ty {
-                    UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
+                UniformProvider::NodeUniform { node, port, ty } => match ty {
+                    UniformType::Vec4 => {
+                        UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(
+                            duals
+                                .colors
+                                .get(&PortRef::new(*node, port))
+                                .copied()
+                                .unwrap_or([0.0; 4]),
+                        ))
+                    }
                     _ => UniformValue::Float(0.0),
                 },
                 UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),

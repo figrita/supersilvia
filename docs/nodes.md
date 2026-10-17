@@ -901,6 +901,17 @@ shows the conversion ring and offers the menu's rows. A list cabled into the one
 is in replaces it. Nothing in `math.rs` knows about lists: `TickContext::publish_per_item`
 sets an item cursor, and `ctx.input` reads the current item of a list it finds cabled in.
 
+**Color lists.** A `ListColor` is the color kind at the list rate, straight colors on the
+CPU as every published color is. **RGBA and HSLA are dual as the maths is**, by an
+`OutputDef::eval_color`, the body in Rust (`hsla::hsl2rgb` the twin of `HSL2RGB_WGSL`): from
+knobs and single numbers their output is one `UniformColor` a frame, which a solid's Color
+takes; with a list in any input it is a color list, one color per item, so a Range into
+HSLA's Hue is a rainbow of as many colors as the Range has items; with a field in any input
+it is the picture it always was. A color list reaches a shader as a number list does, in the
+uniform block, premultiplied there, one `vec4f` an item and at most 256 of them
+(`uniform::COLOR_LIST_CAP`). Its row draws its colors as stripes. A renderer driven without
+the synth works a dual output's value out by `nodes::cpu::evaluate_duals`.
+
 **Get gathers.** With a list on its Index, a Get's Item is a list: the items those indices
 name, in their order, each wrapping as a single index does. So Sort's Order on a Get's Index
 reorders a sibling list, and one Order keeps X, Y and a size in step. Its Item is dual at two

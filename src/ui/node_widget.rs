@@ -853,20 +853,36 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
         }
         // A list draws its items as a bar chart the height of the row, with how many there are
         // beside it. The chart's width is fixed, so a list that grows never moves the label.
-        let published_list = (is_output && port.ty == PortType::ListNumber)
-            .then(|| cx.frame.uniforms.list(PortRef::new(cx.id, port.key)))
-            .flatten();
-        if let Some(items) = published_list {
+        let at_port = PortRef::new(cx.id, port.key);
+        let published_list: Option<(usize, ListRow<'_>)> = if !is_output {
+            None
+        } else if port.ty == PortType::ListNumber {
+            cx.frame
+                .uniforms
+                .list(at_port)
+                .map(|items| (items.len(), ListRow::Numbers(items)))
+        } else if port.ty == PortType::ListColor {
+            cx.frame
+                .uniforms
+                .color_list(at_port)
+                .map(|items| (items.len(), ListRow::Colors(items)))
+        } else {
+            None
+        };
+        if let Some((len, items)) = published_list {
             let h = (band.height() - 2.0 * READOUT_SWATCH_INSET * zoom).max(0.0);
             let w = h * LIST_CHART_ASPECT;
             let rect = Rect::from_min_size(pos2(at.x - w, at.y - h / 2.0), vec2(w, h));
-            list_chart(ui.painter(), rect, items, theme, zoom);
+            match items {
+                ListRow::Numbers(items) => list_chart(ui.painter(), rect, items, theme, zoom),
+                ListRow::Colors(items) => list_swatches(ui.painter(), rect, items, theme),
+            }
             taken += w + READOUT_GAP * zoom;
             at.x -= w + READOUT_GAP * zoom;
             number.clear();
             {
                 use std::fmt::Write as _;
-                let _ = write!(number, "×{}", items.len());
+                let _ = write!(number, "×{len}");
             }
             let drawn = ui
                 .painter()
@@ -928,6 +944,39 @@ fn row_labels(ui: &mut Ui, cx: &NodeCtx<'_>) {
         let (shown, _) = fit_text(ui.ctx(), &small, label, room, Keep::Start);
         ui.painter()
             .text(at, align, &shown, small.clone(), theme.text_secondary());
+    }
+}
+
+/// What a list output's row draws: a number list as bars, a color list as swatches.
+enum ListRow<'a> {
+    Numbers(&'a [f64]),
+    Colors(&'a [[f32; 4]]),
+}
+
+/// A color list's items side by side in `rect`, each an equal stripe, straight colors over the
+/// row's hole; past one a pixel column, a column shows the item under its middle.
+fn list_swatches(
+    painter: &eframe::egui::Painter,
+    rect: Rect,
+    items: &[[f32; 4]],
+    theme: &crate::ui::theme::Theme,
+) {
+    use eframe::egui::Color32;
+    painter.rect_filled(rect, 0.0, theme.port_hole(PortType::ListColor));
+    if items.is_empty() {
+        return;
+    }
+    let columns = (rect.width().floor() as usize).max(1).min(items.len());
+    let width = rect.width() / columns as f32;
+    for c in 0..columns {
+        let item = items[(c * items.len() + items.len() / 2) / columns.max(1)]
+            .map(|v| (v.clamp(0.0, 1.0) * 255.0).round() as u8);
+        let x = rect.left() + width * c as f32;
+        painter.rect_filled(
+            Rect::from_x_y_ranges(x..=x + width, rect.y_range()),
+            0.0,
+            Color32::from_rgba_unmultiplied(item[0], item[1], item[2], item[3]),
+        );
     }
 }
 

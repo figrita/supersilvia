@@ -139,6 +139,11 @@ pub type GenFn = fn(node: NodeId, ctx: &mut CompileContext, func: &str) -> Strin
 /// [Dual outputs](../../docs/nodes.md#dual-outputs).
 pub type EvalFn = fn(node: NodeId, ctx: &TickContext<'_>) -> f64;
 
+/// [`EvalFn`] for a color: a `VaryingColor` output's WGSL body written in Rust, returning the
+/// straight color, which the synth premultiplies where it enters a shader as every color the
+/// CPU publishes is.
+pub type EvalColorFn = fn(node: NodeId, ctx: &TickContext<'_>) -> [f32; 4];
+
 /// The generator every `OutputKind::Uniform`, `OutputKind::List` and `OutputKind::Action`
 /// output carries, and any output nobody has written a body for. A uniform number is resolved
 /// to a uniform before the compiler could ever call it and a list or an action never reaches
@@ -562,6 +567,10 @@ pub struct OutputDef {
     /// one to a `VaryingNumber` output of a node with no `cpu` half whose inputs are all
     /// `VaryingNumber` with number controls.
     pub eval: Option<EvalFn>,
+    /// [`Self::eval`] for a `VaryingColor` output: the same body in Rust, giving a straight
+    /// color, so the output is a `UniformColor` while every input is one value a frame and a
+    /// `ListColor` while a list is cabled in. `rgba` and `hsla`.
+    pub eval_color: Option<EvalColorFn>,
     /// True for a `UniformNumber` output that counts rather than measures, drawn on its row
     /// with no decimal places. The readout's two fixed places are right for a number that
     /// moves continuously and wrong for one that only ever lands on whole numbers:
@@ -598,6 +607,7 @@ impl OutputDef {
         wrap: TextureWrap::Mirror,
         filter: TextureFilter::Linear,
         eval: None,
+        eval_color: None,
         integral: false,
         wraps_at: f64::INFINITY,
         gathers: false,
@@ -1243,7 +1253,10 @@ impl NodeDef {
     /// `a_dual_output_is_a_varying_number_a_tick_can_evaluate` holds to being all of an
     /// `eval` node's inputs.
     pub fn port_defs(&self) -> (Vec<PortDef>, Vec<PortDef>) {
-        let dual = self.outputs.iter().any(|o| o.eval.is_some() || o.gathers);
+        let dual = self
+            .outputs
+            .iter()
+            .any(|o| o.eval.is_some() || o.eval_color.is_some() || o.gathers);
         (
             self.inputs
                 .iter()
@@ -1260,7 +1273,7 @@ impl NodeDef {
                 .map(|p| {
                     if p.kind == OutputKind::Texture || p.delayed {
                         PortDef::delayed(p.key, p.ty)
-                    } else if p.eval.is_some() || p.gathers {
+                    } else if p.eval.is_some() || p.eval_color.is_some() || p.gathers {
                         PortDef::dual(p.key, p.ty)
                     } else {
                         PortDef::new(p.key, p.ty)

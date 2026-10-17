@@ -36,6 +36,10 @@ impl UniformType {
     }
 }
 
+/// The most colors of a color list a shader sees: one `vec4f` each after the length, in the
+/// same array a number list packs four to an element.
+pub const COLOR_LIST_CAP: usize = LIST_VEC4S - 1;
+
 /// A list uniform's WGSL type. Kept in step with [`LIST_VEC4S`] by a test.
 pub const LIST_WGSL: &str = "array<vec4f, 257>";
 

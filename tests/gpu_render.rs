@@ -27,6 +27,7 @@ const DRAW: OutputMode = OutputMode::Draw;
 /// Every uniform of `shader` as the synth resolves it: a control and an option off the graph,
 /// a texture by the port that publishes it, and every published uniform number `published`.
 fn resolve(g: &Graph, shader: &Shader, published: f32) -> Vec<(Arc<str>, UniformValue)> {
+    let duals = supersilvia::nodes::cpu::evaluate_duals(g);
     shader
         .uniforms
         .iter()
@@ -43,8 +44,16 @@ fn resolve(g: &Graph, shader: &Shader, published: f32) -> Vec<(Arc<str>, Uniform
                 UniformProvider::NodeTexture { node, port } => {
                     UniformValue::NodeTexture(PortRef::new(*node, port))
                 }
-                UniformProvider::NodeUniform { ty, .. } => match ty {
-                    UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
+                UniformProvider::NodeUniform { node, port, ty } => match ty {
+                    UniformType::Vec4 => {
+                        UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(
+                            duals
+                                .colors
+                                .get(&PortRef::new(*node, port))
+                                .copied()
+                                .unwrap_or([0.0; 4]),
+                        ))
+                    }
                     _ => UniformValue::Float(published),
                 },
                 UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),

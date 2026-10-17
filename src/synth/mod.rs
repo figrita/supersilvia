@@ -146,6 +146,8 @@ pub struct Synth {
     /// What every number list output published this frame, a third map beside the two for
     /// the third rate.
     lists: HashMap<PortRef, Vec<f64>>,
+    /// What every color list output published this frame, straight.
+    color_lists: HashMap<PortRef, Vec<[f32; 4]>>,
     /// What every texture-publishing CPU node published this frame.
     frames: HashMap<PortRef, Arc<Frame>>,
     /// Every simulation a node steps on the GPU: its shape as the last tick left it, and the
@@ -419,6 +421,7 @@ impl Default for Synth {
             uniforms: HashMap::new(),
             uniform_colors: HashMap::new(),
             lists: HashMap::new(),
+            color_lists: HashMap::new(),
             frames: HashMap::new(),
             sims: HashMap::new(),
             actions: HashMap::new(),
@@ -842,6 +845,7 @@ impl Synth {
         self.uniform_colors
             .retain(|p, _| graph.get(p.node).is_some());
         self.lists.retain(|p, _| graph.get(p.node).is_some());
+        self.color_lists.retain(|p, _| graph.get(p.node).is_some());
         self.frames.retain(|p, _| graph.get(p.node).is_some());
         self.sims.retain(|p, _| graph.get(p.node).is_some());
         self.seen.retain(|id, _| graph.get(*id).is_some());
@@ -953,12 +957,17 @@ impl Synth {
             // uniform number, and once per item for one it has resolved to a list.
             // Producers come first in this order, so a chain of them settles in one frame. A
             // field is withdrawn — a field has no reading — and the row then draws nothing.
-            if def.outputs.iter().any(|o| o.eval.is_some()) {
+            if def
+                .outputs
+                .iter()
+                .any(|o| o.eval.is_some() || o.eval_color.is_some())
+            {
                 let mut ctx = TickContext::new(
                     graph,
                     &mut self.uniforms,
                     &mut self.uniform_colors,
                     &mut self.lists,
+                    &mut self.color_lists,
                     &mut self.frames,
                     &mut self.sims,
                     &mut self.actions,
@@ -978,6 +987,28 @@ impl Synth {
                     now,
                 );
                 for out in def.outputs {
+                    if let Some(eval) = out.eval_color {
+                        let rate = ctx
+                            .node(id)
+                            .and_then(|n| n.output(out.key))
+                            .and_then(|p| p.ty.rate());
+                        match rate {
+                            Some(crate::graph::Rate::Uniform) => {
+                                let value = eval(id, &ctx);
+                                ctx.publish_color(id, out.key, value);
+                                ctx.withdraw_color_list(id, out.key);
+                            }
+                            Some(crate::graph::Rate::List) => {
+                                ctx.publish_color_per_item(id, out.key, eval);
+                                ctx.withdraw_color(id, out.key);
+                            }
+                            _ => {
+                                ctx.withdraw_color(id, out.key);
+                                ctx.withdraw_color_list(id, out.key);
+                            }
+                        }
+                        continue;
+                    }
                     let Some(eval) = out.eval else { continue };
                     let rate = ctx
                         .node(id)
@@ -1017,6 +1048,7 @@ impl Synth {
                 &mut self.uniforms,
                 &mut self.uniform_colors,
                 &mut self.lists,
+                &mut self.color_lists,
                 &mut self.frames,
                 &mut self.sims,
                 &mut self.actions,
@@ -1453,6 +1485,7 @@ impl Synth {
         self.uniforms.clear();
         self.uniform_colors.clear();
         self.lists.clear();
+        self.color_lists.clear();
         self.actions.clear();
         self.late_actions.clear();
         self.jumps.clear();
@@ -1810,6 +1843,24 @@ impl Synth {
                         let count = self.uniforms.get(&at).copied().unwrap_or(0.0);
                         UniformValue::Vec2(crate::nodes::phasor::split(count))
                     }
+                    UniformProvider::NodeList { node, port }
+                        if graph
+                            .get(*node)
+                            .and_then(|n| n.output(port))
+                            .is_some_and(|p| p.ty == crate::graph::PortType::ListColor) =>
+                    {
+                        let at = PortRef::new(*node, port);
+                        UniformValue::ColorList(self.color_lists.get(&at).map_or_else(
+                            Vec::new,
+                            |items| {
+                                items
+                                    .iter()
+                                    .take(crate::compile::uniform::COLOR_LIST_CAP)
+                                    .map(|c| alpha::premultiply(*c))
+                                    .collect()
+                            },
+                        ))
+                    }
                     UniformProvider::NodeList { node, port } => {
                         let at = PortRef::new(*node, port);
                         UniformValue::List(self.lists.get(&at).map_or_else(Vec::new, |items| {
@@ -1955,6 +2006,7 @@ impl Synth {
         out.uniforms.clone_from(&self.uniforms);
         out.uniform_colors.clone_from(&self.uniform_colors);
         out.lists.clone_from(&self.lists);
+        out.color_lists.clone_from(&self.color_lists);
         out.frames.clone_from(&self.frames);
         out.actions.clone_from(&self.actions);
         out.held.clone_from(&self.held);

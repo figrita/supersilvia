@@ -4,6 +4,10 @@
 //! the color is premultiplied as it is built, so an Alpha of zero is transparent black
 //! whatever the other three say. See
 //! [decisions.md](../../../docs/decisions.md#colors-in-the-graph-are-premultiplied).
+//!
+//! **Its output is dual**, as the maths nodes' are: one color a frame while every input is a
+//! knob or a number, so it reaches a solid's Color; a color list while a list is cabled in, one
+//! color per item; a picture while a field is. `eval_color` is the body in Rust.
 
 use crate::graph::PortType::{VaryingColor, VaryingNumber};
 use crate::nodes::{Category, Control, InputDef, NodeDef, OutputDef, OutputKind};
@@ -54,6 +58,10 @@ pub static DEF: NodeDef = NodeDef {
                 ctx.input(node, "a", "uv"),
             )
         },
+        eval_color: Some(|node, ctx| {
+            let c = |k| ctx.input(node, k) as f32;
+            [c("r"), c("g"), c("b"), c("a")]
+        }),
         ..OutputDef::EMPTY
     }],
     ..NodeDef::EMPTY

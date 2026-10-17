@@ -133,6 +133,9 @@ pub enum UniformValue {
     Vec4([f32; 4]),
     /// A number list: its items, at most [`crate::nodes::list::CAP`], in `f32`.
     List(Vec<f32>),
+    /// A color list: its premultiplied colors, at most
+    /// [`crate::compile::uniform::COLOR_LIST_CAP`], one `vec4f` each after the length.
+    ColorList(Vec<[f32; 4]>),
     /// A texture published by a node: an Output's frame, or a CPU node's upload.
     NodeTexture(PortRef),
 }

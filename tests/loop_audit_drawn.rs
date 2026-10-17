@@ -191,6 +191,7 @@ fn values(
     under: NodeId,
     probe: Probe,
 ) -> Vec<(Arc<str>, UniformValue)> {
+    let duals = supersilvia::nodes::cpu::evaluate_duals(g);
     shader
         .uniforms
         .iter()
@@ -215,8 +216,16 @@ fn values(
                 UniformProvider::NodeTexture { node, port } => {
                     UniformValue::NodeTexture(PortRef::new(*node, port))
                 }
-                UniformProvider::NodeUniform { ty, .. } => match ty {
-                    UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
+                UniformProvider::NodeUniform { node, port, ty } => match ty {
+                    UniformType::Vec4 => {
+                        UniformValue::Vec4(supersilvia::nodes::alpha::premultiply(
+                            duals
+                                .colors
+                                .get(&PortRef::new(*node, port))
+                                .copied()
+                                .unwrap_or([0.0; 4]),
+                        ))
+                    }
                     _ => UniformValue::Float(0.0),
                 },
                 UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),

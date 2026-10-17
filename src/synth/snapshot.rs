@@ -179,6 +179,8 @@ pub struct Snapshot {
     pub uniform_colors: HashMap<PortRef, [f32; 4]>,
     /// Every number list published, each at most [`crate::nodes::list::CAP`] items.
     pub lists: HashMap<PortRef, Vec<f64>>,
+    /// Every color list published, straight colors.
+    pub color_lists: HashMap<PortRef, Vec<[f32; 4]>>,
     pub frames: HashMap<PortRef, Arc<Frame>>,
     pub actions: HashMap<PortRef, Vec<Event>>,
     pub held: HashSet<PortRef>,
@@ -250,6 +252,7 @@ impl Snapshot {
         self.uniforms.clear();
         self.uniform_colors.clear();
         self.lists.clear();
+        self.color_lists.clear();
         self.frames.clear();
         self.actions.clear();
         self.held.clear();
@@ -328,6 +331,7 @@ pub struct Uniforms<'a> {
     numbers: &'a HashMap<PortRef, f64>,
     colors: &'a HashMap<PortRef, [f32; 4]>,
     lists: &'a HashMap<PortRef, Vec<f64>>,
+    color_lists: &'a HashMap<PortRef, Vec<[f32; 4]>>,
 }
 
 // One caller inside this crate; a hasher parameter here would spread across every function
@@ -338,11 +342,13 @@ impl<'a> Uniforms<'a> {
         numbers: &'a HashMap<PortRef, f64>,
         colors: &'a HashMap<PortRef, [f32; 4]>,
         lists: &'a HashMap<PortRef, Vec<f64>>,
+        color_lists: &'a HashMap<PortRef, Vec<[f32; 4]>>,
     ) -> Self {
         Self {
             numbers,
             colors,
             lists,
+            color_lists,
         }
     }
 
@@ -352,6 +358,7 @@ impl<'a> Uniforms<'a> {
             &snapshot.uniforms,
             &snapshot.uniform_colors,
             &snapshot.lists,
+            &snapshot.color_lists,
         )
     }
 
@@ -378,6 +385,11 @@ impl<'a> Uniforms<'a> {
     /// What a number list port published this tick, on the same terms as [`Self::get`].
     pub fn list(self, port: PortRef) -> Option<&'a [f64]> {
         self.lists.get(&port).map(Vec::as_slice)
+    }
+
+    /// What a color list port published this tick, straight colors.
+    pub fn color_list(self, port: PortRef) -> Option<&'a [[f32; 4]]> {
+        self.color_lists.get(&port).map(Vec::as_slice)
     }
 
     /// What arrives at an input whose source is `source`.

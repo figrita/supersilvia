@@ -210,7 +210,10 @@ fn autoexposure_brings_a_dark_input_to_its_target() {
     let gain_name: Arc<str> = shader
         .uniforms
         .iter()
-        .find_map(|(n, p)| matches!(p, UniformProvider::NodeUniform { .. }).then(|| Arc::clone(n)))
+        .find_map(|(n, p)| {
+            matches!(p, UniformProvider::NodeUniform { node, .. } if *node == ae)
+                .then(|| Arc::clone(n))
+        })
         .expect("the gain uniform");
 
     // What it measures is its workspace's pass's, drawn after the Output each tick.

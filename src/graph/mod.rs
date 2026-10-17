@@ -973,14 +973,15 @@ impl Graph {
         let mut no_list: HashSet<NodeId> = HashSet::new();
         let mut producers: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
         for c in &self.cables.list {
-            let flips = self
+            let Some(flips) = self
                 .nodes
                 .get(&c.from.node)
                 .and_then(|n| n.output(c.from.key))
-                .is_some_and(|p| p.dual);
-            if !flips {
+                .filter(|p| p.dual)
+                .map(|p| p.ty)
+            else {
                 continue;
-            }
+            };
             let Some(consumer) = self.nodes.get(&c.to.node) else {
                 continue;
             };
@@ -988,10 +989,10 @@ impl Graph {
                 continue;
             };
             if !input.dual {
-                if !PortType::VaryingNumber.feeds(input.ty) {
+                if !flips.with_rate(Rate::Varying).feeds(input.ty) {
                     no_field.insert(c.from.node);
                 }
-                if !PortType::ListNumber.feeds(input.ty) {
+                if !flips.with_rate(Rate::List).feeds(input.ty) {
                     no_list.insert(c.from.node);
                 }
                 continue;

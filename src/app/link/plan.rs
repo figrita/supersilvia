@@ -448,7 +448,7 @@ fn read_through(
                     continue;
                 }
                 let evaluated = target.def.outputs.iter().any(|o| {
-                    o.eval.is_some()
+                    (o.eval.is_some() || o.eval_color.is_some())
                         && target
                             .output(o.key)
                             .is_some_and(|p| p.ty.is_uniform() || p.ty.is_list())

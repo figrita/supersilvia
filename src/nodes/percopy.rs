@@ -145,13 +145,17 @@ fn value(
     let Some(stem) = ctx.list_input(node, key) else {
         return ctx.input(node, key, "p");
     };
-    let at = match item {
+    format!("{stem}_at({}, {fallback})", at(&stem, item))
+}
+
+/// The index expression of the item `item` names, in a list whose stem is `stem`.
+fn at(stem: &str, item: Item<'_>) -> String {
+    match item {
         Item::Counted { index, count } => {
             format!("floor(({index}) * {stem}_len() / max({count}, 1.0))")
         }
         Item::Endless { sum } => format!("floor_mod({sum}, max({stem}_len(), 1.0))"),
-    };
-    format!("{stem}_at({at}, {fallback})")
+    }
 }
 
 /// Every row's value for one copy.
@@ -170,7 +174,10 @@ pub fn read(ctx: &mut CompileContext, node: NodeId, item: Item<'_>) -> Copy {
         v(SCALE_Y.key, "1.0"),
         v(SCALE_Z.key, "1.0")
     );
-    let color = format!("{}.rgb", ctx.input(node, COLOR.key, "p"));
+    let color = match ctx.list_input(node, COLOR.key) {
+        Some(stem) => format!("{stem}_at({}, vec4f(1.0)).rgb", at(&stem, item)),
+        None => format!("{}.rgb", ctx.input(node, COLOR.key, "p")),
+    };
     Copy {
         offset,
         turn,

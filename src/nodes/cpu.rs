@@ -742,6 +742,9 @@ pub struct TickContext<'a> {
     /// Every number list published so far this frame, each at most [`crate::nodes::list::CAP`]
     /// items, in `f64` as a number is.
     lists: &'a mut HashMap<PortRef, Vec<f64>>,
+    /// Every color list published so far this frame, straight colors, each at most
+    /// [`crate::nodes::list::CAP`] items.
+    color_lists: &'a mut HashMap<PortRef, Vec<[f32; 4]>>,
     frames: &'a mut HashMap<PortRef, Arc<Frame>>,
     /// Every simulation published so far, with the passes the renderer has not run yet.
     sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
@@ -815,6 +818,7 @@ impl<'a> TickContext<'a> {
         uniforms: &'a mut HashMap<PortRef, f64>,
         uniform_colors: &'a mut HashMap<PortRef, [f32; 4]>,
         lists: &'a mut HashMap<PortRef, Vec<f64>>,
+        color_lists: &'a mut HashMap<PortRef, Vec<[f32; 4]>>,
         frames: &'a mut HashMap<PortRef, Arc<Frame>>,
         sims: &'a mut HashMap<PortRef, crate::nodes::Simulation>,
         actions: &'a mut HashMap<PortRef, Vec<Event>>,
@@ -841,6 +845,7 @@ impl<'a> TickContext<'a> {
             uniforms,
             uniform_colors,
             lists,
+            color_lists,
             frames,
             sims,
             actions,
@@ -978,6 +983,74 @@ impl<'a> TickContext<'a> {
         }
         self.item = None;
         self.lists.insert(key, list);
+    }
+
+    /// [`Self::publish_per_item`] for a color: a dual color node's `eval_color` once per item,
+    /// published as the color list `port`.
+    pub fn publish_color_per_item(
+        &mut self,
+        id: NodeId,
+        port: &'static str,
+        eval: crate::nodes::EvalColorFn,
+    ) {
+        let count = self.items(id);
+        let key = PortRef::new(id, port);
+        let mut list = self.color_lists.remove(&key).unwrap_or_default();
+        list.clear();
+        for index in 0..count {
+            self.item = Some(Item {
+                node: id,
+                index,
+                count,
+            });
+            let c = eval(id, self);
+            list.push(c.map(|v| if v.is_finite() { v } else { 0.0 }));
+        }
+        self.item = None;
+        self.color_lists.insert(key, list);
+    }
+
+    /// Publish one of `id`'s color list outputs for this frame: its first
+    /// [`crate::nodes::list::CAP`] straight colors, a NaN as zero.
+    pub fn publish_color_list(
+        &mut self,
+        id: NodeId,
+        port: &'static str,
+        items: impl IntoIterator<Item = [f32; 4]>,
+    ) {
+        let list = self.color_lists.entry(PortRef::new(id, port)).or_default();
+        list.clear();
+        list.extend(
+            items
+                .into_iter()
+                .take(crate::nodes::list::CAP)
+                .map(|c| c.map(|v| if v.is_finite() { v } else { 0.0 })),
+        );
+    }
+
+    /// Take one of `id`'s color list outputs out of this frame.
+    pub fn withdraw_color_list(&mut self, id: NodeId, port: &'static str) {
+        self.color_lists.remove(&PortRef::new(id, port));
+    }
+
+    /// The color list on one of `id`'s color list inputs this frame: what a color list cabled in
+    /// published, a list of one where a single color is cabled in or the row has a swatch, and
+    /// empty otherwise.
+    pub fn color_list(&self, id: NodeId, key: &'static str) -> std::borrow::Cow<'_, [[f32; 4]]> {
+        use std::borrow::Cow;
+        match self.graph.source_of(PortRef::new(id, key)) {
+            Some(src) => match self.color_lists.get(&src) {
+                Some(items) => Cow::Borrowed(items.as_slice()),
+                None => match self.uniform_colors.get(&src) {
+                    Some(c) => Cow::Owned(vec![*c]),
+                    None => Cow::Borrowed(&[]),
+                },
+            },
+            None => match self.graph.get(id).and_then(|n| n.controls.get(key)) {
+                Some(ControlValue::Color(c)) => Cow::Owned(vec![*c]),
+                _ => Cow::Borrowed(&[]),
+            },
+        }
     }
 
     /// The color on one of `id`'s uniform color inputs this frame.
@@ -1441,4 +1514,95 @@ mod trace_ring_tests {
             (super::TRACE_MAX_SAMPLES + 99) as f32
         );
     }
+}
+
+/// What every dual output says on its own: each node's `eval` or `eval_color` run in tick
+/// order with no device, no clock and nothing a CPU node publishes — a uniform number or
+/// color where the graph has resolved the output to one, and a list where to a list. For a
+/// renderer driven without the synth, a test harness among them, so a color built from knobs
+/// on an `rgba` is the color it is in the app.
+#[derive(Default)]
+pub struct Duals {
+    pub numbers: HashMap<PortRef, f64>,
+    pub colors: HashMap<PortRef, [f32; 4]>,
+    pub lists: HashMap<PortRef, Vec<f64>>,
+    pub color_lists: HashMap<PortRef, Vec<[f32; 4]>>,
+}
+
+/// An asset table that resolves every reference to itself, for [`evaluate_duals`].
+struct NoAssets;
+
+impl Assets for NoAssets {
+    fn resolve(&self, reference: &str) -> PathBuf {
+        PathBuf::from(reference)
+    }
+
+    fn cache_dir(&self) -> PathBuf {
+        std::env::temp_dir()
+    }
+}
+
+/// See [`Duals`].
+pub fn evaluate_duals(graph: &Graph) -> Duals {
+    let mut d = Duals::default();
+    let (mut frames, mut sims, mut actions) = (HashMap::new(), HashMap::new(), HashMap::new());
+    let (late, held, readbacks) = (HashMap::new(), HashSet::new(), HashMap::new());
+    let (seeks, touches, mut jumps) = (HashMap::new(), HashMap::new(), HashSet::new());
+    let (mut control_writes, mut value_writes) = (Vec::new(), Vec::new());
+    for &id in graph.tick_order() {
+        let Some(node) = graph.get(id) else { continue };
+        let def = node.def;
+        if !def
+            .outputs
+            .iter()
+            .any(|o| o.eval.is_some() || o.eval_color.is_some())
+        {
+            continue;
+        }
+        let mut ctx = TickContext::new(
+            graph,
+            &mut d.numbers,
+            &mut d.colors,
+            &mut d.lists,
+            &mut d.color_lists,
+            &mut frames,
+            &mut sims,
+            &mut actions,
+            &late,
+            &mut jumps,
+            &held,
+            &readbacks,
+            &NoAssets,
+            &seeks,
+            &touches,
+            MainInputFeed::default(),
+            crate::pointer::Frame::default(),
+            &mut control_writes,
+            &mut value_writes,
+            0.0,
+            0.0,
+            crate::transport::Time::default(),
+        );
+        for out in def.outputs {
+            let rate = node.output(out.key).and_then(|p| p.ty.rate());
+            match (out.eval, out.eval_color, rate) {
+                (Some(eval), _, Some(crate::graph::Rate::Uniform)) => {
+                    let v = eval(id, &ctx);
+                    ctx.publish(id, out.key, v);
+                }
+                (Some(eval), _, Some(crate::graph::Rate::List)) => {
+                    ctx.publish_per_item(id, out.key, eval);
+                }
+                (_, Some(eval), Some(crate::graph::Rate::Uniform)) => {
+                    let c = eval(id, &ctx);
+                    ctx.publish_color(id, out.key, c);
+                }
+                (_, Some(eval), Some(crate::graph::Rate::List)) => {
+                    ctx.publish_color_per_item(id, out.key, eval);
+                }
+                _ => {}
+            }
+        }
+    }
+    d
 }

@@ -63,12 +63,10 @@ fn a_list_never_lands_on_a_one_value_input_and_a_number_is_offered_the_menu() {
     let range = add(&mut g, "range");
     let slew = add(&mut g, "slew");
     let zoom = add(&mut g, "zoom");
-    let colorize = add(&mut g, "rgba");
     let from = PortRef::new(range, "list");
     for (to, ty, offered) in [
         (PortRef::new(slew, "input"), PortType::UniformNumber, true),
         (PortRef::new(zoom, "zoom"), PortType::VaryingNumber, true),
-        (PortRef::new(colorize, "r"), PortType::VaryingNumber, true),
     ] {
         assert_eq!(
             g.connect(from, to),
@@ -690,4 +688,78 @@ fn a_saved_list_mode_patch_reopens_the_same() {
             .and_then(supersilvia::graph::Value::numbers),
         Some(&[0.25, 0.75][..])
     );
+}
+
+// ---------------------------------------------------------------- color lists
+
+fn out_ty(app: &App, node: NodeId, key: &str) -> PortType {
+    app.graph().get(node).unwrap().output(key).unwrap().ty
+}
+
+/// RGBA and HSLA are dual, as the maths is: one color a frame from knobs, so a solid's Color
+/// takes it; a color list from a list, one color per item; a picture from a field.
+#[test]
+fn hsla_is_one_color_from_knobs_a_color_list_from_a_list_and_a_picture_from_a_field() {
+    let mut app = App::headless();
+    let hsla = added(&mut app, "hsla");
+    assert_eq!(out_ty(&app, hsla, "output"), PortType::UniformColor);
+    let paint = added(&mut app, "paint");
+    app.apply(Command::Connect {
+        from: PortRef::new(hsla, "output"),
+        to: PortRef::new(paint, "color"),
+    })
+    .expect("knobs make one color, which a solid's Color takes");
+
+    let mut app = App::headless();
+    let hsla = added(&mut app, "hsla");
+    let range = added(&mut app, "range");
+    set(&mut app, range, "count", 4.0);
+    set(&mut app, range, "to", 0.75);
+    set(&mut app, hsla, "s", 1.0);
+    app.apply(Command::Connect {
+        from: PortRef::new(range, "list"),
+        to: PortRef::new(hsla, "h"),
+    })
+    .unwrap();
+    assert_eq!(out_ty(&app, hsla, "output"), PortType::ListColor);
+    app.tick(1.0 / 60.0);
+    let colors = app
+        .snapshot()
+        .color_lists
+        .get(&PortRef::new(hsla, "output"))
+        .cloned()
+        .expect("a color list");
+    assert_eq!(colors.len(), 4);
+    let near = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-4);
+    assert!(near(colors[0], [1.0, 0.0, 0.0, 1.0]), "{:?}", colors[0]);
+    assert!(near(colors[2], [0.0, 1.0, 1.0, 1.0]), "{:?}", colors[2]);
+
+    let mut app = App::headless();
+    let rgba = added(&mut app, "rgba");
+    let field = added(&mut app, "luminosity");
+    app.apply(Command::Connect {
+        from: PortRef::new(field, "output"),
+        to: PortRef::new(rgba, "r"),
+    })
+    .unwrap();
+    assert_eq!(out_ty(&app, rgba, "output"), PortType::VaryingColor);
+}
+
+/// A color list into a repeat's Color row lands, and compiles.
+#[test]
+fn a_color_list_lands_on_a_repeats_color() {
+    let mut app = App::headless();
+    let hsla = added(&mut app, "hsla");
+    let range = added(&mut app, "range");
+    let repeat = added(&mut app, "repeatgrid");
+    app.apply(Command::Connect {
+        from: PortRef::new(range, "list"),
+        to: PortRef::new(hsla, "h"),
+    })
+    .unwrap();
+    app.apply(Command::Connect {
+        from: PortRef::new(hsla, "output"),
+        to: PortRef::new(repeat, "copyColor"),
+    })
+    .expect("a color list into a repeat's Color");
 }

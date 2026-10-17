@@ -658,6 +658,9 @@ impl<'a> CompileContext<'a> {
     /// at an `f32` index held to the list, or `fallback` where the list is empty. `None` where
     /// no list is cabled in — a single number or a knob, which [`CompileContext::input`] reads.
     ///
+    /// A color list's `{stem}_at(item, fallback)` takes and gives a `vec4f`, premultiplied, one
+    /// color an element, at most [`uniform::COLOR_LIST_CAP`] of them.
+    ///
     /// The list rides in the uniform block whole ([`UniformProvider::NodeList`]), so a length
     /// change rebuilds nothing and an item is one indexed read.
     pub fn list_input(&mut self, id: NodeId, key: &'static str) -> Option<String> {
@@ -676,6 +679,26 @@ impl<'a> CompileContext<'a> {
                 port: src.key,
             },
         );
+        let color = node
+            .output(src.key)
+            .is_some_and(|p| p.ty == PortType::ListColor);
+        if color && self.emitted.insert(stem.clone()) {
+            self.functions.push(format!(
+                "fn {stem}_len() -> f32 {{
+    return {reference}[0].x;
+}}
+
+fn {stem}_at(item: f32, fallback: vec4f) -> vec4f {{
+    let n = min(u32({reference}[0].x), {cap}u);
+    if (n == 0u) {{
+        return fallback;
+    }}
+    let k = min(u32(max(item, 0.0)), n - 1u);
+    return {reference}[1u + k];
+}}",
+                cap = uniform::COLOR_LIST_CAP
+            ));
+        }
         if self.emitted.insert(stem.clone()) {
             self.functions.push(format!(
                 "fn {stem}_len() -> f32 {{

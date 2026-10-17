@@ -55,6 +55,17 @@ pub fn pack(
                         put(field.offset + 16 + 4 * k as u32, &v.to_ne_bytes());
                     }
                 }
+                Some(UniformValue::ColorList(items)) => {
+                    put(field.offset, &(items.len() as f32).to_ne_bytes());
+                    for (k, c) in items.iter().enumerate() {
+                        for (i, v) in c.iter().enumerate() {
+                            put(
+                                field.offset + 16 + 16 * k as u32 + 4 * i as u32,
+                                &v.to_ne_bytes(),
+                            );
+                        }
+                    }
+                }
                 Some(UniformValue::NodeTexture(_)) | None => {}
             },
         }
