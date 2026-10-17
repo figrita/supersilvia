@@ -9,6 +9,12 @@ struct Uniforms {
     u_control_mix4_amount: f32,
     u_control_repeater1_bgColor: vec4f,
     u_control_repeater1_columns: f32,
+    u_control_repeater1_copyColor: vec4f,
+    u_control_repeater1_copyScaleX: f32,
+    u_control_repeater1_copyScaleY: f32,
+    u_control_repeater1_copyTurn: f32,
+    u_control_repeater1_copyX: f32,
+    u_control_repeater1_copyY: f32,
     u_control_repeater1_rows: f32,
     u_control_repeater1_sourceHeight: f32,
     u_control_repeater1_sourceWidth: f32,
@@ -23,11 +29,21 @@ struct Uniforms {
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
+
 fn repeater1_output(uv: vec2f) -> vec4f {
-    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
-    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
     let rows = max(floor(u.u_control_repeater1_rows), 1.0);
     let columns = max(floor(u.u_control_repeater1_columns), 1.0);
+    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
+    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
     let spacing = max(u.u_control_repeater1_spacing, 0.0);
     let cellWidth = sourceWidth + spacing;
     let cellHeight = sourceHeight + spacing;
@@ -35,22 +51,29 @@ fn repeater1_output(uv: vec2f) -> vec4f {
     let totalHeight = rows * cellHeight - spacing;
     let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
     let gridUV = uv - gridOffset;
-    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
-    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
-    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
-        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
-        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
-        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
-    let sourceUV = vec2f(u.u_control_repeater1_sourceX, u.u_control_repeater1_sourceY) + cellUV
-        - vec2f(sourceWidth, sourceHeight) * 0.5;
-    return mix(u.u_control_repeater1_bgColor, defaultUvMap(sourceUV), mask);
+    let cellSize = vec2f(cellWidth, cellHeight);
+    let cell = floor(gridUV / cellSize);
+    let cellUV = clamp(floor_mod2(gridUV, cellSize), vec2f(0.0), cellSize);
+    let copyOffset = vec2f(u.u_control_repeater1_copyX, u.u_control_repeater1_copyY);
+    let copyTurn = u.u_control_repeater1_copyTurn;
+    let copyScale = vec2f(u.u_control_repeater1_copyScaleX, u.u_control_repeater1_copyScaleY);
+    let copyTint = u.u_control_repeater1_copyColor;
+    let copyUV = percopy_place2(cellUV - vec2f(sourceWidth, sourceHeight) * 0.5,
+        copyOffset, copyTurn, copyScale);
+    let mask = step(0.0, cell.x) * step(cell.x, columns - 1.0)
+        * step(0.0, cell.y) * step(cell.y, rows - 1.0)
+        * step(abs(copyUV.x), sourceWidth * 0.5) * step(abs(copyUV.y), sourceHeight * 0.5);
+    let sourceUV = vec2f(u.u_control_repeater1_sourceX, u.u_control_repeater1_sourceY) + copyUV;
+    let copy = defaultUvMap(sourceUV) * copyTint;
+    let bg = u.u_control_repeater1_bgColor;
+    return mix(bg, copy + bg * (1.0 - copy.a), mask);
 }
 
 fn repeater1_mask(uv: vec2f) -> f32 {
-    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
-    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
     let rows = max(floor(u.u_control_repeater1_rows), 1.0);
     let columns = max(floor(u.u_control_repeater1_columns), 1.0);
+    let sourceWidth = max(u.u_control_repeater1_sourceWidth, 1e-3);
+    let sourceHeight = max(u.u_control_repeater1_sourceHeight, 1e-3);
     let spacing = max(u.u_control_repeater1_spacing, 0.0);
     let cellWidth = sourceWidth + spacing;
     let cellHeight = sourceHeight + spacing;
@@ -58,12 +81,18 @@ fn repeater1_mask(uv: vec2f) -> f32 {
     let totalHeight = rows * cellHeight - spacing;
     let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
     let gridUV = uv - gridOffset;
-    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
-    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
-    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
-        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
-        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
-        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
+    let cellSize = vec2f(cellWidth, cellHeight);
+    let cell = floor(gridUV / cellSize);
+    let cellUV = clamp(floor_mod2(gridUV, cellSize), vec2f(0.0), cellSize);
+    let copyOffset = vec2f(u.u_control_repeater1_copyX, u.u_control_repeater1_copyY);
+    let copyTurn = u.u_control_repeater1_copyTurn;
+    let copyScale = vec2f(u.u_control_repeater1_copyScaleX, u.u_control_repeater1_copyScaleY);
+    let copyTint = u.u_control_repeater1_copyColor;
+    let copyUV = percopy_place2(cellUV - vec2f(sourceWidth, sourceHeight) * 0.5,
+        copyOffset, copyTurn, copyScale);
+    let mask = step(0.0, cell.x) * step(cell.x, columns - 1.0)
+        * step(0.0, cell.y) * step(cell.y, rows - 1.0)
+        * step(abs(copyUV.x), sourceWidth * 0.5) * step(abs(copyUV.y), sourceHeight * 0.5);
     return mask;
 }
 

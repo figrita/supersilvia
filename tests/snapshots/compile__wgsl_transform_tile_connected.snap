@@ -9,6 +9,12 @@ struct Uniforms {
     u_control_checkerboard3_color1: vec4f,
     u_control_checkerboard3_color2: vec4f,
     u_control_checkerboard3_frequency: f32,
+    u_control_tile1_copyColor: vec4f,
+    u_control_tile1_copyScaleX: f32,
+    u_control_tile1_copyScaleY: f32,
+    u_control_tile1_copyTurn: f32,
+    u_control_tile1_copyX: f32,
+    u_control_tile1_copyY: f32,
     u_control_vignette4_radius: f32,
     u_control_vignette4_softness: f32,
     u_control_vignette5_radius: f32,
@@ -23,6 +29,16 @@ struct Uniforms {
     u_control_vignette9_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
 
 fn checkerboard3_output(uv: vec2f) -> vec4f {
     let frequency = u.u_control_checkerboard3_frequency;
@@ -81,12 +97,20 @@ fn tile1_output(uv: vec2f) -> vec4f {
     let tileHeight = max(vignette5_mask(uv), 1e-3);
     let halfWidth = tileWidth * 0.5;
     let halfHeight = tileHeight * 0.5;
+    let half = vec2f(halfWidth, halfHeight);
     var scaledUV = uv * (vignette6_mask(uv)) + vec2f(vignette7_mask(uv), vignette8_mask(uv));
     scaledUV.x += (vignette9_mask(uv)) * tileWidth * floor((scaledUV.y + halfHeight) / tileHeight);
-    let tiledUV = vec2f(
+    let tileCell = floor((scaledUV + half) / vec2f(tileWidth, tileHeight));
+    let cellUV = clamp(vec2f(
         floor_mod(scaledUV.x + halfWidth, tileWidth) - halfWidth,
-        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight);
-    return checkerboard3_output(tiledUV);
+        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight), -half, half);
+    let copyOffset = vec2f(u.u_control_tile1_copyX, u.u_control_tile1_copyY);
+    let copyTurn = u.u_control_tile1_copyTurn;
+    let copyScale = vec2f(u.u_control_tile1_copyScaleX, u.u_control_tile1_copyScaleY);
+    let copyTint = u.u_control_tile1_copyColor;
+    let tiledUV = percopy_place2(cellUV, copyOffset, copyTurn, copyScale);
+    let inside = all(abs(tiledUV) <= half);
+    return select(vec4f(0.0), checkerboard3_output(tiledUV) * copyTint, inside);
 }
 
 @fragment

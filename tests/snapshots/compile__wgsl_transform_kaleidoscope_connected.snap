@@ -9,8 +9,13 @@ struct Uniforms {
     u_control_checkerboard3_color1: vec4f,
     u_control_checkerboard3_color2: vec4f,
     u_control_checkerboard3_frequency: f32,
-    u_control_vignette10_radius: f32,
-    u_control_vignette10_softness: f32,
+    u_control_kaleidoscope1_copyColor: vec4f,
+    u_control_kaleidoscope1_copyScaleX: f32,
+    u_control_kaleidoscope1_copyScaleY: f32,
+    u_control_kaleidoscope1_copyTurn: f32,
+    u_control_kaleidoscope1_copyX: f32,
+    u_control_kaleidoscope1_copyY: f32,
+    u_control_kaleidoscope1_segments: f32,
     u_control_vignette4_radius: f32,
     u_control_vignette4_softness: f32,
     u_control_vignette5_radius: f32,
@@ -25,6 +30,16 @@ struct Uniforms {
     u_control_vignette9_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
 
 fn checkerboard3_output(uv: vec2f) -> vec4f {
     let frequency = u.u_control_checkerboard3_frequency;
@@ -78,32 +93,31 @@ fn vignette9_mask(uv: vec2f) -> f32 {
     return mask;
 }
 
-fn vignette10_mask(uv: vec2f) -> f32 {
-    let radius = u.u_control_vignette10_radius;
-    let softness = max(u.u_control_vignette10_softness, 1e-4);
-    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
-    return mask;
-}
-
 fn kaleidoscope1_output(uv: vec2f) -> vec4f {
-    let segments = max(vignette4_mask(uv), 2.0);
-    let offset = vignette6_mask(uv);
-    let twist = vignette7_mask(uv);
-    var zoom = vignette8_mask(uv);
+    let segments = max(u.u_control_kaleidoscope1_segments, 2.0);
+    let offset = vignette5_mask(uv);
+    let twist = vignette6_mask(uv);
+    var zoom = vignette7_mask(uv);
     if (abs(zoom) < 1e-6) { zoom = select(1e-6, -1e-6, zoom < 0.0); }
-    let center = vec2f(vignette9_mask(uv), vignette10_mask(uv));
+    let center = vec2f(vignette8_mask(uv), vignette9_mask(uv));
     let p = uv - center;
     let r = length(p);
     let a = atan2(p.y, p.x) + r * twist;
     let segmentAngle = 2.0 * PI / segments;
-    let sourceIndex = floor(clamp(vignette5_mask(uv), 1.0, segments) - 1.0);
+    let sourceIndex = floor(clamp(vignette4_mask(uv), 1.0, segments) - 1.0);
+    let wedge = floor_mod(floor(a / segmentAngle), segments);
     var scaled = r / zoom;
     var localAngle = floor_mod(a, segmentAngle);
     if (floor_mod(floor(a / segmentAngle), 2.0) == 1.0) { localAngle = segmentAngle - localAngle; }
     localAngle += sourceIndex * segmentAngle;
     scaled += offset;
     let sampleUV = vec2f(scaled * cos(localAngle), scaled * sin(localAngle) * 0.5) + center;
-    return checkerboard3_output(sampleUV);
+    let copyOffset = vec2f(u.u_control_kaleidoscope1_copyX, u.u_control_kaleidoscope1_copyY);
+    let copyTurn = u.u_control_kaleidoscope1_copyTurn;
+    let copyScale = vec2f(u.u_control_kaleidoscope1_copyScaleX, u.u_control_kaleidoscope1_copyScaleY);
+    let copyTint = u.u_control_kaleidoscope1_copyColor;
+    let copyUV = percopy_place2(sampleUV - center, copyOffset, copyTurn, copyScale) + center;
+    return checkerboard3_output(copyUV) * copyTint;
 }
 
 @fragment

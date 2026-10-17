@@ -7,13 +7,16 @@ struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
     u_control_scatter1_bgColor: vec4f,
+    u_control_scatter1_copyColor: vec4f,
+    u_control_scatter1_copyScaleX: f32,
+    u_control_scatter1_copyScaleY: f32,
+    u_control_scatter1_copyTurn: f32,
+    u_control_scatter1_copyX: f32,
+    u_control_scatter1_copyY: f32,
     u_control_scatter1_density: f32,
-    u_control_scatter1_flipChance: f32,
     u_control_scatter1_jitter: f32,
     u_control_scatter1_presence: f32,
-    u_control_scatter1_rotation: f32,
     u_control_scatter1_scale: f32,
-    u_control_scatter1_scaleVariation: f32,
     u_control_scatter1_seed: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
@@ -37,16 +40,23 @@ fn hashRandom(v: vec2f) -> f32 {
     return bitcast<f32>(m) - 1.0;
 }
 
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
+
 fn scatter1_output(uv: vec2f) -> vec4f {
     let baseSize = 2.0 / max(u.u_control_scatter1_density, 1.0);
     let seed = u.u_control_scatter1_seed;
     let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
     let presence = u.u_control_scatter1_presence;
     let jitter = u.u_control_scatter1_jitter;
-    let rotation = u.u_control_scatter1_rotation;
-    let scale = u.u_control_scatter1_scale;
-    let scaleVariation = u.u_control_scatter1_scaleVariation;
-    let flipChance = u.u_control_scatter1_flipChance;
+    let halfExtent = 0.2 * max(u.u_control_scatter1_scale, 0.01);
     var result = u.u_control_scatter1_bgColor;
     var layerScale = array<f32, 3>(4.0, 2.0, 1.0);
     var layerChance = array<f32, 3>(0.12, 0.20, 0.35);
@@ -57,28 +67,23 @@ fn scatter1_output(uv: vec2f) -> vec4f {
         let baseCell = floor(uv / cellSize);
         for (var dy = 0; dy <= 0; dy++) {
         for (var dx = 0; dx <= 0; dx++) {
-            let neighbor = vec2f(f32(dx), f32(dy));
-            let key = baseCell + neighbor + layerOffset[layer] + seedOffset;
+            let cell = baseCell + vec2f(f32(dx), f32(dy));
+            let key = cell + layerOffset[layer] + seedOffset;
             let h1 = hashRandom(key);
             let h2 = hashRandom(key + 1.0);
-            let h3 = hashRandom(key + 2.0);
-            let h4 = hashRandom(key + 3.0);
-            let h5 = hashRandom(key + 4.0);
             let h6 = hashRandom(key + 5.0);
             if (h6 > presence * layerChance[layer]) { continue; }
 
-            let copyCenter = (baseCell + neighbor + 0.5) * cellSize
+            let copyCenter = (cell + 0.5) * cellSize
                 + (vec2f(h1, h2) - 0.5) * cellSize * jitter;
-            let halfExtent = 0.2 * max(scale * (1.0 - scaleVariation + scaleVariation * h5 * 2.0), 0.01);
-
-            let angle = (h3 - 0.5) * rotation * 2.0 * PI;
-            let cv = cos(-angle);
-            let sv = sin(-angle);
-            var scatterUV = mat2x2f(cv, -sv, sv, cv) * (uv - copyCenter) / halfExtent;
-            if (h4 < flipChance) { scatterUV.x = -scatterUV.x; }
+            let copyOffset = vec2f(u.u_control_scatter1_copyX, u.u_control_scatter1_copyY);
+            let copyTurn = u.u_control_scatter1_copyTurn;
+            let copyScale = vec2f(u.u_control_scatter1_copyScaleX, u.u_control_scatter1_copyScaleY);
+            let copyTint = u.u_control_scatter1_copyColor;
+            let scatterUV = percopy_place2(uv - copyCenter, copyOffset, copyTurn, copyScale) / halfExtent;
             if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) { continue; }
 
-            let sampled = defaultUvMap(scatterUV);
+            let sampled = defaultUvMap(scatterUV) * copyTint;
             result = sampled + result * (1.0 - sampled.a);
         }
         }
