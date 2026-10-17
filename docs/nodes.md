@@ -883,6 +883,24 @@ a node read depend on a repeat downstream of it.
 | **Range** (`range`) | Count, From, To, Ends → List | Count values evenly spaced From one To the other; Ends set to From Only leaves the last out, so a Range of turns closes a ring |
 | **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. An empty list publishes nothing |
 | **Length** (`length`) | List → Count | How many items |
+| **Bands** (`bands`) | Spectrum, Low, High, Count → Bands | Count bands of a Spectrum between Low and High (20 Hz and 16 kHz), their edges log-spaced, each the average of the buckets under it |
+| **Lag** (`lag`) | List, Rise, Fall → Output | Each item eased toward its input, Rise and Fall its time constants in seconds |
+
+**Every audio source publishes a Spectrum** — Audio In, Main Input and Video, through
+`audio_ports` — the analyzer's 128 buckets from 20 Hz to 20 kHz as they are this frame
+([media.md](media.md#the-spectrum)). Bands and Lag (`nodes::spectrum`) are what it is shaped
+by. **Bands averages**: a band's edges are log-spaced, so each is as many buckets wide as the
+next, and a band is the mean of the buckets under it, an edge's bucket weighed by how much of
+it the band holds. A band narrower than one bucket reads a window one bucket wide round its
+middle — the spectrum interpolated between bucket centers — so no band is ever empty. Low above
+High runs the bands from high to low; any list is read as a spectrum, its items log-spaced over
+20 Hz to 20 kHz whatever its length, and an empty one is no bands.
+
+**Lag is Slew's list form**, easing only: an item covers `1 − e^(−dt / Rise)` of the way up
+each tick and Fall's on the way down, so a step is 63% there after one of them, and zero lands
+at once; it steps on `dt`, so it holds while paused and across a jump. Its state is per item,
+by index: through a change of length the items that stay keep theirs, a new one starts at its
+input, and a dropped one is forgotten. A reset forgets them all.
 
 A list's row draws its items as a bar chart the height of the row, from zero, with its count
 beside it (`×8`). The chart's width is fixed, so a list that grows never moves the label; past
@@ -1105,7 +1123,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
 | `Math` | `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`, `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`, `smoothstep`, `threshold`, `random` |
-| `List` | `range`, `get`, `length` |
+| `List` | `range`, `get`, `length`, `bands`, `lag` |
 | `Control` | `number`, `clock`, `oscillator`, `animation`, `automation`, `slew`, `autogain`, `button`, `clockdivider`, `counter`, `adsr`, `smoothcounter`, `triggeredrandom`, `triggeredcolor`, `randomfire`, `euclideanrhythm`, `stepsequencer`, `xypad` |
 | `Gear` | `mastergear`, `ratiogear`, `time` |
 | `Solid` | `sphere`, `box`, `torus`, `cylinder`, `capsule`, `octahedron`, `ground`, `union`, `solidsubtract`, `intersect`, `place`, `stretch`, `solidmirror`, `twist`, `bend`, `repeatgrid`, `repeataround`, `inflate`, `shell`, `paint`, `displace`, `surfacetexture`, `cone`, `hexprism`, `pyramid`, `link`, `gyroid`, `elongate`, `morph`, `stripes3d`, `heightgradient`, `menger`, `mandelbulb`, `boxframe`, `superellipsoid`, `ellipsoid`, `helix`, `slab`, `dodecahedron`, `icosahedron`, `stairsunion`, `columnsunion`, `solidxor`, `warp`, `foldplane`, `wrap`, `fold`, `scattersphere`, `noisedisplace`, `checker3d`, `proximity`, `facing`, `distancebands`, `extrude`, `revolve`, `heightfield`, `solidrender` |

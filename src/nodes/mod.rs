@@ -91,6 +91,7 @@ pub mod sliderule;
 pub mod slimemold;
 pub mod smoothcounter;
 pub mod solids;
+pub mod spectrum;
 pub mod stargate;
 pub mod stepsequencer;
 pub mod syphon;
@@ -1406,6 +1407,8 @@ pub static REGISTRY: &[&NodeDef] = &[
     &list::RANGE,
     &list::GET,
     &list::LENGTH,
+    &spectrum::BANDS,
+    &spectrum::LAG,
     &number::DEF,
     &slew::DEF,
     &oscillator::DEF,

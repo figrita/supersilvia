@@ -40,6 +40,7 @@ const DRIVEN: &[(&str, &str)] = &[
     ("smoothcounter", "increment"),
     ("clockdivider", "input"),
     ("slew", "input"),
+    ("lag", "list"),
 ];
 
 fn add(app: &mut App, slug: &'static str) -> NodeId {
@@ -142,8 +143,8 @@ fn run(
 }
 
 /// Everything the node published on the last frame: each uniform output — a number or a
-/// color — each texture's pixels, each action output's edges and where they fell, and the
-/// playhead it reports.
+/// color — each list's items, each texture's pixels, each action output's edges and where
+/// they fell, and the playhead it reports.
 fn published(app: &App, id: NodeId, def: &nodes::NodeDef) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = def
         .outputs
@@ -155,6 +156,7 @@ fn published(app: &App, id: NodeId, def: &nodes::NodeDef) -> Vec<(String, String
                     format!("{:?}", app.uniform_color(port))
                 }
                 OutputKind::Uniform => format!("{:?}", app.uniform(port)),
+                OutputKind::List => format!("{:?}", app.snapshot().lists.get(&port)),
                 // A world stepped on the GPU is what its tick described: its shape, its numbers
                 // and the steps it has taken. `tests/gpu_sims.rs` and
                 // `tests/gpu_app.rs` hold the GPU's half.
@@ -231,7 +233,7 @@ fn a_reset_node_publishes_what_a_fresh_one_does() {
 fn a_stateful_node_is_somewhere_else_without_its_reset() {
     for slug in GEARS
         .iter()
-        .chain(&["slew", "counter", "smoothcounter", "slimemold"])
+        .chain(&["slew", "lag", "counter", "smoothcounter", "slimemold"])
     {
         let def = nodes::find(slug).unwrap();
         let mut fresh = App::headless();
