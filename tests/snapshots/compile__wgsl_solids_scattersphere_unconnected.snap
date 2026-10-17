@@ -87,6 +87,10 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// Whether a ray is being marched toward a surface.
+var<private> sd_march: bool;
+
+
 // Point `i` of `n` on the unit sphere's Fibonacci lattice, the first nearest +y.
 fn sd_fibonacci_point(i: f32, n: f32) -> vec3f {
     let phi = 6.2831853 * fract(i * 0.61803399);
@@ -183,6 +187,7 @@ fn solidrender3_output(uv: vec2f) -> vec4f {
     let glowing = u.u_control_solidrender3_glowAmount > 0.0;
     let reach = max(u.u_control_solidrender3_glowReach, 0.001);
     var acc = 0.0;
+    sd_march = true;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
         let hs = scattersphere1_solid_d(pp).x;
@@ -193,6 +198,7 @@ fn solidrender3_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    sd_march = false;
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
         if (min((pp.y - fh), scattersphere1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender3_lens, 0.001))) {

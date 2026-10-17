@@ -103,6 +103,10 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// Whether a ray is being marched toward a surface.
+var<private> sd_march: bool;
+
+
 // The point a solid is reading a field at; w is 0 in a picture.
 var<private> sd_at: vec4f;
 
@@ -173,14 +177,14 @@ fn repeatgrid1_solid_d(p: vec3f) -> vec4f {
     let n = vec3f(1.0);
     let mid = vec3f(0.0);
     let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
-    let side = select(vec3f(0.0), sign(p - (near - mid) * step), on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < 1; j++) {
         var cell = near;
         if (j > 0) {
-            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
-            if (dot(axis, side) == 0.0) { continue; }
-            cell += axis * side;
+            let a = (j - 1) / 2;
+            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
+            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) { continue; }
+            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
         }
         let q = p - (cell - mid) * step;
         let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
@@ -216,14 +220,14 @@ fn repeatgrid1_solid(p: vec3f) -> vec4f {
     let n = vec3f(1.0);
     let mid = vec3f(0.0);
     let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
-    let side = select(vec3f(0.0), sign(p - (near - mid) * step), on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < 1; j++) {
         var cell = near;
         if (j > 0) {
-            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
-            if (dot(axis, side) == 0.0) { continue; }
-            cell += axis * side;
+            let a = (j - 1) / 2;
+            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
+            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) { continue; }
+            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
         }
         let q = p - (cell - mid) * step;
         let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
@@ -258,6 +262,7 @@ fn solidrender7_output(uv: vec2f) -> vec4f {
     let glowing = u.u_control_solidrender7_glowAmount > 0.0;
     let reach = max(u.u_control_solidrender7_glowReach, 0.001);
     var acc = 0.0;
+    sd_march = true;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
         let hs = repeatgrid1_solid_d(pp).x;
@@ -268,6 +273,7 @@ fn solidrender7_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    sd_march = false;
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
         if (min((pp.y - fh), repeatgrid1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender7_lens, 0.001))) {

@@ -349,6 +349,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     let ro2 = pos + n * 0.002;
     var t2 = 0.01;
     var hit2 = false;
+    sd_march = true;
     for (var k = 0; k < {}; k++) {{
         {AT} = ro2 + rd2 * t2;
         let h = {scene};
@@ -356,6 +357,7 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         t2 += h * relax;
         if (t2 > 80.0) {{ break; }}
     }}
+    sd_march = false;
 {}{far2}    var rcol = {beyond2}.rgb;
     if (hit2) {{
         let p2 = ro2 + rd2 * t2;
@@ -470,13 +472,15 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-{track_init}    for (var i = 0; i < {steps}; i++) {{
+{track_init}    sd_march = true;
+    for (var i = 0; i < {steps}; i++) {{
         {AT} = {origin} + rd * t;
 {measure}        if (h < 0.0004 * t + 0.0001) {{ hit = true; break; }}
 {track}        t += h * relax;
         count += 1.0;
         if (t > 80.0) {{ break; }}
     }}
+    sd_march = false;
 {exhausted}{after_march}    let heat = count / {steps}.0;
 {rest}"
         ),
@@ -873,6 +877,6 @@ pub static RENDER: NodeDef = NodeDef {
         wgsl: |node, ctx, _| body(node, ctx),
         ..OutputDef::EMPTY
     }],
-    wgsl_utils: &[SDF],
+    wgsl_utils: &[SDF, super::MARCH_STATE],
     ..NodeDef::EMPTY
 };

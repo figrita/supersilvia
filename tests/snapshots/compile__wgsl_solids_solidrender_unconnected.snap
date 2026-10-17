@@ -77,6 +77,10 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// Whether a ray is being marched toward a surface.
+var<private> sd_march: bool;
+
+
 fn solidrender1_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
     let orbit = u.u_control_solidrender1_orbit * tau;
@@ -97,6 +101,7 @@ fn solidrender1_output(uv: vec2f) -> vec4f {
     let glowing = u.u_control_solidrender1_glowAmount > 0.0;
     let reach = max(u.u_control_solidrender1_glowReach, 0.001);
     var acc = 0.0;
+    sd_march = true;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
         let hs = vec4f(1.0e4, 0.5, 0.5, 0.5).x;
@@ -107,6 +112,7 @@ fn solidrender1_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    sd_march = false;
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
         if (min((pp.y - fh), vec4f(1.0e4, 0.5, 0.5, 0.5).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender1_lens, 0.001))) {

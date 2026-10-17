@@ -1975,11 +1975,17 @@ else differs per copy: whatever is upstream of a repeat is the same solid in eve
 
 **Copies that differ are measured against their neighbor.** While every copy is the same shape
 no copy is nearer a point than the one in its own cell. A list into Offset, Turn or Scale makes
-a copy taller than the one beside it, nearer to a point in that cell than that cell's own copy,
-and a ray stepping by the shorter one's distance would run into it. So a repeat with such a
-list evaluates the nearest copy and the one on the near side of each axis it repeats along, and
-keeps the nearer: twice the work for a row or a ring, three times for a plane, four for a grid
-in three dimensions. Knobs and a Color list never pay for it. Scatter on Sphere's cells are not
+a copy taller than the one beside it, nearer to a point in that cell than that cell's own copy
+— from either side of the cell, since a point high over a short copy is nearer a tall neighbor
+across the cell than the copy under it — and a ray stepping by the shorter one's distance would
+run into it. So a repeat with such a list evaluates the nearest copy and the ones either side
+of it on each axis it repeats along, and keeps the nearer: three times the work for a row or a
+ring, five for a plane, seven for a grid in three dimensions. **A copy further off is met at
+the measured block's edge**: while Render 3D marches a ray (`solids::MARCH_STATE`), a step is
+held to the outer walls of the cells measured, or a ring's two outer wedge planes away from its
+axis, so a tall copy two cells off is measured from the next cell rather than stepped into. A
+shadow, the occlusion and a normal read the copies' own distance, since the walls are no
+surface. Knobs and a Color list never pay for it. Scatter on Sphere's cells are not
 a grid and it measures the nearest alone, so copies it makes differ notch where a tall one
 stands beside a short one.
 

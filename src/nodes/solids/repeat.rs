@@ -11,15 +11,17 @@
 //! scale on each axis and a color, each a knob or a list. While every copy is the same shape
 //! the nearest cell is the whole answer. Once a list moves, turns or sizes the copies, a copy
 //! taller than the one beside it is nearer to a point in that cell than that cell's own copy,
-//! and a ray stepping by the shorter one's distance runs into it. So a repeat whose copies
-//! differ evaluates the nearest copy and the one on the near side of each axis it repeats
-//! along, and keeps the nearer: twice the cost for a row or a ring, three times for a plane,
-//! four for a grid in three dimensions. A Color list alone never pays for it.
+//! and a ray stepping by the shorter one's distance runs into it — from either side of the
+//! short copy's cell, since a point high over a short copy is nearer a tall neighbor across
+//! the cell than the copy under it. So a repeat whose copies differ evaluates the nearest copy
+//! and the ones either side of it on each axis it repeats along, and keeps the nearer: three
+//! times the cost for a row or a ring, five for a plane, seven for a grid in three dimensions.
+//! A Color list alone never pays for it.
 //!
 //! **Count is how many copies**, centered on the axis, and a list cabled into it is a count of
 //! its length: a Repeat over a list of sixteen bands draws sixteen copies.
 
-use super::{SDF, fill, num, out, solid};
+use super::{MARCH_STATE, SDF, fill, num, out, solid};
 use crate::nodes::percopy::{self, Item};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
@@ -104,7 +106,28 @@ pub static GRID: NodeDef = NodeDef {
                 "",
             )
         };
-        let loops = if differ { 4 } else { 1 };
+        let loops = if differ { 7 } else { 1 };
+        // Copies past the measured block are no nearer than its outer walls: a march's step
+        // never crosses one, so a copy two cells off that stands taller than the three measured
+        // is met at the wall and measured from the next cell. Only while a ray is marched
+        // (`MARCH_STATE`): a soft shadow reads the distance as how near the copies come, and the
+        // wall is no copy.
+        let beyond = if differ {
+            let (lo, hi) = if counted {
+                ("near >= vec3f(2.0)", "near <= n - 3.0")
+            } else {
+                ("vec3f(1.0) > vec3f(0.0)", "vec3f(1.0) > vec3f(0.0)")
+            };
+            format!(
+                "    let below = select(vec3f(1.0e9), p - (near - mid - 1.5) * step, on & ({lo}));
+    let above = select(vec3f(1.0e9), (near - mid + 1.5) * step - p, on & ({hi}));
+    let wall = min(min(below.x, below.y), min(below.z, min(above.x, min(above.y, above.z))));
+    if (sd_march) {{ best.x = min(best.x, wall); }}
+"
+            )
+        } else {
+            String::new()
+        };
         let body = format!(
             "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
     let on = s > vec3f(1.0e-4);
@@ -112,25 +135,25 @@ pub static GRID: NodeDef = NodeDef {
     let n = {n};
     let mid = {mid};
     let near = select(vec3f(0.0), {near}, on);
-    let side = select(vec3f(0.0), sign(p - (near - mid) * step), on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < {loops}; j++) {{
         var cell = near;
         if (j > 0) {{
-            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
-            if (dot(axis, side) == 0.0) {{ continue; }}
-            cell += axis * side;
+            let a = (j - 1) / 2;
+            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
+            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) {{ continue; }}
+            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
 {skip}        }}
         let q = p - (cell - mid) * step;
 {place}        let r = {inner};
         let d = r.x * k;
         if (d < best.x) {{ best = vec4f(d, {color}); }}
     }}
-    return best;"
+{beyond}    return best;"
         );
         fill(node, ctx, &body)
     })],
-    wgsl_utils: &[SDF],
+    wgsl_utils: &[SDF, MARCH_STATE],
     ..NodeDef::EMPTY
 };
 
@@ -193,7 +216,29 @@ pub static AROUND: NodeDef = NodeDef {
         } else {
             "r.yzw".to_string()
         };
-        let loops = if differ { 2 } else { 1 };
+        let loops = if differ { 3 } else { 1 };
+        // The ring's measured wedges end at two half-planes through the axis, and a copy past
+        // them is no nearer than they are; near the axis, where every wedge meets, the walls
+        // would hold a step to nothing, and the copies stand a Radius off.
+        let beyond = if differ {
+            "    if (sd_march && n > 3.0 && length(l.xz) > 0.5 * {radius}) {
+        let lo_ok = spread > 0.9999 || k0 >= 2.0;
+        let hi_ok = spread > 0.9999 || k0 <= n - 3.0;
+        var wall = 1.0e9;
+        for (var e = 0; e < 2; e++) {
+            if ((e == 0 && !lo_ok) || (e == 1 && !hi_ok)) { continue; }
+            let th = (k0 + select(-1.5, 1.5, e == 1)) * w0;
+            let dir = vec2f(cos(th), sin(th));
+            let along = dot(l.xz, dir);
+            wall = min(wall, select(length(l.xz), abs(dot(l.xz, vec2f(-dir.y, dir.x))), along > 0.0));
+        }
+        best.x = min(best.x, wall);
+    }
+"
+            .to_string()
+        } else {
+            String::new()
+        };
         // The copy is placed in the ring's frame, x out from the axis; its rows then move it in
         // that frame, and the result is turned back onto the chosen axis for the input.
         let body = format!(
@@ -204,10 +249,9 @@ pub static AROUND: NodeDef = NodeDef {
     let l = {into};
     let a = floor_mod(atan2(l.z, l.x), tau);
     let k0 = round(a / w0);
-    let toward = select(-1.0, 1.0, a > k0 * w0);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < {loops}; j++) {{
-        var i = k0 + f32(j) * toward;
+        var i = k0 + select(0.0, select(-1.0, 1.0, j == 1), j > 0);
         if (spread > 0.9999) {{
             i = floor_mod(i, n);
         }} else {{
@@ -221,10 +265,10 @@ pub static AROUND: NodeDef = NodeDef {
         let d = r.x * k;
         if (d < best.x) {{ best = vec4f(d, {color}); }}
     }}
-    return best;"
+{beyond}    return best;"
         );
         fill(node, ctx, &body)
     })],
-    wgsl_utils: &[SDF],
+    wgsl_utils: &[SDF, MARCH_STATE],
     ..NodeDef::EMPTY
 };

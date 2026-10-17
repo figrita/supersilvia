@@ -99,6 +99,10 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// Whether a ray is being marched toward a surface.
+var<private> sd_march: bool;
+
+
 // The point a solid is reading a field at; w is 0 in a picture.
 var<private> sd_at: vec4f;
 
@@ -155,10 +159,9 @@ fn repeataround1_solid_d(p: vec3f) -> vec4f {
     let l = p;
     let a = floor_mod(atan2(l.z, l.x), tau);
     let k0 = round(a / w0);
-    let toward = select(-1.0, 1.0, a > k0 * w0);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < 1; j++) {
-        var i = k0 + f32(j) * toward;
+        var i = k0 + select(0.0, select(-1.0, 1.0, j == 1), j > 0);
         if (spread > 0.9999) {
             i = floor_mod(i, n);
         } else {
@@ -202,10 +205,9 @@ fn repeataround1_solid(p: vec3f) -> vec4f {
     let l = p;
     let a = floor_mod(atan2(l.z, l.x), tau);
     let k0 = round(a / w0);
-    let toward = select(-1.0, 1.0, a > k0 * w0);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
     for (var j = 0; j < 1; j++) {
-        var i = k0 + f32(j) * toward;
+        var i = k0 + select(0.0, select(-1.0, 1.0, j == 1), j > 0);
         if (spread > 0.9999) {
             i = floor_mod(i, n);
         } else {
@@ -247,6 +249,7 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
     let glowing = u.u_control_solidrender6_glowAmount > 0.0;
     let reach = max(u.u_control_solidrender6_glowReach, 0.001);
     var acc = 0.0;
+    sd_march = true;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
         let hs = repeataround1_solid_d(pp).x;
@@ -257,6 +260,7 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
         count += 1.0;
         if (t > 80.0) { break; }
     }
+    sd_march = false;
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
         if (min((pp.y - fh), repeataround1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender6_lens, 0.001))) {
