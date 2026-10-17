@@ -891,8 +891,12 @@ CCCC. A list read over its own length reads itself, a single number is a list of
 wrapping and averaging are nodes of their own, Cycle and Resample.
 
 **The dual maths runs per item.** A list cabled into any input of a [dual](#dual-outputs) node
-— the eighteen Math nodes, Reframe Range and Slide Rule — puts it in **list mode**: its output
-is a `ListNumber`, its inputs draw as lists, and the tick runs its `eval` once per item. The
+— the eighteen Math nodes, Reframe Range, Slide Rule, RGBA and HSLA — puts it in **list
+mode**: its output is a list, and the tick runs its `eval` once per item. **Its inputs draw as
+lists before one arrives**: a list is the most they take and a single number is a list of
+one, so an Add or an HSLA shows two diamonds from the start and says what it takes, while its
+output shows what it gives now, one diamond from knobs (`canvas::drawn_type`). A field cabled
+in turns every port to the circle a field is. The
 output is as long as the longest list cabled in, a shorter one stretched across it and a single
 number or a knob the same on every item; an empty list cabled in makes the output empty. A node
 fed a list and a field at once would be both, so the second of those cables is refused on

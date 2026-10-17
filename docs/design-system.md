@@ -83,7 +83,9 @@ These are things the handoff specified that a reasonable person would guess wron
 - **Shape carries the type alongside color**, so the distinction survives a grayscale theme and
   a colorblind viewer. Four shapes: an action port is a rounded square, a uniform number port
   is a diamond, a list port is two overlapping diamonds on one level, the second a little to
-  the right and edged darker so the pair stays two, and everything else is a circle. **An unconnected input is a ring, not a filled
+  the right and edged darker so the pair stays two, and everything else is a circle. An input
+  that takes a list is drawn as one even while a single number feeds it — a maths node's, an
+  HSLA's — since a single number is a list of one; a field makes it a circle. **An unconnected input is a ring, not a filled
   dot** — the one thing silvia's uniformly filled ports do not say. Its interior is not empty
   canvas: it is a hole, the port's own hue sunk to `Theme::port_hole` (`s * 0.5`, `l = 0.12`),
   filled edge to edge under the stroke rather than a second, smaller dot floating inside a

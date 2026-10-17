@@ -869,6 +869,23 @@ fn foot(body: Rect) -> Rect {
     Rect::from_min_max(Pos2::new(body.min.x, body.max.y), body.max)
 }
 
+/// The type a port is drawn as: its own, except that a **dual input that takes a list** draws
+/// as a list while its node carries no field, since a list is the most it takes and a single
+/// number is a list of one. So an Add or an HSLA shows two diamonds before a list reaches it,
+/// and the circle a field makes it once one does.
+pub fn drawn_type(
+    node: &Node,
+    p: &crate::graph::PortDef,
+    is_input: bool,
+) -> crate::graph::PortType {
+    let field = node.outputs.iter().any(|o| o.dual && o.ty.is_varying());
+    if is_input && p.dual && p.takes_list && !field {
+        p.ty.with_rate(crate::graph::Rate::List)
+    } else {
+        p.ty
+    }
+}
+
 /// A port's dot and what it is, laid out with its node so cables and drop targets can be
 /// resolved after every node has been.
 ///
@@ -1068,7 +1085,7 @@ impl Layouts {
             let Some(p) = list.get(index) else { continue };
             self.ports.push(PortSlot {
                 port: crate::graph::PortRef::new(id, p.key),
-                ty: p.ty,
+                ty: drawn_type(node, p, is_input),
                 is_input,
                 center: Pos2::new(x, rect.min.y + r.top + r.height * 0.5),
             });
@@ -1088,7 +1105,7 @@ impl Layouts {
                 if node.collapsed || (hidden() && graph.targets_of(port).next().is_some()) {
                     self.ports.push(PortSlot {
                         port,
-                        ty: p.ty,
+                        ty: drawn_type(node, p, is_input),
                         is_input,
                         center: Pos2::new(x, y),
                     });
@@ -1111,7 +1128,7 @@ impl Layouts {
                 {
                     self.ports.push(PortSlot {
                         port,
-                        ty: p.ty,
+                        ty: drawn_type(node, p, true),
                         is_input: true,
                         center: Pos2::new(rect.min.x, heading),
                     });
