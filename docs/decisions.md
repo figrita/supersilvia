@@ -6834,7 +6834,7 @@ mixer's Projection section. Cast's option, and Texture's, is Projection.
 
 **Chosen** by the owner. A repeat moves, turns, sizes and colors its copies by its own Per
 copy rows, each a knob or a list ([nodes.md](nodes.md#repetition)), and whatever is upstream of
-a repeat is the same solid in every cell.
+a repeat is the same solid in every cell, or the same picture in every tile, cell, wedge or stamp.
 
 **What lost:**
 
@@ -6847,10 +6847,12 @@ a repeat is the same solid in every cell.
 - **A port type of its own for a number per copy**, which only a solid's number took. Built and
   struck by the owner: it broke the rule that a number goes wherever a number goes.
 - **The hashed rows beside the lists**: Repeat's Scatter, Spin, Size and Tint, Repeat Around's
-  stepped Rise, Turn and Grow and its Tint, and Scatter on Sphere's Spin, Size and Tint, each
-  from a hash of the cell and a Seed. Struck by the owner for one way to vary copies: a Random
-  or Range list into the Per copy rows does the same, at the price of a node and a cable, and on
-  a Forever Repeat a list cycles where the hash never repeated.
+  stepped Rise, Turn and Grow and its Tint, Scatter on Sphere's Spin, Size and Tint, and the
+  picture Scatter's Rotation, Scale Var and Flip, each from a hash of the cell and a Seed.
+  Struck by the owner for one way to vary copies: a Random or Range list into the Per copy rows
+  does the same, at the price of a node and a cable — a Random list into Turn or Scale X and Y,
+  and a list of 1 and −1 into Scale X for Flip — and on a Forever Repeat, a Tile or a Scatter a
+  list cycles where the hash never repeated. Scatter keeps its Seed, which places its copies.
 - **Count either side**: a Counted Repeat's Count laid that many copies each side of the
   middle, so the count was always odd and a list of sixteen could not be sixteen copies.
 - **A storage buffer for the lists**, one binding per module: every kind of program — an

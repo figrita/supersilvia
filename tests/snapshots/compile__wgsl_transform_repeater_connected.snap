@@ -12,14 +12,18 @@ struct Uniforms {
     u_control_checkerboard4_color1: vec4f,
     u_control_checkerboard4_color2: vec4f,
     u_control_checkerboard4_frequency: f32,
-    u_control_mix13_amount: f32,
-    u_control_rgba12_a: f32,
-    u_control_rgba12_b: f32,
-    u_control_rgba12_g: f32,
-    u_control_vignette10_radius: f32,
-    u_control_vignette10_softness: f32,
-    u_control_vignette11_radius: f32,
-    u_control_vignette11_softness: f32,
+    u_control_mix11_amount: f32,
+    u_control_repeater1_columns: f32,
+    u_control_repeater1_copyColor: vec4f,
+    u_control_repeater1_copyScaleX: f32,
+    u_control_repeater1_copyScaleY: f32,
+    u_control_repeater1_copyTurn: f32,
+    u_control_repeater1_copyX: f32,
+    u_control_repeater1_copyY: f32,
+    u_control_repeater1_rows: f32,
+    u_control_rgba10_a: f32,
+    u_control_rgba10_b: f32,
+    u_control_rgba10_g: f32,
     u_control_vignette5_radius: f32,
     u_control_vignette5_softness: f32,
     u_control_vignette6_radius: f32,
@@ -30,10 +34,20 @@ struct Uniforms {
     u_control_vignette8_softness: f32,
     u_control_vignette9_radius: f32,
     u_control_vignette9_softness: f32,
-    u_opt_mix13_curve: i32,
-    u_opt_mix13_method: i32,
+    u_opt_mix11_curve: i32,
+    u_opt_mix11_method: i32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
 
 fn checkerboard3_output(uv: vec2f) -> vec4f {
     let frequency = u.u_control_checkerboard3_frequency;
@@ -90,78 +104,77 @@ fn vignette9_mask(uv: vec2f) -> f32 {
     return mask;
 }
 
-fn vignette10_mask(uv: vec2f) -> f32 {
-    let radius = u.u_control_vignette10_radius;
-    let softness = max(u.u_control_vignette10_softness, 1e-4);
-    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
-    return mask;
-}
-
-fn vignette11_mask(uv: vec2f) -> f32 {
-    let radius = u.u_control_vignette11_radius;
-    let softness = max(u.u_control_vignette11_softness, 1e-4);
-    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
-    return mask;
-}
-
 fn repeater1_output(uv: vec2f) -> vec4f {
+    let rows = max(floor(u.u_control_repeater1_rows), 1.0);
+    let columns = max(floor(u.u_control_repeater1_columns), 1.0);
     let sourceWidth = max(vignette7_mask(uv), 1e-3);
     let sourceHeight = max(vignette8_mask(uv), 1e-3);
-    let rows = max(floor(vignette9_mask(uv)), 1.0);
-    let columns = max(floor(vignette10_mask(uv)), 1.0);
-    let spacing = max(vignette11_mask(uv), 0.0);
+    let spacing = max(vignette9_mask(uv), 0.0);
     let cellWidth = sourceWidth + spacing;
     let cellHeight = sourceHeight + spacing;
     let totalWidth = columns * cellWidth - spacing;
     let totalHeight = rows * cellHeight - spacing;
     let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
     let gridUV = uv - gridOffset;
-    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
-    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
-    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
-        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
-        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
-        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
-    let sourceUV = vec2f(vignette5_mask(uv), vignette6_mask(uv)) + cellUV
-        - vec2f(sourceWidth, sourceHeight) * 0.5;
-    return mix(checkerboard4_output(uv), checkerboard3_output(sourceUV), mask);
+    let cellSize = vec2f(cellWidth, cellHeight);
+    let cell = floor(gridUV / cellSize);
+    let cellUV = clamp(floor_mod2(gridUV, cellSize), vec2f(0.0), cellSize);
+    let copyOffset = vec2f(u.u_control_repeater1_copyX, u.u_control_repeater1_copyY);
+    let copyTurn = u.u_control_repeater1_copyTurn;
+    let copyScale = vec2f(u.u_control_repeater1_copyScaleX, u.u_control_repeater1_copyScaleY);
+    let copyTint = u.u_control_repeater1_copyColor;
+    let copyUV = percopy_place2(cellUV - vec2f(sourceWidth, sourceHeight) * 0.5,
+        copyOffset, copyTurn, copyScale);
+    let mask = step(0.0, cell.x) * step(cell.x, columns - 1.0)
+        * step(0.0, cell.y) * step(cell.y, rows - 1.0)
+        * step(abs(copyUV.x), sourceWidth * 0.5) * step(abs(copyUV.y), sourceHeight * 0.5);
+    let sourceUV = vec2f(vignette5_mask(uv), vignette6_mask(uv)) + copyUV;
+    let copy = checkerboard3_output(sourceUV) * copyTint;
+    let bg = checkerboard4_output(uv);
+    return mix(bg, copy + bg * (1.0 - copy.a), mask);
 }
 
 fn repeater1_mask(uv: vec2f) -> f32 {
+    let rows = max(floor(u.u_control_repeater1_rows), 1.0);
+    let columns = max(floor(u.u_control_repeater1_columns), 1.0);
     let sourceWidth = max(vignette7_mask(uv), 1e-3);
     let sourceHeight = max(vignette8_mask(uv), 1e-3);
-    let rows = max(floor(vignette9_mask(uv)), 1.0);
-    let columns = max(floor(vignette10_mask(uv)), 1.0);
-    let spacing = max(vignette11_mask(uv), 0.0);
+    let spacing = max(vignette9_mask(uv), 0.0);
     let cellWidth = sourceWidth + spacing;
     let cellHeight = sourceHeight + spacing;
     let totalWidth = columns * cellWidth - spacing;
     let totalHeight = rows * cellHeight - spacing;
     let gridOffset = vec2f(-totalWidth, -totalHeight) * 0.5;
     let gridUV = uv - gridOffset;
-    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
-    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
-    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
-        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
-        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
-        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
+    let cellSize = vec2f(cellWidth, cellHeight);
+    let cell = floor(gridUV / cellSize);
+    let cellUV = clamp(floor_mod2(gridUV, cellSize), vec2f(0.0), cellSize);
+    let copyOffset = vec2f(u.u_control_repeater1_copyX, u.u_control_repeater1_copyY);
+    let copyTurn = u.u_control_repeater1_copyTurn;
+    let copyScale = vec2f(u.u_control_repeater1_copyScaleX, u.u_control_repeater1_copyScaleY);
+    let copyTint = u.u_control_repeater1_copyColor;
+    let copyUV = percopy_place2(cellUV - vec2f(sourceWidth, sourceHeight) * 0.5,
+        copyOffset, copyTurn, copyScale);
+    let mask = step(0.0, cell.x) * step(cell.x, columns - 1.0)
+        * step(0.0, cell.y) * step(cell.y, rows - 1.0)
+        * step(abs(copyUV.x), sourceWidth * 0.5) * step(abs(copyUV.y), sourceHeight * 0.5);
     return mask;
 }
 
-fn rgba12_output(uv: vec2f) -> vec4f {
-    return premultiply(vec4f(repeater1_mask(uv), u.u_control_rgba12_g, u.u_control_rgba12_b, u.u_control_rgba12_a));
+fn rgba10_output(uv: vec2f) -> vec4f {
+    return premultiply(vec4f(repeater1_mask(uv), u.u_control_rgba10_g, u.u_control_rgba10_b, u.u_control_rgba10_a));
 }
 
-fn mix13_output(uv: vec2f) -> vec4f {
+fn mix11_output(uv: vec2f) -> vec4f {
     let a = repeater1_output(uv);
-    let b = rgba12_output(uv);
-    let amt = clamp(u.u_control_mix13_amount, 0.0, 1.0);
+    let b = rgba10_output(uv);
+    let amt = clamp(u.u_control_mix11_amount, 0.0, 1.0);
     let f = select(
         amt,
         clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
-        u.u_opt_mix13_curve == 1);
+        u.u_opt_mix11_curve == 1);
     let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
-    let m = u.u_opt_mix13_method;
+    let m = u.u_opt_mix11_method;
     if (m == 1) {
         return select(a, b, lum < f);
     } else if (m == 2) {
@@ -176,5 +189,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return mix13_output(uv);
+    return mix11_output(uv);
 }

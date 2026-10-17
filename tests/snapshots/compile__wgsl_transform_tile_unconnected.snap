@@ -6,6 +6,12 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
+    u_control_tile1_copyColor: vec4f,
+    u_control_tile1_copyScaleX: f32,
+    u_control_tile1_copyScaleY: f32,
+    u_control_tile1_copyTurn: f32,
+    u_control_tile1_copyX: f32,
+    u_control_tile1_copyY: f32,
     u_control_tile1_height: f32,
     u_control_tile1_offsetX: f32,
     u_control_tile1_offsetY: f32,
@@ -15,17 +21,35 @@ struct Uniforms {
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
+
 fn tile1_output(uv: vec2f) -> vec4f {
     let tileWidth = max(u.u_control_tile1_width, 1e-3);
     let tileHeight = max(u.u_control_tile1_height, 1e-3);
     let halfWidth = tileWidth * 0.5;
     let halfHeight = tileHeight * 0.5;
+    let half = vec2f(halfWidth, halfHeight);
     var scaledUV = uv * (u.u_control_tile1_span) + vec2f(u.u_control_tile1_offsetX, u.u_control_tile1_offsetY);
     scaledUV.x += (u.u_control_tile1_slide) * tileWidth * floor((scaledUV.y + halfHeight) / tileHeight);
-    let tiledUV = vec2f(
+    let tileCell = floor((scaledUV + half) / vec2f(tileWidth, tileHeight));
+    let cellUV = clamp(vec2f(
         floor_mod(scaledUV.x + halfWidth, tileWidth) - halfWidth,
-        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight);
-    return defaultUvMap(tiledUV);
+        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight), -half, half);
+    let copyOffset = vec2f(u.u_control_tile1_copyX, u.u_control_tile1_copyY);
+    let copyTurn = u.u_control_tile1_copyTurn;
+    let copyScale = vec2f(u.u_control_tile1_copyScaleX, u.u_control_tile1_copyScaleY);
+    let copyTint = u.u_control_tile1_copyColor;
+    let tiledUV = percopy_place2(cellUV, copyOffset, copyTurn, copyScale);
+    let inside = all(abs(tiledUV) <= half);
+    return select(vec4f(0.0), defaultUvMap(tiledUV) * copyTint, inside);
 }
 
 @fragment

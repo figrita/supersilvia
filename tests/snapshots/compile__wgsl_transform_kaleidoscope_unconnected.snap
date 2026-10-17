@@ -8,6 +8,12 @@ struct Uniforms {
     u_time: f32,
     u_control_kaleidoscope1_centerX: f32,
     u_control_kaleidoscope1_centerY: f32,
+    u_control_kaleidoscope1_copyColor: vec4f,
+    u_control_kaleidoscope1_copyScaleX: f32,
+    u_control_kaleidoscope1_copyScaleY: f32,
+    u_control_kaleidoscope1_copyTurn: f32,
+    u_control_kaleidoscope1_copyX: f32,
+    u_control_kaleidoscope1_copyY: f32,
     u_control_kaleidoscope1_offset: f32,
     u_control_kaleidoscope1_segments: f32,
     u_control_kaleidoscope1_sourceSegment: f32,
@@ -15,6 +21,16 @@ struct Uniforms {
     u_control_kaleidoscope1_zoom: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
+
+fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}
 
 fn kaleidoscope1_output(uv: vec2f) -> vec4f {
     let segments = max(u.u_control_kaleidoscope1_segments, 2.0);
@@ -28,13 +44,19 @@ fn kaleidoscope1_output(uv: vec2f) -> vec4f {
     let a = atan2(p.y, p.x) + r * twist;
     let segmentAngle = 2.0 * PI / segments;
     let sourceIndex = floor(clamp(u.u_control_kaleidoscope1_sourceSegment, 1.0, segments) - 1.0);
+    let wedge = floor_mod(floor(a / segmentAngle), segments);
     var scaled = r / zoom;
     var localAngle = floor_mod(a, segmentAngle);
     if (floor_mod(floor(a / segmentAngle), 2.0) == 1.0) { localAngle = segmentAngle - localAngle; }
     localAngle += sourceIndex * segmentAngle;
     scaled += offset;
     let sampleUV = vec2f(scaled * cos(localAngle), scaled * sin(localAngle) * 0.5) + center;
-    return defaultUvMap(sampleUV);
+    let copyOffset = vec2f(u.u_control_kaleidoscope1_copyX, u.u_control_kaleidoscope1_copyY);
+    let copyTurn = u.u_control_kaleidoscope1_copyTurn;
+    let copyScale = vec2f(u.u_control_kaleidoscope1_copyScaleX, u.u_control_kaleidoscope1_copyScaleY);
+    let copyTint = u.u_control_kaleidoscope1_copyColor;
+    let copyUV = percopy_place2(sampleUV - center, copyOffset, copyTurn, copyScale) + center;
+    return defaultUvMap(copyUV) * copyTint;
 }
 
 @fragment

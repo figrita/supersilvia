@@ -208,6 +208,9 @@ fn measured(g: &Graph) -> Vec<NodeId> {
         .collect()
 }
 
+/// The options set on a node, key and value.
+type Options = &'static [(&'static str, &'static str)];
+
 /// Fields on solids: a field onto a sphere's numbers, through maths and straight on, and Cast
 /// by every projection, onto a solid and into a picture. Each through an Output, its probe and
 /// its pass.
@@ -305,6 +308,65 @@ fn fields() -> Vec<Entry> {
             }
             push(format!("lists:{repeat}:{extent}"), &g, out);
         }
+    }
+
+    // Every picture's repeat with a list in every per-copy row and every count row, and Stamp
+    // on every layout with Overlap off and on: the rows read by the cell, the wedge, the
+    // lattice and the stamp.
+    let pictures: [(&str, &[&str], Options); 9] = [
+        ("tile", &[], &[]),
+        ("repeater", &["rows", "columns"], &[]),
+        ("kaleidoscope", &["segments"], &[("style", "spiral")]),
+        ("scatter", &[], &[("overlap", "on")]),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "grid"), ("overlap", "on")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "ring"), ("overlap", "on")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "ring"), ("overlap", "off")],
+        ),
+        (
+            "stamp",
+            &["count"],
+            &[("layout", "line"), ("overlap", "on")],
+        ),
+        ("stamp", &["count"], &[("layout", "points")]),
+    ];
+    for (slug, counts, options) in pictures {
+        let mut g = Graph::new();
+        let board = add(&mut g, "checkerboard");
+        let rep = add(&mut g, slug);
+        for (k, v) in options {
+            g.get_mut(rep)
+                .expect("just added")
+                .options
+                .insert(k, (*v).to_string());
+        }
+        g.connect(PortRef::new(board, "output"), PortRef::new(rep, "input"))
+            .expect("a picture into a repeat");
+        let range = add(&mut g, "range");
+        for key in
+            counts
+                .iter()
+                .copied()
+                .chain(["copyX", "copyY", "copyTurn", "copyScaleX", "copyScaleY"])
+        {
+            g.connect(PortRef::new(range, "list"), PortRef::new(rep, key))
+                .expect("a list into a repeat's row");
+        }
+        let out = add(&mut g, "output");
+        g.connect(PortRef::new(rep, "output"), PortRef::new(out, "input"))
+            .expect("picture into picture");
+        let named: Vec<String> = options.iter().map(|(_, v)| (*v).to_string()).collect();
+        push(format!("lists:{slug}:{}", named.join(":")), &g, out);
     }
 
     // Cast by every projection: a field onto a sphere's radius, and a picture straight into

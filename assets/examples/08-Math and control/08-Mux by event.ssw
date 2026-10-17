@@ -143,7 +143,7 @@
       "slug": "kaleidoscope",
       "pos": {
         "x": 1680.0,
-        "y": 304.0
+        "y": 454.0
       },
       "controls": {
         "segments": {
@@ -160,7 +160,7 @@
       "slug": "wave",
       "pos": {
         "x": 1680.0,
-        "y": 590.0
+        "y": 890.0
       },
       "controls": {
         "amplitude": {
@@ -190,7 +190,7 @@
       "slug": "button",
       "pos": {
         "x": 1680.0,
-        "y": 894.0
+        "y": 1194.0
       },
       "controls": {},
       "options": {}

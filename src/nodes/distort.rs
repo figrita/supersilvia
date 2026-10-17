@@ -9,9 +9,13 @@
 //! and `fisheye` in `transform.rs` do. The category says what a node does to the uv, not how
 //! wild the result looks; [decisions.md](../../../docs/decisions.md) has the argument.
 //!
-//! Every one of them reads its input through the macro's `at`, so the value spliced in is
+//! Every one of them reads its input at a coordinate of its own, so the value spliced in is
 //! `source(distortedUV)` and the transform composes into the caller's shader with no
-//! machinery of its own.
+//! machinery of its own: through the macro's `at`, or, for the four repeats — `kaleidoscope`,
+//! `tile`, `repeater` and `scatter` — through a body written out by hand. A repeat's Per copy
+//! rows take lists, which a `{key}` hole cannot read, and the macro has no form for their
+//! heading; each repeat reads its rows by its own copy, the wedge, the tile, the cell or the
+//! lattice cell ([`crate::nodes::percopy`]).
 //!
 //! Five departures from the source.
 //!
@@ -21,8 +25,8 @@
 //! zero at the radius, so the one distorted sample *is* the untouched one out there.
 //!
 //! **`repeater` is branchless.** Its four early returns become one coverage product, so the
-//! color and the mask share a `wgsl_common` block; silvia writes the whole grid test twice, once
-//! per generator.
+//! color and the mask share one block, `repeater_common`; silvia writes the whole grid test
+//! twice, once per generator.
 //!
 //! **Time and Offset, through `nodes::timing`.** silvia's `domainwarp` reads `u_time *
 //! timeSpeed`, and its `tunnel3d` drives the camera from a CPU phase accumulator with a
@@ -39,20 +43,58 @@
 //! **`domainwarp` publishes `value`, not `mask`.** The length of its warp vector is the raw
 //! quantity the picture was made from, not coverage, and `mask` means coverage.
 //!
-//! **`scatter` lays each copy over what is under it**, Porter–Duff over on premultiplied
-//! colors, `copy + under·(1 − copy.a)`, starting from the background. silvia's
-//! `mix(under, copy, copy.a)` mixes straight colors and gives a half-transparent copy over an
-//! opaque background an alpha below one; over opaque copies the two are the same.
+//! **`scatter` and `repeater` lay each copy over what is under it**, Porter–Duff over on
+//! premultiplied colors, `copy + under·(1 − copy.a)`, starting from the background. silvia's
+//! scatter `mix(under, copy, copy.a)` mixes straight colors and gives a half-transparent copy
+//! over an opaque background an alpha below one, and her repeater's `mix(background, copy,
+//! mask)` shows no background through a copy at all; over opaque copies all three are the
+//! same. A Color row's alpha is a copy's opacity, which needs the background under it.
 
-use crate::graph::PortType::{VaryingColor, VaryingNumber};
+use crate::compile::CompileContext;
+use crate::graph::NodeId;
+use crate::graph::PortType::{self, VaryingColor, VaryingNumber};
 use crate::nodes::macros::{node, varying};
 use crate::nodes::noise::{
     FBM_LOOP_WGSL, FBM_WGSL, LATTICE_HASH_WGSL, LOOP_CIRCLE_WGSL, SIMPLEX3D_WGSL, SIMPLEX4D_WGSL,
     fbm_time, noise_timing,
 };
+use crate::nodes::percopy::{self, Item};
 use crate::nodes::{
-    Category, Control, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
+    Category, Control, GenFn, InputDef, NodeDef, OptionDef, OutputDef, OutputKind, Timing,
 };
+
+/// An input of a node written out by hand rather than through `node!`: the repeats, whose Per
+/// copy rows the macro has no form for.
+pub(crate) const fn input(
+    key: &'static str,
+    label: &'static str,
+    ty: PortType,
+    control: Control,
+) -> InputDef {
+    InputDef {
+        key,
+        label,
+        ty,
+        control,
+    }
+}
+
+/// A shader output of a node written out by hand.
+pub(crate) const fn shader_out(
+    key: &'static str,
+    label: &'static str,
+    ty: PortType,
+    wgsl: GenFn,
+) -> OutputDef {
+    OutputDef {
+        key,
+        label,
+        ty,
+        kind: OutputKind::Shader,
+        wgsl,
+        ..OutputDef::EMPTY
+    }
+}
 
 // ------------------------------------------------------------------------------ shader helpers
 
@@ -321,9 +363,10 @@ node! {
 
 // ------------------------------------------------------------------------------ kaleidoscope
 
-/// The polar frame every kaleidoscope style works in.
-const KALEIDOSCOPE_SETUP_WGSL: &str = "    let segments = max({segments}, 2.0);
-    let offset = {offset};
+/// The polar frame every kaleidoscope style works in, after `segments` is declared. `wedge` is
+/// which wedge the fragment is in, counted round from the angle's zero: the copy whose Per
+/// copy rows it reads.
+const KALEIDOSCOPE_SETUP_WGSL: &str = "    let offset = {offset};
     let twist = {twist};
     var zoom = {zoom};
     if (abs(zoom) < 1e-6) { zoom = select(1e-6, -1e-6, zoom < 0.0); }
@@ -333,6 +376,7 @@ const KALEIDOSCOPE_SETUP_WGSL: &str = "    let segments = max({segments}, 2.0);
     let a = atan2(p.y, p.x) + r * twist;
     let segmentAngle = 2.0 * PI / segments;
     let sourceIndex = floor(clamp({sourceSegment}, 1.0, segments) - 1.0);
+    let wedge = floor_mod(floor(a / segmentAngle), segments);
 ";
 
 /// Every other wedge mirrored, which is what a tube of mirrors does. The half-height is
@@ -363,53 +407,115 @@ const KALEIDOSCOPE_SPIRAL_WGSL: &str =
     let sampleUV = vec2f(spiralU * 2.0 - 1.0, spiralV * 2.0 - 1.0) + center;
 ";
 
-node! {
-    /// The frame folded into wedges around a center.
-    KALEIDOSCOPE,
+/// The frame folded into wedges around a center.
+pub static KALEIDOSCOPE: NodeDef = NodeDef {
     slug: "kaleidoscope",
     icon: "🌸",
     label: "Kaleidoscope",
-    category: Transform,
+    category: Category::Transform,
     tooltip: "Folds the input into wedges around a center. Classic mirrors every other wedge, \
               Continuous repeats one without mirroring, and Spiral unwraps the wedge into a \
               tunnel. Source Segment picks which wedge is copied. Classic closes only on an \
               even Segments: an odd count leaves one wedge, on the left, mirrored about its own \
-              middle.",
+              middle. A list into Segments makes as many wedges as it has items. Per copy \
+              moves, turns, sizes and colors what each wedge shows, about the center, from a \
+              knob or a list.",
     // "Source Segment" does not fit the default 200.
-    width: 216.0,
-    inputs: [
-        VaryingColor "input" "Input" at "sampleUV" = Control::None,
-        VaryingNumber "segments" "Segments" = Control::num(6.0, 2.0, 32.0, 1.0, ""),
-        VaryingNumber "sourceSegment" "Source Segment"
-            = Control::num_capped(1.0, 1.0, 6.0, 1.0, "", "segments"),
-        VaryingNumber "offset" "Shift" = Control::num(0.0, -1.0, 1.0, 0.01, "⬓"),
-        VaryingNumber "twist" "Twist" = Control::num(0.0, -5.0, 5.0, 0.01, ""),
-        VaryingNumber "zoom" "Zoom" = Control::num_log(1.0, 0.1, 5.0, 0.01, "x"),
-        VaryingNumber "centerX" "Center X" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
-        VaryingNumber "centerY" "Center Y" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
+    width: Some(216.0),
+    inputs: &[
+        input("input", "Input", VaryingColor, Control::None),
+        percopy::count_from("segments", "Segments", 6.0, 2.0, 32.0),
+        input(
+            "sourceSegment",
+            "Source Segment",
+            VaryingNumber,
+            Control::num_capped(1.0, 1.0, 6.0, 1.0, "", "segments"),
+        ),
+        input(
+            "offset",
+            "Shift",
+            VaryingNumber,
+            Control::num(0.0, -1.0, 1.0, 0.01, "⬓"),
+        ),
+        input(
+            "twist",
+            "Twist",
+            VaryingNumber,
+            Control::num(0.0, -5.0, 5.0, 0.01, ""),
+        ),
+        input(
+            "zoom",
+            "Zoom",
+            VaryingNumber,
+            Control::num_log(1.0, 0.1, 5.0, 0.01, "x"),
+        ),
+        input(
+            "centerX",
+            "Center X",
+            VaryingNumber,
+            Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
+        ),
+        input(
+            "centerY",
+            "Center Y",
+            VaryingNumber,
+            Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
+        ),
+        percopy::OFFSET_X,
+        percopy::OFFSET_Y,
+        percopy::TURN,
+        percopy::SCALE_X,
+        percopy::SCALE_Y,
+        percopy::COLOR,
     ],
-    options: [
-        "style" "Style" = "classic" [
-            "classic" => "Classic",
-            "continuous" => "Continuous",
-            "spiral" => "Spiral",
-        ],
+    options: &[
+        OptionDef {
+            key: "style",
+            label: "Style",
+            default: "classic",
+            choices: &[
+                ("classic", "Classic"),
+                ("continuous", "Continuous"),
+                ("spiral", "Spiral"),
+            ],
+            ..OptionDef::EMPTY
+        },
+        percopy::HEADING,
     ],
-    wgsl_common: varying(|node, ctx| {
-        [
-            KALEIDOSCOPE_SETUP_WGSL,
-            match ctx.option(node, "style") {
+    row_headings: percopy::ROW_HEADINGS,
+    wgsl_utils: &[percopy::PLACE_2D_WGSL],
+    outputs: &[shader_out(
+        "output",
+        "Output",
+        VaryingColor,
+        |node, ctx, _| {
+            let segments = percopy::count_of(ctx, node, "segments");
+            let copy = percopy::read_2d(
+                ctx,
+                node,
+                Item::Counted {
+                    index: "wedge",
+                    count: "segments",
+                },
+            );
+            let style = match ctx.option(node, "style") {
                 "continuous" => KALEIDOSCOPE_CONTINUOUS_WGSL,
                 "spiral" => KALEIDOSCOPE_SPIRAL_WGSL,
                 _ => KALEIDOSCOPE_CLASSIC_WGSL,
-            },
-        ]
-        .concat()
-    }),
-    outputs: [
-        VaryingColor "output" "Output" = PASS_THROUGH,
-    ],
-}
+            };
+            // A wedge's rows move, turn and size the point it samples about the center.
+            let src = format!(
+                "    let segments = max({segments}, 2.0);
+{KALEIDOSCOPE_SETUP_WGSL}{style}{bind}    let copyUV = {place} + center;
+    return {{input}} * copyTint;",
+                bind = percopy::bind_2d(&copy, "    "),
+                place = percopy::place_2d("sampleUV - center"),
+            );
+            percopy::fill_2d(node, ctx, &src, &[("input", "copyUV")])
+        },
+    )],
+    ..NodeDef::EMPTY
+};
 
 // -------------------------------------------------------------------------------------- tile
 
@@ -423,55 +529,120 @@ fn tile_slide(direction: &str) -> &'static str {
     }
 }
 
-node! {
-    /// The whole plane wrapped onto one rectangle of it, over and over.
-    TILE,
+/// The whole plane wrapped onto one rectangle of it, over and over.
+pub static TILE: NodeDef = NodeDef {
     slug: "tile",
     icon: "🧱",
     label: "Tile",
-    category: Transform,
+    category: Category::Transform,
     tooltip: "Wraps the coordinate onto one rectangle, so the input repeats across the frame. \
-              Slide staggers every row or column, which is how a brick bond is made.",
+              Slide staggers every row or column, which is how a brick bond is made; Offset \
+              X and Y pan the whole plane. Per copy moves, turns, sizes and colors each tile, \
+              from a knob or a list: a list cycles, each row one item further along, so two \
+              items make a checkerboard and three make diagonals. A tile moved or grown past \
+              its rectangle is cut at its edge.",
     // "Slide Direction" beside "Horizontal (Rows)" needs 246 of the 200 a body has by
     // default, and a direction that reads "Horizont…" closed is the one setting that says
     // which way the bond runs.
-    width: 224.0,
-    inputs: [
-        VaryingColor "input" "Input" at "tiledUV" = Control::None,
-        VaryingNumber "width" "Width" = Control::num(2.0, 0.1, 10.0, 0.1, "⬓"),
-        VaryingNumber "height" "Height" = Control::num(2.0, 0.1, 10.0, 0.1, "⬓"),
-        VaryingNumber "span" "Span" = Control::num(1.0, 0.1, 5.0, 0.01, "x"),
-        VaryingNumber "offsetX" "Offset X" = Control::num(0.0, -5.0, 5.0, 0.01, "⬓"),
-        VaryingNumber "offsetY" "Offset Y" = Control::num(0.0, -5.0, 5.0, 0.01, "⬓"),
-        VaryingNumber "slide" "Slide" = Control::num(0.0, -1.0, 1.0, 0.01, ""),
+    width: Some(224.0),
+    inputs: &[
+        input("input", "Input", VaryingColor, Control::None),
+        input(
+            "width",
+            "Width",
+            VaryingNumber,
+            Control::num(2.0, 0.1, 10.0, 0.1, "⬓"),
+        ),
+        input(
+            "height",
+            "Height",
+            VaryingNumber,
+            Control::num(2.0, 0.1, 10.0, 0.1, "⬓"),
+        ),
+        input(
+            "span",
+            "Span",
+            VaryingNumber,
+            Control::num(1.0, 0.1, 5.0, 0.01, "x"),
+        ),
+        input(
+            "offsetX",
+            "Offset X",
+            VaryingNumber,
+            Control::num(0.0, -5.0, 5.0, 0.01, "⬓"),
+        ),
+        input(
+            "offsetY",
+            "Offset Y",
+            VaryingNumber,
+            Control::num(0.0, -5.0, 5.0, 0.01, "⬓"),
+        ),
+        input(
+            "slide",
+            "Slide",
+            VaryingNumber,
+            Control::num(0.0, -1.0, 1.0, 0.01, ""),
+        ),
+        percopy::OFFSET_X,
+        percopy::OFFSET_Y,
+        percopy::TURN,
+        percopy::SCALE_X,
+        percopy::SCALE_Y,
+        percopy::COLOR,
     ],
-    options: [
-        "slideDirection" "Slide Direction" = "horizontal" [
-            "horizontal" => "Horizontal (Rows)",
-            "vertical" => "Vertical (Columns)",
-        ],
+    options: &[
+        OptionDef {
+            key: "slideDirection",
+            label: "Slide Direction",
+            default: "horizontal",
+            choices: &[
+                ("horizontal", "Horizontal (Rows)"),
+                ("vertical", "Vertical (Columns)"),
+            ],
+            ..OptionDef::EMPTY
+        },
+        percopy::HEADING,
     ],
-    // A cable can drive either side to zero, where the modulo is undefined.
-    wgsl_common: varying(|node, ctx| {
-        [
-            "    let tileWidth = max({width}, 1e-3);
-    let tileHeight = max({height}, 1e-3);
+    row_headings: percopy::ROW_HEADINGS,
+    wgsl_utils: &[percopy::PLACE_2D_WGSL],
+    outputs: &[shader_out(
+        "output",
+        "Output",
+        VaryingColor,
+        |node, ctx, _| {
+            let copy = percopy::read_2d(
+                ctx,
+                node,
+                Item::Endless {
+                    sum: "tileCell.x + tileCell.y",
+                },
+            );
+            // A cable can drive either side to zero, where the modulo is undefined. The fold's
+            // rounding can land a hair outside the tile, which the clamp takes back, so a tile its
+            // rows leave alone is never cut.
+            let src = format!(
+                "    let tileWidth = max({{width}}, 1e-3);
+    let tileHeight = max({{height}}, 1e-3);
     let halfWidth = tileWidth * 0.5;
     let halfHeight = tileHeight * 0.5;
-    var scaledUV = uv * ({span}) + vec2f({offsetX}, {offsetY});
-",
-            tile_slide(ctx.option(node, "slideDirection")),
-            "    let tiledUV = vec2f(
+    let half = vec2f(halfWidth, halfHeight);
+    var scaledUV = uv * ({{span}}) + vec2f({{offsetX}}, {{offsetY}});
+{slide}    let tileCell = floor((scaledUV + half) / vec2f(tileWidth, tileHeight));
+    let cellUV = clamp(vec2f(
         floor_mod(scaledUV.x + halfWidth, tileWidth) - halfWidth,
-        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight);
-",
-        ]
-        .concat()
-    }),
-    outputs: [
-        VaryingColor "output" "Output" = PASS_THROUGH,
-    ],
-}
+        floor_mod(scaledUV.y + halfHeight, tileHeight) - halfHeight), -half, half);
+{bind}    let tiledUV = {place};
+    let inside = all(abs(tiledUV) <= half);
+    return select(vec4f(0.0), {{input}} * copyTint, inside);",
+                slide = tile_slide(ctx.option(node, "slideDirection")),
+                bind = percopy::bind_2d(&copy, "    "),
+                place = percopy::place_2d("cellUV"),
+            );
+            percopy::fill_2d(node, ctx, &src, &[("input", "tiledUV")])
+        },
+    )],
+    ..NodeDef::EMPTY
+};
 
 // ---------------------------------------------------------------------------------- repeater
 
@@ -486,14 +657,9 @@ fn repeater_origin_wgsl(alignment: &str) -> &'static str {
     }
 }
 
-/// The grid, and whether this fragment lands on a copy of the source rectangle.
-///
-/// silvia asks that in four early returns; a product of `step`s answers the same question
-/// with no branch and, being a float, is the mask as well.
+/// The grid, after `rows` and `columns` are declared.
 const REPEATER_GRID_WGSL: &str = "    let sourceWidth = max({sourceWidth}, 1e-3);
     let sourceHeight = max({sourceHeight}, 1e-3);
-    let rows = max(floor({rows}), 1.0);
-    let columns = max(floor({columns}), 1.0);
     let spacing = max({spacing}, 0.0);
     let cellWidth = sourceWidth + spacing;
     let cellHeight = sourceHeight + spacing;
@@ -501,63 +667,144 @@ const REPEATER_GRID_WGSL: &str = "    let sourceWidth = max({sourceWidth}, 1e-3)
     let totalHeight = rows * cellHeight - spacing;
 ";
 
-const REPEATER_CELL_WGSL: &str = "    let gridUV = uv - gridOffset;
-    let cell = floor(gridUV / vec2f(cellWidth, cellHeight));
-    let cellUV = floor_mod2(gridUV, vec2f(cellWidth, cellHeight));
-    let mask = step(0.0, gridUV.x) * step(gridUV.x, totalWidth)
-        * step(0.0, gridUV.y) * step(gridUV.y, totalHeight)
-        * step(cell.x, columns - 1.0) * step(cell.y, rows - 1.0)
-        * step(cellUV.x, sourceWidth) * step(cellUV.y, sourceHeight);
+/// The cell this fragment is in, the copy's own uv measured from the source rectangle's
+/// center, and whether it lands on the copy — after the copy's rows are bound.
+///
+/// silvia asks that in four early returns; a product of `step`s answers the same question
+/// with no branch and, being a float, is the mask as well. A copy's rows move, turn and size
+/// it inside its cell, spacing included, and its cell's edge cuts it. The fold's rounding can
+/// land a hair outside the cell, which the clamp takes back.
+const REPEATER_CELL_WGSL: &str =
+    "    let copyUV = percopy_place2(cellUV - vec2f(sourceWidth, sourceHeight) * 0.5,
+        copyOffset, copyTurn, copyScale);
+    let mask = step(0.0, cell.x) * step(cell.x, columns - 1.0)
+        * step(0.0, cell.y) * step(cell.y, rows - 1.0)
+        * step(abs(copyUV.x), sourceWidth * 0.5) * step(abs(copyUV.y), sourceHeight * 0.5);
 ";
 
-node! {
-    /// One rectangle of the input, laid out in a grid of copies.
-    REPEATER,
+/// The WGSL a Repeater's outputs share: the grid, the cell, its copy's rows and the mask.
+fn repeater_common(node: NodeId, ctx: &mut CompileContext) -> String {
+    let rows = percopy::count_of(ctx, node, "rows");
+    let columns = percopy::count_of(ctx, node, "columns");
+    let copy = percopy::read_2d(
+        ctx,
+        node,
+        Item::Counted {
+            index: "cell.y * columns + cell.x",
+            count: "rows * columns",
+        },
+    );
+    format!(
+        "    let rows = max(floor({rows}), 1.0);
+    let columns = max(floor({columns}), 1.0);
+{REPEATER_GRID_WGSL}{origin}    let gridUV = uv - gridOffset;
+    let cellSize = vec2f(cellWidth, cellHeight);
+    let cell = floor(gridUV / cellSize);
+    let cellUV = clamp(floor_mod2(gridUV, cellSize), vec2f(0.0), cellSize);
+{bind}{REPEATER_CELL_WGSL}",
+        origin = repeater_origin_wgsl(ctx.option(node, "alignment")),
+        bind = percopy::bind_2d(&copy, "    "),
+    )
+}
+
+/// One rectangle of the input, laid out in a grid of copies.
+pub static REPEATER: NodeDef = NodeDef {
     slug: "repeater",
     icon: "🪩",
     label: "Repeater",
-    category: Transform,
+    category: Category::Transform,
     tooltip: "Copies one rectangle of the input into a grid of rows and columns, with spacing \
-              between them and the background showing through. Grid Mask is where a copy is.",
+              between them and the background showing through. Grid Mask is where a copy is. \
+              A list into Rows or Columns makes as many as it has items. Per copy moves, turns, \
+              sizes and colors each copy inside its cell, from a knob or a list stretched over \
+              the copies, row by row from the bottom left; a copy moved or grown past its cell \
+              is cut at the cell's edge.",
     // "Source Height" does not fit the default 200.
-    width: 216.0,
-    inputs: [
-        VaryingColor "input" "Input" at "sourceUV" = Control::None,
-        VaryingColor "bgColor" "Background" = Control::color("#00000000"),
-        VaryingNumber "sourceX" "Source X" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
-        VaryingNumber "sourceY" "Source Y" = Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
-        VaryingNumber "sourceWidth" "Source Width" = Control::num(0.5, 0.01, 4.0, 0.01, "⬓"),
-        VaryingNumber "sourceHeight" "Source Height" = Control::num(0.5, 0.01, 4.0, 0.01, "⬓"),
-        VaryingNumber "rows" "Rows" = Control::num(3.0, 1.0, 20.0, 1.0, ""),
-        VaryingNumber "columns" "Columns" = Control::num(3.0, 1.0, 20.0, 1.0, ""),
-        VaryingNumber "spacing" "Spacing" = Control::num(0.0, 0.0, 1.0, 0.01, "⬓"),
+    width: Some(216.0),
+    inputs: &[
+        input("input", "Input", VaryingColor, Control::None),
+        input(
+            "bgColor",
+            "Background",
+            VaryingColor,
+            Control::color("#00000000"),
+        ),
+        input(
+            "sourceX",
+            "Source X",
+            VaryingNumber,
+            Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
+        ),
+        input(
+            "sourceY",
+            "Source Y",
+            VaryingNumber,
+            Control::num(0.0, -2.0, 2.0, 0.01, "⬓"),
+        ),
+        input(
+            "sourceWidth",
+            "Source Width",
+            VaryingNumber,
+            Control::num(0.5, 0.01, 4.0, 0.01, "⬓"),
+        ),
+        input(
+            "sourceHeight",
+            "Source Height",
+            VaryingNumber,
+            Control::num(0.5, 0.01, 4.0, 0.01, "⬓"),
+        ),
+        percopy::count("rows", "Rows", 3.0, 20.0),
+        percopy::count("columns", "Columns", 3.0, 20.0),
+        input(
+            "spacing",
+            "Spacing",
+            VaryingNumber,
+            Control::num(0.0, 0.0, 1.0, 0.01, "⬓"),
+        ),
+        percopy::OFFSET_X,
+        percopy::OFFSET_Y,
+        percopy::TURN,
+        percopy::SCALE_X,
+        percopy::SCALE_Y,
+        percopy::COLOR,
     ],
-    options: [
-        "alignment" "Alignment" = "center" [
-            "center" => "Center",
-            "top-left" => "Top-Left",
-            "top-right" => "Top-Right",
-            "bottom-left" => "Bottom-Left",
-            "bottom-right" => "Bottom-Right",
-        ],
+    options: &[
+        OptionDef {
+            key: "alignment",
+            label: "Alignment",
+            default: "center",
+            choices: &[
+                ("center", "Center"),
+                ("top-left", "Top-Left"),
+                ("top-right", "Top-Right"),
+                ("bottom-left", "Bottom-Left"),
+                ("bottom-right", "Bottom-Right"),
+            ],
+            ..OptionDef::EMPTY
+        },
+        percopy::HEADING,
     ],
-    wgsl_common: varying(|node, ctx| {
-        [
-            REPEATER_GRID_WGSL,
-            repeater_origin_wgsl(ctx.option(node, "alignment")),
-            REPEATER_CELL_WGSL,
-        ]
-        .concat()
-    }),
+    row_headings: percopy::ROW_HEADINGS,
+    wgsl_utils: &[percopy::PLACE_2D_WGSL],
     // The source coordinate is declared in the color body alone, so the mask function
-    // neither reads the source position's uniforms nor calls the input's producer.
-    outputs: [
-        VaryingColor "output" "Output" = "    let sourceUV = vec2f({sourceX}, {sourceY}) + cellUV
-        - vec2f(sourceWidth, sourceHeight) * 0.5;
-    return mix({bgColor}, {input}, mask);",
-        VaryingNumber "mask" "Grid Mask" = "    return mask;",
+    // neither reads the source position's uniforms nor calls the input's producer. A copy is
+    // laid over the background, so its Color's alpha is its opacity.
+    outputs: &[
+        shader_out("output", "Output", VaryingColor, |node, ctx, _| {
+            let src = repeater_common(node, ctx)
+                + "    let sourceUV = vec2f({sourceX}, {sourceY}) + copyUV;
+    let copy = {input} * copyTint;
+    let bg = {bgColor};
+    return mix(bg, copy + bg * (1.0 - copy.a), mask);";
+            percopy::fill_2d(node, ctx, &src, &[("input", "sourceUV")])
+        }),
+        shader_out("mask", "Grid Mask", VaryingNumber, |node, ctx, _| {
+            let src = repeater_common(node, ctx) + "    return mask;";
+            percopy::fill_2d(node, ctx, &src, &[])
+        }),
     ],
-}
+    ..NodeDef::EMPTY
+};
 
 // -------------------------------------------------------------------------------- domain warp
 
@@ -688,60 +935,110 @@ fn scatter_neighborhood(overlap: &str) -> (&'static str, &'static str) {
 }
 
 /// The bounding-box reject, which is only worth its instruction count when the ring is nine
-/// cells wide.
+/// cells wide. A turned square reaches √2 of its half side out, under the 1.5 here.
 fn scatter_reject(overlap: &str) -> &'static str {
     if overlap == "on" {
-        "            if (abs(uv.x - copyCenter.x) > halfExtent * 1.5
-                || abs(uv.y - copyCenter.y) > halfExtent * 1.5) { continue; }
+        "            let reach = halfExtent * max(abs(copyScale.x), abs(copyScale.y)) * 1.5;
+            if (any(abs(uv - copyCenter - copyOffset) > vec2f(reach))) { continue; }
 "
     } else {
         ""
     }
 }
 
-node! {
-    /// Copies of the input strewn across three interleaved lattices.
-    SCATTER,
+/// Copies of the input strewn across three interleaved lattices.
+pub static SCATTER: NodeDef = NodeDef {
     slug: "scatter",
     icon: "👣",
     label: "Scatter",
-    category: Transform,
-    tooltip: "Strews randomized copies of the input across the plane on three lattices at \
-              once, so the spacing looks scattered rather than gridded. Each copy is jittered, \
-              rotated, flipped and scaled by its own cell's hash.",
-    inputs: [
-        VaryingColor "input" "Input" at "scatterUV" = Control::None,
-        VaryingColor "bgColor" "Background" = Control::color("#00000000"),
-        VaryingNumber "density" "Density" = Control::num(5.0, 1.0, 50.0, 0.1, "/⬓"),
-        VaryingNumber "presence" "Presence" = Control::num(1.0, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "jitter" "Jitter" = Control::num(0.3, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "rotation" "Rotation" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "scale" "Scale" = Control::num(0.7, 0.01, 2.0, 0.01, "x"),
-        VaryingNumber "scaleVariation" "Scale Var" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "flipChance" "Flip" = Control::num(0.0, 0.0, 1.0, 0.01, ""),
-        VaryingNumber "seed" "Seed" = Control::num(0.0, 0.0, 1000.0, 1.0, ""),
+    category: Category::Transform,
+    tooltip: "Strews copies of the input across the plane on three lattices at once, so the \
+              spacing looks scattered rather than gridded: Presence is how many show and \
+              Jitter how far each strays from its cell. Per copy moves, turns, sizes and colors \
+              each copy, from a knob or a list: a list cycles over the lattice, so a Random \
+              list into Turn turns each copy its own way, and a list of 1 and −1 into Scale X \
+              flips every other one.",
+    inputs: &[
+        input("input", "Input", VaryingColor, Control::None),
+        input(
+            "bgColor",
+            "Background",
+            VaryingColor,
+            Control::color("#00000000"),
+        ),
+        input(
+            "density",
+            "Density",
+            VaryingNumber,
+            Control::num(5.0, 1.0, 50.0, 0.1, "/⬓"),
+        ),
+        input(
+            "presence",
+            "Presence",
+            VaryingNumber,
+            Control::num(1.0, 0.0, 1.0, 0.01, ""),
+        ),
+        input(
+            "jitter",
+            "Jitter",
+            VaryingNumber,
+            Control::num(0.3, 0.0, 1.0, 0.01, ""),
+        ),
+        input(
+            "scale",
+            "Scale",
+            VaryingNumber,
+            Control::num(0.7, 0.01, 2.0, 0.01, "x"),
+        ),
+        input(
+            "seed",
+            "Seed",
+            VaryingNumber,
+            Control::num(0.0, 0.0, 1000.0, 1.0, ""),
+        ),
+        percopy::OFFSET_X,
+        percopy::OFFSET_Y,
+        percopy::TURN,
+        percopy::SCALE_X,
+        percopy::SCALE_Y,
+        percopy::COLOR,
     ],
-    options: [
-        "overlap" "Overlap" = "off" [
-            "off" => "Off (3 samples)",
-            "on" => "On (27 samples)",
-        ],
+    options: &[
+        OptionDef {
+            key: "overlap",
+            label: "Overlap",
+            default: "off",
+            choices: &[("off", "Off (3 samples)"), ("on", "On (27 samples)")],
+            ..OptionDef::EMPTY
+        },
+        percopy::HEADING,
     ],
-    wgsl_utils: [HASH_RANDOM_WGSL],
-    outputs: [
-        VaryingColor "output" "Output" = varying(|node, ctx| {
+    row_headings: percopy::ROW_HEADINGS,
+    wgsl_utils: &[HASH_RANDOM_WGSL, percopy::PLACE_2D_WGSL],
+    // A copy reads its rows by its lattice cell, the layer folded in so the three layers'
+    // copies in one place read different items.
+    outputs: &[shader_out(
+        "output",
+        "Output",
+        VaryingColor,
+        |node, ctx, _| {
             let overlap = ctx.option(node, "overlap");
             let (from, to) = scatter_neighborhood(overlap);
-            format!(
+            let reject = scatter_reject(overlap);
+            let copy = percopy::read_2d(
+                ctx,
+                node,
+                Item::Endless {
+                    sum: "cell.x + cell.y + f32(layer)",
+                },
+            );
+            let src = format!(
                 "    let baseSize = 2.0 / max({{density}}, 1.0);
     let seed = {{seed}};
     let seedOffset = vec2f(seed * 0.1317, seed * 0.0741);
     let presence = {{presence}};
     let jitter = {{jitter}};
-    let rotation = {{rotation}};
-    let scale = {{scale}};
-    let scaleVariation = {{scaleVariation}};
-    let flipChance = {{flipChance}};
+    let halfExtent = 0.2 * max({{scale}}, 0.01);
     var result = {{bgColor}};
     var layerScale = array<f32, 3>(4.0, 2.0, 1.0);
     var layerChance = array<f32, 3>(0.12, 0.20, 0.35);
@@ -752,38 +1049,32 @@ node! {
         let baseCell = floor(uv / cellSize);
         for (var dy = {from}; dy <= {to}; dy++) {{
         for (var dx = {from}; dx <= {to}; dx++) {{
-            let neighbor = vec2f(f32(dx), f32(dy));
-            let key = baseCell + neighbor + layerOffset[layer] + seedOffset;
+            let cell = baseCell + vec2f(f32(dx), f32(dy));
+            let key = cell + layerOffset[layer] + seedOffset;
             let h1 = hashRandom(key);
             let h2 = hashRandom(key + 1.0);
-            let h3 = hashRandom(key + 2.0);
-            let h4 = hashRandom(key + 3.0);
-            let h5 = hashRandom(key + 4.0);
             let h6 = hashRandom(key + 5.0);
             if (h6 > presence * layerChance[layer]) {{ continue; }}
 
-            let copyCenter = (baseCell + neighbor + 0.5) * cellSize
+            let copyCenter = (cell + 0.5) * cellSize
                 + (vec2f(h1, h2) - 0.5) * cellSize * jitter;
-            let halfExtent = 0.2 * max(scale * (1.0 - scaleVariation + scaleVariation * h5 * 2.0), 0.01);
-{reject}
-            let angle = (h3 - 0.5) * rotation * 2.0 * PI;
-            let cv = cos(-angle);
-            let sv = sin(-angle);
-            var scatterUV = mat2x2f(cv, -sv, sv, cv) * (uv - copyCenter) / halfExtent;
-            if (h4 < flipChance) {{ scatterUV.x = -scatterUV.x; }}
+{bind}{reject}            let scatterUV = {place} / halfExtent;
             if (abs(scatterUV.x) > 1.0 || abs(scatterUV.y) > 1.0) {{ continue; }}
 
-            let sampled = {{input}};
+            let sampled = {{input}} * copyTint;
             result = sampled + result * (1.0 - sampled.a);
         }}
         }}
     }}
     return result;",
-                reject = scatter_reject(overlap),
-            )
-        }),
-    ],
-}
+                bind = percopy::bind_2d(&copy, "            "),
+                place = percopy::place_2d("uv - copyCenter"),
+            );
+            percopy::fill_2d(node, ctx, &src, &[("input", "scatterUV")])
+        },
+    )],
+    ..NodeDef::EMPTY
+};
 
 // ------------------------------------------------------------------------------------ tunnel
 

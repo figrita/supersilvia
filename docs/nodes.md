@@ -1180,7 +1180,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Source` | `audioin`, `camera`, `screencapture`, `syphon`, `ndi`, `maininput`, `video`, `imagegif`, `drawingcanvas`, `text`, `mouseinput`, `gamepad` |
 | `Generate` | `color`, `checkerboard`, `circle`, `polygon`, `star`, `stripes`, `grid`, `polkadot`, `houndstooth`, `spiral`, `phyllotaxis`, `prideflag`, `lineargradient`, `radialgradient`, `mandelbrot`, `juliaset`, `lyapunov`, `sierpinski`, `perlin`, `simplex`, `worley`, `fractal`, `static`, `randomhurl`, `cellularautomata`, `slimemold`, `brickgame`, `worldcoordinates` |
 | `Color` | `rgba`, `hsla`, `mix`, `layerblend`, `muxevent`, `muxnumber`, `cosinegradient`, `contrast`, `gamma`, `levels`, `invert`, `posterize`, `vignette`, `simplelight`, `saturate`, `vibrance`, `wavefold`, `palette`, `colorize`, `colormapping`, `colorshift`, `chromakey` |
-| `Transform` | `zoom`, `rotate`, `fisheye`, `translate`, `mirror`, `stretchskew`, `perspective`, `polarcoords`, `rotozoom`, `shakycam`, `wave`, `whirlandpinch`, `kaleidoscope`, `tile`, `repeater`, `regionabsolute`, `regionsized`, `domainwarp`, `scatter`, `tunnel3d`, `wallpaper`, `geissflow` |
+| `Transform` | `zoom`, `rotate`, `fisheye`, `translate`, `mirror`, `stretchskew`, `perspective`, `polarcoords`, `rotozoom`, `shakycam`, `wave`, `whirlandpinch`, `kaleidoscope`, `tile`, `repeater`, `regionabsolute`, `regionsized`, `domainwarp`, `scatter`, `stamp`, `tunnel3d`, `wallpaper`, `geissflow` |
 | `Effect` | `edgedetection`, `chromaticaberration`, `autoexposure`, `blur`, `sharpen`, `emboss`, `bloom`, `dilate`, `erode`, `heighttonormal`, `halftone`, `mosaic`, `dither`, `kuwahara`, `motionblur`, `radialblur`, `sincfilter`, `supersampling`, `pixelsort`, `stargate`, `glitch`, `camcordercrt` |
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
@@ -1450,7 +1450,9 @@ different kind of operation. So `wave`, `whirlandpinch`, `kaleidoscope`, `tile`,
 `domainwarp`, `scatter` and `tunnel3d` sit in `distort.rs` beside `zoom`, `rotate`,
 `fisheye` and the seven in `transform.rs` below them — `translate`, `mirror`, `stretchskew`,
 `perspective`, `polarcoords`, `rotozoom` and `shakycam`, silvia's own Transform family — and
-all eighteen read their input through the macro's `at`. `translate` is the plain slide,
+each of the eighteen reads its input at a coordinate of its own: through the macro's `at`, or,
+for the four with Per copy rows, which the macro has no form for, through a body written out
+by hand. `translate` is the plain slide,
 `stretchskew` a scale per axis and a shear, `perspective` a divide by a leaning plane,
 `mirror` a fold or a flip about a line through a center it can place, and `polarcoords` the
 remap between straight and round coordinates in four directions, the two into round ones
@@ -1463,7 +1465,8 @@ plane onto one rectangle; `repeater` lays one bounded rectangle out in a finite 
 background, and publishes `mask` — *Grid Mask* on the row, silvia's name, since a patch where
 three nodes publish a Mask needs to know which one a cable came from — for where a copy
 landed. `scatter` lays each of its copies over what is already under it, Porter–Duff over,
-starting from its background. `regionabsolute` and `regionsized` are one crop reached by two sets of handles, four
+starting from its background; Density, Presence, Jitter, Scale and Seed decide where its
+copies fall and which show. `regionabsolute` and `regionsized` are one crop reached by two sets of handles, four
 edges or a center and a size, in `region.rs`: outside the rectangle is a background color, the
 rectangle tiled, the rectangle mirror-tiled or the edge smeared out, and the coverage is the
 `mask` beside the picture. The background color is behind the input too, composited
@@ -1475,6 +1478,45 @@ wall reads only the input's middle, −1 to 1 each way: Cartesian wraps that squ
 around the tube and its height along every 4 units of depth, and Polar reads the disc of
 radius 1, angle around and radius along, so a pattern reads coarser on the wall than in the
 frame; the tooltip says so.
+
+**The picture repeats vary their copies by the solid repeats' Per copy rows**, in two
+dimensions ([Repetition](#repetition)): Offset X and Y, Turn, Scale X and Y and Color, under the
+same keys and labels and the same folding heading. A copy reads its picture at its own uv,
+measured from the copy's center, moved by the Offset, turned by −Turn about that center and
+divided by the Scale on each axis, and what it reads is multiplied by the Color, premultiplied,
+so the Color's alpha is the copy's opacity. A negative Scale flips the copy: a list of 1 and −1
+into Scale X mirrors every other one. Mirror takes no rows, since its copies are reflections of
+one picture.
+
+| node | the copy | its rows' item |
+| --- | --- | --- |
+| Tile | the tile, column and row | endless: `(column + row) mod n` |
+| Repeater | the cell | counted: `row · columns + column` of rows × columns, from the bottom left |
+| Kaleidoscope | the wedge, counted round from the angle's zero | counted: of Segments |
+| Scatter | the lattice cell, the layer added | endless: `(x + y + layer) mod n` |
+| Stamp | the stamp | counted: of Count |
+
+**A copy is cut at its cell.** Tile, Repeater and Stamp's folding layouts read the one cell a
+fragment is in, so a copy its rows move or grow past the cell is sliced at the cell's edge;
+Tile and Repeater draw nothing outside a copy's rectangle, Tile transparent and Repeater its
+background. A Kaleidoscope's rows move, turn and size what its wedge samples about the center,
+and the wedge's edge is its cut. Repeater's Rows and Columns and Kaleidoscope's Segments are
+count rows: a list cabled in is a count of its length, as Count is on Repeat. Repeater lays a
+copy over its background, so a half-transparent picture or Color shows the background through
+it.
+
+**Stamp** (`stamp`, `nodes::stamp`) copies its Picture's middle square, −1 to 1 each way, Count
+times, each Size across, over its Background. Its **Layout** is Grid — rows of Columns from the
+bottom left, Spacing apart, centered — Ring, round a circle of Radius from the angle's zero, Line,
+along x Spacing apart and centered, or Points. **Grid, Ring and Line fold**: the stamp a
+fragment is in comes from its uv, so the Picture is read once a fragment whatever the count,
+and **Overlap** reads the neighbors as well, two on a ring or a line and eight round a grid
+cell, for a copy moved or grown a little past its cell. **Points puts copy i at its Offset**,
+so lists into Offset X and Y are where the copies go, and a fragment loops over every copy, at
+most 256 ([loop-bounding.md](loop-bounding.md#stamps-cap)); a copy's box rejects a fragment
+outside it before its picture is read. The last copy is in front: copies composite front to
+back from the last, `acc + copy · (1 − acc.a)`, the background goes under them all, and Points
+stops at a fragment already covered. Count takes a list's length.
 
 `slew` is the reference CPU node: three `UniformNumber` inputs — `input`, `rise` and `fall` —
 one `UniformNumber` out, and a `tick` that integrates `dt`. `Shape` picks which of the two
@@ -2033,7 +2075,9 @@ item `floor(i · n / m)` of a list of n on a counted repeat, a ring or a sphere,
 stretches over the copies, and on a Forever Repeat item `(x + y + z) mod n` of the cell's
 coordinates, so the list cycles and each row starts one further along. A Range into Offset Y
 is a spiral stair on Repeat Around; Random into Turn scatters the copies' headings. Nothing
-else differs per copy: whatever is upstream of a repeat is the same solid in every cell.
+else differs per copy: whatever is upstream of a repeat is the same solid in every cell. The
+picture repeats — Tile, Repeater, Kaleidoscope, Scatter and Stamp — take the same rows in two
+dimensions, as [the library](#the-library)'s Transform paragraphs say.
 
 **Copies that differ are measured against their neighbor.** While every copy is the same shape
 no copy is nearer a point than the one in its own cell. A list into Offset, Turn or Scale makes

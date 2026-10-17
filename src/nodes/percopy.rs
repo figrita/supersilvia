@@ -14,6 +14,13 @@
 //! count, item `floor(i · n / m)` for a list of n over m copies, so a list stretches across the
 //! copies whatever its length; on an endless repeat, item `(x + y + z) mod n` of the cell's
 //! coordinates, so the list cycles and each row starts one further along.
+//!
+//! **A picture's repeats take the same rows in two dimensions**: Offset X and Y, Turn, Scale X
+//! and Y and Color, under the same keys and labels, so a row means the same thing on Tile as
+//! on Repeat. A copy there reads its picture at its own uv moved, turned and divided
+//! ([`PLACE_2D_WGSL`]), and what it reads is multiplied by the Color, a premultiplied color
+//! whose alpha is the copy's opacity. A negative Scale flips the copy, which a solid's does
+//! not: a list of 1 and −1 into Scale X mirrors every other copy.
 
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
@@ -79,6 +86,9 @@ pub const ROWS_3D: [InputDef; 8] = [
     OFFSET_X, OFFSET_Y, OFFSET_Z, TURN, SCALE_X, SCALE_Y, SCALE_Z, COLOR,
 ];
 
+/// A picture's repeat's rows, in the order the node draws them.
+pub const ROWS_2D: [InputDef; 6] = [OFFSET_X, OFFSET_Y, TURN, SCALE_X, SCALE_Y, COLOR];
+
 /// The rows that move, turn or size a copy.
 const MOVING: [&str; 7] = [
     OFFSET_X.key,
@@ -90,14 +100,25 @@ const MOVING: [&str; 7] = [
     SCALE_Z.key,
 ];
 
-/// Whether an input folds under the Per copy heading.
+/// Whether an input folds under the Per copy heading: a row of either set.
 pub fn is_row(key: &str) -> bool {
-    ROWS_3D.iter().any(|r| r.key == key)
+    ROWS_3D.iter().chain(&ROWS_2D).any(|r| r.key == key)
 }
 
 /// A count row: how many copies, a knob, or a list whose length is the count.
 pub const fn count(key: &'static str, label: &'static str, default: f32, max: f32) -> InputDef {
     row(key, label, Control::num(default, 1.0, max, 1.0, ""))
+}
+
+/// A count row whose knob stops at `min` rather than at one.
+pub const fn count_from(
+    key: &'static str,
+    label: &'static str,
+    default: f32,
+    min: f32,
+    max: f32,
+) -> InputDef {
+    row(key, label, Control::num(default, min, max, 1.0, ""))
 }
 
 /// The count on a count row, as an `f32` expression: a list's length where one is cabled in,
@@ -201,4 +222,97 @@ pub fn place(copy: &Copy) -> String {
         offset = copy.offset,
         turn = copy.turn,
     )
+}
+
+/// One copy's rows in two dimensions as WGSL expressions: `offset` and `scale` a `vec2f`,
+/// `turn` an `f32` in turns, `color` the premultiplied `vec4f` the copy's picture is
+/// multiplied by.
+pub struct Copy2 {
+    pub offset: String,
+    pub turn: String,
+    pub scale: String,
+    pub color: String,
+}
+
+/// Every row's value for one copy of a picture's repeat.
+pub fn read_2d(ctx: &mut CompileContext, node: NodeId, item: Item<'_>) -> Copy2 {
+    let mut v = |key, fallback| value(ctx, node, key, item, fallback);
+    let offset = format!(
+        "vec2f({}, {})",
+        v(OFFSET_X.key, "0.0"),
+        v(OFFSET_Y.key, "0.0")
+    );
+    let turn = v(TURN.key, "0.0");
+    let scale = format!(
+        "vec2f({}, {})",
+        v(SCALE_X.key, "1.0"),
+        v(SCALE_Y.key, "1.0")
+    );
+    let color = match ctx.list_input(node, COLOR.key) {
+        Some(stem) => format!("{stem}_at({}, vec4f(1.0))", at(&stem, item)),
+        None => ctx.input(node, COLOR.key, "uv"),
+    };
+    Copy2 {
+        offset,
+        turn,
+        scale,
+        color,
+    }
+}
+
+/// The statements that bind one copy's rows, each read once, to `copyOffset`, `copyTurn`,
+/// `copyScale` and `copyTint`, every line indented by `indent`.
+pub fn bind_2d(copy: &Copy2, indent: &str) -> String {
+    format!(
+        "{indent}let copyOffset = {};
+{indent}let copyTurn = {};
+{indent}let copyScale = {};
+{indent}let copyTint = {};
+",
+        copy.offset, copy.turn, copy.scale, copy.color
+    )
+}
+
+/// Where a copy reads its picture: its own uv `q`, measured from the copy's center, moved by
+/// the offset, turned by −Turn about that center and divided by the scale on each axis. A
+/// scale nearer zero than 10⁻⁴ is held there with its sign, so a copy shrinks to a point
+/// rather than dividing by zero, and a negative one flips the copy.
+pub const PLACE_2D_WGSL: &str =
+    "fn percopy_place2(q: vec2f, offset: vec2f, turn: f32, scale: vec2f) -> vec2f {
+    let a = -turn * 6.2831853;
+    let c = cos(a);
+    let s = sin(a);
+    let t = q - offset;
+    let held = select(vec2f(1.0e-4), vec2f(-1.0e-4), scale < vec2f(0.0));
+    let sc = select(held, scale, abs(scale) > vec2f(1.0e-4));
+    return vec2f(c * t.x - s * t.y, s * t.x + c * t.y) / sc;
+}";
+
+/// The call that places a bound copy's own uv `q`: [`PLACE_2D_WGSL`] over the names
+/// [`bind_2d`] gives.
+pub fn place_2d(q: &str) -> String {
+    format!("percopy_place2({q}, copyOffset, copyTurn, copyScale)")
+}
+
+/// Fill every `{key}` hole in `src` naming one of `node`'s number or color inputs, sampled at
+/// the uv `at` names for it and at `uv` otherwise. A list row is never a hole: [`read_2d`]
+/// reads it, since a list has no function a hole could call.
+pub fn fill_2d(node: NodeId, ctx: &mut CompileContext, src: &str, at: &[(&str, &str)]) -> String {
+    let Some(def) = ctx.node(node).map(|n| n.def) else {
+        return src.to_string();
+    };
+    let mut out = src.to_string();
+    for input in def.inputs {
+        let hole = ["{", input.key, "}"].concat();
+        if input.ty.is_list() || !out.contains(&hole) {
+            continue;
+        }
+        let uv = at
+            .iter()
+            .find(|(key, _)| *key == input.key)
+            .map_or("uv", |(_, uv)| *uv);
+        let expr = ctx.input(node, input.key, uv);
+        out = out.replace(&hole, &expr);
+    }
+    out
 }

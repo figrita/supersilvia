@@ -38,6 +38,16 @@ fn resolve(
     shader: &Shader,
     published: &dyn Fn(PortRef) -> f32,
 ) -> Vec<(Arc<str>, UniformValue)> {
+    resolve_lists(g, shader, published, &|_| Vec::new())
+}
+
+/// [`resolve`], with every list a CPU half publishes read from `lists`.
+fn resolve_lists(
+    g: &Graph,
+    shader: &Shader,
+    published: &dyn Fn(PortRef) -> f32,
+    lists: &dyn Fn(PortRef) -> Vec<f32>,
+) -> Vec<(Arc<str>, UniformValue)> {
     let duals = supersilvia::nodes::cpu::evaluate_duals(g);
     shader
         .uniforms
@@ -67,7 +77,9 @@ fn resolve(
                     }
                     _ => UniformValue::Float(published(PortRef::new(*node, port))),
                 },
-                UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),
+                UniformProvider::NodeList { node, port } => {
+                    UniformValue::List(lists(PortRef::new(*node, port)))
+                }
                 UniformProvider::NodeCount { node, port } => {
                     UniformValue::Vec2(supersilvia::nodes::phasor::split(f64::from(published(
                         PortRef::new(*node, port),
@@ -104,8 +116,19 @@ fn rendered_publishing(
     size: u32,
     published: &dyn Fn(PortRef) -> f32,
 ) -> Vec<[u8; 4]> {
+    rendered_lists(g, out, size, published, &|_| Vec::new())
+}
+
+/// [`rendered_publishing`], with every list a CPU half publishes read from `lists`.
+fn rendered_lists(
+    g: &Graph,
+    out: NodeId,
+    size: u32,
+    published: &dyn Fn(PortRef) -> f32,
+    lists: &dyn Fn(PortRef) -> Vec<f32>,
+) -> Vec<[u8; 4]> {
     let shader = module_of(g, out);
-    let values = resolve(g, &shader, published);
+    let values = resolve_lists(g, &shader, published, lists);
     let gpu = gpu::gpu();
     let mut renderer = Renderer::new(gpu.clone()).expect("renderer");
     let outputs =
@@ -1110,6 +1133,103 @@ fn scatters_copies_are_laid_over_the_background() {
         );
     }
     assert!(half.contains(&[128, 0, 128, 255]), "one copy is half over");
+}
+
+/// The pixel of a square render nearest the worldspace point `(x, y)`.
+fn pixel_at(pixels: &[[u8; 4]], size: usize, x: f32, y: f32) -> [u8; 4] {
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let at = |w: f32| (f32::midpoint(w, 1.0) * size as f32) as usize;
+    pixels[at(y) * size + at(x)]
+}
+
+/// Stamp's Points lays copy i at its Offset: three items into Count and Offset X are three
+/// copies along the row Offset Y's knob puts them on, over the background, and nothing between.
+#[test]
+fn stamp_points_lays_each_copy_at_its_offset() {
+    const SIZE: usize = 64;
+    let mut g = Graph::new();
+    let red = swatch(&mut g, [1.0, 0.0, 0.0, 1.0]);
+    let stamp = add(&mut g, "stamp");
+    let xs = add(&mut g, "range");
+    let out = add(&mut g, "output");
+    g.get_mut(stamp)
+        .unwrap()
+        .options
+        .insert("layout", "points".to_string());
+    set(&mut g, stamp, "size", 0.2);
+    set(&mut g, stamp, "copyY", 0.25);
+    set_color(&mut g, stamp, "bgColor", BLUE);
+    g.connect(PortRef::new(red, "output"), PortRef::new(stamp, "input"))
+        .unwrap();
+    for key in ["count", "copyX"] {
+        g.connect(PortRef::new(xs, "list"), PortRef::new(stamp, key))
+            .unwrap();
+    }
+    g.connect(PortRef::new(stamp, "output"), PortRef::new(out, "input"))
+        .unwrap();
+    let pixels = rendered_lists(&g, out, SIZE as u32, &|_| 0.0, &|_| vec![-0.5, 0.0, 0.5]);
+
+    for x in [-0.5, 0.0, 0.5] {
+        assert_eq!(
+            pixel_at(&pixels, SIZE, x, 0.25),
+            [255, 0, 0, 255],
+            "a copy at {x}"
+        );
+    }
+    for (x, y) in [(-0.25, 0.25), (0.25, 0.25), (0.0, -0.25), (0.8, 0.25)] {
+        assert_eq!(
+            pixel_at(&pixels, SIZE, x, y),
+            [0, 0, 255, 255],
+            "the background at {x}, {y}"
+        );
+    }
+}
+
+/// A two-item list into Tile's Scale X is a checkerboard of whole tiles and half-width ones:
+/// the cell at column c and row r reads item (c + r) mod 2, and a tile narrowed inside its
+/// rectangle leaves the rest of it transparent.
+#[test]
+fn a_two_item_list_on_tile_makes_a_checkerboard() {
+    const SIZE: usize = 64;
+    let mut g = Graph::new();
+    let red = swatch(&mut g, [1.0, 0.0, 0.0, 1.0]);
+    let tile = add(&mut g, "tile");
+    let widths = add(&mut g, "range");
+    let out = add(&mut g, "output");
+    set(&mut g, tile, "width", 0.5);
+    set(&mut g, tile, "height", 0.5);
+    g.connect(PortRef::new(red, "output"), PortRef::new(tile, "input"))
+        .unwrap();
+    g.connect(
+        PortRef::new(widths, "list"),
+        PortRef::new(tile, "copyScaleX"),
+    )
+    .unwrap();
+    g.connect(PortRef::new(tile, "output"), PortRef::new(out, "input"))
+        .unwrap();
+    let pixels = rendered_lists(&g, out, SIZE as u32, &|_| 0.0, &|_| vec![1.0, 0.5]);
+
+    let red = [255, 0, 0, 255];
+    assert_eq!(
+        pixel_at(&pixels, SIZE, 0.2, 0.0),
+        red,
+        "a whole tile to its edge"
+    );
+    assert_eq!(
+        pixel_at(&pixels, SIZE, 0.55, 0.0),
+        red,
+        "the narrow tile's middle"
+    );
+    assert_eq!(
+        pixel_at(&pixels, SIZE, 0.7, 0.0),
+        [0, 0, 0, 0],
+        "beside the narrow tile"
+    );
+    assert_eq!(
+        pixel_at(&pixels, SIZE, 0.7, 0.5),
+        red,
+        "the tile above it is whole"
+    );
 }
 
 // --------------------------------------------------- a distortion moves, a noise is a field
