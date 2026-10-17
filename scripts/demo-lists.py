@@ -279,6 +279,83 @@ def spectrum_planet(p):
     show(ws, C[2], 40, ball, master, controls={"distance": 7.0})
 
 
+def stamp_points(p):
+    ws = p.workspace("Stamp points", "Twenty-four stars, each where two lists put it", kind="video")
+    ws.note(
+        40,
+        40,
+        "A Stamp on Points puts copy i at item i of Offset X and Offset Y. One Range of "
+        "twenty-four goes into Count and Offset X, so there is a star for each item, left to "
+        "right; another into Offset Y lifts them, its To swung by an Oscillator; a third into "
+        "Turn turns each one a little further, and a fourth into Scale X and Y grows them. "
+        "The last star is in front.\n\nTry: Layout on Ring or Grid, where Offset moves each "
+        "copy from its place; a Range of 1 to −1 with Count 2 into Scale X, which flips every "
+        "other star.",
+    )
+    master = ws.master(C[0], 1100)
+    star = ws.add(
+        "star",
+        C[0],
+        400,
+        controls={"foreground": "#ffd27a", "background": "#00000000", "innerRadius": 0.45},
+    )
+    xs = ws.add("range", C[1], 400, controls={"count": 24.0, "from": -1.5, "to": 1.5})
+    ys = ws.add("range", C[1], 560, controls={"count": 24.0, "from": -0.6, "to": 0.6})
+    swing = ws.sway(C[1], 1100, master, amplitude=0.5, offset=0.3)
+    ws.cable(swing, "output", ys, "to")
+    turns = ws.add("range", C[1], 720, controls={"count": 24.0, "from": 0.0, "to": 1.0})
+    sizes = ws.add("range", C[1], 880, controls={"count": 24.0, "from": 0.6, "to": 1.6})
+    stamp = ws.add(
+        "stamp",
+        C[2],
+        40,
+        controls={"size": 0.2, "bgColor": "#14121cff"},
+        options={"layout": "points", "perCopy": "on"},
+    )
+    ws.cable(star, "color", stamp, "input")
+    ws.cable(xs, "list", stamp, "count")
+    ws.cable(xs, "list", stamp, "copyX")
+    ws.cable(ys, "list", stamp, "copyY")
+    ws.cable(turns, "list", stamp, "copyTurn")
+    ws.cable(sizes, "list", stamp, "copyScaleX")
+    ws.cable(sizes, "list", stamp, "copyScaleY")
+    ws.cable(stamp, "output", ws.output(C[3], 40, resolution=SMALL), "input")
+
+
+def tile_sizes(p):
+    ws = p.workspace("Tile sizes", "Tiles in three sizes, the list cycling along each row", kind="video")
+    ws.note(
+        40,
+        40,
+        "Tile has no count, so a list cycles over its tiles, each row one item further along: "
+        "a Range of three into Scale X and Y makes diagonals of small, middle and whole tiles. A "
+        "Range of two into Turn turns every other tile, a checkerboard.\n\nTry: the size Range's "
+        "Count to 2; Slide to 0.5.",
+    )
+    ws.master(C[0], 700)
+    dot = ws.add(
+        "circle",
+        C[0],
+        400,
+        controls={"foreground": "#7ad3ff", "background": "#1d2b4aff", "radius": 0.2, "softness": 0.01},
+    )
+    sizes = ws.add("range", C[1], 400, controls={"count": 3.0, "from": 0.4, "to": 1.0})
+    turns = ws.add("range", C[1], 560, controls={"count": 2.0, "from": 0.0, "to": 0.125})
+    tile = ws.add(
+        "tile",
+        C[2],
+        40,
+        controls={"width": 0.5, "height": 0.5},
+        options={"perCopy": "on"},
+        width=240,
+    )
+    ws.cable(dot, "color", tile, "input")
+    ws.cable(sizes, "list", tile, "copyScaleX")
+    ws.cable(sizes, "list", tile, "copyScaleY")
+    ws.cable(turns, "list", tile, "copyTurn")
+    ws.cable(tile, "output", ws.output(C[3], 40, resolution=SMALL), "input")
+
+
 def main():
     args = sys.argv[1:]
     registry = None
@@ -288,7 +365,19 @@ def main():
         del args[at : at + 2]
     root = Path(args[0]).expanduser() if args else solids.documents() / "supersilvia" / "Lists"
     p = Project(solids.load_registry(registry))
-    for build in (spectrum_bars, spectrum_ring, spectrum_city, spectrum_planet, bars, city, stair, spikes, forever):
+    for build in (
+        spectrum_bars,
+        spectrum_ring,
+        spectrum_city,
+        spectrum_planet,
+        bars,
+        city,
+        stair,
+        spikes,
+        forever,
+        stamp_points,
+        tile_sizes,
+    ):
         build(p)
     p.write(root)
     print(f"wrote {root}: {len(p.workspaces)} workspaces, {p._node} nodes")
