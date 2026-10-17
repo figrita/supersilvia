@@ -877,8 +877,12 @@ NaN into zero, as `publish` does.
 **A list feeds a list and nothing else**, and a single number feeds a list input as a list of
 one, so a knob or an oscillator reaches every item alike. A one-value input — a number, a field, a setting —
 never reads a quiet first item. A list dragged onto a number shows the conversion ring, and
-letting go offers **Item**, a Get whose Index starts at the first item, and **Count**, a
-Length (`nodes::bridge`). The shape lost: a field input reading a list per copy, which made what a node read depend on a repeat
+letting go offers, in order, **Item**, a Get whose Index starts at the first item;
+**Average**, **Highest**, **Lowest** and **Sum**, a Reduce set to Mean, Max, Min or Sum;
+**Count**, a Length; and **Loudest Index**, a Reduce set to Argmax (`nodes::bridge`). A row
+that is a Reduce lands it with its mode already set — `Bridge::options`, carried by
+`Command::Bridge`, so the node, its option and its two cables are one undo step. The shape
+lost: a field input reading a list per copy, which made what a node read depend on a repeat
 downstream of it.
 
 **One matching rule, stretch.** Wherever a list of `n` items is read over `m`, item `i` reads

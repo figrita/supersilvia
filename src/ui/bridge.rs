@@ -218,13 +218,18 @@ fn row(ui: &mut Ui, bridge: &Bridge, selected: bool, follow: bool, theme: &Theme
     );
     // Named for the ports it would wire, so the tree an agent and a test read says which
     // conversion a row is rather than where it sits — and so an `rgba`'s four rows, which
-    // share an output, are four different names.
-    let name = format!(
+    // share an output, are four different names, and a Reduce's five are by the options each
+    // sets.
+    let mut name = format!(
         "convert with {}.{} to {}",
         bridge.def.slug,
         bridge.inputs.join("+"),
         bridge.output
     );
+    for (key, value) in bridge.options {
+        use std::fmt::Write as _;
+        let _ = write!(name, " {key}={value}");
+    }
     crate::ui::accessible(&response, eframe::egui::WidgetType::Button, &name);
     response.clone().on_hover_text(bridge.def.tooltip);
     response.clicked()

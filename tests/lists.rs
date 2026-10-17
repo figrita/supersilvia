@@ -191,6 +191,7 @@ fn the_item_row_lands_a_get_between_a_list_and_a_number() {
         slug: row.def.slug,
         inputs: row.inputs,
         output: row.output,
+        options: row.options,
         at: Pos2::new(100.0, 0.0),
         workspace,
     })
@@ -540,6 +541,54 @@ fn sorts_order_reorders_a_sibling_list_through_get() {
     assert_eq!(list(&app, PortRef::new(get, "item")), Some(order.clone()));
     let regathered: Vec<f64> = order.iter().map(|i| keys[*i as usize]).collect();
     assert_eq!(regathered, sorted);
+}
+
+// ---------------------------------------------------------------- the menu's readings
+
+/// Each of the menu's readings lands a Reduce with its mode set, as one undo step, and reads
+/// the list the way its row says.
+#[test]
+fn the_menus_readings_land_a_reduce_set_to_each_one() {
+    let rows = bridge::bridges(PortType::ListNumber, PortType::UniformNumber);
+    for (label, want) in [
+        ("Average", 2.5),
+        ("Highest", 4.0),
+        ("Lowest", 1.0),
+        ("Sum", 10.0),
+        ("Loudest Index", 3.0),
+    ] {
+        let mut app = App::headless();
+        let range = added(&mut app, "range");
+        let slew = added(&mut app, "slew");
+        set(&mut app, range, "count", 4.0);
+        set(&mut app, range, "from", 1.0);
+        set(&mut app, range, "to", 4.0);
+        let before = app.graph().len();
+        let row = rows.iter().find(|b| b.label == label).expect("a row");
+        let workspace = app.graph().default_workspace();
+        app.apply(Command::Bridge {
+            from: PortRef::new(range, "list"),
+            to: PortRef::new(slew, "input"),
+            slug: row.def.slug,
+            inputs: row.inputs,
+            output: row.output,
+            options: row.options,
+            at: Pos2::new(100.0, 0.0),
+            workspace,
+        })
+        .unwrap_or_else(|e| panic!("{label}: {e:?}"));
+        let reduce = app.graph().iter().map(|(id, _)| id).max().unwrap();
+        assert_eq!(app.graph().get(reduce).unwrap().def.slug, "reduce");
+        app.tick(1.0 / 60.0);
+        assert_eq!(
+            app.uniform(PortRef::new(reduce, "value")),
+            Some(want),
+            "{label}"
+        );
+        assert!(app.undo());
+        assert_eq!(app.graph().len(), before, "{label}: one undo takes it all");
+        assert!(app.graph().connections().is_empty(), "{label}");
+    }
 }
 
 // ---------------------------------------------------------------- the list nodes in a tick

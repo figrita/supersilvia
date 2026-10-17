@@ -162,6 +162,7 @@ fn a_bridge_that_cannot_be_wired_leaves_nothing_behind() {
         slug: "luminosity",
         inputs: &["input"],
         output: "nope",
+        options: &[],
         at: emath::Pos2::ZERO,
         workspace,
     });

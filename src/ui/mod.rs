@@ -2706,6 +2706,7 @@ fn bridge_menu(ui: &mut Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut E
             slug: cast.def.slug,
             inputs: cast.inputs,
             output: cast.output,
+            options: cast.options,
             at: midpoint(bridging.from.node, bridging.to.node),
             workspace: pass.frame.workspace,
         });

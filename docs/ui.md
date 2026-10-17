@@ -2290,7 +2290,7 @@ and a node between the two would close no loop.
 **The rows are a curated table**, `nodes::bridge`, and the curation is the feature. Each row
 is a **casting** — a way of reading this value as that type, named for what it does rather
 than for the node that does it, with silvia's own label and icon: *Luminosity*, *Red Channel*,
-*Grayscale*. Five pairs, and the twelve rows of the first two are silvia's, row for row:
+*Grayscale*. Six pairs, and the twelve rows of the first two are silvia's, row for row:
 
 | released on | rows |
 | --- | --- |
@@ -2299,6 +2299,7 @@ than for the node that does it, with silvia's own label and icon: *Luminosity*, 
 | a color onto a **uniform number** | *Average*, *Brightest*, *Darkest* — the `tap`, reading the frame |
 | a field onto a **uniform number** | *Average*, *Highest*, *Lowest* — the same `tap`, through its `number` sidechain |
 | a picture onto a **uniform color** | *Mean Color* — the same `tap`, and only the one row |
+| a number list onto a **uniform number** or a **field** | *Item*, a `get`; *Average*, *Highest*, *Lowest* and *Sum*, a `reduce` each; *Count*, a `length`; *Loudest Index*, a `reduce` |
 
 *Mean Color* is one row where the others are three because the extremes are extremes of a
 *number*: there is no pixel a tap keeps to hand back as the darkest color, and a color
@@ -2311,7 +2312,11 @@ conversions at all — they promote with nothing in between.
 
 **A row may fan out.** `Bridge::inputs` is a list, so *Grayscale* lands one cable on an
 `rgba`'s red, green and blue at once — silvia's `float-to-color` closure, and the reason
-`Command::Bridge` carries a list of keys rather than one.
+`Command::Bridge` carries a list of keys rather than one. **A row may set an option**:
+`Bridge::options` lands a `reduce` set to the reading its row names, Mean for *Average* and
+Argmax for *Loudest Index*, in the same command, so the option is part of the one undo step.
+A row's accessible name carries the options it sets, since five rows land the same node on the
+same two ports.
 
 What the table is *not* is a registry query. It was one for a day: every node with an input
 the source feeds and an output of the target's own type, one row per pairing. That menu is an

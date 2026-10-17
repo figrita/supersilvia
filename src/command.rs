@@ -137,6 +137,8 @@ pub enum Command {
         inputs: &'static [&'static str],
         /// The bridge's output, which connects to `to`.
         output: &'static str,
+        /// Options the node lands with, by key, in the same step: the reading a Reduce row is.
+        options: &'static [(&'static str, &'static str)],
         /// Where the node lands: the midpoint of the two nodes it goes between.
         at: Pos2,
         workspace: WorkspaceId,
