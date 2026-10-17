@@ -10,6 +10,11 @@
 //! A band's center frequency and Q are **inputs**, not hidden state, for two reasons: they
 //! are document data, so tuning a band to a track survives a save; and the scope drags them
 //! through `Command::SetControl` like any other control, so the undo history has them.
+//!
+//! **The spectrum is a number list** ([`publish_spectrum`]): the analyzer's 128 log-spaced
+//! buckets as they are this frame. A field reader has no memory, so a spectrum as a field had
+//! to carry every fall speed it might be read at; a list is read on the CPU, and the memory is
+//! a `lag` node on the canvas. See [media.md](../../docs/media.md#the-spectrum).
 
 use crate::audio::bands;
 
@@ -49,7 +54,8 @@ macro_rules! audio_inputs {
     };
 }
 
-/// A node's own outputs, then the three bands and the event each fires.
+/// A node's own outputs, then the three bands, the oscilloscope, the spectrum and the event
+/// each band fires.
 ///
 /// `volumeEvent` is not here: the microphone is the only source with a volume worth
 /// thresholding on its own, and it declares that one itself.
@@ -96,6 +102,14 @@ macro_rules! audio_outputs {
     return select(vec4f(0.0), vec4f(1.0), abs(uv.y - line) < 0.02);"
                     )
                 },
+                ..OutputDef::EMPTY
+            },
+            // The analyzer's 128 log-spaced buckets as a number list: `publish_spectrum`.
+            $crate::nodes::OutputDef {
+                key: $crate::nodes::audio_ports::SPECTRUM,
+                label: "Spectrum",
+                ty: $crate::graph::PortType::ListNumber,
+                kind: $crate::nodes::OutputKind::List,
                 ..OutputDef::EMPTY
             },
             $crate::nodes::OutputDef {
@@ -273,6 +287,28 @@ fn fill(bytes: &mut [u8], waveform: &[u8; crate::audio::WAVEFORM_LEN]) {
     for (texel, sample) in bytes.as_chunks_mut::<4>().0.iter_mut().zip(waveform) {
         *texel = [*sample, *sample, *sample, 255];
     }
+}
+
+/// The key of every audio source's Spectrum output.
+pub const SPECTRUM: &str = "spectrum";
+
+/// Publish `spectrum`, the analyzer's [`crate::audio::SCOPE_BINS`] log-spaced buckets from
+/// 20 Hz to 20 kHz, as `id`'s Spectrum list, each item times `gain`.
+///
+/// Each item is the level of the loudest FFT bin under its bucket in this frame's analysis, on
+/// the decibel window the three bands are measured on: 0 at silence, 1 for a full-scale sine.
+/// Nothing holds a level up or lets it fall; a `lag` downstream does that where a hand sees it.
+pub fn publish_spectrum(
+    id: crate::graph::NodeId,
+    ctx: &mut crate::nodes::TickContext<'_>,
+    spectrum: &[f32; crate::audio::SCOPE_BINS],
+    gain: f64,
+) {
+    ctx.publish_list(
+        id,
+        SPECTRUM,
+        spectrum.iter().map(|level| f64::from(*level) * gain),
+    );
 }
 
 /// Read the band tuning a node's controls are asking for.

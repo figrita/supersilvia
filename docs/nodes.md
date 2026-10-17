@@ -147,7 +147,7 @@ The registry is `&'static [&'static NodeDef]`. No trait objects, no vtables.
 A `VaryingColor` output is an **expression**. `OutputKind::Shader` inlines one into the
 consumer's module; `OutputKind::Texture` samples a frame the node's `tick` published. Nothing
 limits how many of either a node declares, and `video` has two textures — its picture and its
-oscilloscope — beside three uniform numbers and three actions.
+oscilloscope — beside three uniform numbers, its Spectrum list and three actions.
 
 **Every one of them is addressed by its port.** `publish_frame` takes a port key, `App::frames`
 and `FrameJob::sources` are keyed by `PortRef`, and the renderer's upload and uniform map are
@@ -1402,8 +1402,8 @@ smoothings it is: `Rate Limit` leaves at a constant speed and arrives with a cor
 `Ease` is the exponential approach silvia buried inside its Smooth Counter, `1 − exp(−rate ·
 dt)` of the remaining gap each frame, so it slows as it lands. The same two knobs read as a
 speed in one and as an approach rate in the other, which is what keeps a fall slower than a
-rise in both. `audioin` publishes level, peak
-and three bands from the default input device, smoothed only as much as its control asks —
+rise in both. `audioin` publishes level, peak,
+three bands and a Spectrum list from the default input device, smoothed only as much as its control asks —
 zero by default. `camera` publishes a V4L2 device, or the GStreamer test pattern, as a
 texture; `auto` probes for the first node that can capture, since `/dev/video0` is an
 output-only loopback on any desktop running OBS. Its icon is silvia's camcorder, `📹`, not a

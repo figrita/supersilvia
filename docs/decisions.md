@@ -2994,6 +2994,20 @@ the meter and the threshold had to divide it back out to stay under the finger t
 them — a value that has to be undone everywhere it is read is not paying for itself. What a
 band is for is *where* it listens and *how narrowly*; scaling is a `multiply`.
 
+### The spectrum is a list, and its memory is a node
+
+**Chosen.** Every audio source publishes its Spectrum as a number list of the analyzer's 128
+buckets as they are this frame; Bands gathers it and Lag gives it a rise and a fall
+([media.md](media.md#the-spectrum)).
+
+**What lost:**
+
+- **A spectrum field**, a 128 × 128 texture holding the spectrum at sixteen fall speeds and
+  eight band widths. A field reader has no memory, so the source had to hold every fall a
+  reader might want; a list puts the memory in a Lag on the canvas.
+- **Spectrum per Copy**, which split that field into a band per copy of a repeat. It fell with
+  Copy and Per Copy ([below](#copies-vary-on-the-repeat-alone)).
+
 ### The scope: a two-axis handle, and a row of ticks for the rest
 
 **Chosen.** Each band's handle on the spectrum is a two-dimensional dragger — X is where the
