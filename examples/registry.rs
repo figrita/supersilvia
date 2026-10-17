@@ -82,7 +82,7 @@ fn main() {
                         OutputKind::List => "list",
                         OutputKind::Action => "action",
                     },
-                    "range": o.range, "delayed": port.delayed, "dual": o.eval.is_some(),
+                    "range": o.range, "delayed": port.delayed, "dual": o.eval.is_some() || o.eval_color.is_some() || o.gathers,
                 })
             })
             .collect();

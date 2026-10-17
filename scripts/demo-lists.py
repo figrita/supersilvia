@@ -100,6 +100,15 @@ def levels(ws, count, low=60.0, high=16000.0, rise=0.02, fall=0.25):
     return lag
 
 
+def rainbow(ws, count, y=1400, lightness=0.55):
+    """An HSLA whose Hue is a Range of `count` from red round to violet: a color list, one color
+    a copy, for a repeat's Color row."""
+    hues = ws.add("range", C[0], y, controls={"count": float(count), "from": 0.0, "to": 0.8})
+    colors = ws.add("hsla", C[0], y + 160, controls={"s": 0.85, "l": lightness})
+    ws.cable(hues, "list", colors, "h")
+    return colors
+
+
 def show(ws, x, y, solid, master, controls=None):
     return ws.show(x, y, solid, master=master, sway=(0.06, 0.1), resolution=SMALL, controls=controls)
 
@@ -210,15 +219,18 @@ def spectrum_bars(p):
         "The Main Input plays assets/test-track.ogg. Its Spectrum, 128 buckets from 20 Hz to "
         "20 kHz, goes through Bands, sixteen bands from 60 Hz up, and a Lag that lets each bar "
         "fall slowly. The list goes into the Repeat's Count X and Scale Y: sixteen bars, each "
-        "as tall as its band.\n\nTry: Bands' Count to 32; Lag's Fall to 1; the Main Input "
-        "panel's audio onto a microphone or the loopback.",
+        "as tall as its band. A Range into an HSLA's Hue is sixteen colors, red round to violet, "
+        "and that color list into the Repeat's Color gives each bar its own.\n\nTry: Bands' "
+        "Count to 32; Lag's Fall to 1; the Main Input panel's audio onto a microphone or the "
+        "loopback.",
     )
     master = ws.master(C[0], 700)
-    box = ws.shape("box", C[0], 40, width=0.3, height=2.0, depth=0.3, y=1.0, rounding=0.02, color="#e8925a")
+    box = ws.shape("box", C[0], 40, width=0.3, height=2.0, depth=0.3, y=1.0, rounding=0.02, color="#ffffff")
     level = levels(ws, 16)
     row = ws.mod("repeatgrid", C[1], 40, box, controls={"spacingX": 0.42, "spacingY": 0.0, "spacingZ": 0.0}, options={"extent": "counted", "perCopy": "on"})
     ws.cable(level, "output", row, "countX")
     ws.cable(level, "output", row, "copyScaleY")
+    ws.cable(rainbow(ws, 16), "output", row, "copyColor")
     show(ws, C[2], 40, row, master, controls={"distance": 7.5, "tilt": 0.06})
 
 
@@ -228,14 +240,19 @@ def spectrum_ring(p):
         40,
         40,
         "The same spectrum in thirty-two bands, round a Repeat Around: the lows start at the "
-        "front and the highs come round behind. The list sets Copies and Scale Y.",
+        "front and the highs come round behind. The list sets Copies and Scale Y, and lights "
+        "each bar too: it is an HSLA's Lightness, so a loud band glows and a quiet one goes "
+        "dark.",
     )
     master = ws.master(C[0], 700)
-    box = ws.shape("box", C[0], 40, width=0.18, height=2.0, depth=0.3, y=1.0, color="#9db4e8")
+    box = ws.shape("box", C[0], 40, width=0.18, height=2.0, depth=0.3, y=1.0, color="#ffffff")
     level = levels(ws, 32)
+    glow = ws.add("hsla", C[0], 1400, controls={"h": 0.58, "s": 0.9})
+    ws.cable(level, "output", glow, "l")
     ring = ws.mod("repeataround", C[1], 40, box, controls={"radius": 2.0}, options={"perCopy": "on"})
     ws.cable(level, "output", ring, "copies")
     ws.cable(level, "output", ring, "copyScaleY")
+    ws.cable(glow, "output", ring, "copyColor")
     show(ws, C[2], 40, ring, master, controls={"distance": 8.0, "tilt": 0.12})
 
 
@@ -248,7 +265,7 @@ def spectrum_city(p):
         "row, the highs at the back.",
     )
     master = ws.master(C[0], 700)
-    box = ws.shape("box", C[0], 40, width=0.6, height=2.0, depth=0.6, y=1.0, color="#8fd6a4")
+    box = ws.shape("box", C[0], 40, width=0.6, height=2.0, depth=0.6, y=1.0, color="#ffffff")
     level = levels(ws, 64)
     grid = ws.mod(
         "repeatgrid",
@@ -259,6 +276,7 @@ def spectrum_city(p):
         options={"extent": "counted", "perCopy": "on"},
     )
     ws.cable(level, "output", grid, "copyScaleY")
+    ws.cable(rainbow(ws, 64), "output", grid, "copyColor")
     show(ws, C[2], 40, grid, master, controls={"distance": 10.0, "tilt": 0.14})
 
 

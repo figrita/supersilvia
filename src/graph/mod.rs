@@ -692,8 +692,8 @@ impl Graph {
                 Ok(())
             }
             Err(ConnectError::TypeMismatch { from: a, to: b })
-                if a.kind() == Kind::Number
-                    && b.kind() == Kind::Number
+                if a.kind() == b.kind()
+                    && matches!(a.kind(), Kind::Number | Kind::Color)
                     && (self.is_dual_input(to) || (self.bulk && self.is_dual_output(from))) =>
             {
                 self.link(from, to);

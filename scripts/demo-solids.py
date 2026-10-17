@@ -383,10 +383,14 @@ class Project:
         out = next((o for o in d["outputs"] if o["key"] == key), None)
         assert out, f"{self.slug_of(node_id)} has no output {key}"
         if out["dual"]:
-            # A diamond where every cable into the node is a uniform number.
-            into = [c for c in self.all_connections() if c["to"]["node"] == node_id]
-            if all(self.output_type(c["from"]["node"], c["from"]["key"]) == "uniform number" for c in into):
-                return "uniform number"
+            # A list where a list is cabled in, a diamond where every cable in is one value a
+            # frame, and the declared field otherwise.
+            into = [self.output_type(c["from"]["node"], c["from"]["key"]) for c in self.all_connections() if c["to"]["node"] == node_id]
+            kind = out["type"].split()[-1]
+            if any(t.endswith("list") for t in into):
+                return f"{kind} list"
+            if all(t.startswith("uniform") for t in into):
+                return f"uniform {kind}"
         return out["type"]
 
     def cable(self, a, out, b, into):
@@ -397,7 +401,9 @@ class Project:
         # A hidden input is a setting on the node, not a port: it takes a value, never a cable.
         assert not i["hidden"], f"{self.slug_of(b)}.{into} is a setting, not a port"
         dst = i["type"]
-        assert src == dst or VARYING_OF.get(src) == dst or LIST_OF.get(src) == dst, (
+        # A list into a dual node's number puts the node in list mode.
+        dual_target = any(o["dual"] for o in d["outputs"]) and dst.endswith("number") and src == "number list"
+        assert src == dst or VARYING_OF.get(src) == dst or LIST_OF.get(src) == dst or dual_target, (
             f"{self.slug_of(a)}.{out} ({src}) cannot feed {self.slug_of(b)}.{into} ({dst})"
         )
         assert not any(c["to"] == {"node": b, "key": into} for c in self.all_connections()), f"{into} is cabled twice"
