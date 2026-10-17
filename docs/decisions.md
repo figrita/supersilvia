@@ -1198,6 +1198,25 @@ at the demo's eighty it was a 17 ms pass the editor waited behind. What lost is 
 the rule above protects, a count driven per pixel, which on this node bought a longer pass for
 detail ten steps already give. See [loop-bounding.md](loop-bounding.md#lyapunov).
 
+### A list stretches, and maths runs on it per item
+
+**Chosen.** Wherever a list of `n` items is read over `m`, item `i` reads item
+`floor(i · n / m)`: elementwise maths is as long as its longest input, a shorter one is
+stretched across it, a single number is a list of one, and an empty input gives an empty
+output. The dual maths takes a list on any input and runs per item, list out, and a node fed a
+list and a field at once is refused at the second cable. Get with a list on its Index gathers,
+which is how Sort's Order reorders a sibling list. See [nodes.md](nodes.md#lists).
+
+**What lost.** *The longest list wins and shorter ones wrap*, vvvv beta's and Max MC's rule:
+it makes stripes, three colors over twelve copies, where stretch makes bands, and the stripe is
+one Cycle node here, while a spectrum stretched over any number of copies still runs low to
+high. *A list on a one-value input reads its first item*, the quiet narrowing: what the
+obvious narrowing is differs from tool to tool, and a list that does nothing visible looks
+like a broken cable, so the conversion menu makes the choice once, as a node. *A node fed a
+list and a field reads the list per pixel*: what it read would depend on a repeat downstream of
+it, which no cable shows. *A Gather node beside Get*: the same lookup twice, where a list on
+Get's own Index says the same thing with one node fewer to find.
+
 ### GStreamer for video, and RGBA through an appsink first
 
 **Chosen.** Cameras and, later, files and hardware decode come through GStreamer: a pipeline

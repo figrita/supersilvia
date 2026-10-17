@@ -950,9 +950,9 @@ impl Synth {
             }
             // A dual output is the one CPU work a node with no `cpu` half has: its formula
             // in Rust, evaluated for whichever of its outputs the graph has resolved to a
-            // uniform number. Producers come first in this order, so a chain of them settles
-            // in one frame. A flipped one is withdrawn — it is a field, and a field has no
-            // reading — and the row then draws nothing.
+            // uniform number, and once per item for one it has resolved to a list.
+            // Producers come first in this order, so a chain of them settles in one frame. A
+            // field is withdrawn — a field has no reading — and the row then draws nothing.
             if def.outputs.iter().any(|o| o.eval.is_some()) {
                 let mut ctx = TickContext::new(
                     graph,
@@ -979,15 +979,24 @@ impl Synth {
                 );
                 for out in def.outputs {
                     let Some(eval) = out.eval else { continue };
-                    let publishes = ctx
+                    let rate = ctx
                         .node(id)
                         .and_then(|n| n.output(out.key))
-                        .is_some_and(|p| p.ty.is_uniform());
-                    if publishes {
-                        let value = eval(id, &ctx);
-                        ctx.publish(id, out.key, value);
-                    } else {
-                        ctx.withdraw(id, out.key);
+                        .and_then(|p| p.ty.rate());
+                    match rate {
+                        Some(crate::graph::Rate::Uniform) => {
+                            let value = eval(id, &ctx);
+                            ctx.publish(id, out.key, value);
+                            ctx.withdraw_list(id, out.key);
+                        }
+                        Some(crate::graph::Rate::List) => {
+                            ctx.publish_per_item(id, out.key, eval);
+                            ctx.withdraw(id, out.key);
+                        }
+                        _ => {
+                            ctx.withdraw(id, out.key);
+                            ctx.withdraw_list(id, out.key);
+                        }
                     }
                 }
             }

@@ -308,6 +308,7 @@ impl RegionUi<'_> {
             // A value with no port has nothing arriving at it: there is one number and the
             // control is it.
             varying: false,
+            list: None,
             picture: None,
             learning: self.learning == Some(key),
             ghost: ghost_of(self.live.ghosts, crate::graph::PortRef::new(self.id, key)),

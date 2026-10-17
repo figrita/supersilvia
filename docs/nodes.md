@@ -339,8 +339,7 @@ lane, `x` for a lit cell and `.` for an unlit one, the notation every rhythm tab
 unlit, and a new node holds no value at all, which is every cell dark; and `Painting`, a
 picture a hand painted — RGBA8 pixels behind an `Arc` in memory, and in the `.ssw` the
 reference to a PNG the project's save writes into `assets/`, named by its content (see
-[decisions.md](decisions.md#a-painting-is-saved-with-the-project)). A pad, a step grid and a
-paint surface arrive with the rest of the node-body controls.
+[decisions.md](decisions.md#a-painting-is-saved-with-the-project)). A pad, a step grid and a paint surface arrive with the rest of the node-body controls.
 
 A value is a row of the node unless its kind takes none: `Points`, `Cells` and `Painting` are
 drawn in one of the node's own regions instead — the ordered list in `NodeDef::regions` —
@@ -875,13 +874,33 @@ NaN into zero, as `publish` does.
 one, so a knob or an oscillator reaches every item alike. A one-value input — a number, a field, a setting —
 never reads a quiet first item. A list dragged onto a number shows the conversion ring, and
 letting go offers **Item**, a Get whose Index starts at the first item, and **Count**, a
-Length (`nodes::bridge`). The shape lost: a field input reading a list per copy, which made what
-a node read depend on a repeat downstream of it.
+Length (`nodes::bridge`). The shape lost: a field input reading a list per copy, which made what a node read depend on a repeat
+downstream of it.
+
+**One matching rule, stretch.** Wherever a list of `n` items is read over `m`, item `i` reads
+item `floor(i · n / m)` of it (`nodes::list::stretch`): three items over twelve is AAAA BBBB
+CCCC. A list read over its own length reads itself, and a single number is a list of one.
+
+**The dual maths runs per item.** A list cabled into any input of a [dual](#dual-outputs) node
+— the eighteen Math nodes, Reframe Range and Slide Rule — puts it in **list mode**: its output
+is a `ListNumber`, its inputs draw as lists, and the tick runs its `eval` once per item. The
+output is as long as the longest list cabled in, a shorter one stretched across it and a single
+number or a knob the same on every item; an empty list cabled in makes the output empty. A node
+fed a list and a field at once would be both, so the second of those cables is refused on
+type: a field onto a list-mode node is refused outright, and a list onto a node a field is in
+shows the conversion ring and offers the menu's rows. A list cabled into the one input a field
+is in replaces it. Nothing in `math.rs` knows about lists: `TickContext::publish_per_item`
+sets an item cursor, and `ctx.input` reads the current item of a list it finds cabled in.
+
+**Get gathers.** With a list on its Index, a Get's Item is a list: the items those indices
+name, in their order, each wrapping as a single index does. So Sort's Order on a Get's Index
+reorders a sibling list, and one Order keeps X, Y and a size in step. Its Item is dual at two
+rates, `OutputDef::gathers`, so the graph types it as it types the maths.
 
 | node | ports | what it does |
 | --- | --- | --- |
 | **Range** (`range`) | Count, From, To, Ends → List | Count values evenly spaced From one To the other; Ends set to From Only leaves the last out, so a Range of turns closes a ring |
-| **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. An empty list publishes nothing |
+| **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. A list of indices gathers. An empty list publishes nothing |
 | **Length** (`length`) | List → Count | How many items |
 
 A list's row draws its items as a bar chart the height of the row, from zero, with its count
@@ -902,12 +921,15 @@ outputs: &[OutputDef {
 An output with an `eval` is **dual**: it declares `VaryingNumber`, and its *effective* type
 on an instance is whatever what feeds it makes it. There is nothing per-pixel about `a + b`
 when `a` and `b` are uniform numbers, so a `math` node with knobs on it is a constant the CPU
-can hold, and the same node with a noise cabled in is a field. One `add`, not two.
+can hold, the same node with a noise cabled in is a field, and with a list cabled in it is a
+list. One `add`, not three.
 
-**The rule.** A dual output is `UniformNumber` when **every** input of its node resolves to a
+**The rule.** A dual node runs at the highest rate any of its dual inputs brings, ordered
+uniform < list < varying. A dual output is `UniformNumber` when **every** input resolves to a
 uniform: a connected input whose source's effective type is `UniformNumber`, or an unconnected
 one holding a `ControlValue::Float` or a `ControlValue::Color` — a control, which compiles
-to a uniform anyway. A field on any input, or an input bound to a prelude global, makes
+to a uniform anyway. A list on any input and a field on none makes it `ListNumber` ([per
+item](#lists)). A field on any input, or an input bound to a prelude global, makes
 it `VaryingNumber`. The rule is written by rate rather than
 by a pair of types: `Graph` computes one `Rate` for the node and hands every dual port
 `PortType::with_rate` of it, so a dual color output would slot into the same rule now that
@@ -915,16 +937,22 @@ by a pair of types: `Graph` computes one `Rate` for the node and hands every dua
 the answer into the instance's own `PortDef::ty` and recomputes it over the downstream closure
 after every `connect`, `disconnect`, `add_node` and `remove_node`, and once at the end of a
 file load or an import. So the compiler, `can_connect`, the port dot and the readout all read
-the type they already read, and `PortDef::dual` — set by `port_defs` from `eval.is_some()`, on
-the output and on every `VaryingNumber` input of the same node — is how `graph/` finds one
-without matching on a slug.
+the type they already read, and `PortDef::dual` — set by `port_defs` from `eval.is_some()` or
+`gathers`, on the output and on every number input of the same node that is not a list — is
+how `graph/` finds one without matching on a slug. A list-mode node's dual inputs are
+`ListNumber`, so a field onto one is refused on type; in the other two modes a list lands on a
+dual input whose `PortDef::takes_list` the graph set, which it does unless a field is in
+another input of the node or the node is pinned against a list.
 
 **Demotion is unofferable, and a pinned node's inputs say so.** A `VaryingNumber` does not
 feed a `UniformNumber` input, so a cable that flips a dual node to `VaryingNumber` while
 something reads its number would break the cable that reads it. A dual node in that position
 is **pinned**: it is in `UniformNumber` mode, and one of the outputs a flip would turn into a
 field feeds — directly, or transitively through dual nodes that would flip with it — an input
-that is `UniformNumber` of its own. **A pinned node's dual inputs have effective type
+that is `UniformNumber` or a list of its own, or a dual node fed a list elsewhere, which would
+be both. A node is pinned **against a list** the same way, by anything downstream that is not
+a list input or a dual node fed a field elsewhere, and its inputs then refuse a list with the
+conversion ring. **A node pinned against a field has dual inputs of effective type
 `UniformNumber`**, written into the instance's own `PortDef::ty` beside the output's, so a
 field onto one is an ordinary `ConnectError::TypeMismatch`: the input *is* a uniform number,
 the port draws the diamond that says so, and nothing has to be dragged at it to find out.
@@ -940,8 +968,8 @@ the types once and drops whatever cable is left reading a field as a uniform num
 
 The output modes settle over the downstream closure of a change; the pins run the other way,
 upstream from the `UniformNumber` consumer back through the dual producers feeding it, so
-`Graph::repin` computes them that way — one pass over the cables finds the dual nodes a
-`UniformNumber` input reads directly, and a walk back through the dual producers feeding those
+`Graph::repin` computes both that way — one pass over the cables finds the dual nodes a
+reader pins directly, and a walk back through the dual producers feeding those
 carries the answer to everything that would flip with them. One pass over the edges, beside
 the order over immediate edges the output modes settle in; asking each dual node the
 question separately costs a downstream walk per node and each of those rescans the edges.
@@ -949,9 +977,11 @@ question separately costs a downstream walk per node and each of those rescans t
 **The tick evaluates one.** `Synth::tick` walks `tick_order`; a node with no `cpu` half whose
 dual output is effectively `UniformNumber` has its `eval` run through the same `TickContext` a
 CPU node gets — `ctx.input(id, key)` already resolves a connected uniform or the control — and
-the result is published on that port. A dual output that has flipped to `VaryingNumber` is
-withdrawn, so its row draws nothing rather than a stale number. Producers tick before
-consumers, so a chain of duals resolves inside one frame.
+the result is published on that port. One that is effectively `ListNumber` has its `eval` run
+once per item by `TickContext::publish_per_item`, which moves an item cursor that
+`ctx.input` reads the current item through, and publishes the items as a list. A dual output
+that has flipped to `VaryingNumber` is withdrawn, so its row draws nothing rather than a stale
+number. Producers tick before consumers, so a chain of duals resolves inside one frame.
 
 **The family** is `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`,
 `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`,

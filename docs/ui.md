@@ -2607,7 +2607,9 @@ workspace, whose pass is not the one drawing thumbnails, or a pass that has not 
 the control says `varying` where its value would be: across a swatch's own ground, and in
 place of an s-number's digits with no fill under it. Either way the control keeps its 84 by 20
 and its accessible name ends in `varying`. An input with no control, such as Wavefold's
-Input, has nothing to show either in.
+Input, has nothing to show either in. **A control fed by a list says how many items arrive**,
+`×8`, as the list's own row does, with no fill: the node runs once per item, so there is no
+one number to meter either.
 
 **The cost rule for text that changes every frame.** A readout misses egui's galley cache by
 construction, because its text is different on most frames. What bounds it is that there are

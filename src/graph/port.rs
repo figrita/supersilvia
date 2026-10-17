@@ -163,22 +163,32 @@ pub struct PortDef {
     /// cycle check: a loop through one is feedback rather than recursion. §2b: cycles through
     /// a frame port *are* feedback, and a delayed uniform number's read the same way.
     pub delayed: bool,
-    /// True for a port whose declared type is `VaryingNumber` and whose **effective** type
-    /// is whatever the graph around it makes it. `ty` on this instance is that answer,
-    /// recomputed by `Graph` on every structural change.
+    /// True for a port whose **effective** type is whatever the graph around it makes it,
+    /// rather than its declaration. `ty` on this instance is that answer, recomputed by
+    /// `Graph` on every structural change.
     ///
-    /// On an **output** it is `UniformNumber` while every input of its node resolves to a
-    /// uniform number and `VaryingNumber` otherwise. On an **input** of that same node it is
-    /// `UniformNumber` while the node is *pinned* — in `UniformNumber` mode with a flipped
-    /// output that would feed a `UniformNumber` input — because a `VaryingNumber` landing
-    /// there is refused, and the type a port draws is the type a cable may bring.
+    /// A dual node runs at one of three rates, ordered uniform < list < varying, and the
+    /// highest any of its dual inputs brings is its mode: **uniform** while every one resolves
+    /// to a uniform number, **list** while one carries a list and none a field, and
+    /// **varying** while one carries a field. Its dual outputs are the declared kind at that
+    /// rate. Its dual inputs are `ListNumber` in list mode and their declaration in varying
+    /// mode; in uniform mode they are `UniformNumber` while the node is *pinned* against a
+    /// field — a flip would leave a field where something reads a uniform number or a list —
+    /// and their declaration otherwise, because a `VaryingNumber` landing on a pinned one is
+    /// refused, and the type a port draws is the type a cable may bring. A list and a field
+    /// into one node at once is refused, since the node cannot be both.
     ///
     /// The second bit `nodes/` hands the graph beside `delayed`, and it comes from
-    /// `OutputDef::eval` — the formula a `tick` can evaluate — so nothing here matches on a
-    /// slug to find one. `graph/` needs it for three questions: which outputs to recompute,
-    /// which inputs to pin, and which refusal a file may settle rather than obey. See
-    /// `docs/nodes.md#dual-outputs`.
+    /// `OutputDef::eval` — the formula a `tick` can evaluate — or `OutputDef::gathers`, so
+    /// nothing here matches on a slug to find one. `graph/` needs it for three questions:
+    /// which outputs to recompute, which inputs to pin, and which refusal a file may settle
+    /// rather than obey. See `docs/nodes.md#dual-outputs`.
     pub dual: bool,
+    /// On a dual input, whether a list may land here while `ty` alone would refuse it: the
+    /// node is in uniform or varying mode, no other of its inputs brings a field, and a flip to
+    /// a list would leave no list where a one-value input reads it. Written by `Graph` beside
+    /// `ty`, and false everywhere else.
+    pub takes_list: bool,
 }
 
 impl PortDef {
@@ -188,6 +198,7 @@ impl PortDef {
             ty,
             delayed: false,
             dual: false,
+            takes_list: false,
         }
     }
 
@@ -198,6 +209,7 @@ impl PortDef {
             ty,
             delayed: true,
             dual: false,
+            takes_list: false,
         }
     }
 
@@ -209,6 +221,7 @@ impl PortDef {
             ty,
             delayed: false,
             dual: true,
+            takes_list: false,
         }
     }
 }

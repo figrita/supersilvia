@@ -70,6 +70,10 @@ pub struct NumberSpec {
     /// a number nobody is reading. The control says [`VARYING`] in place of its digits and
     /// draws no fill — see [The value on the row](../../docs/ui.md#the-value-on-the-row).
     pub varying: bool,
+    /// A **list** is arriving here, this many items long, so there is no one value to show
+    /// either: the node runs once per item. The control says `×n` in place of its digits, as
+    /// the list's own row does, and draws no fill.
+    pub list: Option<usize>,
     /// The thumbnail of the port a varying value arrives from, where it has one: painted
     /// across the trough in place of [`VARYING`], which stays the accessible name. Read only
     /// while `varying`.
@@ -149,7 +153,7 @@ impl NumberSpec {
         // A value that varies has no position on the track. Leaving the stale number's fill
         // there would be the control lying a second time, under a word saying it is not a
         // number.
-        if self.varying {
+        if self.varying || self.list.is_some() {
             return 0.0;
         }
         self.fraction_of(self.value)
@@ -244,6 +248,9 @@ impl NumberSpec {
     fn with_unit(&self) -> String {
         if self.varying {
             return VARYING.to_string();
+        }
+        if let Some(n) = self.list {
+            return format!("×{n}");
         }
         if self.unit.is_empty() {
             self.text()
@@ -464,7 +471,7 @@ fn chrome(
 
     // Where a fader out of pick-up is: a hairline across the trough in the accent, short of
     // its top and bottom so the number's own digits stay readable over it.
-    if let Some(ghost) = spec.ghost.filter(|_| !spec.varying) {
+    if let Some(ghost) = spec.ghost.filter(|_| !spec.varying && spec.list.is_none()) {
         let x = trough.min.x + trough.width() * spec.fraction_of(ghost);
         let inset = 3.0 * zoom;
         painter.line_segment(
@@ -1245,6 +1252,9 @@ fn hover_text(label: &impl std::fmt::Display, spec: &NumberSpec) -> String {
     if spec.varying {
         return format!("{label} — a varying value arrives here: one per pixel, not a number");
     }
+    if let Some(n) = spec.list {
+        return format!("{label} — a list of {n} arrives here: the node runs once per item");
+    }
     format!(
         "{label} {} ({}-{}, step {})",
         spec.with_unit(),
@@ -1268,6 +1278,7 @@ mod tests {
             unit: "",
             log,
             varying: false,
+            list: None,
             picture: None,
             learning: false,
             ghost: None,
@@ -1279,6 +1290,7 @@ mod tests {
     fn fed_by_a_varying(value: f32) -> NumberSpec {
         NumberSpec {
             varying: true,
+            list: None,
             ..spec(value)
         }
     }

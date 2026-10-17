@@ -331,6 +331,7 @@ pub fn ghosted(
         unit: "",
         log: false,
         varying: false,
+        list: None,
         picture: None,
         learning,
         ghost,

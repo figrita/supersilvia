@@ -1961,6 +1961,7 @@ fn number_spec(node: &Node, key: &str, value: f32, varying: bool) -> crate::ui::
         unit,
         log,
         varying,
+        list: None,
         picture: None,
         learning: false,
         ghost: None,
@@ -2173,6 +2174,9 @@ fn input_controls(
                     learning: cx.learning(port.key),
                     ghost: cx.ghost(port.key),
                     picture,
+                    list: source
+                        .and_then(|src| cx.frame.uniforms.list(src))
+                        .map(<[f64]>::len),
                     ..number_spec(node, port.key, shown, varying)
                 };
                 let lock = cx.frame.prefs.lock_cursor;
