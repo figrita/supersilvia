@@ -193,6 +193,7 @@ impl CpuNode for AudioIn {
             analysis.bands[2],
         ];
         ctx.publish_frame(id, "oscilloscope", self.scope.frame(&analysis.waveform));
+        crate::nodes::audio_ports::publish_spectrum(id, ctx, &analysis.spectrum, gain);
         for (i, key) in OUTPUTS.iter().enumerate() {
             ctx.publish(id, key, f64::from(raw[i]) * gain);
         }

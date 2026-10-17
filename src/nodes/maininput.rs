@@ -165,6 +165,8 @@ impl CpuNode for MainInputNode {
                 Arc::clone(flat)
             },
         );
+        // Silence before a source is chosen: the default analysis is all zeros.
+        audio_ports::publish_spectrum(id, ctx, &analysis.spectrum, f64::from(gain));
         if let Some(frame) = frame {
             ctx.publish_frame(id, "frame", frame);
         }

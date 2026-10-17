@@ -314,6 +314,12 @@ impl VideoNode {
             // A flat line rather than nothing: a port that published no texture would sample
             // whatever was last uploaded under it.
             ctx.publish_frame(id, "oscilloscope", Arc::clone(&self.flat));
+            crate::nodes::audio_ports::publish_spectrum(
+                id,
+                ctx,
+                &[0.0; crate::audio::SCOPE_BINS],
+                1.0,
+            );
             return;
         };
 
@@ -337,6 +343,7 @@ impl VideoNode {
             "oscilloscope",
             self.scope.frame(&read.analysis.waveform),
         );
+        crate::nodes::audio_ports::publish_spectrum(id, ctx, &read.analysis.spectrum, 1.0);
         for crossing in &read.crossings {
             let Some(port) = crate::nodes::audio_ports::EVENTS.get(crossing.band as usize) else {
                 continue;

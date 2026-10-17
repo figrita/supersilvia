@@ -493,8 +493,9 @@ says:
   they fall due and carries the fraction, so a second is Rate × 30 generations at any tick
   rate, and a driven `dt` makes the same world as a live one. An automaton with Auto-Run off
   owes nothing, and each press of its Step is one generation more.
-- **`smoothcounter`'s Rate**, **`autoexposure`'s Response**, a time constant, and
-  **`stargate`'s Drift**, in pixels per drawn frame.
+- **`smoothcounter`'s Rate**, **`autoexposure`'s Response**, a time constant, **`lag`'s Rise
+  and Fall**, a time constant each in seconds, and **`stargate`'s Drift**, in pixels per drawn
+  frame.
 - `animation`, `automation`, `adsr`, `slew`, `autogain`, `brickgame`, `xypad`, `clockdivider`,
   `randomfire` and an Output's feedback keep their own. `animation` and `automation`'s playback
   are started by a hand or an event, so each keeps its own start, on a `nodes::phasor::Phasor`:

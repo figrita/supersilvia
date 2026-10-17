@@ -144,7 +144,9 @@ pub struct Analysis {
     pub peak: f32,
     /// What a graph sees: each band's own level.
     pub bands: [f32; BANDS],
-    /// The spectrum, 0 to 1 a bin. What the scope draws behind the band markers.
+    /// The spectrum, 0 to 1 a bucket: [`SCOPE_BINS`] log-spaced buckets from `SCOPE_LO_HZ` to
+    /// `SCOPE_HI_HZ`, each the loudest bin under it on the bands' decibel window. What the
+    /// scope draws behind the band markers, and every audio source's Spectrum list.
     pub spectrum: [f32; SCOPE_BINS],
     /// The newest samples, `128` at silence. Uploaded as a 512x1 texture for an
     /// oscilloscope, which is why it is bytes and not floats.
@@ -947,6 +949,79 @@ mod tests {
             expect[1]
         );
         assert_eq!(last.samples, (FFT_SIZE * 2) as u64);
+    }
+
+    // ---------------------------------------------------------------- the spectrum
+
+    /// The bucket `hz` falls in: the buckets are log-spaced from `SCOPE_LO_HZ` to `SCOPE_HI_HZ`.
+    fn bucket_of(hz: f32) -> usize {
+        let at = (hz / SCOPE_LO_HZ).ln() / (SCOPE_HI_HZ / SCOPE_LO_HZ).ln();
+        (at * SCOPE_BINS as f32) as usize
+    }
+
+    /// A tone is loudest in the bucket it falls in, a full-scale one reads close to 1 there,
+    /// and an octave either side of it is far quieter.
+    #[test]
+    fn a_sine_lands_in_its_own_bucket() {
+        for hz in [250.0, 1000.0, 3000.0, 8000.0, 15_000.0] {
+            let mut a = Analyzer::new(48_000);
+            let s = a.push(&sine(hz, 48_000, FFT_SIZE * 4, 1.0)).spectrum;
+            let at = bucket_of(hz);
+            let loudest = s.iter().copied().fold(0.0, f32::max);
+            assert_eq!(
+                s[at], loudest,
+                "{hz} Hz: bucket {at} reads {} of {loudest}",
+                s[at]
+            );
+            assert!(loudest > 0.95, "{hz} Hz at full scale reads {loudest}");
+            // Twelve and four fifths buckets an octave.
+            for away in [at - 13, at + 13].into_iter().filter(|b| *b < SCOPE_BINS) {
+                assert!(
+                    s[away] < loudest * 0.6,
+                    "{hz} Hz: an octave off, bucket {away} reads {} against {loudest}",
+                    s[away]
+                );
+            }
+        }
+    }
+
+    /// The low end is narrower than an FFT bin: a bass tone reads loud in its bucket and the
+    /// buckets beside it, and silence reads zero everywhere.
+    #[test]
+    fn a_bass_tone_reads_in_its_bucket_and_silence_reads_nothing() {
+        let mut a = Analyzer::new(48_000);
+        let s = a.push(&sine(80.0, 48_000, FFT_SIZE * 4, 1.0)).spectrum;
+        assert!(
+            s[bucket_of(80.0)] > 0.9,
+            "80 Hz reads {}",
+            s[bucket_of(80.0)]
+        );
+        assert!(
+            s[bucket_of(2000.0)] < 0.3,
+            "2 kHz reads {}",
+            s[bucket_of(2000.0)]
+        );
+
+        let mut a = Analyzer::new(48_000);
+        let s = a.push(&vec![0.0; FFT_SIZE * 2]).spectrum;
+        assert!(s.iter().all(|v| *v == 0.0), "{s:?}");
+    }
+
+    /// A bucket's level is a place on the bands' seventy-decibel window: a tone twenty
+    /// decibels down reads about 0.71, and forty down about 0.43.
+    #[test]
+    fn a_quieter_tone_reads_lower_on_the_decibel_window() {
+        for (amplitude, expect) in [(0.1, 0.71), (0.01, 0.43)] {
+            let mut a = Analyzer::new(48_000);
+            let s = a
+                .push(&sine(1000.0, 48_000, FFT_SIZE * 4, amplitude))
+                .spectrum;
+            let level = s[bucket_of(1000.0)];
+            assert!(
+                (level - expect).abs() < 0.03,
+                "{amplitude}: {level} against {expect}"
+            );
+        }
     }
 
     // ---------------------------------------------------------------- thresholds

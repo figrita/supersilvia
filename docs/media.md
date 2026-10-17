@@ -248,7 +248,8 @@ Every audio source draws one, and it is two things stacked.
 band's color, and a **handle** on it whose X is where the band listens and whose Y is how
 narrowly. The spectrum is bucketed onto that same log axis before it is published — not the
 FFT's own bins, which are a fixed number of hertz wide and would collapse the three decades
-holding all the music into the first column or two.
+holding all the music into the first column or two. The same buckets are every source's
+[Spectrum list](#the-spectrum).
 
 One drag says both: **X is where the band listens and Y is how narrowly**, Q running down the
 plot on a log axis — narrow at the top, wide at the bottom, which is how a filter is drawn.
@@ -307,6 +308,27 @@ than the waveform — **a CPU array as a one-dimensional lookup texture a color 
 It is also the node that made a texture output stop being addressed by its node: `video`
 publishes its picture *and* its waveform, and until then no node had two. See
 [nodes.md](nodes.md).
+
+### The spectrum
+
+Every audio source publishes its **Spectrum** as a number list
+([nodes.md](nodes.md#lists)): the analyzer's 128 buckets, log-spaced from 20 Hz to 20 kHz, the
+same columns the scope draws. A bucket is the loudest FFT bin under it, measured on the bands'
+seventy-decibel window, so it reads 0 at silence and 1 for a full-scale sine, about 0.7 twenty
+decibels down and about 0.4 forty down; white noise at a third of full scale reads 0.25 to
+0.55 across the range. An Audio In's and a Main Input's are multiplied by their Gain, as their
+bands are. **Below about 850 Hz a bucket is narrower than an FFT bin**, 47 Hz, so the buckets
+there come in runs that read one bin: every bucket from 20 to 90 Hz reads the lowest, and the
+lowest three of sixteen bands from 20 Hz rise and fall together.
+
+**It is the analysis as it is this frame.** The buckets are computed on the audio side where
+the bands are — the audio thread for a device, the clip's own read for a `video` — and the tick
+only publishes the newest. Nothing holds a level up or lets it fall: that is **Lag**'s, a node
+with its Rise and Fall in sight, and **Bands** gathers the 128 into as many bands as a patch
+draws.
+
+A Main Input with no source chosen and a `video` with no soundtrack publish 128 zeros, so a
+count read from the list does not change when the sound arrives.
 
 ### Monitoring
 
