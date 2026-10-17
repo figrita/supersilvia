@@ -12,6 +12,7 @@
 //! a step per copy. The hash is integer arithmetic, so a scatter is the same on every GPU and
 //! comes back the same when a project is opened.
 
+use super::copies::{RESTORE, SAVE};
 use super::{SDF, fill, num, out, solid, turn};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
@@ -46,26 +47,65 @@ pub static GRID: NodeDef = NodeDef {
         ..OptionDef::EMPTY
     }],
     outputs: &[out(|node, ctx, _| {
-        let counted = if ctx.option(node, "extent") == "counted" {
-            "    cell = clamp(cell, -vec3f({countX}, {countY}, {countZ}), vec3f({countX}, {countY}, {countZ}));\n"
-        } else {
-            ""
-        };
+        let counted = ctx.option(node, "extent") == "counted";
         let inner = ctx.input(node, "input", "q");
         let color = if ctx.solid_color() {
             "mix(r.yzw, sd_hue(sd_hash3(cell + 47.0, {seed}).z), {tint})"
         } else {
             "r.yzw"
         };
-        fill(
-            node,
-            ctx,
-            &format!(
+        let clamp = "cell = clamp(cell, -vec3f({countX}, {countY}, {countZ}), vec3f({countX}, {countY}, {countZ}));";
+        let body = if ctx.reads_copy(node, "input") {
+            // The nearest copy and the one on the near side of each axis, each saying which
+            // copy it is: its place in the block of Count either side, which a Forever grid
+            // repeats, an axis left alone being one copy wide.
+            let clamp = if counted {
+                format!("        {clamp}\n")
+            } else {
+                String::new()
+            };
+            format!(
+                "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
+    let on = s > vec3f(1.0e-4);
+    let step = select(vec3f(0.0), s, on);
+    let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
+    let side = select(vec3f(0.0), sign(p - near * step), on);
+    let half = max(round(vec3f({{countX}}, {{countY}}, {{countZ}})), vec3f(0.0));
+    let span = select(vec3f(1.0), 2.0 * half + 1.0, on);
+{SAVE}    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 4; j++) {{
+        var cell = near;
+        if (j > 0) {{
+            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
+            if (dot(axis, side) == 0.0) {{ continue; }}
+            cell += axis * side;
+        }}
+{clamp}        var q = p - cell * step;
+        q -= (sd_hash3(cell, {{seed}}) - 0.5) * {{scatter}} * step;
+        let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, {{seed}}).x - 0.5) * {{spin}} * 6.2831853);
+        q = vec3f(xz.x, q.y, xz.y);
+        let g = 1.0 - {{size}} * sd_hash3(cell + 31.0, {{seed}}).y;
+        q = q / g;
+        let at = select(vec3f(0.0), floor_mod3(cell + half, span), on);
+        sd_copy = SdCopy(at.x + span.x * (at.y + span.y * at.z), span.x * span.y * span.z, sd_hash3(cell + 59.0, {{seed}}).x, at / max(span - 1.0, vec3f(1.0)));
+        let r = {inner};
+        let d = r.x * g;
+        if (d < best.x) {{ best = vec4f(d, {color}); }}
+    }}
+{RESTORE}    return best;"
+            )
+        } else {
+            let clamp = if counted {
+                format!("    {clamp}\n")
+            } else {
+                String::new()
+            };
+            format!(
                 "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
     let on = s > vec3f(1.0e-4);
     let step = select(vec3f(0.0), s, on);
     var cell = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
-{counted}    var q = p - cell * step;
+{clamp}    var q = p - cell * step;
     q -= (sd_hash3(cell, {{seed}}) - 0.5) * {{scatter}} * step;
     let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, {{seed}}).x - 0.5) * {{spin}} * 6.2831853);
     q = vec3f(xz.x, q.y, xz.y);
@@ -73,8 +113,9 @@ pub static GRID: NodeDef = NodeDef {
     q = q / g;
     let r = {inner};
     return vec4f(r.x * g, {color});"
-            ),
-        )
+            )
+        };
+        fill(node, ctx, &body)
     })],
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
@@ -120,10 +161,42 @@ pub static AROUND: NodeDef = NodeDef {
         } else {
             "r.yzw"
         };
-        fill(
-            node,
-            ctx,
-            &format!(
+        let body = if ctx.reads_copy(node, "input") {
+            // The nearest copy and the one on the near side of it round the ring.
+            format!(
+                "    let tau = 6.2831853;
+    let n = max(round({{copies}}), 1.0);
+    let spread = clamp({{spread}}, 0.0, 1.0);
+    let w = max(spread * tau / n, 1.0e-5);
+    let l = {into};
+    let a = floor_mod(atan2(l.z, l.x), tau);
+    let k = round(a / w);
+    let toward = select(-1.0, 1.0, a > k * w);
+{SAVE}    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 2; j++) {{
+        var i = k + f32(j) * toward;
+        if (spread > 0.9999) {{
+            i = floor_mod(i, n);
+        }} else {{
+            i = clamp(i, 0.0, n - 1.0);
+            if (j == 0 && abs(a - tau) < abs(a - i * w)) {{ i = 0.0; }}
+        }}
+        let xz = sd_rot2(l.xz, -i * w);
+        var m = vec3f(xz.x - {{radius}}, l.y - i * {{rise}}, xz.y);
+        let tw = sd_rot2(m.xz, i * {{turn}} * tau);
+        m = vec3f(tw.x, m.y, tw.y);
+        let g = max(1.0 + i * {{grow}}, 0.05);
+        m = m / g;
+        let q = {back};
+        sd_copy = SdCopy(i, n, sd_hash3(vec3f(i, 0.0, 0.0) + 59.0, {{seed}}).x, vec3f(i / max(n - 1.0, 1.0), 0.0, 0.0));
+        let r = {inner};
+        let d = r.x * g;
+        if (d < best.x) {{ best = vec4f(d, {color}); }}
+    }}
+{RESTORE}    return best;"
+            )
+        } else {
+            format!(
                 "    let tau = 6.2831853;
     let n = max(round({{copies}}), 1.0);
     let spread = clamp({{spread}}, 0.0, 1.0);
@@ -146,8 +219,9 @@ pub static AROUND: NodeDef = NodeDef {
     let q = {back};
     let r = {inner};
     return vec4f(r.x * g, {color});"
-            ),
-        )
+            )
+        };
+        fill(node, ctx, &body)
     })],
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY

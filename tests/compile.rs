@@ -773,7 +773,7 @@ fn every_wgsl_node_compiles_connected_and_unconnected() {
         (Category::Convert, 14),
         (Category::Tap, 0),
         (Category::Math, 18),
-        (Category::Solid, 57),
+        (Category::Solid, 60),
     ];
     for (category, expected) in groups {
         let count = nodes::REGISTRY

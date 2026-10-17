@@ -92,6 +92,15 @@ pub struct Shader {
 /// of a scene with no floor. Far past any march's reach, and still exact in an `f32`.
 pub const SOLID_FAR: &str = "1.0e4";
 
+/// The point inside a solid a field is being read at, for a node that casts a field onto a
+/// solid by a projection of its own (`nodes::solids::copies::CAST`): `.xyz` the point, `.w` 1
+/// while a solid is asking and 0 in a picture. Set round each read by
+/// [`CompileContext::input_at_point`], which reads the field itself at the point's front
+/// view, `p.xy`.
+pub const POINT_STATE: &str = "// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+";
+
 /// A port thumbnail's grid: 16:9, square cells, over the frame the worldspace convention
 /// fixes — `x` from `-16/9` to `16/9`, `y` from `-1` to `1`.
 pub const THUMB_W: usize = 48;
@@ -499,6 +508,67 @@ impl<'a> CompileContext<'a> {
     /// distance alone. See [`CompileContext::solid_input`].
     pub fn solid_color(&self) -> bool {
         self.solid_color
+    }
+
+    /// One of `id`'s number inputs read at the point `p` inside a solid.
+    ///
+    /// A uniform or a control is what [`CompileContext::input`] makes of it. **A field is read
+    /// at the point's front view**, `p.xy`, through a wrapper of its own that says which point
+    /// it is being read at round the call (`sd_at`), so a node that casts it by another
+    /// projection can find the point, and puts back whatever point was there before: a field
+    /// may hold a render of its own, whose solids ask too.
+    pub fn input_at_point(&mut self, id: NodeId, key: &'static str, p: &str) -> String {
+        let field = self
+            .graph
+            .source_of(PortRef::new(id, key))
+            .and_then(|src| self.graph.get(src.node)?.output(src.key))
+            .map(|o| o.ty)
+            .filter(|ty| ty.is_varying() && !ty.is_solid());
+        let Some(ty) = field else {
+            return self.input(id, key, p);
+        };
+        let Some(node) = self.graph.get(id) else {
+            self.diagnostics.push(Diagnostic::NoSuchNode(id));
+            return Self::fallback(ty, p);
+        };
+        let name = format!("{}{id}_{key}_at", node.def.slug);
+        if self.emitted.insert(name.clone()) {
+            if self.utils_seen.insert(POINT_STATE) {
+                self.utils.push(POINT_STATE);
+            }
+            let read = self.input(id, key, "q.xy");
+            self.functions.push(format!(
+                "fn {name}(q: vec3f) -> {} {{
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = {read};
+    sd_at = was;
+    return v;
+}}",
+                Self::wgsl_type(ty)
+            ));
+        }
+        format!("{name}({p})")
+    }
+
+    /// Does anything upstream of `id`'s input `key` read which copy it is in?
+    ///
+    /// A repeat asks before it says which copy it is drawing (`nodes::solids::copies`), so a
+    /// repeat nothing reads costs what it did before there was anything to read. A node that
+    /// reads the copy declares the copy's state among its helpers, so the question is whether
+    /// one is upstream at all.
+    pub fn reads_copy(&self, id: NodeId, key: &'static str) -> bool {
+        let Some(src) = self.graph.source_of(PortRef::new(id, key)) else {
+            return false;
+        };
+        let reads = |n: NodeId| {
+            self.graph.get(n).is_some_and(|node| {
+                node.def
+                    .wgsl_utils
+                    .contains(&crate::nodes::solids::copies::COPY_STATE)
+            })
+        };
+        reads(src.node) || self.graph.upstream_of(src.node).into_iter().any(reads)
     }
 
     /// Is anything plugged into one of `id`'s inputs?
@@ -1096,8 +1166,8 @@ mod tests {
         assert!(SOLID_FAR.parse::<f32>().is_ok_and(|far| far > 80.0));
     }
 
-    /// A solid connects to a solid and to nothing else, either way; a field cannot reach a
-    /// solid node's number, which is one value a frame, and a CPU node's number can.
+    /// A solid connects to a solid and to nothing else, either way; a solid node's number
+    /// takes a field, read at the point, and a CPU node's number as well.
     #[test]
     fn a_solid_feeds_only_a_solid() {
         use PortType::*;
@@ -1132,10 +1202,10 @@ mod tests {
         );
         assert!(
             g.connect(PortRef::new(field, "mask"), PortRef::new(sphere, "radius"))
-                .is_err()
+                .is_ok()
         );
         assert!(
-            g.connect(PortRef::new(slew, "output"), PortRef::new(sphere, "radius"))
+            g.connect(PortRef::new(slew, "output"), PortRef::new(sphere, "x"))
                 .is_ok()
         );
         assert!(

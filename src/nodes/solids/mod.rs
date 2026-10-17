@@ -19,12 +19,17 @@
 //! its distance by how far it can stretch. A march then never steps through a surface; it
 //! takes more steps instead, which the render's Steps shading shows.
 //!
-//! Every number input is a `UniformNumber`: a solid has a point and no `uv`, so a field cannot
-//! reach one, and a CPU node — a slew, an oscillator, a gear, a MIDI knob — reaches any of them.
+//! **Every number input of a solid takes a field**, as a video node's does. A solid has a point
+//! and a field a `uv`, so a field is read at the point's front view, `p.xy`
+//! (`CompileContext::input_at_point`), and Cast reads it by another projection. Which copy a
+//! repeat is drawing reaches a solid's numbers the same way, as a field ([`copies`]). Render
+//! 3D's numbers are uniforms: its camera is not inside any solid.
 
 pub mod blends;
+pub mod cast;
 pub mod colorfields;
 pub mod combine;
+pub mod copies;
 pub mod iterate;
 pub mod more;
 pub mod primitives;
@@ -37,7 +42,7 @@ pub mod surface;
 
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
-use crate::graph::PortType::{Solid, UniformColor, UniformNumber};
+use crate::graph::PortType::{Solid, UniformColor, UniformNumber, VaryingNumber};
 use crate::nodes::{Control, GenFn, InputDef, OptionDef, OptionKind, OutputDef, OutputKind};
 use std::fmt::Write as _;
 
@@ -206,7 +211,8 @@ pub fn chain(node: NodeId, ctx: &mut CompileContext, own: &str) -> String {
     fill(node, ctx, &body)
 }
 
-/// A number input on a solid node: one value a frame, from a control or a CPU node.
+/// A number input on a solid node: a control, a CPU node's number, or a field read at the
+/// point.
 pub(crate) const fn num(
     key: &'static str,
     label: &'static str,
@@ -219,7 +225,7 @@ pub(crate) const fn num(
     InputDef {
         key,
         label,
-        ty: UniformNumber,
+        ty: VaryingNumber,
         control: Control::num(default, min, max, step, unit),
     }
 }
@@ -237,7 +243,7 @@ pub(crate) const fn turn(
     InputDef {
         key,
         label,
-        ty: UniformNumber,
+        ty: VaryingNumber,
         control: Control::turn(default, min, max, step),
     }
 }
@@ -255,8 +261,17 @@ pub(crate) const fn num_log(
     InputDef {
         key,
         label,
-        ty: UniformNumber,
+        ty: VaryingNumber,
         control: Control::num_log(default, min, max, step, unit),
+    }
+}
+
+/// The same input as one value a frame, for a node outside every solid — Render 3D, whose
+/// camera is one camera for the picture — or one whose number its CPU half reads.
+pub(crate) const fn uniform(input: InputDef) -> InputDef {
+    InputDef {
+        ty: UniformNumber,
+        ..input
     }
 }
 
@@ -309,7 +324,7 @@ pub(crate) fn fill(node: NodeId, ctx: &mut CompileContext, src: &str) -> String 
         if input.ty.is_solid() || !out.contains(&hole) {
             continue;
         }
-        let expr = ctx.input(node, input.key, "p");
+        let expr = ctx.input_at_point(node, input.key, "p");
         out = out.replace(&hole, &expr);
     }
     out

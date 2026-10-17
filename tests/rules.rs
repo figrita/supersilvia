@@ -688,7 +688,14 @@ fn nothing_that_decides_the_video_knows_where_the_project_is() {
         ) {
             let text = std::fs::read_to_string(&file).unwrap();
             for (n, line) in production_lines(&text) {
-                let code = line.split("//").next().unwrap_or("");
+                // Code only: a label such as Cast's "Projection" names no module.
+                let code: String = line
+                    .split("//")
+                    .next()
+                    .unwrap_or("")
+                    .split('"')
+                    .step_by(2)
+                    .collect();
                 if code.contains("project::") || code.contains("Project") {
                     found.push(format!("{}:{}: {}", file.display(), n, line.trim()));
                 }

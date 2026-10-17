@@ -173,6 +173,13 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
         } else {
             "r.yzw"
         };
+        // Copies count from the top of the sphere, so Order runs top to bottom.
+        let (before, after) = super::copies::enter(
+            ctx,
+            node,
+            "",
+            "SdCopy(i, n, sd_hash3(cell + 59.0, {seed}).x, vec3f(i / max(n - 1.0, 1.0), 0.0, 0.0))",
+        );
         fill(
             node,
             ctx,
@@ -192,8 +199,8 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
     q = vec3f(xz.x, q.y, xz.y);
     let g = 1.0 - clamp({{size}}, 0.0, 0.9) * sd_hash3(cell + 31.0, {{seed}}).y;
     q = q / g;
-    let r = {inner};
-    return vec4f(r.x * g, {color});"
+{before}    let r = {inner};
+{after}    return vec4f(r.x * g, {color});"
             ),
         )
     })],

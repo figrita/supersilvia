@@ -6,33 +6,23 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
-    u_color_color4_output: vec4f,
-    u_control_pyramid1_base: f32,
-    u_control_pyramid1_blend: f32,
-    u_control_pyramid1_height: f32,
-    u_control_pyramid1_tPitch: f32,
-    u_control_pyramid1_tRoll: f32,
-    u_control_pyramid1_tScale: f32,
-    u_control_pyramid1_tYaw: f32,
-    u_control_pyramid1_x: f32,
-    u_control_pyramid1_y: f32,
-    u_control_pyramid1_z: f32,
-    u_control_solidrender5_background: vec4f,
-    u_control_solidrender5_distance: f32,
-    u_control_solidrender5_floorHeight: f32,
-    u_control_solidrender5_fog: f32,
-    u_control_solidrender5_glowAmount: f32,
-    u_control_solidrender5_glowColor: vec4f,
-    u_control_solidrender5_glowReach: f32,
-    u_control_solidrender5_lens: f32,
-    u_control_solidrender5_light: f32,
-    u_control_solidrender5_lightHeight: f32,
-    u_control_solidrender5_orbit: f32,
-    u_control_solidrender5_step: f32,
-    u_control_solidrender5_targetX: f32,
-    u_control_solidrender5_targetY: f32,
-    u_control_solidrender5_targetZ: f32,
-    u_control_solidrender5_tilt: f32,
+    u_color_color9_output: vec4f,
+    u_control_solidrender15_background: vec4f,
+    u_control_solidrender15_distance: f32,
+    u_control_solidrender15_floorHeight: f32,
+    u_control_solidrender15_fog: f32,
+    u_control_solidrender15_glowAmount: f32,
+    u_control_solidrender15_glowColor: vec4f,
+    u_control_solidrender15_glowReach: f32,
+    u_control_solidrender15_lens: f32,
+    u_control_solidrender15_light: f32,
+    u_control_solidrender15_lightHeight: f32,
+    u_control_solidrender15_orbit: f32,
+    u_control_solidrender15_step: f32,
+    u_control_solidrender15_targetX: f32,
+    u_control_solidrender15_targetY: f32,
+    u_control_solidrender15_targetZ: f32,
+    u_control_solidrender15_tilt: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -42,6 +32,26 @@ struct Uniforms {
     u_control_sphere3_x: f32,
     u_control_sphere3_y: f32,
     u_control_sphere3_z: f32,
+    u_control_vignette10_radius: f32,
+    u_control_vignette10_softness: f32,
+    u_control_vignette11_radius: f32,
+    u_control_vignette11_softness: f32,
+    u_control_vignette12_radius: f32,
+    u_control_vignette12_softness: f32,
+    u_control_vignette13_radius: f32,
+    u_control_vignette13_softness: f32,
+    u_control_vignette14_radius: f32,
+    u_control_vignette14_softness: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -97,12 +107,91 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_x_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette4_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_y_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette5_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_z_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette6_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_base_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette7_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_height_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette8_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn pyramid1_solid_d_own(p: vec3f) -> vec4f {
-    let q = p - vec3f(u.u_control_pyramid1_x, u.u_control_pyramid1_y, u.u_control_pyramid1_z);
-    let sb = max(u.u_control_pyramid1_base, 1.0e-4);
-    let ph = u.u_control_pyramid1_height / sb;
+    let q = p - vec3f(pyramid1_x_at(p), pyramid1_y_at(p), pyramid1_z_at(p));
+    let sb = max(pyramid1_base_at(p), 1.0e-4);
+    let ph = pyramid1_height_at(p) / sb;
     let m2 = ph * ph + 0.25;
-    let v = (q + vec3f(0.0, u.u_control_pyramid1_height * 0.5, 0.0)) / sb;
+    let v = (q + vec3f(0.0, pyramid1_height_at(p) * 0.5, 0.0)) / sb;
     var f = abs(v.xz);
     if (f.y > f.x) { f = f.yx; }
     f -= vec2f(0.5);
@@ -131,21 +220,96 @@ fn sphere3_solid_d(p: vec3f) -> vec4f {
     return me;
 }
 
+fn vignette10_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette10_radius;
+    let softness = max(u.u_control_vignette10_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_blend_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette10_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette11_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette11_radius;
+    let softness = max(u.u_control_vignette11_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_tYaw_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette11_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette12_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette12_radius;
+    let softness = max(u.u_control_vignette12_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_tPitch_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette12_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette13_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette13_radius;
+    let softness = max(u.u_control_vignette13_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_tRoll_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette13_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette14_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette14_radius;
+    let softness = max(u.u_control_vignette14_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn pyramid1_tScale_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette14_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn pyramid1_solid_d(p: vec3f) -> vec4f {
-    let pivot = vec3f(u.u_control_pyramid1_x, u.u_control_pyramid1_y, u.u_control_pyramid1_z);
-    let s = max(u.u_control_pyramid1_tScale, 1.0e-4);
-    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_pyramid1_tYaw, u.u_control_pyramid1_tPitch, u.u_control_pyramid1_tRoll) * 6.2831853) / s;
+    let pivot = vec3f(pyramid1_x_at(p), pyramid1_y_at(p), pyramid1_z_at(p));
+    let s = max(pyramid1_tScale_at(p), 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(pyramid1_tYaw_at(p), pyramid1_tPitch_at(p), pyramid1_tRoll_at(p)) * 6.2831853) / s;
     let o = pyramid1_solid_d_own(local);
     let me = vec4f(o.x * s, o.yzw);
-    return sd_union(sphere3_solid_d(p), me, u.u_control_pyramid1_blend);
+    return sd_union(sphere3_solid_d(p), me, pyramid1_blend_at(p));
 }
 
 fn pyramid1_solid_own(p: vec3f) -> vec4f {
-    let q = p - vec3f(u.u_control_pyramid1_x, u.u_control_pyramid1_y, u.u_control_pyramid1_z);
-    let sb = max(u.u_control_pyramid1_base, 1.0e-4);
-    let ph = u.u_control_pyramid1_height / sb;
+    let q = p - vec3f(pyramid1_x_at(p), pyramid1_y_at(p), pyramid1_z_at(p));
+    let sb = max(pyramid1_base_at(p), 1.0e-4);
+    let ph = pyramid1_height_at(p) / sb;
     let m2 = ph * ph + 0.25;
-    let v = (q + vec3f(0.0, u.u_control_pyramid1_height * 0.5, 0.0)) / sb;
+    let v = (q + vec3f(0.0, pyramid1_height_at(p) * 0.5, 0.0)) / sb;
     var f = abs(v.xz);
     if (f.y > f.x) { f = f.yx; }
     f -= vec2f(0.5);
@@ -157,7 +321,7 @@ fn pyramid1_solid_own(p: vec3f) -> vec4f {
     let d2 = select(min(da, db), 0.0, min(w.y, -w.x * m2 - w.y * 0.5) > 0.0);
     let under = max(abs(v.xz) - vec2f(0.5), vec2f(0.0));
     let floor_d = sqrt(dot(under, under) + v.y * v.y);
-    return vec4f(min(sqrt((d2 + w.z * w.z) / m2), floor_d) * sign(max(w.z, -v.y)) * sb, u.u_color_color4_output.rgb);
+    return vec4f(min(sqrt((d2 + w.z * w.z) / m2), floor_d) * sign(max(w.z, -v.y)) * sb, u.u_color_color9_output.rgb);
 }
 
 fn sphere3_solid_own(p: vec3f) -> vec4f {
@@ -175,33 +339,33 @@ fn sphere3_solid(p: vec3f) -> vec4f {
 }
 
 fn pyramid1_solid(p: vec3f) -> vec4f {
-    let pivot = vec3f(u.u_control_pyramid1_x, u.u_control_pyramid1_y, u.u_control_pyramid1_z);
-    let s = max(u.u_control_pyramid1_tScale, 1.0e-4);
-    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_pyramid1_tYaw, u.u_control_pyramid1_tPitch, u.u_control_pyramid1_tRoll) * 6.2831853) / s;
+    let pivot = vec3f(pyramid1_x_at(p), pyramid1_y_at(p), pyramid1_z_at(p));
+    let s = max(pyramid1_tScale_at(p), 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(pyramid1_tYaw_at(p), pyramid1_tPitch_at(p), pyramid1_tRoll_at(p)) * 6.2831853) / s;
     let o = pyramid1_solid_own(local);
     let me = vec4f(o.x * s, o.yzw);
-    return sd_union(sphere3_solid(p), me, u.u_control_pyramid1_blend);
+    return sd_union(sphere3_solid(p), me, pyramid1_blend_at(p));
 }
 
-fn solidrender5_output(uv: vec2f) -> vec4f {
+fn solidrender15_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
-    let orbit = u.u_control_solidrender5_orbit * tau;
-    let tilt = u.u_control_solidrender5_tilt * tau;
-    let aim = vec3f(u.u_control_solidrender5_targetX, u.u_control_solidrender5_targetY, u.u_control_solidrender5_targetZ);
-    let ro = aim + u.u_control_solidrender5_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let orbit = u.u_control_solidrender15_orbit * tau;
+    let tilt = u.u_control_solidrender15_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender15_targetX, u.u_control_solidrender15_targetY, u.u_control_solidrender15_targetZ);
+    let ro = aim + u.u_control_solidrender15_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
     let fwd = normalize(aim - ro);
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
     let up = cross(right, fwd);
-    let rd = normalize(fwd * u.u_control_solidrender5_lens + right * uv.x + up * uv.y);
-    let fh = u.u_control_solidrender5_floorHeight;
-    let bg = u.u_control_solidrender5_background;
-    let relax = u.u_control_solidrender5_step;
+    let rd = normalize(fwd * u.u_control_solidrender15_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender15_floorHeight;
+    let bg = u.u_control_solidrender15_background;
+    let relax = u.u_control_solidrender15_step;
     var pp = vec3f(0.0);
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-    let glowing = u.u_control_solidrender5_glowAmount > 0.0;
-    let reach = max(u.u_control_solidrender5_glowReach, 0.001);
+    let glowing = u.u_control_solidrender15_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender15_glowReach, 0.001);
     var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
@@ -215,7 +379,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     }
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
-        if (min((pp.y - fh), pyramid1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender5_lens, 0.001))) {
+        if (min((pp.y - fh), pyramid1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender15_lens, 0.001))) {
             hit = true;
         } else if (rd.y < 0.0) {
             let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
@@ -225,7 +389,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     var gl = vec3f(0.0);
     var gla = 0.0;
     if (glowing) {
-        gl = u.u_control_solidrender5_glowAmount * u.u_control_solidrender5_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gl = u.u_control_solidrender15_glowAmount * u.u_control_solidrender15_glowColor.rgb * (1.0 - exp(-acc / reach));
         gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
     let heat = count / 128.0;
@@ -249,9 +413,9 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     let floor_hit = ((pp.y - fh)) < pyramid1_solid_d(pp).x;
     var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
     if (!floor_hit) { albedo = pyramid1_solid(pos).yzw; }
-    let fog = 1.0 - exp(-u.u_control_solidrender5_fog * t);
-    let la = u.u_control_solidrender5_light * tau;
-    let lh = u.u_control_solidrender5_lightHeight * tau;
+    let fog = 1.0 - exp(-u.u_control_solidrender15_fog * t);
+    let la = u.u_control_solidrender15_light * tau;
+    let lh = u.u_control_solidrender15_lightHeight * tau;
     let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
     var sh = 1.0;
     var st = 0.03;
@@ -285,5 +449,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return solidrender5_output(uv);
+    return solidrender15_output(uv);
 }

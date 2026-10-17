@@ -87,6 +87,7 @@ fn corpus() -> Vec<Entry> {
         }
     }
     entries.push(measured_alone());
+    entries.extend(copies());
     entries.extend(crowded());
     entries.push(everything());
     let mut seen = HashSet::new();
@@ -202,6 +203,132 @@ fn measured(g: &Graph) -> Vec<NodeId> {
         .filter(|(_, n)| n.def.measure_wgsl.is_some())
         .map(|(id, _)| id)
         .collect()
+}
+
+/// Repeats whose input reads which copy it is in: a sphere sized per copy in each repeat,
+/// by every walk Per Copy takes, and a repeat inside a repeat read from the outside. Each
+/// through an Output, its probe and its pass.
+fn copies() -> Vec<Entry> {
+    let mut entries = Vec::new();
+    let mut push = |name: String, g: &Graph, out: NodeId| {
+        let shader = wgsl::build(g, out).expect("an Output");
+        entries.push(Entry {
+            name: format!("copies:{name}"),
+            shader,
+        });
+        if let Some(shader) = wgsl::build_probe(g, out) {
+            entries.push(Entry {
+                name: format!("copies:{name}:probe"),
+                shader,
+            });
+        }
+        for shader in wgsl::build_pass(g, g.default_workspace(), &measured(g), true) {
+            entries.push(Entry {
+                name: format!("copies:{name}:pass"),
+                shader,
+            });
+        }
+    };
+    // Sphere → repeat → Render 3D → Output, the sphere's Radius from `reader.key`.
+    let build =
+        |repeat: &str, reader: &str, key: &'static str, options: &[(&'static str, &str)]| {
+            let mut g = Graph::new();
+            let sphere = add(&mut g, "sphere");
+            let r = add(&mut g, reader);
+            for (k, v) in options {
+                g.get_mut(r)
+                    .expect("just added")
+                    .options
+                    .insert(k, (*v).to_string());
+            }
+            g.connect(PortRef::new(r, key), PortRef::new(sphere, "radius"))
+                .expect("a field into a solid's number");
+            let rep = add(&mut g, repeat);
+            g.connect(PortRef::new(sphere, "solid"), PortRef::new(rep, "input"))
+                .expect("solid into solid");
+            let render = add(&mut g, "solidrender");
+            g.connect(PortRef::new(rep, "solid"), PortRef::new(render, "solid"))
+                .expect("solid into solid");
+            let out = add(&mut g, "output");
+            g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+                .expect("picture into picture");
+            (g, out, rep)
+        };
+    for repeat in ["repeatgrid", "repeataround", "scattersphere"] {
+        for key in ["order", "random", "number", "count", "x", "y", "z"] {
+            let (g, out, _) = build(repeat, "copy", key, &[]);
+            push(format!("{repeat}:copy.{key}"), &g, out);
+        }
+    }
+    for by in ["order", "random", "alternate", "middle", "x", "y", "z"] {
+        let (g, out, _) = build("repeatgrid", "percopy", "value", &[("by", by)]);
+        push(format!("repeatgrid:percopy.by={by}"), &g, out);
+    }
+    // A ring inside a grid, its spheres sized by the grid's copy.
+    let (mut g, out, ring) = build("repeataround", "percopy", "value", &[("of", "outer")]);
+    let render = g
+        .iter()
+        .find(|(_, n)| n.def.slug == "solidrender")
+        .map(|(id, _)| id)
+        .expect("a render");
+    let grid = add(&mut g, "repeatgrid");
+    g.connect(PortRef::new(ring, "solid"), PortRef::new(grid, "input"))
+        .expect("solid into solid");
+    g.connect(PortRef::new(grid, "solid"), PortRef::new(render, "solid"))
+        .expect("solid into solid");
+    push("nested".to_string(), &g, out);
+
+    // A copy's reading through maths, and a field straight onto a solid, cast from the front.
+    let (mut g, out, _) = build("repeatgrid", "copy", "order", &[]);
+    let sphere = g
+        .iter()
+        .find(|(_, n)| n.def.slug == "sphere")
+        .map(|(id, _)| id)
+        .expect("a sphere");
+    let copy = g
+        .iter()
+        .find(|(_, n)| n.def.slug == "copy")
+        .map(|(id, _)| id)
+        .expect("a copy");
+    let times = add(&mut g, "multiply");
+    g.connect(PortRef::new(copy, "random"), PortRef::new(times, "a"))
+        .expect("a field into maths");
+    g.connect(PortRef::new(times, "output"), PortRef::new(sphere, "y"))
+        .expect("maths into a solid");
+    let mask = add(&mut g, "vignette");
+    g.connect(PortRef::new(mask, "mask"), PortRef::new(sphere, "blend"))
+        .expect("a field into a solid");
+    push("maths and a field".to_string(), &g, out);
+
+    // Cast by every projection: a field onto a sphere's radius, and a picture straight into
+    // an Output, where no solid asks.
+    for projection in ["front", "top", "side", "around", "sphere", "box"] {
+        let (mut g, out, _) = build("repeatgrid", "cast", "value", &[("projection", projection)]);
+        let cast = g
+            .iter()
+            .find(|(_, n)| n.def.slug == "cast")
+            .map(|(id, _)| id)
+            .expect("a cast");
+        let mask = add(&mut g, "vignette");
+        g.connect(PortRef::new(mask, "mask"), PortRef::new(cast, "field"))
+            .expect("a field into a cast");
+        push(format!("cast.{projection}"), &g, out);
+
+        let mut g = Graph::new();
+        let board = add(&mut g, "checkerboard");
+        let cast = add(&mut g, "cast");
+        g.get_mut(cast)
+            .expect("just added")
+            .options
+            .insert("projection", projection.to_string());
+        g.connect(PortRef::new(board, "output"), PortRef::new(cast, "picture"))
+            .expect("a picture into a cast");
+        let out = add(&mut g, "output");
+        g.connect(PortRef::new(cast, "color"), PortRef::new(out, "input"))
+            .expect("a picture into an Output");
+        push(format!("cast.{projection}:picture"), &g, out);
+    }
+    entries
 }
 
 /// A workspace binding more textures than one pass may, in its batches.

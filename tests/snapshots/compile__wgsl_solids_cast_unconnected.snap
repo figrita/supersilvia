@@ -1,0 +1,132 @@
+---
+source: tests/compile.rs
+expression: wgsl
+---
+
+struct Uniforms {
+    u_resolution: vec2f,
+    u_time: f32,
+    u_control_cast1_offsetX: f32,
+    u_control_cast1_offsetY: f32,
+    u_control_cast1_scale: f32,
+    u_control_mix4_amount: f32,
+    u_control_rgba3_a: f32,
+    u_control_rgba3_b: f32,
+    u_control_rgba3_g: f32,
+    u_opt_mix4_curve: i32,
+    u_opt_mix4_method: i32,
+}
+@group(0) @binding(0) var<uniform> u: Uniforms;
+
+// Solids.
+fn sd_rot2(v: vec2f, a: f32) -> vec2f {
+    let c = cos(a);
+    let s = sin(a);
+    return vec2f(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+// Turn a point by yaw (around y), pitch (around x) and roll (around z), in radians.
+fn sd_turn(p: vec3f, a: vec3f) -> vec3f {
+    let xz = sd_rot2(p.xz, a.x);
+    var q = vec3f(xz.x, p.y, xz.y);
+    let yz = sd_rot2(q.yz, a.y);
+    q = vec3f(q.x, yz.x, yz.y);
+    let xy = sd_rot2(q.xy, a.z);
+    return vec3f(xy.x, xy.y, q.z);
+}
+// Smooth minimum with its blend carried into the color, so a seam between two colors is as
+// soft as the seam between the two shapes. A radius of zero is the hard union.
+fn sd_union(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(b, a, a.x < b.x); }
+    let h = clamp(0.5 + 0.5 * (b.x - a.x) / k, 0.0, 1.0);
+    return vec4f(mix(b.x, a.x, h) - k * h * (1.0 - h), mix(b.yzw, a.yzw, h));
+}
+// `a` with `b` carved out of it. The cut face takes `b`'s color.
+fn sd_subtract(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(a, vec4f(-b.x, b.yzw), -b.x > a.x); }
+    let h = clamp(0.5 - 0.5 * (a.x + b.x) / k, 0.0, 1.0);
+    return vec4f(mix(a.x, -b.x, h) + k * h * (1.0 - h), mix(a.yzw, b.yzw, h));
+}
+fn sd_intersect(a: vec4f, b: vec4f, k: f32) -> vec4f {
+    if (k <= 0.0) { return select(b, a, a.x > b.x); }
+    let h = clamp(0.5 - 0.5 * (b.x - a.x) / k, 0.0, 1.0);
+    return vec4f(mix(b.x, a.x, h) + k * h * (1.0 - h), mix(b.yzw, a.yzw, h));
+}
+// Three numbers, 0 to 1, from a whole-numbered cell and a seed: integer arithmetic only, so a
+// cell scatters the same way on every GPU and in every session.
+fn sd_hash3(cell: vec3f, seed: f32) -> vec3f {
+    var v = bitcast<vec3u>(vec3i(cell) + vec3i(i32(seed) * 1597, i32(seed) * 3571, i32(seed) * 7919));
+    v = v * 1664525u + 1013904223u;
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    v = v ^ (v >> vec3u(16u));
+    v.x += v.y * v.z;
+    v.y += v.z * v.x;
+    v.z += v.x * v.y;
+    return vec3f(v) * (1.0 / 4294967295.0);
+}
+// A fully saturated hue, 0 to 1 round the wheel.
+fn sd_hue(h: f32) -> vec3f {
+    return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
+}
+
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
+fn cast1_color(uv: vec2f) -> vec4f {
+    let w = select(vec3f(uv, 0.0), sd_at.xyz, sd_at.w > 0.5);
+    let s = max(u.u_control_cast1_scale, 1.0e-4);
+    let o = vec2f(u.u_control_cast1_offsetX, u.u_control_cast1_offsetY);
+    var b = pow(abs(normalize(w + vec3f(1.0e-6))), vec3f(4.0));
+    b = b / (b.x + b.y + b.z);
+    let was = sd_at;
+    sd_at = vec4f(0.0);
+    let v = defaultUvMap((w.xy) / s + o);
+    sd_at = was;
+    return v;
+}
+
+fn cast1_value(uv: vec2f) -> f32 {
+    let w = select(vec3f(uv, 0.0), sd_at.xyz, sd_at.w > 0.5);
+    let s = max(u.u_control_cast1_scale, 1.0e-4);
+    let o = vec2f(u.u_control_cast1_offsetX, u.u_control_cast1_offsetY);
+    var b = pow(abs(normalize(w + vec3f(1.0e-6))), vec3f(4.0));
+    b = b / (b.x + b.y + b.z);
+    let was = sd_at;
+    sd_at = vec4f(0.0);
+    let v = 0.0;
+    sd_at = was;
+    return v;
+}
+
+fn rgba3_output(uv: vec2f) -> vec4f {
+    return premultiply(vec4f(cast1_value(uv), u.u_control_rgba3_g, u.u_control_rgba3_b, u.u_control_rgba3_a));
+}
+
+fn mix4_output(uv: vec2f) -> vec4f {
+    let a = cast1_color(uv);
+    let b = rgba3_output(uv);
+    let amt = clamp(u.u_control_mix4_amount, 0.0, 1.0);
+    let f = select(
+        amt,
+        clamp(0.5 + 0.5 * tan(clamp(2.0 * amt - 1.0, -0.999, 0.999) * 1.5707963), 0.0, 1.0),
+        u.u_opt_mix4_curve == 1);
+    let lum = dot(a.rgb, vec3f(0.299, 0.587, 0.114));
+    let m = u.u_opt_mix4_method;
+    if (m == 1) {
+        return select(a, b, lum < f);
+    } else if (m == 2) {
+        return select(a, b, lum > 1.0 - f);
+    } else {
+        return mix(a, b, f);
+    }
+}
+
+@fragment
+fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
+    let screenUV = frag_coord.xy / u.u_resolution;
+    let aspectRatio = u.u_resolution.x / u.u_resolution.y;
+    let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
+    return mix4_output(uv);
+}

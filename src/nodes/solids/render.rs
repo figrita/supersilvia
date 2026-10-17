@@ -60,7 +60,7 @@
 
 use std::fmt::Write;
 
-use super::{SDF, color, fill, num, num_log, solid, turn};
+use super::{SDF, color, fill, num, num_log, solid, turn, uniform};
 use crate::compile::{CompileContext, SOLID_FAR};
 use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
@@ -721,11 +721,11 @@ pub static RENDER: NodeDef = NodeDef {
               for a reflection.",
     inputs: &[
         solid("solid", "Solid"),
-        turn("orbit", "Orbit", 0.08, -1.0, 1.0, 0.001),
-        num("tilt", "Tilt", 0.06, -0.24, 0.24, 0.001, TURNS),
-        num_log("distance", "Distance", 7.0, 0.5, 80.0, 0.01, "⬓"),
-        turn("light", "Light", 0.12, -1.0, 1.0, 0.001),
-        num("glowAmount", "Glow", 0.0, 0.0, 4.0, 0.001, ""),
+        uniform(turn("orbit", "Orbit", 0.08, -1.0, 1.0, 0.001)),
+        uniform(num("tilt", "Tilt", 0.06, -0.24, 0.24, 0.001, TURNS)),
+        uniform(num_log("distance", "Distance", 7.0, 0.5, 80.0, 0.01, "⬓")),
+        uniform(turn("light", "Light", 0.12, -1.0, 1.0, 0.001)),
+        uniform(num("glowAmount", "Glow", 0.0, 0.0, 4.0, 0.001, "")),
         InputDef {
             key: "sky",
             label: "Sky",
@@ -734,24 +734,56 @@ pub static RENDER: NodeDef = NodeDef {
         },
     ],
     hidden: &[
-        num("targetX", "Target X", 0.0, -20.0, 20.0, 0.01, "⬓"),
-        num("targetY", "Target Y", 0.0, -20.0, 20.0, 0.01, "⬓"),
-        num("targetZ", "Target Z", 0.0, -20.0, 20.0, 0.01, "⬓"),
-        num("fromX", "From X", 3.135, -40.0, 40.0, 0.01, "⬓"),
-        num("fromY", "From Y", 2.58, -40.0, 40.0, 0.01, "⬓"),
-        num("fromZ", "From Z", 5.7, -40.0, 40.0, 0.01, "⬓"),
-        num("lens", "Lens", 1.6, 0.3, 6.0, 0.01, "x"),
-        num("lightHeight", "Light Height", 0.12, 0.0, 0.25, 0.001, TURNS),
-        num("floorHeight", "Floor Height", -1.0, -20.0, 20.0, 0.01, "⬓"),
-        num("fog", "Fog", 0.03, 0.0, 1.0, 0.001, ""),
-        num("step", "Step", 0.9, 0.2, 1.5, 0.01, "x"),
+        uniform(num("targetX", "Target X", 0.0, -20.0, 20.0, 0.01, "⬓")),
+        uniform(num("targetY", "Target Y", 0.0, -20.0, 20.0, 0.01, "⬓")),
+        uniform(num("targetZ", "Target Z", 0.0, -20.0, 20.0, 0.01, "⬓")),
+        uniform(num("fromX", "From X", 3.135, -40.0, 40.0, 0.01, "⬓")),
+        uniform(num("fromY", "From Y", 2.58, -40.0, 40.0, 0.01, "⬓")),
+        uniform(num("fromZ", "From Z", 5.7, -40.0, 40.0, 0.01, "⬓")),
+        uniform(num("lens", "Lens", 1.6, 0.3, 6.0, 0.01, "x")),
+        uniform(num(
+            "lightHeight",
+            "Light Height",
+            0.12,
+            0.0,
+            0.25,
+            0.001,
+            TURNS,
+        )),
+        uniform(num(
+            "floorHeight",
+            "Floor Height",
+            -1.0,
+            -20.0,
+            20.0,
+            0.01,
+            "⬓",
+        )),
+        uniform(num("fog", "Fog", 0.03, 0.0, 1.0, 0.001, "")),
+        uniform(num("step", "Step", 0.9, 0.2, 1.5, 0.01, "x")),
         color("background", "Background", "#141019ff"),
-        turn("skyTilt", "Sky Tilt", 0.0, -0.5, 0.5, 0.001),
-        num("reflectivity", "Reflectivity", 0.25, 0.0, 1.0, 0.001, ""),
+        uniform(turn("skyTilt", "Sky Tilt", 0.0, -0.5, 0.5, 0.001)),
+        uniform(num(
+            "reflectivity",
+            "Reflectivity",
+            0.25,
+            0.0,
+            1.0,
+            0.001,
+            "",
+        )),
         color("glowColor", "Glow Color", "#59d8ffff"),
-        num_log("glowReach", "Glow Reach", 0.25, 0.01, 4.0, 0.001, "⬓"),
-        num("bands", "Bands", 3.0, 2.0, 8.0, 1.0, ""),
-        num("outline", "Outline", 0.012, 0.0, 0.1, 0.0001, ""),
+        uniform(num_log(
+            "glowReach",
+            "Glow Reach",
+            0.25,
+            0.01,
+            4.0,
+            0.001,
+            "⬓",
+        )),
+        uniform(num("bands", "Bands", 3.0, 2.0, 8.0, 1.0, "")),
+        uniform(num("outline", "Outline", 0.012, 0.0, 0.1, 0.0001, "")),
         color("outlineColor", "Outline Color", "#0b0a10ff"),
     ],
     options: &[

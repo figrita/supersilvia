@@ -9,22 +9,22 @@ struct Uniforms {
     u_control_checkerboard4_color1: vec4f,
     u_control_checkerboard4_color2: vec4f,
     u_control_checkerboard4_frequency: f32,
-    u_control_solidrender5_background: vec4f,
-    u_control_solidrender5_distance: f32,
-    u_control_solidrender5_floorHeight: f32,
-    u_control_solidrender5_fog: f32,
-    u_control_solidrender5_glowAmount: f32,
-    u_control_solidrender5_glowColor: vec4f,
-    u_control_solidrender5_glowReach: f32,
-    u_control_solidrender5_lens: f32,
-    u_control_solidrender5_light: f32,
-    u_control_solidrender5_lightHeight: f32,
-    u_control_solidrender5_orbit: f32,
-    u_control_solidrender5_step: f32,
-    u_control_solidrender5_targetX: f32,
-    u_control_solidrender5_targetY: f32,
-    u_control_solidrender5_targetZ: f32,
-    u_control_solidrender5_tilt: f32,
+    u_control_solidrender9_background: vec4f,
+    u_control_solidrender9_distance: f32,
+    u_control_solidrender9_floorHeight: f32,
+    u_control_solidrender9_fog: f32,
+    u_control_solidrender9_glowAmount: f32,
+    u_control_solidrender9_glowColor: vec4f,
+    u_control_solidrender9_glowReach: f32,
+    u_control_solidrender9_lens: f32,
+    u_control_solidrender9_light: f32,
+    u_control_solidrender9_lightHeight: f32,
+    u_control_solidrender9_orbit: f32,
+    u_control_solidrender9_step: f32,
+    u_control_solidrender9_targetX: f32,
+    u_control_solidrender9_targetY: f32,
+    u_control_solidrender9_targetZ: f32,
+    u_control_solidrender9_tilt: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -34,10 +34,14 @@ struct Uniforms {
     u_control_sphere3_x: f32,
     u_control_sphere3_y: f32,
     u_control_sphere3_z: f32,
-    u_control_surfacetexture1_mix: f32,
-    u_control_surfacetexture1_offsetX: f32,
-    u_control_surfacetexture1_offsetY: f32,
-    u_control_surfacetexture1_scale: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -101,6 +105,10 @@ fn box_tex(p: vec3f, x: vec4f, y: vec4f, z: vec4f, a: f32, b: f32, c: f32, d: f3
     return x * w.x + y * w.y + z * w.z;
 }
 
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
 fn sphere3_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
     return vec4f(length(q) - u.u_control_sphere3_radius, vec3f(0.0));
@@ -143,34 +151,94 @@ fn checkerboard4_output(uv: vec2f) -> vec4f {
     return mix(c1, c2, checker);
 }
 
-fn surfacetexture1_solid(p: vec3f) -> vec4f {
-    let r = sphere3_solid(p);
-    let s = max(u.u_control_surfacetexture1_scale, 1.0e-4);
-    let o = vec2f(u.u_control_surfacetexture1_offsetX, u.u_control_surfacetexture1_offsetY);
-    let e = vec2f(0.002, -0.002);
-    let c = unpremultiply(box_tex(p, checkerboard4_output((p.zy) / s + o), checkerboard4_output((p.xz) / s + o), checkerboard4_output((p.xy) / s + o), sphere3_solid_d(p + e.xyy).x, sphere3_solid_d(p + e.yyx).x, sphere3_solid_d(p + e.yxy).x, sphere3_solid_d(p + e.xxx).x));
-    return vec4f(r.x, mix(r.yzw, c.rgb, c.a * u.u_control_surfacetexture1_mix));
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
 }
 
-fn solidrender5_output(uv: vec2f) -> vec4f {
+fn surfacetexture1_scale_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette5_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn surfacetexture1_offsetX_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette6_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn surfacetexture1_offsetY_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette7_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn surfacetexture1_mix_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette8_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn surfacetexture1_solid(p: vec3f) -> vec4f {
+    let r = sphere3_solid(p);
+    let s = max(surfacetexture1_scale_at(p), 1.0e-4);
+    let o = vec2f(surfacetexture1_offsetX_at(p), surfacetexture1_offsetY_at(p));
+    let e = vec2f(0.002, -0.002);
+    let c = unpremultiply(box_tex(p, checkerboard4_output((p.zy) / s + o), checkerboard4_output((p.xz) / s + o), checkerboard4_output((p.xy) / s + o), sphere3_solid_d(p + e.xyy).x, sphere3_solid_d(p + e.yyx).x, sphere3_solid_d(p + e.yxy).x, sphere3_solid_d(p + e.xxx).x));
+    return vec4f(r.x, mix(r.yzw, c.rgb, c.a * surfacetexture1_mix_at(p)));
+}
+
+fn solidrender9_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
-    let orbit = u.u_control_solidrender5_orbit * tau;
-    let tilt = u.u_control_solidrender5_tilt * tau;
-    let aim = vec3f(u.u_control_solidrender5_targetX, u.u_control_solidrender5_targetY, u.u_control_solidrender5_targetZ);
-    let ro = aim + u.u_control_solidrender5_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let orbit = u.u_control_solidrender9_orbit * tau;
+    let tilt = u.u_control_solidrender9_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender9_targetX, u.u_control_solidrender9_targetY, u.u_control_solidrender9_targetZ);
+    let ro = aim + u.u_control_solidrender9_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
     let fwd = normalize(aim - ro);
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
     let up = cross(right, fwd);
-    let rd = normalize(fwd * u.u_control_solidrender5_lens + right * uv.x + up * uv.y);
-    let fh = u.u_control_solidrender5_floorHeight;
-    let bg = u.u_control_solidrender5_background;
-    let relax = u.u_control_solidrender5_step;
+    let rd = normalize(fwd * u.u_control_solidrender9_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender9_floorHeight;
+    let bg = u.u_control_solidrender9_background;
+    let relax = u.u_control_solidrender9_step;
     var pp = vec3f(0.0);
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-    let glowing = u.u_control_solidrender5_glowAmount > 0.0;
-    let reach = max(u.u_control_solidrender5_glowReach, 0.001);
+    let glowing = u.u_control_solidrender9_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender9_glowReach, 0.001);
     var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
@@ -184,7 +252,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     }
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
-        if (min((pp.y - fh), surfacetexture1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender5_lens, 0.001))) {
+        if (min((pp.y - fh), surfacetexture1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender9_lens, 0.001))) {
             hit = true;
         } else if (rd.y < 0.0) {
             let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
@@ -194,7 +262,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     var gl = vec3f(0.0);
     var gla = 0.0;
     if (glowing) {
-        gl = u.u_control_solidrender5_glowAmount * u.u_control_solidrender5_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gl = u.u_control_solidrender9_glowAmount * u.u_control_solidrender9_glowColor.rgb * (1.0 - exp(-acc / reach));
         gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
     let heat = count / 128.0;
@@ -218,9 +286,9 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     let floor_hit = ((pp.y - fh)) < surfacetexture1_solid_d(pp).x;
     var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
     if (!floor_hit) { albedo = surfacetexture1_solid(pos).yzw; }
-    let fog = 1.0 - exp(-u.u_control_solidrender5_fog * t);
-    let la = u.u_control_solidrender5_light * tau;
-    let lh = u.u_control_solidrender5_lightHeight * tau;
+    let fog = 1.0 - exp(-u.u_control_solidrender9_fog * t);
+    let la = u.u_control_solidrender9_light * tau;
+    let lh = u.u_control_solidrender9_lightHeight * tau;
     let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
     var sh = 1.0;
     var st = 0.03;
@@ -254,5 +322,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return solidrender5_output(uv);
+    return solidrender9_output(uv);
 }

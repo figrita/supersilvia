@@ -6,35 +6,23 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
-    u_color_color4_output: vec4f,
-    u_control_slab1_blend: f32,
-    u_control_slab1_offset: f32,
-    u_control_slab1_pitch: f32,
-    u_control_slab1_tPitch: f32,
-    u_control_slab1_tRoll: f32,
-    u_control_slab1_tScale: f32,
-    u_control_slab1_tYaw: f32,
-    u_control_slab1_thickness: f32,
-    u_control_slab1_x: f32,
-    u_control_slab1_y: f32,
-    u_control_slab1_yaw: f32,
-    u_control_slab1_z: f32,
-    u_control_solidrender5_background: vec4f,
-    u_control_solidrender5_distance: f32,
-    u_control_solidrender5_floorHeight: f32,
-    u_control_solidrender5_fog: f32,
-    u_control_solidrender5_glowAmount: f32,
-    u_control_solidrender5_glowColor: vec4f,
-    u_control_solidrender5_glowReach: f32,
-    u_control_solidrender5_lens: f32,
-    u_control_solidrender5_light: f32,
-    u_control_solidrender5_lightHeight: f32,
-    u_control_solidrender5_orbit: f32,
-    u_control_solidrender5_step: f32,
-    u_control_solidrender5_targetX: f32,
-    u_control_solidrender5_targetY: f32,
-    u_control_solidrender5_targetZ: f32,
-    u_control_solidrender5_tilt: f32,
+    u_color_color11_output: vec4f,
+    u_control_solidrender17_background: vec4f,
+    u_control_solidrender17_distance: f32,
+    u_control_solidrender17_floorHeight: f32,
+    u_control_solidrender17_fog: f32,
+    u_control_solidrender17_glowAmount: f32,
+    u_control_solidrender17_glowColor: vec4f,
+    u_control_solidrender17_glowReach: f32,
+    u_control_solidrender17_lens: f32,
+    u_control_solidrender17_light: f32,
+    u_control_solidrender17_lightHeight: f32,
+    u_control_solidrender17_orbit: f32,
+    u_control_solidrender17_step: f32,
+    u_control_solidrender17_targetX: f32,
+    u_control_solidrender17_targetY: f32,
+    u_control_solidrender17_targetZ: f32,
+    u_control_solidrender17_tilt: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -44,6 +32,30 @@ struct Uniforms {
     u_control_sphere3_x: f32,
     u_control_sphere3_y: f32,
     u_control_sphere3_z: f32,
+    u_control_vignette10_radius: f32,
+    u_control_vignette10_softness: f32,
+    u_control_vignette12_radius: f32,
+    u_control_vignette12_softness: f32,
+    u_control_vignette13_radius: f32,
+    u_control_vignette13_softness: f32,
+    u_control_vignette14_radius: f32,
+    u_control_vignette14_softness: f32,
+    u_control_vignette15_radius: f32,
+    u_control_vignette15_softness: f32,
+    u_control_vignette16_radius: f32,
+    u_control_vignette16_softness: f32,
+    u_control_vignette4_radius: f32,
+    u_control_vignette4_softness: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
+    u_control_vignette8_radius: f32,
+    u_control_vignette8_softness: f32,
+    u_control_vignette9_radius: f32,
+    u_control_vignette9_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -99,13 +111,122 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
+fn vignette4_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette4_radius;
+    let softness = max(u.u_control_vignette4_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_x_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette4_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_y_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette5_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_z_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette6_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_yaw_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette7_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette8_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette8_radius;
+    let softness = max(u.u_control_vignette8_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_pitch_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette8_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette9_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette9_radius;
+    let softness = max(u.u_control_vignette9_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_offset_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette9_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette10_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette10_radius;
+    let softness = max(u.u_control_vignette10_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_thickness_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette10_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn slab1_solid_d_own(p: vec3f) -> vec4f {
-    let q = p - vec3f(u.u_control_slab1_x, u.u_control_slab1_y, u.u_control_slab1_z);
-    let tip = u.u_control_slab1_pitch * 6.2831853;
-    let spin = u.u_control_slab1_yaw * 6.2831853;
+    let q = p - vec3f(slab1_x_at(p), slab1_y_at(p), slab1_z_at(p));
+    let tip = slab1_pitch_at(p) * 6.2831853;
+    let spin = slab1_yaw_at(p) * 6.2831853;
     let facing = vec3f(-sin(spin) * sin(tip), cos(tip), cos(spin) * sin(tip));
-    let h = dot(q, facing) - u.u_control_slab1_offset;
-    let thick = u.u_control_slab1_thickness;
+    let h = dot(q, facing) - slab1_offset_at(p);
+    let thick = slab1_thickness_at(p);
     return vec4f(select(max(h, -h - thick), h, thick <= 0.0), vec3f(0.0));
 }
 
@@ -123,23 +244,98 @@ fn sphere3_solid_d(p: vec3f) -> vec4f {
     return me;
 }
 
+fn vignette12_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette12_radius;
+    let softness = max(u.u_control_vignette12_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_blend_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette12_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette13_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette13_radius;
+    let softness = max(u.u_control_vignette13_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_tYaw_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette13_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette14_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette14_radius;
+    let softness = max(u.u_control_vignette14_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_tPitch_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette14_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette15_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette15_radius;
+    let softness = max(u.u_control_vignette15_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_tRoll_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette15_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette16_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette16_radius;
+    let softness = max(u.u_control_vignette16_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn slab1_tScale_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette16_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn slab1_solid_d(p: vec3f) -> vec4f {
-    let pivot = vec3f(u.u_control_slab1_x, u.u_control_slab1_y, u.u_control_slab1_z);
-    let s = max(u.u_control_slab1_tScale, 1.0e-4);
-    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_slab1_tYaw, u.u_control_slab1_tPitch, u.u_control_slab1_tRoll) * 6.2831853) / s;
+    let pivot = vec3f(slab1_x_at(p), slab1_y_at(p), slab1_z_at(p));
+    let s = max(slab1_tScale_at(p), 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(slab1_tYaw_at(p), slab1_tPitch_at(p), slab1_tRoll_at(p)) * 6.2831853) / s;
     let o = slab1_solid_d_own(local);
     let me = vec4f(o.x * s, o.yzw);
-    return sd_union(sphere3_solid_d(p), me, u.u_control_slab1_blend);
+    return sd_union(sphere3_solid_d(p), me, slab1_blend_at(p));
 }
 
 fn slab1_solid_own(p: vec3f) -> vec4f {
-    let q = p - vec3f(u.u_control_slab1_x, u.u_control_slab1_y, u.u_control_slab1_z);
-    let tip = u.u_control_slab1_pitch * 6.2831853;
-    let spin = u.u_control_slab1_yaw * 6.2831853;
+    let q = p - vec3f(slab1_x_at(p), slab1_y_at(p), slab1_z_at(p));
+    let tip = slab1_pitch_at(p) * 6.2831853;
+    let spin = slab1_yaw_at(p) * 6.2831853;
     let facing = vec3f(-sin(spin) * sin(tip), cos(tip), cos(spin) * sin(tip));
-    let h = dot(q, facing) - u.u_control_slab1_offset;
-    let thick = u.u_control_slab1_thickness;
-    return vec4f(select(max(h, -h - thick), h, thick <= 0.0), u.u_color_color4_output.rgb);
+    let h = dot(q, facing) - slab1_offset_at(p);
+    let thick = slab1_thickness_at(p);
+    return vec4f(select(max(h, -h - thick), h, thick <= 0.0), u.u_color_color11_output.rgb);
 }
 
 fn sphere3_solid_own(p: vec3f) -> vec4f {
@@ -157,33 +353,33 @@ fn sphere3_solid(p: vec3f) -> vec4f {
 }
 
 fn slab1_solid(p: vec3f) -> vec4f {
-    let pivot = vec3f(u.u_control_slab1_x, u.u_control_slab1_y, u.u_control_slab1_z);
-    let s = max(u.u_control_slab1_tScale, 1.0e-4);
-    let local = pivot + sd_turn(p - pivot, -vec3f(u.u_control_slab1_tYaw, u.u_control_slab1_tPitch, u.u_control_slab1_tRoll) * 6.2831853) / s;
+    let pivot = vec3f(slab1_x_at(p), slab1_y_at(p), slab1_z_at(p));
+    let s = max(slab1_tScale_at(p), 1.0e-4);
+    let local = pivot + sd_turn(p - pivot, -vec3f(slab1_tYaw_at(p), slab1_tPitch_at(p), slab1_tRoll_at(p)) * 6.2831853) / s;
     let o = slab1_solid_own(local);
     let me = vec4f(o.x * s, o.yzw);
-    return sd_union(sphere3_solid(p), me, u.u_control_slab1_blend);
+    return sd_union(sphere3_solid(p), me, slab1_blend_at(p));
 }
 
-fn solidrender5_output(uv: vec2f) -> vec4f {
+fn solidrender17_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
-    let orbit = u.u_control_solidrender5_orbit * tau;
-    let tilt = u.u_control_solidrender5_tilt * tau;
-    let aim = vec3f(u.u_control_solidrender5_targetX, u.u_control_solidrender5_targetY, u.u_control_solidrender5_targetZ);
-    let ro = aim + u.u_control_solidrender5_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let orbit = u.u_control_solidrender17_orbit * tau;
+    let tilt = u.u_control_solidrender17_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender17_targetX, u.u_control_solidrender17_targetY, u.u_control_solidrender17_targetZ);
+    let ro = aim + u.u_control_solidrender17_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
     let fwd = normalize(aim - ro);
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
     let up = cross(right, fwd);
-    let rd = normalize(fwd * u.u_control_solidrender5_lens + right * uv.x + up * uv.y);
-    let fh = u.u_control_solidrender5_floorHeight;
-    let bg = u.u_control_solidrender5_background;
-    let relax = u.u_control_solidrender5_step;
+    let rd = normalize(fwd * u.u_control_solidrender17_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender17_floorHeight;
+    let bg = u.u_control_solidrender17_background;
+    let relax = u.u_control_solidrender17_step;
     var pp = vec3f(0.0);
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-    let glowing = u.u_control_solidrender5_glowAmount > 0.0;
-    let reach = max(u.u_control_solidrender5_glowReach, 0.001);
+    let glowing = u.u_control_solidrender17_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender17_glowReach, 0.001);
     var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
@@ -197,7 +393,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     }
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
-        if (min((pp.y - fh), slab1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender5_lens, 0.001))) {
+        if (min((pp.y - fh), slab1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender17_lens, 0.001))) {
             hit = true;
         } else if (rd.y < 0.0) {
             let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
@@ -207,7 +403,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     var gl = vec3f(0.0);
     var gla = 0.0;
     if (glowing) {
-        gl = u.u_control_solidrender5_glowAmount * u.u_control_solidrender5_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gl = u.u_control_solidrender17_glowAmount * u.u_control_solidrender17_glowColor.rgb * (1.0 - exp(-acc / reach));
         gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
     let heat = count / 128.0;
@@ -231,9 +427,9 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     let floor_hit = ((pp.y - fh)) < slab1_solid_d(pp).x;
     var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
     if (!floor_hit) { albedo = slab1_solid(pos).yzw; }
-    let fog = 1.0 - exp(-u.u_control_solidrender5_fog * t);
-    let la = u.u_control_solidrender5_light * tau;
-    let lh = u.u_control_solidrender5_lightHeight * tau;
+    let fog = 1.0 - exp(-u.u_control_solidrender17_fog * t);
+    let la = u.u_control_solidrender17_light * tau;
+    let lh = u.u_control_solidrender17_lightHeight * tau;
     let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
     var sh = 1.0;
     var st = 0.03;
@@ -267,5 +463,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return solidrender5_output(uv);
+    return solidrender17_output(uv);
 }

@@ -8,22 +8,22 @@ struct Uniforms {
     u_time: f32,
     u_color_color4_output: vec4f,
     u_color_color5_output: vec4f,
-    u_control_solidrender6_background: vec4f,
-    u_control_solidrender6_distance: f32,
-    u_control_solidrender6_floorHeight: f32,
-    u_control_solidrender6_fog: f32,
-    u_control_solidrender6_glowAmount: f32,
-    u_control_solidrender6_glowColor: vec4f,
-    u_control_solidrender6_glowReach: f32,
-    u_control_solidrender6_lens: f32,
-    u_control_solidrender6_light: f32,
-    u_control_solidrender6_lightHeight: f32,
-    u_control_solidrender6_orbit: f32,
-    u_control_solidrender6_step: f32,
-    u_control_solidrender6_targetX: f32,
-    u_control_solidrender6_targetY: f32,
-    u_control_solidrender6_targetZ: f32,
-    u_control_solidrender6_tilt: f32,
+    u_control_solidrender8_background: vec4f,
+    u_control_solidrender8_distance: f32,
+    u_control_solidrender8_floorHeight: f32,
+    u_control_solidrender8_fog: f32,
+    u_control_solidrender8_glowAmount: f32,
+    u_control_solidrender8_glowColor: vec4f,
+    u_control_solidrender8_glowReach: f32,
+    u_control_solidrender8_lens: f32,
+    u_control_solidrender8_light: f32,
+    u_control_solidrender8_lightHeight: f32,
+    u_control_solidrender8_orbit: f32,
+    u_control_solidrender8_step: f32,
+    u_control_solidrender8_targetX: f32,
+    u_control_solidrender8_targetY: f32,
+    u_control_solidrender8_targetZ: f32,
+    u_control_solidrender8_tilt: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -33,8 +33,10 @@ struct Uniforms {
     u_control_sphere3_x: f32,
     u_control_sphere3_y: f32,
     u_control_sphere3_z: f32,
-    u_control_stripes3d1_offset: f32,
-    u_control_stripes3d1_width: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
+    u_control_vignette7_radius: f32,
+    u_control_vignette7_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -90,6 +92,10 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
 fn sphere3_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
     return vec4f(length(q) - u.u_control_sphere3_radius, vec3f(0.0));
@@ -122,32 +128,62 @@ fn sphere3_solid(p: vec3f) -> vec4f {
     return me;
 }
 
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn stripes3d1_width_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette6_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette7_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette7_radius;
+    let softness = max(u.u_control_vignette7_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn stripes3d1_offset_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette7_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn stripes3d1_solid(p: vec3f) -> vec4f {
     let r = sphere3_solid(p);
-    let band = floor((p.y - u.u_control_stripes3d1_offset) / max(u.u_control_stripes3d1_width, 1.0e-4));
+    let band = floor((p.y - stripes3d1_offset_at(p)) / max(stripes3d1_width_at(p), 1.0e-4));
     let odd = band - 2.0 * floor(band * 0.5);
     return vec4f(r.x, mix(u.u_color_color4_output.rgb, u.u_color_color5_output.rgb, odd));
 }
 
-fn solidrender6_output(uv: vec2f) -> vec4f {
+fn solidrender8_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
-    let orbit = u.u_control_solidrender6_orbit * tau;
-    let tilt = u.u_control_solidrender6_tilt * tau;
-    let aim = vec3f(u.u_control_solidrender6_targetX, u.u_control_solidrender6_targetY, u.u_control_solidrender6_targetZ);
-    let ro = aim + u.u_control_solidrender6_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let orbit = u.u_control_solidrender8_orbit * tau;
+    let tilt = u.u_control_solidrender8_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender8_targetX, u.u_control_solidrender8_targetY, u.u_control_solidrender8_targetZ);
+    let ro = aim + u.u_control_solidrender8_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
     let fwd = normalize(aim - ro);
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
     let up = cross(right, fwd);
-    let rd = normalize(fwd * u.u_control_solidrender6_lens + right * uv.x + up * uv.y);
-    let fh = u.u_control_solidrender6_floorHeight;
-    let bg = u.u_control_solidrender6_background;
-    let relax = u.u_control_solidrender6_step;
+    let rd = normalize(fwd * u.u_control_solidrender8_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender8_floorHeight;
+    let bg = u.u_control_solidrender8_background;
+    let relax = u.u_control_solidrender8_step;
     var pp = vec3f(0.0);
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-    let glowing = u.u_control_solidrender6_glowAmount > 0.0;
-    let reach = max(u.u_control_solidrender6_glowReach, 0.001);
+    let glowing = u.u_control_solidrender8_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender8_glowReach, 0.001);
     var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
@@ -161,7 +197,7 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
     }
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
-        if (min((pp.y - fh), stripes3d1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender6_lens, 0.001))) {
+        if (min((pp.y - fh), stripes3d1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender8_lens, 0.001))) {
             hit = true;
         } else if (rd.y < 0.0) {
             let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
@@ -171,7 +207,7 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
     var gl = vec3f(0.0);
     var gla = 0.0;
     if (glowing) {
-        gl = u.u_control_solidrender6_glowAmount * u.u_control_solidrender6_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gl = u.u_control_solidrender8_glowAmount * u.u_control_solidrender8_glowColor.rgb * (1.0 - exp(-acc / reach));
         gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
     let heat = count / 128.0;
@@ -195,9 +231,9 @@ fn solidrender6_output(uv: vec2f) -> vec4f {
     let floor_hit = ((pp.y - fh)) < stripes3d1_solid_d(pp).x;
     var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
     if (!floor_hit) { albedo = stripes3d1_solid(pos).yzw; }
-    let fog = 1.0 - exp(-u.u_control_solidrender6_fog * t);
-    let la = u.u_control_solidrender6_light * tau;
-    let lh = u.u_control_solidrender6_lightHeight * tau;
+    let fog = 1.0 - exp(-u.u_control_solidrender8_fog * t);
+    let la = u.u_control_solidrender8_light * tau;
+    let lh = u.u_control_solidrender8_lightHeight * tau;
     let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
     var sh = 1.0;
     var st = 0.03;
@@ -231,5 +267,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return solidrender6_output(uv);
+    return solidrender8_output(uv);
 }

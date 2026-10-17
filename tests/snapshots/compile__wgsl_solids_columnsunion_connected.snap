@@ -6,24 +6,22 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
-    u_control_columnsunion1_columns: f32,
-    u_control_columnsunion1_radius: f32,
-    u_control_solidrender5_background: vec4f,
-    u_control_solidrender5_distance: f32,
-    u_control_solidrender5_floorHeight: f32,
-    u_control_solidrender5_fog: f32,
-    u_control_solidrender5_glowAmount: f32,
-    u_control_solidrender5_glowColor: vec4f,
-    u_control_solidrender5_glowReach: f32,
-    u_control_solidrender5_lens: f32,
-    u_control_solidrender5_light: f32,
-    u_control_solidrender5_lightHeight: f32,
-    u_control_solidrender5_orbit: f32,
-    u_control_solidrender5_step: f32,
-    u_control_solidrender5_targetX: f32,
-    u_control_solidrender5_targetY: f32,
-    u_control_solidrender5_targetZ: f32,
-    u_control_solidrender5_tilt: f32,
+    u_control_solidrender7_background: vec4f,
+    u_control_solidrender7_distance: f32,
+    u_control_solidrender7_floorHeight: f32,
+    u_control_solidrender7_fog: f32,
+    u_control_solidrender7_glowAmount: f32,
+    u_control_solidrender7_glowColor: vec4f,
+    u_control_solidrender7_glowReach: f32,
+    u_control_solidrender7_lens: f32,
+    u_control_solidrender7_light: f32,
+    u_control_solidrender7_lightHeight: f32,
+    u_control_solidrender7_orbit: f32,
+    u_control_solidrender7_step: f32,
+    u_control_solidrender7_targetX: f32,
+    u_control_solidrender7_targetY: f32,
+    u_control_solidrender7_targetZ: f32,
+    u_control_solidrender7_tilt: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -42,6 +40,10 @@ struct Uniforms {
     u_control_sphere4_x: f32,
     u_control_sphere4_y: f32,
     u_control_sphere4_z: f32,
+    u_control_vignette5_radius: f32,
+    u_control_vignette5_softness: f32,
+    u_control_vignette6_radius: f32,
+    u_control_vignette6_softness: f32,
 }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 
@@ -136,6 +138,10 @@ fn sd_warp_noise(x: vec3f) -> vec3f {
     return mix(mix(x00, x10, g.y), mix(x01, x11, g.y), g.z) * 2.0 - 1.0;
 }
 
+// The point a solid is reading a field at; w is 0 in a picture.
+var<private> sd_at: vec4f;
+
+
 fn sphere3_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z);
     return vec4f(length(q) - u.u_control_sphere3_radius, vec3f(0.0));
@@ -164,11 +170,41 @@ fn sphere4_solid_d(p: vec3f) -> vec4f {
     return me;
 }
 
+fn vignette5_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette5_radius;
+    let softness = max(u.u_control_vignette5_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn columnsunion1_radius_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette5_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
+fn vignette6_mask(uv: vec2f) -> f32 {
+    let radius = u.u_control_vignette6_radius;
+    let softness = max(u.u_control_vignette6_softness, 1e-4);
+    let mask = 1.0 - smoothstep(radius - softness, radius + softness, length(uv));
+    return mask;
+}
+
+fn columnsunion1_columns_at(q: vec3f) -> f32 {
+    let was = sd_at;
+    sd_at = vec4f(q, 1.0);
+    let v = vignette6_mask(q.xy);
+    sd_at = was;
+    return v;
+}
+
 fn columnsunion1_solid_d(p: vec3f) -> vec4f {
     let a = sphere3_solid_d(p);
     let b = sphere4_solid_d(p);
-    let r = max(u.u_control_columnsunion1_radius, 0.0);
-    let n = max(round(u.u_control_columnsunion1_columns), 1.0);
+    let r = max(columnsunion1_radius_at(p), 0.0);
+    let n = max(round(columnsunion1_columns_at(p)), 1.0);
     return vec4f(sd_columns_union(a.x, b.x, r, n), vec3f(0.0));
 }
 
@@ -203,30 +239,30 @@ fn sphere4_solid(p: vec3f) -> vec4f {
 fn columnsunion1_solid(p: vec3f) -> vec4f {
     let a = sphere3_solid(p);
     let b = sphere4_solid(p);
-    let r = max(u.u_control_columnsunion1_radius, 0.0);
-    let n = max(round(u.u_control_columnsunion1_columns), 1.0);
+    let r = max(columnsunion1_radius_at(p), 0.0);
+    let n = max(round(columnsunion1_columns_at(p)), 1.0);
     return vec4f(sd_columns_union(a.x, b.x, r, n), sd_seam_tint(a, b, r));
 }
 
-fn solidrender5_output(uv: vec2f) -> vec4f {
+fn solidrender7_output(uv: vec2f) -> vec4f {
     let tau = 6.2831853;
-    let orbit = u.u_control_solidrender5_orbit * tau;
-    let tilt = u.u_control_solidrender5_tilt * tau;
-    let aim = vec3f(u.u_control_solidrender5_targetX, u.u_control_solidrender5_targetY, u.u_control_solidrender5_targetZ);
-    let ro = aim + u.u_control_solidrender5_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
+    let orbit = u.u_control_solidrender7_orbit * tau;
+    let tilt = u.u_control_solidrender7_tilt * tau;
+    let aim = vec3f(u.u_control_solidrender7_targetX, u.u_control_solidrender7_targetY, u.u_control_solidrender7_targetZ);
+    let ro = aim + u.u_control_solidrender7_distance * vec3f(cos(tilt) * sin(orbit), sin(tilt), cos(tilt) * cos(orbit));
     let fwd = normalize(aim - ro);
     let right = normalize(cross(fwd, vec3f(0.0, 1.0, 0.0)));
     let up = cross(right, fwd);
-    let rd = normalize(fwd * u.u_control_solidrender5_lens + right * uv.x + up * uv.y);
-    let fh = u.u_control_solidrender5_floorHeight;
-    let bg = u.u_control_solidrender5_background;
-    let relax = u.u_control_solidrender5_step;
+    let rd = normalize(fwd * u.u_control_solidrender7_lens + right * uv.x + up * uv.y);
+    let fh = u.u_control_solidrender7_floorHeight;
+    let bg = u.u_control_solidrender7_background;
+    let relax = u.u_control_solidrender7_step;
     var pp = vec3f(0.0);
     var t = 0.0;
     var hit = false;
     var count = 0.0;
-    let glowing = u.u_control_solidrender5_glowAmount > 0.0;
-    let reach = max(u.u_control_solidrender5_glowReach, 0.001);
+    let glowing = u.u_control_solidrender7_glowAmount > 0.0;
+    let reach = max(u.u_control_solidrender7_glowReach, 0.001);
     var acc = 0.0;
     for (var i = 0; i < 128; i++) {
         pp = ro + rd * t;
@@ -240,7 +276,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     }
     if (!hit && t <= 80.0) {
         pp = ro + rd * t;
-        if (min((pp.y - fh), columnsunion1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender5_lens, 0.001))) {
+        if (min((pp.y - fh), columnsunion1_solid_d(pp).x) < 0.003 * (max(t, 0.001) / max(u.u_control_solidrender7_lens, 0.001))) {
             hit = true;
         } else if (rd.y < 0.0) {
             let tf = (ro.y - fh - 0.0001) / (0.0004 - rd.y);
@@ -250,7 +286,7 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     var gl = vec3f(0.0);
     var gla = 0.0;
     if (glowing) {
-        gl = u.u_control_solidrender5_glowAmount * u.u_control_solidrender5_glowColor.rgb * (1.0 - exp(-acc / reach));
+        gl = u.u_control_solidrender7_glowAmount * u.u_control_solidrender7_glowColor.rgb * (1.0 - exp(-acc / reach));
         gla = min(max(gl.r, max(gl.g, gl.b)), 1.0);
     }
     let heat = count / 128.0;
@@ -274,9 +310,9 @@ fn solidrender5_output(uv: vec2f) -> vec4f {
     let floor_hit = ((pp.y - fh)) < columnsunion1_solid_d(pp).x;
     var albedo = mix(vec3f(0.34, 0.32, 0.38), vec3f(0.20, 0.19, 0.23), floor_mod(floor(pos.x) + floor(pos.z), 2.0));
     if (!floor_hit) { albedo = columnsunion1_solid(pos).yzw; }
-    let fog = 1.0 - exp(-u.u_control_solidrender5_fog * t);
-    let la = u.u_control_solidrender5_light * tau;
-    let lh = u.u_control_solidrender5_lightHeight * tau;
+    let fog = 1.0 - exp(-u.u_control_solidrender7_fog * t);
+    let la = u.u_control_solidrender7_light * tau;
+    let lh = u.u_control_solidrender7_lightHeight * tau;
     let light = normalize(vec3f(cos(lh) * sin(la), sin(lh), cos(lh) * cos(la)));
     var sh = 1.0;
     var st = 0.03;
@@ -310,5 +346,5 @@ fn fs_main(@builtin(position) frag_coord: vec4f) -> @location(0) vec4f {
     let screenUV = frag_coord.xy / u.u_resolution;
     let aspectRatio = u.u_resolution.x / u.u_resolution.y;
     let uv = vec2f((2.0 * screenUV.x - 1.0) * aspectRatio, 2.0 * screenUV.y - 1.0);
-    return solidrender5_output(uv);
+    return solidrender7_output(uv);
 }

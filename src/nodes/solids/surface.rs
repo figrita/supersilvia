@@ -146,7 +146,7 @@ pub static TEXTURE: NodeDef = NodeDef {
     ],
     options: &[OptionDef {
         key: "projection",
-        label: "Mapping",
+        label: "Projection",
         default: "box",
         choices: &[
             ("box", "Box"),
