@@ -2536,6 +2536,7 @@ fn range_editor(
             // The mixer's own readout of a bound control, not a port on a node: a cable
             // never lands here.
             varying: false,
+            list: None,
             picture: None,
             learning: false,
             ghost: None,
@@ -2705,6 +2706,7 @@ fn bridge_menu(ui: &mut Ui, state: &mut CanvasState, pass: &Pass<'_>, fx: &mut E
             slug: cast.def.slug,
             inputs: cast.inputs,
             output: cast.output,
+            options: cast.options,
             at: midpoint(bridging.from.node, bridging.to.node),
             workspace: pass.frame.workspace,
         });

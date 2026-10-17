@@ -140,6 +140,7 @@ impl Document {
                 slug,
                 inputs,
                 output,
+                options,
                 at,
                 workspace,
             } => {
@@ -154,6 +155,17 @@ impl Document {
                 let mut graph = Graph::clone(&self.graph);
                 let id = add_node(&mut graph, slug, at, workspace, env)
                     .ok_or(CommandError::NoSuchNodeKind(slug))?;
+                // Set before the cables land, so the node is what the row said from its first
+                // tick.
+                let node = graph.get_mut(id).expect("just added");
+                for &(key, value) in options {
+                    if !crate::nodes::option_is_valid(node.def, key, value)
+                        || !node.options.contains_key(key)
+                    {
+                        return Err(CommandError::NoSuchChoice(id, key));
+                    }
+                    node.options.insert(key, value.to_string());
+                }
                 inputs
                     .iter()
                     .try_for_each(|key| graph.connect(from, PortRef::new(id, key)).map(drop))

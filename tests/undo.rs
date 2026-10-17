@@ -1077,6 +1077,7 @@ fn a_bridge_is_one_step_for_a_node_and_two_cables() {
         slug: "luminosity",
         inputs: &["input"],
         output: "output",
+        options: &[],
         at: Pos2::new(120.0, 40.0),
         workspace,
     })
@@ -1122,6 +1123,7 @@ fn a_fanned_out_bridge_is_one_step_for_all_of_its_cables() {
         slug: "rgba",
         inputs: &["r", "g", "b"],
         output: "output",
+        options: &[],
         at: Pos2::ZERO,
         workspace,
     })
@@ -1871,6 +1873,7 @@ mod fuzz {
                         slug: def.slug,
                         inputs: Box::leak(inputs.into_boxed_slice()),
                         output: out.key,
+                        options: &[],
                         at: Pos2::new(1.0, 2.0),
                         workspace: self.ws(g),
                     }

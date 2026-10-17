@@ -40,17 +40,22 @@ pub struct Bridge {
     pub inputs: &'static [&'static str],
     /// The output that connects to the target.
     pub output: &'static str,
+    /// Options the node lands with, by key: which of Reduce's readings a row is. Empty where
+    /// the node's defaults are the casting.
+    pub options: &'static [(&'static str, &'static str)],
 }
 
-/// One row of a table.
+/// One row of a table, with the options it sets after the output where it sets any.
 macro_rules! cast {
-    ($label:literal, $icon:literal, $def:expr, [$($input:literal),+] => $output:literal) => {
+    ($label:literal, $icon:literal, $def:expr, [$($input:literal),+] => $output:literal
+     $(, $key:literal = $value:literal)*) => {
         Bridge {
             label: $label,
             icon: $icon,
             def: &$def,
             inputs: &[$($input),+],
             output: $output,
+            options: &[$(($key, $value)),*],
         }
     };
 }
@@ -115,12 +120,18 @@ static FRAGMENT_TO_UNIFORM: &[Bridge] = &[
     cast!("Lowest", "🌑", tap::DEF, ["number"] => "min"),
 ];
 
-/// A number list onto a number: an item out of it, or how many there are. A list never lands
-/// on a one-value input by itself, so this is how one gets there. One row for an item, not a
-/// First Item beside an Item…: both would land the same Get, whose Index starts at the first.
+/// A number list onto a number: an item out of it, a reading of all of it, or how many there
+/// are. A list never lands on a one-value input by itself, so this is how one gets there. One
+/// row for an item, not a First Item beside an Item…: both would land the same Get, whose
+/// Index starts at the first. The readings are one Reduce each, landed with its mode set.
 static LIST_TO_NUMBER: &[Bridge] = &[
     cast!("Item", "👉", list::GET, ["list"] => "item"),
+    cast!("Average", "⚖", list::REDUCE, ["list"] => "value", "mode" = "mean"),
+    cast!("Highest", "🔆", list::REDUCE, ["list"] => "value", "mode" = "max"),
+    cast!("Lowest", "🌑", list::REDUCE, ["list"] => "value", "mode" = "min"),
+    cast!("Sum", "➕", list::REDUCE, ["list"] => "value", "mode" = "sum"),
     cast!("Count", "📏", list::LENGTH, ["list"] => "count"),
+    cast!("Loudest Index", "📢", list::REDUCE, ["list"] => "value", "mode" = "argmax"),
 ];
 
 /// The castings offered for a cable of type `from` released on an input of type `to`.
@@ -282,20 +293,50 @@ mod tests {
                     output.ty.feeds(*to),
                     "{name}: the output does not feed a {to:?}"
                 );
+                for (key, value) in cast.options {
+                    assert!(
+                        crate::nodes::option_is_valid(def, key, value),
+                        "{name}: {key} cannot be {value}"
+                    );
+                }
             }
         }
     }
 
-    /// A list onto a number is an item of it or its count, onto a number and a field alike, and
-    /// a list feeds nothing else: a color takes no row from one.
+    /// A list onto a number is an item of it, a reading of all of it or its count, onto a
+    /// number and a field alike, and a list feeds nothing else: a color takes no row from one.
     #[test]
-    fn a_list_onto_a_number_is_an_item_or_a_count() {
+    fn a_list_onto_a_number_is_an_item_a_reading_or_a_count() {
         for to in [PortType::UniformNumber, PortType::VaryingNumber] {
-            let labels: Vec<_> = bridges(PortType::ListNumber, to)
+            let rows = bridges(PortType::ListNumber, to);
+            let labels: Vec<_> = rows.iter().map(|b| b.label).collect();
+            assert_eq!(
+                labels,
+                [
+                    "Item",
+                    "Average",
+                    "Highest",
+                    "Lowest",
+                    "Sum",
+                    "Count",
+                    "Loudest Index"
+                ]
+            );
+            let modes: Vec<_> = rows
                 .iter()
-                .map(|b| b.label)
+                .filter(|b| b.def.slug == "reduce")
+                .map(|b| b.options)
                 .collect();
-            assert_eq!(labels, ["Item", "Count"]);
+            assert_eq!(
+                modes,
+                [
+                    &[("mode", "mean")],
+                    &[("mode", "max")],
+                    &[("mode", "min")],
+                    &[("mode", "sum")],
+                    &[("mode", "argmax")]
+                ]
+            );
         }
         assert!(bridges(PortType::ListNumber, PortType::UniformColor).is_empty());
     }

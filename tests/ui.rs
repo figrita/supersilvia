@@ -15520,3 +15520,79 @@ fn the_sun_draws_the_cabled_light_and_a_drag_sets_its_height_alone() {
     let height = float(&h, id, "lightHeight");
     assert!((height - 0.125).abs() < 0.01, "half way up: {height}");
 }
+
+// ------------------------------------------------------------------------------ the List's bars
+
+/// A drag across the List's bars sets every bar it sweeps over, on the straight line the hand
+/// drew, as one step back — and the node stays where it was, which is what `claims_pointer`
+/// buys.
+#[test]
+fn a_sweep_across_the_lists_bars_draws_them_as_one_step() {
+    let mut h = tall_harness();
+    h.step();
+    add_node(&mut h, ("List", "add list"));
+    let id = h
+        .state()
+        .graph()
+        .iter()
+        .find(|(_, n)| n.def.slug == "list")
+        .expect("the list")
+        .0;
+    h.run_steps(2);
+    let zoom = h.state().canvas_transform().zoom;
+    let area = h
+        .get_by_label(&format!("list{id}.region"))
+        .rect()
+        .shrink(8.0 * zoom);
+    let where_it_was = h.state().graph().get(id).unwrap().pos;
+    let steps = h.state().undo_len();
+
+    // From the floor under the first of eight bars to the top over the last.
+    let bar = area.width() / 8.0;
+    drag_with(
+        &mut h,
+        egui::pos2(area.left() + bar * 0.5, area.bottom() - 0.5),
+        egui::pos2(area.left() + bar * 7.5, area.top() + 0.5),
+        egui::Modifiers::NONE,
+    );
+    let bars: Vec<f32> = h
+        .state()
+        .graph()
+        .get(id)
+        .unwrap()
+        .values
+        .get("values")
+        .and_then(supersilvia::graph::Value::numbers)
+        .expect("the bars were drawn")
+        .to_vec();
+    assert_eq!(bars.len(), 8, "{bars:?}");
+    assert!(bars[0] < 0.05 && bars[7] > 0.95, "{bars:?}");
+    assert!(
+        bars.windows(2).all(|w| w[1] > w[0]),
+        "a straight line up: {bars:?}"
+    );
+    assert_eq!(h.state().graph().get(id).unwrap().pos, where_it_was);
+    assert_eq!(h.state().undo_len(), steps + 1, "a sweep is one undo step");
+
+    h.run_steps(2);
+    let list = h
+        .state()
+        .snapshot()
+        .lists
+        .get(&PortRef::new(id, "list"))
+        .cloned()
+        .expect("the list is published");
+    assert_eq!(list.len(), 8);
+    assert!((list[7] - f64::from(bars[7])).abs() < 1e-6, "{list:?}");
+
+    h.state_mut().undo();
+    h.step();
+    assert!(
+        !h.state()
+            .graph()
+            .get(id)
+            .unwrap()
+            .values
+            .contains_key("values")
+    );
+}

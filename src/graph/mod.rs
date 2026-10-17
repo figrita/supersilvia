@@ -13,15 +13,18 @@
 //!   input may be triggered by many outputs.
 //! - Data edges may not form a cycle. Action edges may not connect a node to itself, but are
 //!   otherwise unconstrained — they are CPU events, not values, and do not feed the compiler.
-//! - A **dual** port's type is not its own. `PortDef::dual` marks a port declared
-//!   `VaryingNumber` whose effective type the graph decides: an output is `UniformNumber`
-//!   while every input of its node resolves to a uniform number, and the inputs of that node
-//!   are `UniformNumber` while it is **pinned** — in `UniformNumber` mode with a flip that
-//!   would leave a field feeding a `UniformNumber` input. The instance's `PortDef::ty` *is*
-//!   that answer, recomputed here after every structural change, so the compiler and the
-//!   canvas read the type they already read. A field onto a pinned input is an ordinary
-//!   `TypeMismatch`: a field does not feed a `UniformNumber` input, and the port draws the
-//!   type a cable may bring.
+//! - A **dual** port's type is not its own. `PortDef::dual` marks a port whose effective type
+//!   the graph decides. A dual node runs at the highest rate its dual inputs bring, ordered
+//!   uniform < list < varying: its outputs are `UniformNumber` while every input resolves to a
+//!   uniform number, `ListNumber` while one carries a list and none a field, and the field
+//!   otherwise. Its inputs are lists in list mode, and `UniformNumber` in uniform mode while
+//!   the node is **pinned** — a flip would leave a field feeding something that reads a
+//!   uniform number or a list. The instance's `PortDef::ty` *is* that answer, recomputed
+//!   here after every structural change, so the compiler and the canvas read the type they
+//!   already read. A field onto a pinned input is an ordinary `TypeMismatch`: a field does
+//!   not feed a `UniformNumber` input, and the port draws the type a cable may bring. A list
+//!   lands on a dual input whose `PortDef::takes_list` says so, and a list and a field into
+//!   one node at once is refused at the second cable, since the node cannot be both.
 
 pub mod node;
 mod order;
@@ -646,7 +649,7 @@ impl Graph {
                 to: to_port.ty,
             });
         }
-        if !from_port.ty.feeds(to_port.ty) {
+        if !lands(from_port, to_port) {
             return Err(ConnectError::TypeMismatch {
                 from: from_port.ty,
                 to: to_port.ty,
@@ -679,19 +682,20 @@ impl Graph {
     /// [`Graph::settle_effective_types`]: what a **bulk** change uses, since whether one of
     /// its cables demotes a dual node would otherwise depend on the order a file lists them.
     ///
-    /// It walks past a field onto a **dual** input, and onto any `UniformNumber` input from a
-    /// dual output inside a bulk change, whose type is not settled yet. Every other rule
-    /// still applies.
+    /// It walks past a number of any rate onto a **dual** input, and onto any number input
+    /// from a dual output inside a bulk change, whose type is not settled yet. Every other
+    /// rule still applies.
     pub fn connect_loading(&mut self, from: PortRef, to: PortRef) -> Result<(), ConnectError> {
         match self.can_connect(from, to) {
             Ok(()) => {
                 self.link(from, to);
                 Ok(())
             }
-            Err(ConnectError::TypeMismatch {
-                from: PortType::VaryingNumber,
-                to: PortType::UniformNumber,
-            }) if self.is_dual_input(to) || (self.bulk && self.is_dual_output(from)) => {
+            Err(ConnectError::TypeMismatch { from: a, to: b })
+                if a.kind() == Kind::Number
+                    && b.kind() == Kind::Number
+                    && (self.is_dual_input(to) || (self.bulk && self.is_dual_output(from))) =>
+            {
                 self.link(from, to);
                 Ok(())
             }
@@ -877,33 +881,45 @@ impl Graph {
 
     // ---------------------------------------------------------------- dual ports
 
-    /// What rate a node's dual outputs run at on this instance.
-    ///
-    /// `Uniform` while every one of its inputs resolves to a uniform: a connected input
-    /// whose source is effectively uniform, or an unconnected one holding a number or
-    /// color control, which compiles to a uniform anyway. Anything else — a fragment
-    /// cabled in, an input bound to a prelude global, an action button — makes the node a
-    /// fragment, because that is what it has to read.
-    fn effective_rate(&self, id: NodeId) -> Rate {
-        let Some(node) = self.nodes.get(&id) else {
-            return Rate::Varying;
-        };
-        let resolves = |p: &PortDef| match self.source_of(PortRef::new(id, p.key)) {
+    /// What arrives at one of `id`'s inputs, as a rate: the effective rate of the output
+    /// cabled into it, or the uniform an unconnected number or color control compiles to.
+    /// Anything else — an input bound to a prelude global, an action button — is a field,
+    /// because that is what the node has to read.
+    fn brings(&self, id: NodeId, node: &Node, key: &'static str) -> Rate {
+        match self.source_of(PortRef::new(id, key)) {
             Some(src) => self
                 .nodes
                 .get(&src.node)
                 .and_then(|n| n.output(src.key))
-                .is_some_and(|o| o.ty.is_uniform()),
-            None => matches!(
-                node.controls.get(p.key),
-                Some(ControlValue::Float(_) | ControlValue::Color(_))
-            ),
-        };
-        if node.inputs.iter().all(resolves) {
-            Rate::Uniform
-        } else {
-            Rate::Varying
+                .and_then(|o| o.ty.rate())
+                .unwrap_or(Rate::Varying),
+            None => match node.controls.get(key) {
+                Some(ControlValue::Float(_) | ControlValue::Color(_)) => Rate::Uniform,
+                _ => Rate::Varying,
+            },
         }
+    }
+
+    /// What rate a node's dual outputs run at on this instance: the highest any of its dual
+    /// inputs brings, ordered uniform < list < varying.
+    ///
+    /// `Uniform` while every one resolves to a uniform, `List` while one carries a list and
+    /// none a field, `Varying` while one carries a field. A list and a field at once is
+    /// refused at the cable, and a file that holds both settles as a field, which drops the
+    /// list.
+    fn effective_rate(&self, id: NodeId) -> Rate {
+        let Some(node) = self.nodes.get(&id) else {
+            return Rate::Varying;
+        };
+        let mut rate = Rate::Uniform;
+        for p in node.inputs.iter().filter(|p| p.dual) {
+            match self.brings(id, node, p.key) {
+                Rate::Varying => return Rate::Varying,
+                Rate::List => rate = Rate::List,
+                Rate::Uniform => {}
+            }
+        }
+        rate
     }
 
     /// Write one node's dual outputs' effective type into its instance ports.
@@ -912,67 +928,56 @@ impl Graph {
             return;
         }
         let rate = self.effective_rate(id);
-        if let Some(node) = self.nodes.get_mut(&id) {
-            Self::set_rate(node, true, rate);
-        }
-    }
-
-    /// Put every dual port on one side of a node at `rate`: its outputs, or its inputs.
-    ///
-    /// Only a node whose answer changes is written, so every other one stays shared with
-    /// the graph before the edit.
-    fn set_rate(node: &mut Arc<Node>, outputs: bool, rate: Rate) {
-        let side = if outputs { &node.outputs } else { &node.inputs };
-        let stands = side
+        let Some(node) = self.nodes.get_mut(&id) else {
+            return;
+        };
+        let stands = node
+            .outputs
             .iter()
             .filter(|p| p.dual)
             .all(|p| p.ty == p.ty.with_rate(rate));
-        if stands {
-            return;
-        }
-        let node = Arc::make_mut(node);
-        let ports = if outputs {
-            &mut node.outputs
-        } else {
-            &mut node.inputs
-        };
-        for p in ports.iter_mut().filter(|p| p.dual) {
-            p.ty = p.ty.with_rate(rate);
+        // Only a node whose answer changes is written, so every other one stays shared with
+        // the graph before the edit.
+        if !stands {
+            for p in Arc::make_mut(node).outputs.iter_mut().filter(|p| p.dual) {
+                p.ty = p.ty.with_rate(rate);
+            }
         }
     }
 
-    /// Write every dual node's dual inputs' effective type into its instance ports.
+    /// Write every dual node's dual inputs' effective type, and whether each takes a list,
+    /// into its instance ports.
     ///
-    /// A dual node is **pinned** when it publishes a uniform number and flipping it to a
-    /// field would leave one of its flipped outputs feeding a `UniformNumber` input — so a
-    /// field cannot land on any of its inputs, and those inputs read `UniformNumber`, which
-    /// is the type a cable may bring them.
+    /// A dual node is **pinned against a field** when flipping it to one would leave one of
+    /// its outputs feeding an input that reads a uniform number or a list, or a node fed a
+    /// list elsewhere; and **against a list** when a flip to a list would leave one feeding an
+    /// input that is not a list, or a node fed a field elsewhere. Its inputs then read
+    /// `UniformNumber`, or refuse a list, which is the type a cable may bring them.
     ///
     /// Computed the way it propagates, which is **upstream**: one pass over the connections
-    /// finds the dual nodes whose number a `UniformNumber` input reads directly, and a walk
-    /// back through the dual producers feeding those carries the answer to every node that
-    /// would flip with them. Asking each dual node the question separately is the same answer
-    /// at the cost of a downstream walk per node, and each of those rescans the edge list.
+    /// finds the dual nodes a reader pins outright, and a walk back through the dual producers
+    /// feeding those carries the answer to every node that would flip with them. Asking each
+    /// dual node the question separately is the same answer at the cost of a downstream walk
+    /// per node, and each of those rescans the edge list.
     ///
     /// Nothing here reads a pin, only the static `PortDef::dual` and the output modes settled
     /// before it, so the answer does not depend on what the last sweep wrote.
     ///
-    /// Pinning never orphans a cable: a pinned node is in `UniformNumber` mode, so every
-    /// input of it that is connected at all is fed by a uniform number, and a uniform number
-    /// feeds a `UniformNumber` input.
+    /// Pinning never orphans a cable: a node pinned against a field has no field feeding it,
+    /// or the flip that brought one would already have made the cable it is pinned by
+    /// illegal, and the same for a list.
     fn repin(&mut self) {
         // Seeded with the nodes a reader pins outright, beside the reverse edges a pin
         // travels back along: a consumer that would flip, to the producers flipping it.
-        let mut pinned: HashSet<NodeId> = HashSet::new();
+        let mut no_field: HashSet<NodeId> = HashSet::new();
+        let mut no_list: HashSet<NodeId> = HashSet::new();
         let mut producers: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
         for c in &self.cables.list {
-            // Only a dual output publishing a uniform number can flip, and only a flip
-            // demotes.
             let flips = self
                 .nodes
                 .get(&c.from.node)
                 .and_then(|n| n.output(c.from.key))
-                .is_some_and(|p| p.dual && p.ty.is_uniform());
+                .is_some_and(|p| p.dual);
             if !flips {
                 continue;
             }
@@ -982,30 +987,104 @@ impl Graph {
             let Some(input) = consumer.input(c.to.key) else {
                 continue;
             };
-            if input.ty.is_uniform() && !input.dual {
-                pinned.insert(c.from.node);
-            } else if Self::is_dual(consumer) {
-                producers.entry(c.to.node).or_default().push(c.from.node);
+            if !input.dual {
+                if !PortType::VaryingNumber.feeds(input.ty) {
+                    no_field.insert(c.from.node);
+                }
+                if !PortType::ListNumber.feeds(input.ty) {
+                    no_list.insert(c.from.node);
+                }
+                continue;
             }
-        }
-        let mut queue: VecDeque<NodeId> = pinned.iter().copied().collect();
-        while let Some(n) = queue.pop_front() {
-            for producer in producers.get(&n).into_iter().flatten() {
-                if pinned.insert(*producer) {
-                    queue.push_back(*producer);
+            producers.entry(c.to.node).or_default().push(c.from.node);
+            // An input whose node is never a field: Get's Index.
+            if !declared(consumer, input).is_varying() {
+                no_field.insert(c.from.node);
+            }
+            // A consumer fed the other rate elsewhere would be both.
+            for other in consumer
+                .inputs
+                .iter()
+                .filter(|p| p.dual && p.key != c.to.key)
+            {
+                let port = PortRef::new(c.to.node, other.key);
+                if self.source_of(port).is_some_and(|s| s.node == c.from.node) {
+                    continue;
+                }
+                match self.brings(c.to.node, consumer, other.key) {
+                    Rate::List => {
+                        no_field.insert(c.from.node);
+                    }
+                    Rate::Varying => {
+                        no_list.insert(c.from.node);
+                    }
+                    Rate::Uniform => {}
                 }
             }
         }
-        for (id, node) in &mut self.nodes {
-            if !Self::is_dual(node) {
+        for pinned in [&mut no_field, &mut no_list] {
+            let mut queue: VecDeque<NodeId> = pinned.iter().copied().collect();
+            while let Some(n) = queue.pop_front() {
+                for producer in producers.get(&n).into_iter().flatten() {
+                    if pinned.insert(*producer) {
+                        queue.push_back(*producer);
+                    }
+                }
+            }
+        }
+        let duals: Vec<NodeId> = self
+            .nodes
+            .iter()
+            .filter(|(_, n)| Self::is_dual(n))
+            .map(|(id, _)| *id)
+            .collect();
+        for id in duals {
+            let node = &self.nodes[&id];
+            let mode = self.effective_rate(id);
+            let brought: Vec<(&'static str, Rate)> = node
+                .inputs
+                .iter()
+                .filter(|p| p.dual)
+                .map(|p| (p.key, self.brings(id, node, p.key)))
+                .collect();
+            let answer = |p: &PortDef| {
+                let declared = declared(node, p);
+                let ty = match mode {
+                    Rate::List => declared.with_rate(Rate::List),
+                    Rate::Varying => declared,
+                    Rate::Uniform if declared.is_varying() && !no_field.contains(&id) => declared,
+                    Rate::Uniform => declared.with_rate(Rate::Uniform),
+                };
+                let field_elsewhere = brought
+                    .iter()
+                    .any(|(key, rate)| *key != p.key && *rate == Rate::Varying);
+                (ty, !no_list.contains(&id) && !field_elsewhere)
+            };
+            let answers: Vec<(PortType, bool)> = node
+                .inputs
+                .iter()
+                .map(|p| {
+                    if p.dual {
+                        answer(p)
+                    } else {
+                        (p.ty, p.takes_list)
+                    }
+                })
+                .collect();
+            let stands = node
+                .inputs
+                .iter()
+                .zip(&answers)
+                .all(|(p, a)| (p.ty, p.takes_list) == *a);
+            // Only a node whose answer changes is written, as in `retype`.
+            if stands {
                 continue;
             }
-            let rate = if pinned.contains(id) {
-                Rate::Uniform
-            } else {
-                Rate::Varying
-            };
-            Self::set_rate(node, false, rate);
+            let node = Arc::make_mut(self.nodes.get_mut(&id).expect("listed above"));
+            for (p, (ty, takes_list)) in node.inputs.iter_mut().zip(answers) {
+                p.ty = ty;
+                p.takes_list = takes_list;
+            }
         }
     }
 
@@ -1074,14 +1153,9 @@ impl Graph {
                     let source = self
                         .nodes
                         .get(&c.from.node)
-                        .and_then(|n| n.output(c.from.key))
-                        .map(|p| p.ty);
-                    let target = self
-                        .nodes
-                        .get(&c.to.node)
-                        .and_then(|n| n.input(c.to.key))
-                        .map(|p| p.ty);
-                    matches!((source, target), (Some(from), Some(to)) if !from.feeds(to))
+                        .and_then(|n| n.output(c.from.key));
+                    let target = self.nodes.get(&c.to.node).and_then(|n| n.input(c.to.key));
+                    matches!((source, target), (Some(from), Some(to)) if !lands(from, to))
                 })
                 .copied()
                 .collect();
@@ -1246,6 +1320,18 @@ impl Graph {
         self.topo.take();
         self.tick_topo.take();
     }
+}
+
+/// May a cable out of `from` land on `to`? Where the types feed, and where a list meets a
+/// dual input that takes one ([`PortDef::takes_list`]).
+fn lands(from: &PortDef, to: &PortDef) -> bool {
+    from.ty.feeds(to.ty) || (from.ty == PortType::ListNumber && to.dual && to.takes_list)
+}
+
+/// The type a node's definition gives one of its inputs, which a dual input's effective type
+/// is worked out from. The instance's own where the definition has no such input.
+fn declared(node: &Node, port: &PortDef) -> PortType {
+    node.def.input(port.key).map_or(port.ty, |p| p.ty)
 }
 
 /// The constants [`Graph::footprint`] sums.

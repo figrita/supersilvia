@@ -140,9 +140,12 @@ the compiler does not walk them and `downstream_outputs` must not mark a recompi
 is most of this page. A node with **no** `cpu` half but a
 [dual output](nodes.md#dual-outputs) in diamond mode has that output's `eval` run instead —
 its WGSL body in Rust — and the result published on the port, with a dual output that has
-flipped to a field withdrawn. So a `math` node fed by knobs and diamonds is CPU arithmetic
-with no state of its own, and a chain of them resolves inside one frame because producers come
-first in this order like anything else.
+flipped to a field withdrawn. In list mode the `eval` runs once per item
+(`TickContext::publish_per_item`): an item cursor on the context makes `ctx.input` read the
+current item of a list cabled in, [stretched](nodes.md#lists) over the longest one, and the
+items are published as a list. So a `math` node fed by knobs and diamonds is CPU arithmetic
+with no state of its own, the same node fed a list is that arithmetic per item, and a chain of
+them resolves inside one frame because producers come first in this order like anything else.
 
 Each node's half gets a `TickContext`, which is the entire surface between a CPU node and the
 rest of the app:

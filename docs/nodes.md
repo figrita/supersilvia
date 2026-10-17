@@ -331,7 +331,7 @@ to. That code knows four shapes: a select, a file button, a tick, a one-line fie
 can declare a choice and get a row for free, without anyone writing drawing code for it.
 
 **A value is drawn by the node's own code**, so the list of shapes stays open. There are
-four: `Text`, a box of prose; `Points`, a curve a hand performed — `{ time, value }` each,
+five: `Text`, a box of prose; `Points`, a curve a hand performed — `{ time, value }` each,
 with the ends it is drawn against on the declaration; `Cells`, a grid of `lanes` by
 `steps` a hand lights one cell at a time — `stepsequencer`'s pattern, stored as one string a
 lane, `x` for a lit cell and `.` for an unlit one, the notation every rhythm table uses, so the
@@ -339,12 +339,15 @@ lane, `x` for a lit cell and `.` for an unlit one, the notation every rhythm tab
 unlit, and a new node holds no value at all, which is every cell dark; and `Painting`, a
 picture a hand painted — RGBA8 pixels behind an `Arc` in memory, and in the `.ssw` the
 reference to a PNG the project's save writes into `assets/`, named by its content (see
-[decisions.md](decisions.md#a-painting-is-saved-with-the-project)). A pad, a step grid and a
-paint surface arrive with the rest of the node-body controls.
+[decisions.md](decisions.md#a-painting-is-saved-with-the-project)); and `Numbers`, the List
+node's bars, each its share of the way from the node's Min to its Max, `0` to `1`, so moving
+Min or Max rescales what was drawn rather than rewriting it, and a bar past the stored ones is
+at Min. A pad, a step grid and a paint surface arrive with the rest of the node-body controls.
 
-A value is a row of the node unless its kind takes none: `Points`, `Cells` and `Painting` are
-drawn in one of the node's own regions instead — the ordered list in `NodeDef::regions` —
-because a curve, a grid and a picture want the width of the body, and `ValueDef::rows`
+A value is a row of the node unless its kind takes none: `Points`, `Cells`, `Painting` and
+`Numbers` are drawn in one of the node's own regions instead — the ordered list in
+`NodeDef::regions` — because a curve, a grid, a picture and a row of bars want the width of
+the body, and `ValueDef::rows`
 returning zero is what says so. The region reads the saved value straight off the `Node`, so a
 patch just opened draws its performance, its pattern or its picture before anything has ticked.
 A region that edits one sends `RegionEvent::Value`, which is the `SetValue` a click is: one
@@ -874,15 +877,52 @@ NaN into zero, as `publish` does.
 **A list feeds a list and nothing else**, and a single number feeds a list input as a list of
 one, so a knob or an oscillator reaches every item alike. A one-value input — a number, a field, a setting —
 never reads a quiet first item. A list dragged onto a number shows the conversion ring, and
-letting go offers **Item**, a Get whose Index starts at the first item, and **Count**, a
-Length (`nodes::bridge`). The shape lost: a field input reading a list per copy, which made what
-a node read depend on a repeat downstream of it.
+letting go offers, in order, **Item**, a Get whose Index starts at the first item;
+**Average**, **Highest**, **Lowest** and **Sum**, a Reduce set to Mean, Max, Min or Sum;
+**Count**, a Length; and **Loudest Index**, a Reduce set to Argmax (`nodes::bridge`). A row
+that is a Reduce lands it with its mode already set — `Bridge::options`, carried by
+`Command::Bridge`, so the node, its option and its two cables are one undo step. The shape
+lost: a field input reading a list per copy, which made what a node read depend on a repeat
+downstream of it.
+
+**One matching rule, stretch.** Wherever a list of `n` items is read over `m`, item `i` reads
+item `floor(i · n / m)` of it (`nodes::list::stretch`): three items over twelve is AAAA BBBB
+CCCC. A list read over its own length reads itself, a single number is a list of one, and
+wrapping and averaging are nodes of their own, Cycle and Resample.
+
+**The dual maths runs per item.** A list cabled into any input of a [dual](#dual-outputs) node
+— the eighteen Math nodes, Reframe Range and Slide Rule — puts it in **list mode**: its output
+is a `ListNumber`, its inputs draw as lists, and the tick runs its `eval` once per item. The
+output is as long as the longest list cabled in, a shorter one stretched across it and a single
+number or a knob the same on every item; an empty list cabled in makes the output empty. A node
+fed a list and a field at once would be both, so the second of those cables is refused on
+type: a field onto a list-mode node is refused outright, and a list onto a node a field is in
+shows the conversion ring and offers the menu's rows. A list cabled into the one input a field
+is in replaces it. Nothing in `math.rs` knows about lists: `TickContext::publish_per_item`
+sets an item cursor, and `ctx.input` reads the current item of a list it finds cabled in.
+
+**Get gathers.** With a list on its Index, a Get's Item is a list: the items those indices
+name, in their order, each wrapping as a single index does. So Sort's Order on a Get's Index
+reorders a sibling list, and one Order keeps X, Y and a size in step. Its Item is dual at two
+rates, `OutputDef::gathers`, so the graph types it as it types the maths.
 
 | node | ports | what it does |
 | --- | --- | --- |
+| **List** (`list`) | Count, Min, Max → List | Numbers drawn by hand on the node's own bars (`Region::Bars`): a drag sets the bar under it and every bar it sweeps across, and each bar is its share of the way from Min to Max, saved as the node's own `Value::Numbers` |
 | **Range** (`range`) | Count, From, To, Ends → List | Count values evenly spaced From one To the other; Ends set to From Only leaves the last out, so a Range of turns closes a ring |
-| **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. An empty list publishes nothing |
+| **Random** (`randomlist`) | Count, Min, Max, Seed → List | Count numbers between Min and Max, item `i` a hash of the seed and `i`, so a bigger Count keeps the items already there |
+| **Circle Points** (`circlepoints`) | Count, Radius, Center X, Center Y, Start, Spread → X, Y, Angle | Points round a circle; Angle in turns from Start, Spread the share of a turn they cover. A whole turn spaces them evenly with none on top of the first; an arc runs from end to end |
+| **Grid Points** (`gridpoints`) | Columns, Rows, Width, Height, Center X, Center Y → X, Y, Column, Row | The middle of each cell of a lattice over the rectangle, row after row from the bottom left |
+| **Get** (`get`) | List, Index → Item | One item; Index 0 is the first, and one past the end wraps round. A list of indices gathers. An empty list publishes nothing |
 | **Length** (`length`) | List → Count | How many items |
+| **Reduce** (`reduce`) | List, Mode → Value | Sum, Mean, Min, Max or Argmax, the index of the first of the highest. An empty list sums to zero and publishes nothing for the rest |
+| **Lookup** (`lookup`) | List, Position, Mode → Value | The list at Position, 0 to 1 and round again: Step holds each item for its share, Linear glides to the next and the last back to the first. A phase on Position is a step sequencer |
+| **Resample** (`resample`) | List, Count, Mode → List | The list over Count items: Nearest stretches, Linear glides first to last, Average gives each item the mean of the ones under it |
+| **Slice** (`slice`) | List, Start, Count → List | Count items from Start, stopping at the end |
+| **Join** (`join`) | A, B → List | A, then B |
+| **Reverse** (`reverse`) | List → List | Last first |
+| **Sort** (`sort`) | List → Sorted, Order | Lowest first, equal items in the order they came; Order is where each sorted item was |
+| **Cycle** (`cycle`) | List, Count, Shift → List | The list repeated round to Count, moved Shift places towards the end |
 | **Bands** (`bands`) | Spectrum, Low, High, Count → Bands | Count bands of a Spectrum between Low and High (20 Hz and 16 kHz), their edges log-spaced, each the average of the buckets under it |
 | **Lag** (`lag`) | List, Rise, Fall → Output | Each item eased toward its input, Rise and Fall its time constants in seconds |
 
@@ -920,12 +960,15 @@ outputs: &[OutputDef {
 An output with an `eval` is **dual**: it declares `VaryingNumber`, and its *effective* type
 on an instance is whatever what feeds it makes it. There is nothing per-pixel about `a + b`
 when `a` and `b` are uniform numbers, so a `math` node with knobs on it is a constant the CPU
-can hold, and the same node with a noise cabled in is a field. One `add`, not two.
+can hold, the same node with a noise cabled in is a field, and with a list cabled in it is a
+list. One `add`, not three.
 
-**The rule.** A dual output is `UniformNumber` when **every** input of its node resolves to a
+**The rule.** A dual node runs at the highest rate any of its dual inputs brings, ordered
+uniform < list < varying. A dual output is `UniformNumber` when **every** input resolves to a
 uniform: a connected input whose source's effective type is `UniformNumber`, or an unconnected
 one holding a `ControlValue::Float` or a `ControlValue::Color` — a control, which compiles
-to a uniform anyway. A field on any input, or an input bound to a prelude global, makes
+to a uniform anyway. A list on any input and a field on none makes it `ListNumber` ([per
+item](#lists)). A field on any input, or an input bound to a prelude global, makes
 it `VaryingNumber`. The rule is written by rate rather than
 by a pair of types: `Graph` computes one `Rate` for the node and hands every dual port
 `PortType::with_rate` of it, so a dual color output would slot into the same rule now that
@@ -933,16 +976,22 @@ by a pair of types: `Graph` computes one `Rate` for the node and hands every dua
 the answer into the instance's own `PortDef::ty` and recomputes it over the downstream closure
 after every `connect`, `disconnect`, `add_node` and `remove_node`, and once at the end of a
 file load or an import. So the compiler, `can_connect`, the port dot and the readout all read
-the type they already read, and `PortDef::dual` — set by `port_defs` from `eval.is_some()`, on
-the output and on every `VaryingNumber` input of the same node — is how `graph/` finds one
-without matching on a slug.
+the type they already read, and `PortDef::dual` — set by `port_defs` from `eval.is_some()` or
+`gathers`, on the output and on every number input of the same node that is not a list — is
+how `graph/` finds one without matching on a slug. A list-mode node's dual inputs are
+`ListNumber`, so a field onto one is refused on type; in the other two modes a list lands on a
+dual input whose `PortDef::takes_list` the graph set, which it does unless a field is in
+another input of the node or the node is pinned against a list.
 
 **Demotion is unofferable, and a pinned node's inputs say so.** A `VaryingNumber` does not
 feed a `UniformNumber` input, so a cable that flips a dual node to `VaryingNumber` while
 something reads its number would break the cable that reads it. A dual node in that position
 is **pinned**: it is in `UniformNumber` mode, and one of the outputs a flip would turn into a
 field feeds — directly, or transitively through dual nodes that would flip with it — an input
-that is `UniformNumber` of its own. **A pinned node's dual inputs have effective type
+that is `UniformNumber` or a list of its own, or a dual node fed a list elsewhere, which would
+be both. A node is pinned **against a list** the same way, by anything downstream that is not
+a list input or a dual node fed a field elsewhere, and its inputs then refuse a list with the
+conversion ring. **A node pinned against a field has dual inputs of effective type
 `UniformNumber`**, written into the instance's own `PortDef::ty` beside the output's, so a
 field onto one is an ordinary `ConnectError::TypeMismatch`: the input *is* a uniform number,
 the port draws the diamond that says so, and nothing has to be dragged at it to find out.
@@ -958,8 +1007,8 @@ the types once and drops whatever cable is left reading a field as a uniform num
 
 The output modes settle over the downstream closure of a change; the pins run the other way,
 upstream from the `UniformNumber` consumer back through the dual producers feeding it, so
-`Graph::repin` computes them that way — one pass over the cables finds the dual nodes a
-`UniformNumber` input reads directly, and a walk back through the dual producers feeding those
+`Graph::repin` computes both that way — one pass over the cables finds the dual nodes a
+reader pins directly, and a walk back through the dual producers feeding those
 carries the answer to everything that would flip with them. One pass over the edges, beside
 the order over immediate edges the output modes settle in; asking each dual node the
 question separately costs a downstream walk per node and each of those rescans the edges.
@@ -967,9 +1016,11 @@ question separately costs a downstream walk per node and each of those rescans t
 **The tick evaluates one.** `Synth::tick` walks `tick_order`; a node with no `cpu` half whose
 dual output is effectively `UniformNumber` has its `eval` run through the same `TickContext` a
 CPU node gets — `ctx.input(id, key)` already resolves a connected uniform or the control — and
-the result is published on that port. A dual output that has flipped to `VaryingNumber` is
-withdrawn, so its row draws nothing rather than a stale number. Producers tick before
-consumers, so a chain of duals resolves inside one frame.
+the result is published on that port. One that is effectively `ListNumber` has its `eval` run
+once per item by `TickContext::publish_per_item`, which moves an item cursor that
+`ctx.input` reads the current item through, and publishes the items as a list. A dual output
+that has flipped to `VaryingNumber` is withdrawn, so its row draws nothing rather than a stale
+number. Producers tick before consumers, so a chain of duals resolves inside one frame.
 
 **The family** is `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`,
 `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`,
@@ -1123,7 +1174,7 @@ Perlin's `value`, to what those words mean, on the GPU.
 | `Convert` | `luminosity`, `lightness`, `value`, `average`, `hue`, `saturation`, `chroma`, `red`, `green`, `blue`, `alpha`, `channelsplitter`, `sliderule`, `reframerange` |
 | `Tap` | `tap`, `sample` |
 | `Math` | `add`, `subtract`, `multiply`, `divide`, `min`, `max`, `sine`, `cosine`, `abs`, `ceil`, `floor`, `atan2`, `lerp`, `modulo`, `power`, `pythagorean`, `smoothstep`, `threshold`, `random` |
-| `List` | `range`, `get`, `length`, `bands`, `lag` |
+| `List` | `list`, `range`, `randomlist`, `circlepoints`, `gridpoints`, `get`, `length`, `reduce`, `lookup`, `resample`, `slice`, `join`, `reverse`, `sort`, `cycle`, `bands`, `lag` |
 | `Control` | `number`, `clock`, `oscillator`, `animation`, `automation`, `slew`, `autogain`, `button`, `clockdivider`, `counter`, `adsr`, `smoothcounter`, `triggeredrandom`, `triggeredcolor`, `randomfire`, `euclideanrhythm`, `stepsequencer`, `xypad` |
 | `Gear` | `mastergear`, `ratiogear`, `time` |
 | `Solid` | `sphere`, `box`, `torus`, `cylinder`, `capsule`, `octahedron`, `ground`, `union`, `solidsubtract`, `intersect`, `place`, `stretch`, `solidmirror`, `twist`, `bend`, `repeatgrid`, `repeataround`, `inflate`, `shell`, `paint`, `displace`, `surfacetexture`, `cone`, `hexprism`, `pyramid`, `link`, `gyroid`, `elongate`, `morph`, `stripes3d`, `heightgradient`, `menger`, `mandelbulb`, `boxframe`, `superellipsoid`, `ellipsoid`, `helix`, `slab`, `dodecahedron`, `icosahedron`, `stairsunion`, `columnsunion`, `solidxor`, `warp`, `foldplane`, `wrap`, `fold`, `scattersphere`, `noisedisplace`, `checker3d`, `proximity`, `facing`, `distancebands`, `extrude`, `revolve`, `heightfield`, `solidrender` |

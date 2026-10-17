@@ -76,6 +76,8 @@ pub enum Value {
     /// A picture a hand painted: `drawingcanvas`'s. The pixels in memory, and a picture file
     /// in the project's `assets/` on disk — see [`Painting`].
     Painting(Painting),
+    /// Numbers a hand drew as bars, each its share of a range, `0` to `1`: the List node's.
+    Numbers(Vec<f32>),
 }
 
 /// A picture a hand painted, `drawingcanvas`'s: RGBA8, rows top first.
@@ -271,7 +273,11 @@ impl Value {
     pub fn range(&self) -> Option<ControlRange> {
         match self {
             Self::Range(r) => Some(*r),
-            Self::Text(_) | Self::Points(_) | Self::Cells(_) | Self::Painting(_) => None,
+            Self::Text(_)
+            | Self::Points(_)
+            | Self::Cells(_)
+            | Self::Painting(_)
+            | Self::Numbers(_) => None,
         }
     }
 
@@ -279,7 +285,11 @@ impl Value {
     pub fn text(&self) -> Option<&str> {
         match self {
             Self::Text(t) => Some(t),
-            Self::Range(_) | Self::Points(_) | Self::Cells(_) | Self::Painting(_) => None,
+            Self::Range(_)
+            | Self::Points(_)
+            | Self::Cells(_)
+            | Self::Painting(_)
+            | Self::Numbers(_) => None,
         }
     }
 
@@ -287,7 +297,11 @@ impl Value {
     pub fn points(&self) -> Option<&[Point]> {
         match self {
             Self::Points(p) => Some(p),
-            Self::Text(_) | Self::Range(_) | Self::Cells(_) | Self::Painting(_) => None,
+            Self::Text(_)
+            | Self::Range(_)
+            | Self::Cells(_)
+            | Self::Painting(_)
+            | Self::Numbers(_) => None,
         }
     }
 
@@ -295,7 +309,11 @@ impl Value {
     pub fn painting(&self) -> Option<&Painting> {
         match self {
             Self::Painting(p) => Some(p),
-            Self::Text(_) | Self::Range(_) | Self::Points(_) | Self::Cells(_) => None,
+            Self::Text(_)
+            | Self::Range(_)
+            | Self::Points(_)
+            | Self::Cells(_)
+            | Self::Numbers(_) => None,
         }
     }
 
@@ -303,7 +321,23 @@ impl Value {
     pub fn cells(&self) -> Option<&[String]> {
         match self {
             Self::Cells(c) => Some(c),
-            Self::Text(_) | Self::Range(_) | Self::Points(_) | Self::Painting(_) => None,
+            Self::Text(_)
+            | Self::Range(_)
+            | Self::Points(_)
+            | Self::Painting(_)
+            | Self::Numbers(_) => None,
+        }
+    }
+
+    /// The drawn numbers, where this value is some.
+    pub fn numbers(&self) -> Option<&[f32]> {
+        match self {
+            Self::Numbers(n) => Some(n),
+            Self::Text(_)
+            | Self::Range(_)
+            | Self::Points(_)
+            | Self::Cells(_)
+            | Self::Painting(_) => None,
         }
     }
 

@@ -420,7 +420,7 @@ impl<'a> Rule<'a> {
 }
 
 /// What reads a measured node's reading as a shader would: the node and every dual node a
-/// tick evaluates from it. And whether the reading is live for any other reason: one of
+/// tick evaluates from it, as a number or per item of a list. And whether the reading is live for any other reason: one of
 /// those is on the workspace being looked at, whose row shows the number, or an awake CPU
 /// node reads one.
 fn read_through(
@@ -436,7 +436,7 @@ fn read_through(
         let Some(node) = graph.get(id) else { continue };
         read_live |= active.is_some_and(|w| node.workspaces.contains(&w));
         for port in &node.outputs {
-            if !port.ty.is_uniform() {
+            if !(port.ty.is_uniform() || port.ty.is_list()) {
                 continue;
             }
             for to in graph.targets_of(PortRef::new(id, port.key)) {
@@ -448,7 +448,10 @@ fn read_through(
                     continue;
                 }
                 let evaluated = target.def.outputs.iter().any(|o| {
-                    o.eval.is_some() && target.output(o.key).is_some_and(|p| p.ty.is_uniform())
+                    o.eval.is_some()
+                        && target
+                            .output(o.key)
+                            .is_some_and(|p| p.ty.is_uniform() || p.ty.is_list())
                 });
                 if evaluated && reached.insert(to.node) {
                     stack.push(to.node);

@@ -792,6 +792,17 @@ pub struct TickContext<'a> {
     /// synth's integrator made of its Speed this tick (`nodes::timing::Pace`). `None` for a
     /// node that loops. See [`Self::cycle`].
     free: Option<(NodeId, f64)>,
+    /// The item a dual node's `eval` is reading, while [`Self::publish_per_item`] runs it once
+    /// per item of a list. `None` for every other read.
+    item: Option<Item>,
+}
+
+/// One item of a dual node's list-mode output: which node, which item, and how many.
+#[derive(Debug, Clone, Copy)]
+struct Item {
+    node: NodeId,
+    index: usize,
+    count: usize,
 }
 
 impl<'a> TickContext<'a> {
@@ -845,6 +856,7 @@ impl<'a> TickContext<'a> {
             control_writes,
             value_writes,
             free: None,
+            item: None,
         }
     }
 
@@ -903,8 +915,69 @@ impl<'a> TickContext<'a> {
 
     /// The value on one of `id`'s uniform number inputs this frame: exactly what its source
     /// published, unbounded, or its knob.
+    ///
+    /// While [`Self::publish_per_item`] runs `id`'s `eval`, an input a list is cabled into
+    /// reads the current item of it, stretched over the output's length
+    /// ([`crate::nodes::list::stretch`]); a single number reads as itself on every item.
     pub fn input(&self, id: NodeId, key: &'static str) -> f64 {
-        number(self.graph, self.uniforms, PortRef::new(id, key))
+        let port = PortRef::new(id, key);
+        if let Some(item) = self.item.filter(|item| item.node == id)
+            && let Some(src) = self.graph.source_of(port)
+            && let Some(list) = self.lists.get(&src)
+        {
+            let at = crate::nodes::list::stretch(list.len(), item.index, item.count);
+            return list.get(at).copied().unwrap_or(0.0);
+        }
+        number(self.graph, self.uniforms, port)
+    }
+
+    /// How long a dual node's list-mode output is this frame: the longest list cabled into
+    /// it, or none where any list cabled into it is empty — a list output that published
+    /// nothing counts as empty. Single numbers do not count.
+    pub fn items(&self, id: NodeId) -> usize {
+        let Some(node) = self.graph.get(id) else {
+            return 0;
+        };
+        let mut longest = 0;
+        for p in &node.inputs {
+            let Some(src) = self.graph.source_of(PortRef::new(id, p.key)) else {
+                continue;
+            };
+            let is_list = self
+                .graph
+                .get(src.node)
+                .and_then(|n| n.output(src.key))
+                .is_some_and(|o| o.ty.is_list());
+            if !is_list {
+                continue;
+            }
+            match self.lists.get(&src).map_or(0, Vec::len) {
+                0 => return 0,
+                n => longest = longest.max(n),
+            }
+        }
+        longest.min(crate::nodes::list::CAP)
+    }
+
+    /// Run a dual node's `eval` once per item and publish what it said as the list `port`:
+    /// its list mode, one item per item of the longest list cabled in ([`Self::items`]), each
+    /// input reading its own item of the same index, stretched ([`Self::input`]).
+    pub fn publish_per_item(&mut self, id: NodeId, port: &'static str, eval: crate::nodes::EvalFn) {
+        let count = self.items(id);
+        let key = PortRef::new(id, port);
+        let mut list = self.lists.remove(&key).unwrap_or_default();
+        list.clear();
+        for index in 0..count {
+            self.item = Some(Item {
+                node: id,
+                index,
+                count,
+            });
+            let v = eval(id, self);
+            list.push(if v.is_finite() { v } else { 0.0 });
+        }
+        self.item = None;
+        self.lists.insert(key, list);
     }
 
     /// The color on one of `id`'s uniform color inputs this frame.
@@ -1094,6 +1167,12 @@ impl<'a> TickContext<'a> {
     /// of zero. The row then draws nothing, under the rule an unpublished port follows.
     pub fn withdraw(&mut self, id: NodeId, port: &'static str) {
         self.uniforms.remove(&PortRef::new(id, port));
+    }
+
+    /// Take one of `id`'s list outputs out of this frame. [`Self::withdraw`] for the list
+    /// rate: a dual node or a Get that is no longer a list has no list to show.
+    pub fn withdraw_list(&mut self, id: NodeId, port: &'static str) {
+        self.lists.remove(&PortRef::new(id, port));
     }
 
     /// Take one of `id`'s uniform color outputs out of this frame. [`Self::withdraw`] for the

@@ -39,6 +39,8 @@ pub enum Region {
     Palette,
     /// `euclideanrhythm`'s four lanes of steps.
     Steps,
+    /// The List node's bars, one per item, which a hand drags up and down.
+    Bars,
     /// `stepsequencer`'s four lanes of cells a hand lights, drawn in the cells `Steps` is.
     Grid,
     /// Reframe Range's named ranges, under a heading of their own.
@@ -303,6 +305,7 @@ impl Region {
             | Self::Status
             | Self::Palette
             | Self::Steps
+            | Self::Bars
             | Self::Grid
             | Self::Viewfinder
             | Self::Buttons(_)
@@ -333,6 +336,7 @@ impl Region {
             | Self::Curve
             | Self::Palette
             | Self::Steps
+            | Self::Bars
             | Self::Grid
             | Self::Ranges
             | Self::Viewfinder

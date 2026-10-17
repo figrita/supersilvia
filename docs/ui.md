@@ -1872,7 +1872,7 @@ once and read the same wherever on the node the pointer landed.
   toolkit in it, and `widgets::def` is the one table from that name to the
   `widgets::RegionDef` that sizes and draws it. Nothing above a region knows what kind it is:
   `ui/` walks the list, hands each band to `widgets::show`, and turns what comes back into
-  commands. The eighteen there are live under `src/widgets/` — `Render` for an Output's own
+  commands. The nineteen there are live under `src/widgets/` — `Render` for an Output's own
   render, `Preview(port)` for a source showing what it publishes, `Scope` and `Meters`,
   `Trace` with `Caption` under it, `Status`, one line of what the node's own
   `CpuNode::status` says, which is where `clockdivider` counts down to its next pass,
@@ -1884,7 +1884,8 @@ once and read the same wherever on the node the pointer landed.
   settings, [below](#a-nodes-own-buttons), `XyPad`, the square
   [an XY Pad's puck](#the-xy-pad) is thrown around, `Paint(port)` with `Brush` under it,
   the surface a `drawingcanvas` is painted on and the tools, size and colors it is painted
-  with, and `Gear`, [a gear's picture](#the-gear-region) turning at its real rate — and a
+  with, `Bars`, the List node's hand-drawn numbers, and `Gear`, [a gear's
+  picture](#the-gear-region) turning at its real rate — and a
   node has **every** region it declares rather than
   the one a ladder picked, which is why `video` keeps its meters *and* its clip.
 
@@ -2030,6 +2031,15 @@ once and read the same wherever on the node the pointer landed.
   back, and Clear sends the whole grid dark in one more. So the region claims no pointer — a
   drag that starts on a cell or between two carries the node. Its height is the lanes the
   value declares and never what is lit, so lighting a cell moves nothing.
+
+  **A region may be dragged like Max's `multislider`.** `widgets::bars` draws the List node's
+  numbers, a [`Numbers` value](nodes.md#a-nodes-own-values), as Count bars across a 72 point
+  band, in the list chart's own ground and ink, each from the floor to its share of the way
+  from Min to Max. It claims the pointer: a press sets the bar under it to the pointer's
+  height, and every frame of the drag sets each bar between the last place and this one on a
+  straight line, so a quick sweep leaves no gaps. Each frame is a `SetValue` of the whole list,
+  and the gesture the press opened takes them all, so a stroke is one step back. The bar under
+  the hand prints its number and value in the band's top corner.
 
   **A region may be painted on.** `widgets::paint` is `drawingcanvas`'s custom area, silvia's
   geometry for geometry: `Paint(port)`, a 300 point canvas in a 1 point `border_normal` frame
@@ -2280,7 +2290,7 @@ and a node between the two would close no loop.
 **The rows are a curated table**, `nodes::bridge`, and the curation is the feature. Each row
 is a **casting** — a way of reading this value as that type, named for what it does rather
 than for the node that does it, with silvia's own label and icon: *Luminosity*, *Red Channel*,
-*Grayscale*. Five pairs, and the twelve rows of the first two are silvia's, row for row:
+*Grayscale*. Six pairs, and the twelve rows of the first two are silvia's, row for row:
 
 | released on | rows |
 | --- | --- |
@@ -2289,6 +2299,7 @@ than for the node that does it, with silvia's own label and icon: *Luminosity*, 
 | a color onto a **uniform number** | *Average*, *Brightest*, *Darkest* — the `tap`, reading the frame |
 | a field onto a **uniform number** | *Average*, *Highest*, *Lowest* — the same `tap`, through its `number` sidechain |
 | a picture onto a **uniform color** | *Mean Color* — the same `tap`, and only the one row |
+| a number list onto a **uniform number** or a **field** | *Item*, a `get`; *Average*, *Highest*, *Lowest* and *Sum*, a `reduce` each; *Count*, a `length`; *Loudest Index*, a `reduce` |
 
 *Mean Color* is one row where the others are three because the extremes are extremes of a
 *number*: there is no pixel a tap keeps to hand back as the darkest color, and a color
@@ -2301,7 +2312,11 @@ conversions at all — they promote with nothing in between.
 
 **A row may fan out.** `Bridge::inputs` is a list, so *Grayscale* lands one cable on an
 `rgba`'s red, green and blue at once — silvia's `float-to-color` closure, and the reason
-`Command::Bridge` carries a list of keys rather than one.
+`Command::Bridge` carries a list of keys rather than one. **A row may set an option**:
+`Bridge::options` lands a `reduce` set to the reading its row names, Mean for *Average* and
+Argmax for *Loudest Index*, in the same command, so the option is part of the one undo step.
+A row's accessible name carries the options it sets, since five rows land the same node on the
+same two ports.
 
 What the table is *not* is a registry query. It was one for a day: every node with an input
 the source feeds and an output of the target's own type, one row per pairing. That menu is an
@@ -2607,7 +2622,9 @@ workspace, whose pass is not the one drawing thumbnails, or a pass that has not 
 the control says `varying` where its value would be: across a swatch's own ground, and in
 place of an s-number's digits with no fill under it. Either way the control keeps its 84 by 20
 and its accessible name ends in `varying`. An input with no control, such as Wavefold's
-Input, has nothing to show either in.
+Input, has nothing to show either in. **A control fed by a list says how many items arrive**,
+`×8`, as the list's own row does, with no fill: the node runs once per item, so there is no
+one number to meter either.
 
 **The cost rule for text that changes every frame.** A readout misses egui's galley cache by
 construction, because its text is different on most frames. What bounds it is that there are

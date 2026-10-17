@@ -73,7 +73,8 @@ in Rust as its WGSL — declares `VaryingNumber` and is *effectively* `UniformNu
 instance where every input resolves to a uniform number: a connected input whose source is
 effectively `UniformNumber`, or an unconnected one holding a number control. There is nothing
 per-pixel about `a + b` when `a` and `b` are uniform numbers, so the tick evaluates it and
-publishes a uniform number; feed either input a field and the same node is a field again. The
+publishes a uniform number; feed either input a field and the same node is a field again, and
+feed one a list and it is a list, its formula run once per item. The
 effective type is written into the instance's own `PortDef::ty`, recomputed by `Graph` after
 every structural change, so nothing that reads a port's type has to know the concept exists.
 A **bulk** change — a file loaded, a workspace imported, a paste — is one change rather than a

@@ -574,6 +574,13 @@ pub struct OutputDef {
     /// Offset read a clock that wraps across its wrap, at half of it, so a Phase passing one
     /// is a frame's motion (`TickContext::wraps_at`).
     pub wraps_at: f64,
+    /// True for a `UniformNumber` output that is a list while a list arrives at one of its
+    /// node's number inputs: Get's Item, which gathers the items a list of indices names. The
+    /// output is **dual** as an `eval` one is, at two rates rather than three — `Graph` writes
+    /// `ListNumber` into the instance's `PortDef` while a list is cabled in, and the node's own
+    /// `tick` reads the type to know which to publish. A registry test holds one to a
+    /// `UniformNumber` output of a node with a `cpu` half.
+    pub gathers: bool,
 }
 
 impl OutputDef {
@@ -593,6 +600,7 @@ impl OutputDef {
         eval: None,
         integral: false,
         wraps_at: f64::INFINITY,
+        gathers: false,
     };
 }
 
@@ -670,6 +678,9 @@ pub enum ValueKind {
     /// `drawingcanvas`'s. Held as a [`crate::graph::Painting`], and written into the project
     /// folder as a picture file of its own rather than into the `.ssw`.
     Painting,
+    /// Numbers a hand drags as bars in one of the node's own regions: the List node's. Takes
+    /// no row. A new node holds no value here, which is every bar at the bottom.
+    Numbers,
 }
 
 /// One piece of state a node declares for itself: not a port's value, and not a choice out of
@@ -694,7 +705,10 @@ impl ValueDef {
     pub const fn rows(&self) -> u8 {
         match self.kind {
             ValueKind::Text { rows, .. } => rows,
-            ValueKind::Points { .. } | ValueKind::Cells { .. } | ValueKind::Painting => 0,
+            ValueKind::Points { .. }
+            | ValueKind::Cells { .. }
+            | ValueKind::Painting
+            | ValueKind::Numbers => 0,
         }
     }
 
@@ -705,7 +719,10 @@ impl ValueDef {
             ValueKind::Text { default, .. } => default,
             // A curve starts with no points; the default is `Value::Points(Vec::new())`,
             // built at the call site since it is not `&'static str`.
-            ValueKind::Points { .. } | ValueKind::Cells { .. } | ValueKind::Painting => "",
+            ValueKind::Points { .. }
+            | ValueKind::Cells { .. }
+            | ValueKind::Painting
+            | ValueKind::Numbers => "",
         }
     }
 }
@@ -1218,18 +1235,20 @@ impl NodeDef {
     /// and a `UniformNumber` output with `OutputDef::delayed` set reads a measurement the
     /// shader made a frame ago. Both make a loop through them feedback rather than infinite
     /// recursion, which is one of the two bits of node semantics `graph/` has to know. The
-    /// other is `OutputDef::eval`: an output carrying one is dual, so the graph recomputes its
-    /// effective type rather than reading the declared one, and does it without matching on a
-    /// slug. The `VaryingNumber` inputs of that same node are dual too — the graph pins them
-    /// to `UniformNumber` on an instance whose flip would demote what reads its number — which
-    /// `a_dual_output_is_a_varying_number_a_tick_can_evaluate` holds to being all of them.
+    /// other is `OutputDef::eval`, or `OutputDef::gathers`: an output carrying one is dual, so
+    /// the graph recomputes its effective type rather than reading the declared one, and does
+    /// it without matching on a slug. The number inputs of that same node that are not lists
+    /// are dual too — a list on one makes the node a list, and the graph pins them to
+    /// `UniformNumber` on an instance whose flip would demote what reads its number — which
+    /// `a_dual_output_is_a_varying_number_a_tick_can_evaluate` holds to being all of an
+    /// `eval` node's inputs.
     pub fn port_defs(&self) -> (Vec<PortDef>, Vec<PortDef>) {
-        let dual = self.outputs.iter().any(|o| o.eval.is_some());
+        let dual = self.outputs.iter().any(|o| o.eval.is_some() || o.gathers);
         (
             self.inputs
                 .iter()
                 .map(|p| {
-                    if dual && p.ty == PortType::VaryingNumber {
+                    if dual && matches!(p.ty, PortType::VaryingNumber | PortType::UniformNumber) {
                         PortDef::dual(p.key, p.ty)
                     } else {
                         PortDef::new(p.key, p.ty)
@@ -1241,7 +1260,7 @@ impl NodeDef {
                 .map(|p| {
                     if p.kind == OutputKind::Texture || p.delayed {
                         PortDef::delayed(p.key, p.ty)
-                    } else if p.eval.is_some() {
+                    } else if p.eval.is_some() || p.gathers {
                         PortDef::dual(p.key, p.ty)
                     } else {
                         PortDef::new(p.key, p.ty)
@@ -1405,9 +1424,21 @@ pub static REGISTRY: &[&NodeDef] = &[
     &math::THRESHOLD,
     &random::DEF,
     &reframerange::REFRAMERANGE,
+    &list::LIST,
     &list::RANGE,
+    &list::RANDOM,
+    &list::CIRCLE_POINTS,
+    &list::GRID_POINTS,
     &list::GET,
     &list::LENGTH,
+    &list::REDUCE,
+    &list::LOOKUP,
+    &list::RESAMPLE,
+    &list::SLICE,
+    &list::JOIN,
+    &list::REVERSE,
+    &list::SORT,
+    &list::CYCLE,
     &spectrum::BANDS,
     &spectrum::LAG,
     &number::DEF,
@@ -2863,6 +2894,39 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// A gathering output is a uniform number its own node's `tick` publishes, as a list where
+    /// the graph says so: a `cpu` half and no `eval`, so one thing publishes it, and a number
+    /// input with a knob for the list to arrive on.
+    #[test]
+    fn a_gathering_output_is_a_uniform_number_its_own_tick_publishes() {
+        let mut gathering = 0;
+        for def in REGISTRY {
+            for p in def.outputs.iter().filter(|p| p.gathers) {
+                gathering += 1;
+                assert_eq!(p.ty, PortType::UniformNumber, "{}.{}", def.slug, p.key);
+                assert_eq!(p.kind, OutputKind::Uniform, "{}.{}", def.slug, p.key);
+                assert!(
+                    p.eval.is_none(),
+                    "{}.{}: gathers or evaluates",
+                    def.slug,
+                    p.key
+                );
+                assert!(
+                    def.cpu.is_some(),
+                    "{}: nothing publishes {}",
+                    def.slug,
+                    p.key
+                );
+                assert!(
+                    def.inputs.iter().any(|i| i.ty == PortType::UniformNumber),
+                    "{}: no number input for a list to arrive on",
+                    def.slug,
+                );
+            }
+        }
+        assert!(gathering > 0, "Get's Item gathers");
     }
 
     /// **A node that moves with time declares its timing, and its time rows are the
