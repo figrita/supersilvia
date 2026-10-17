@@ -219,6 +219,7 @@ fn values(
                     UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
                     _ => UniformValue::Float(0.0),
                 },
+                UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),
                 UniformProvider::NodeCount { node, port } => {
                     let count = if *node != under {
                         0.0

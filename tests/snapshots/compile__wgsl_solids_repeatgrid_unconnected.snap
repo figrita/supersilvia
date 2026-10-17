@@ -6,14 +6,20 @@ expression: wgsl
 struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
-    u_control_repeatgrid1_scatter: f32,
-    u_control_repeatgrid1_seed: f32,
-    u_control_repeatgrid1_size: f32,
+    u_control_repeatgrid1_copyColor: vec4f,
+    u_control_repeatgrid1_copyScaleX: f32,
+    u_control_repeatgrid1_copyScaleY: f32,
+    u_control_repeatgrid1_copyScaleZ: f32,
+    u_control_repeatgrid1_copyTurn: f32,
+    u_control_repeatgrid1_copyX: f32,
+    u_control_repeatgrid1_copyY: f32,
+    u_control_repeatgrid1_copyZ: f32,
+    u_control_repeatgrid1_countX: f32,
+    u_control_repeatgrid1_countY: f32,
+    u_control_repeatgrid1_countZ: f32,
     u_control_repeatgrid1_spacingX: f32,
     u_control_repeatgrid1_spacingY: f32,
     u_control_repeatgrid1_spacingZ: f32,
-    u_control_repeatgrid1_spin: f32,
-    u_control_repeatgrid1_tint: f32,
     u_control_solidrender3_background: vec4f,
     u_control_solidrender3_distance: f32,
     u_control_solidrender3_floorHeight: f32,
@@ -89,30 +95,58 @@ fn repeatgrid1_solid_d(p: vec3f) -> vec4f {
     let s = vec3f(u.u_control_repeatgrid1_spacingX, u.u_control_repeatgrid1_spacingY, u.u_control_repeatgrid1_spacingZ);
     let on = s > vec3f(1.0e-4);
     let step = select(vec3f(0.0), s, on);
-    var cell = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
-    var q = p - cell * step;
-    q -= (sd_hash3(cell, u.u_control_repeatgrid1_seed) - 0.5) * u.u_control_repeatgrid1_scatter * step;
-    let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, u.u_control_repeatgrid1_seed).x - 0.5) * u.u_control_repeatgrid1_spin * 6.2831853);
-    q = vec3f(xz.x, q.y, xz.y);
-    let g = 1.0 - u.u_control_repeatgrid1_size * sd_hash3(cell + 31.0, u.u_control_repeatgrid1_seed).y;
-    q = q / g;
-    let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, r.yzw);
+    let n = vec3f(1.0);
+    let mid = vec3f(0.0);
+    let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
+    let side = select(vec3f(0.0), sign(p - (near - mid) * step), on);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 1; j++) {
+        var cell = near;
+        if (j > 0) {
+            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
+            if (dot(axis, side) == 0.0) { continue; }
+            cell += axis * side;
+        }
+        let q = p - (cell - mid) * step;
+        let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_repeatgrid1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
+        let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
+        let d = r.x * k;
+        if (d < best.x) { best = vec4f(d, r.yzw); }
+    }
+    return best;
 }
 
 fn repeatgrid1_solid(p: vec3f) -> vec4f {
     let s = vec3f(u.u_control_repeatgrid1_spacingX, u.u_control_repeatgrid1_spacingY, u.u_control_repeatgrid1_spacingZ);
     let on = s > vec3f(1.0e-4);
     let step = select(vec3f(0.0), s, on);
-    var cell = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
-    var q = p - cell * step;
-    q -= (sd_hash3(cell, u.u_control_repeatgrid1_seed) - 0.5) * u.u_control_repeatgrid1_scatter * step;
-    let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, u.u_control_repeatgrid1_seed).x - 0.5) * u.u_control_repeatgrid1_spin * 6.2831853);
-    q = vec3f(xz.x, q.y, xz.y);
-    let g = 1.0 - u.u_control_repeatgrid1_size * sd_hash3(cell + 31.0, u.u_control_repeatgrid1_seed).y;
-    q = q / g;
-    let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, mix(r.yzw, sd_hue(sd_hash3(cell + 47.0, u.u_control_repeatgrid1_seed).z), u.u_control_repeatgrid1_tint));
+    let n = vec3f(1.0);
+    let mid = vec3f(0.0);
+    let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
+    let side = select(vec3f(0.0), sign(p - (near - mid) * step), on);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 1; j++) {
+        var cell = near;
+        if (j > 0) {
+            let axis = vec3f(f32(j == 1), f32(j == 2), f32(j == 3));
+            if (dot(axis, side) == 0.0) { continue; }
+            cell += axis * side;
+        }
+        let q = p - (cell - mid) * step;
+        let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_repeatgrid1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
+        let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
+        let d = r.x * k;
+        if (d < best.x) { best = vec4f(d, r.yzw * u.u_control_repeatgrid1_copyColor.rgb); }
+    }
+    return best;
 }
 
 fn solidrender3_output(uv: vec2f) -> vec4f {

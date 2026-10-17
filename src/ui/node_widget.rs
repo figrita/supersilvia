@@ -579,6 +579,7 @@ fn row_bands(ui: &Ui, cx: &NodeCtx<'_>, rect: Rect) {
                 | canvas::Row::SendHeading
                 | canvas::Row::TimingHeading
                 | canvas::Row::TransformHeading
+                | canvas::Row::PerCopyHeading
         )
     };
     while let Some(&canvas::RowBox { row, top, height }) = rows.next() {

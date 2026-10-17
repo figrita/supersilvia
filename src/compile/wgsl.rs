@@ -148,6 +148,7 @@ pub struct UniformLayout {
 /// The size and alignment of a uniform member, by its WGSL type.
 fn size_align(ty: &str) -> (u32, u32) {
     match ty {
+        super::uniform::LIST_WGSL => (16 * super::uniform::LIST_VEC4S as u32, 16),
         "vec4f" => (16, 16),
         "vec2f" => (8, 8),
         _ => (4, 4),

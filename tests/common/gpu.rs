@@ -299,6 +299,7 @@ pub fn resolved(g: &Graph, shader: &Shader) -> Vec<(Arc<str>, UniformValue)> {
                     UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
                     _ => UniformValue::Float(0.0),
                 },
+                UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),
                 UniformProvider::NodeCount { .. } => UniformValue::Vec2([0.0; 2]),
                 UniformProvider::Option { node, key } => {
                     let n = g.get(*node)?;

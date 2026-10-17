@@ -61,6 +61,8 @@ RES = "960x540"
 HEAVY = "640x360"
 
 VARYING_OF = {"uniform number": "varying number", "uniform color": "varying color"}
+# A single number feeds a list input as a list of one.
+LIST_OF = {"uniform number": "number list", "uniform color": "color list"}
 
 # Options whose value is any of a kind rather than one of the listed choices.
 FREE_OPTIONS = ("file", "resolution", "size", "texsize")
@@ -395,7 +397,7 @@ class Project:
         # A hidden input is a setting on the node, not a port: it takes a value, never a cable.
         assert not i["hidden"], f"{self.slug_of(b)}.{into} is a setting, not a port"
         dst = i["type"]
-        assert src == dst or VARYING_OF.get(src) == dst, (
+        assert src == dst or VARYING_OF.get(src) == dst or LIST_OF.get(src) == dst, (
             f"{self.slug_of(a)}.{out} ({src}) cannot feed {self.slug_of(b)}.{into} ({dst})"
         )
         assert not any(c["to"] == {"node": b, "key": into} for c in self.all_connections()), f"{into} is cabled twice"
@@ -629,7 +631,7 @@ def repeat_forever(p):
         C[1],
         40,
         box,
-        controls={"spacingX": 2.6, "spacingZ": 2.6, "scatter": 0.2, "spin": 1.0, "size": 0.5, "tint": 0.85, "seed": 7.0},
+        controls={"spacingX": 2.6, "spacingZ": 2.6},
         options={"extent": "forever"},
     )
     floor = ws.shape("ground", C[2], 40, onto=grid, height=-0.6, color="#6a5f8a")
@@ -661,7 +663,7 @@ def repeat_around(p):
     master = ws.master(C[0], 1000)
 
     cube = ws.add("box", C[0], 40, controls={"width": 0.5, "height": 0.5, "depth": 0.5, "rounding": 0.06, "color": "#5a8fe8"})
-    ring = ws.mod("repeataround", C[1], 40, cube, controls={"copies": 12.0, "radius": 1.5, "tint": 0.7, "seed": 3.0}, options={"axis": "z"})
+    ring = ws.mod("repeataround", C[1], 40, cube, controls={"copies": 12.0, "radius": 1.5}, options={"axis": "z"})
     left = ws.place(C[2], 40, ring, x=-5.0, y=1.0)
 
     pill = ws.add("sphere", C[0], 340, controls={"radius": 0.32, "color": "#e8d35a"})
@@ -675,7 +677,7 @@ def repeat_around(p):
         C[1],
         640,
         slab,
-        controls={"copies": 18.0, "radius": 1.0, "rise": 0.17, "turn": 0.01, "grow": 0.015, "tint": 0.3, "seed": 5.0},
+        controls={"copies": 18.0, "radius": 1.0},
         options={"axis": "y"},
     )
     tower = ws.shape("cylinder", C[2], 640, onto=stairs, radius=0.14, height=3.6, y=1.4, color="#c9c4d6")
@@ -699,7 +701,7 @@ def scatter_sphere(p):
     )
     master = ws.master(C[0], 700)
     cone = ws.add("cone", C[0], 40, controls={"bottom": 0.2, "top": 0.0, "height": 0.9, "color": "#f2b632"})
-    spread = ws.mod("scattersphere", C[1], 40, cone, controls={"copies": 140.0, "radius": 1.6, "spin": 1.0, "size": 0.45, "tint": 0.5, "seed": 3.0})
+    spread = ws.mod("scattersphere", C[1], 40, cone, controls={"copies": 140.0, "radius": 1.6})
     ball = ws.shape("sphere", C[2], 40, onto=spread, radius=1.5, color="#3a5ae8", blend=0.08)
     ws.show(C[3], 40, ball, master, "turn", controls={"distance": 6.5, "tilt": 0.06, "fog": 0.0, "targetY": 0.6, "floorHeight": -1.6})
 
@@ -765,7 +767,7 @@ def fold_wrap(p):
     left = ws.place(C[3], 40, mirror, x=-2.8)
 
     brick = ws.add("box", C[0], 400, controls={"width": 0.45, "height": 0.9, "depth": 0.35, "rounding": 0.04, "color": "#b07ae8"})
-    row = ws.mod("repeatgrid", C[1], 400, brick, controls={"spacingX": 2 * math.pi * 1.5 / 12, "spacingY": 0.0, "spacingZ": 0.0, "tint": 0.6, "seed": 2.0}, options={"extent": "forever"})
+    row = ws.mod("repeatgrid", C[1], 400, brick, controls={"spacingX": 2 * math.pi * 1.5 / 12, "spacingY": 0.0, "spacingZ": 0.0}, options={"extent": "forever"})
     ring = ws.mod("wrap", C[2], 400, row, controls={"radius": 1.5})
     right = ws.place(C[3], 400, ring, x=2.8, y=-0.5)
 
@@ -974,7 +976,7 @@ def solids_into_video(p):
     )
     master = ws.master(C[0], 800)
     ball = ws.add("sphere", C[0], 40, controls={"radius": 0.3, "color": "#5ae8c8"})
-    ring = ws.mod("repeataround", C[1], 40, ball, controls={"copies": 10.0, "radius": 2.1, "tint": 0.8, "seed": 2.0})
+    ring = ws.mod("repeataround", C[1], 40, ball, controls={"copies": 10.0, "radius": 2.1})
     both = ws.shape("torus", C[2], 40, onto=ring, ring=1.2, tube=0.32, blend=0.2, color="#e8925a")
     spin = ws.place(C[3], 40, both, pitch=0.1)
     ws.cable(master, "wrapped", spin, "yaw")
@@ -1088,7 +1090,7 @@ def animated(p):
     ws.cable(master, "wrapped", spun, "tYaw")
 
     pill = ws.add("capsule", C[0], 760, controls={"length": 0.5, "radius": 0.22, "color": "#e8d35a"})
-    ring = ws.mod("repeataround", C[1], 760, pill, controls={"copies": 7.0, "radius": 0.9, "tint": 0.6, "seed": 9.0})
+    ring = ws.mod("repeataround", C[1], 760, pill, controls={"copies": 7.0, "radius": 0.9})
     turn = ws.place(C[2], 760, ring, x=3.7, y=-0.35)
     ws.cable(master, "wrapped", turn, "yaw")
 
@@ -1219,7 +1221,7 @@ def render_lenses(p):
     )
     master = ws.master(C[0], 1000)
     box = ws.add("box", C[0], 40, controls={"width": 0.8, "height": 0.8, "depth": 0.8, "rounding": 0.08, "color": "#e8e2d6"})
-    grid = ws.mod("repeatgrid", C[1], 40, box, controls={"spacingX": 2.0, "spacingZ": 2.0, "countX": 3.0, "countZ": 3.0, "tint": 0.8, "seed": 4.0}, options={"extent": "counted"})
+    grid = ws.mod("repeatgrid", C[1], 40, box, controls={"spacingX": 2.0, "spacingZ": 2.0, "countX": 7.0, "countZ": 7.0}, options={"extent": "counted"})
     orbit = ws.sway(C[2], 1000, master, amplitude=0.05, offset=0.08)
     ortho = ws.render(C[2], 40, grid, controls={"distance": 12.0, "tilt": 0.09, "lens": 2.2, "fog": 0.0}, options={"projection": "orthographic"})
     fish = ws.render(C[2], 400, grid, controls={"distance": 4.0, "tilt": 0.05, "lens": 1.0, "fog": 0.0}, options={"projection": "fisheye"})
@@ -1295,7 +1297,7 @@ def must_fit(p):
         C[1],
         40,
         box,
-        controls={"spacingX": 1.7, "spacingZ": 1.7, "countX": 1.0, "countZ": 1.0, "spin": 1.0, "seed": 3.0},
+        controls={"spacingX": 1.7, "spacingZ": 1.7, "countX": 3.0, "countZ": 3.0},
         options={"extent": "counted"},
     )
     left = ws.place(C[2], 40, tight, x=-3.2, y=-0.5)
@@ -1305,7 +1307,7 @@ def must_fit(p):
         C[1],
         400,
         ball,
-        controls={"spacingX": 1.7, "spacingZ": 1.7, "countX": 1.0, "countZ": 1.0, "scatter": 1.0, "seed": 4.0},
+        controls={"spacingX": 1.7, "spacingZ": 1.7, "countX": 3.0, "countZ": 3.0},
         options={"extent": "counted"},
     )
     right = ws.place(C[2], 400, loose, x=3.2, y=-0.35)

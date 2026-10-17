@@ -17,7 +17,8 @@
 //! spherical fibonacci") turns a direction into the four lattice points round it, of which
 //! the nearest is the copy. Checked against the nearest of all of them, for every count from
 //! 1 to 500, it picks the same copy. As with Repeat, a copy has to fit its cell: nothing
-//! checks the neighbors, so a copy wider than the spacing is sliced.
+//! checks the neighbors, so a copy wider than the spacing is sliced, and copies a list makes
+//! taller than their neighbors notch where they stand beside a shorter one.
 //!
 //! **Noise Displace divides by the noise's steepest slope.** The noise is gradient noise with
 //! unit gradients hashed from the lattice corners by `sd_hash3`, integer arithmetic, so it is
@@ -27,7 +28,7 @@
 //! weight, so the bound is exact for one octave and loose for many.
 
 use super::{SDF, fill, num, out, solid, turn};
-use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
+use crate::nodes::{Category, Family, NodeDef, OptionDef};
 
 /// Iteration counts 1 to 12, for an option whose loop length is written into the code.
 const COUNTS: &[(&str, &str)] = &[
@@ -155,29 +156,48 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
     icon: "🦠",
     label: "Scatter on Sphere",
     tooltip: "Spreads Copies of a solid evenly over a sphere of Radius, each standing on it with \
-              its top facing out. Each can turn, shrink and take a hue of its own. A copy wider \
+              its top facing out. A list into Copies makes as many copies as it has items. Per \
+              copy moves, turns, sizes and colors each copy, from a knob or a list. A copy wider \
               than the gap between copies is sliced.",
     inputs: &[
         solid("input", "Solid"),
-        num("copies", "Copies", 20.0, 1.0, 500.0, 1.0, ""),
+        crate::nodes::percopy::count("copies", "Copies", 20.0, 500.0),
         num("radius", "Radius", 3.0, 0.0, 20.0, 0.01, "⬓"),
-        num("spin", "Spin", 0.0, 0.0, 1.0, 0.01, TURNS),
-        num("size", "Size", 0.0, 0.0, 0.9, 0.01, ""),
-        num("tint", "Tint", 0.0, 0.0, 1.0, 0.01, ""),
-        num("seed", "Seed", 0.0, 0.0, 999.0, 1.0, ""),
+        crate::nodes::percopy::OFFSET_X,
+        crate::nodes::percopy::OFFSET_Y,
+        crate::nodes::percopy::OFFSET_Z,
+        crate::nodes::percopy::TURN,
+        crate::nodes::percopy::SCALE_X,
+        crate::nodes::percopy::SCALE_Y,
+        crate::nodes::percopy::SCALE_Z,
+        crate::nodes::percopy::COLOR,
     ],
+    options: &[crate::nodes::percopy::HEADING],
+    row_headings: crate::nodes::percopy::ROW_HEADINGS,
     outputs: &[out(|node, ctx, _| {
-        let inner = ctx.input(node, "input", "q");
+        use crate::nodes::percopy::{self, Item};
+        let inner = ctx.input(node, "input", "m");
+        let copies = percopy::count_of(ctx, node, "copies");
+        // Copies count from the top of the sphere down, so a list runs top to bottom.
+        let copy = percopy::read(
+            ctx,
+            node,
+            Item::Counted {
+                index: "i",
+                count: "n",
+            },
+        );
+        let place = percopy::place(&copy);
         let color = if ctx.solid_color() {
-            "mix(r.yzw, sd_hue(sd_hash3(cell + 47.0, {seed}).z), {tint})"
+            format!("r.yzw * {}", copy.color)
         } else {
-            "r.yzw"
+            "r.yzw".to_string()
         };
         fill(
             node,
             ctx,
             &format!(
-                "    let n = clamp(round({{copies}}), 1.0, 500.0);
+                "    let n = clamp(round({copies}), 1.0, 500.0);
     let i = sd_fibonacci_nearest(p / max(length(p), 1.0e-6), n);
     let up = sd_fibonacci_point(i, n);
     let sg = select(-1.0, 1.0, up.z >= 0.0);
@@ -186,14 +206,9 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
     let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
     let back = vec3f(b, sg + up.y * up.y * a, -up.y);
     let d = p - up * {{radius}};
-    var q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
-    let cell = vec3f(i, 0.0, 0.0);
-    let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, {{seed}}).x - 0.5) * {{spin}} * 6.2831853);
-    q = vec3f(xz.x, q.y, xz.y);
-    let g = 1.0 - clamp({{size}}, 0.0, 0.9) * sd_hash3(cell + 31.0, {{seed}}).y;
-    q = q / g;
-    let r = {inner};
-    return vec4f(r.x * g, {color});"
+    let q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
+{place}    let r = {inner};
+    return vec4f(r.x * k, {color});"
             ),
         )
     })],

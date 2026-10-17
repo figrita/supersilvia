@@ -6797,9 +6797,9 @@ mixer's Projection section. Cast's option, and Texture's, is Projection.
 
 ### Copies vary on the repeat alone
 
-**Chosen** by the owner. Scatter, Spin, Size, Tint and Repeat Around's steps are rows of the
-repeat node, each from a deterministic integer hash of the cell and a Seed, and whatever is
-upstream of a repeat is the same solid in every cell.
+**Chosen** by the owner. A repeat moves, turns, sizes and colors its copies by its own Per
+copy rows, each a knob or a list ([nodes.md](nodes.md#repetition)), and whatever is upstream of
+a repeat is the same solid in every cell.
 
 **What lost:**
 
@@ -6811,6 +6811,16 @@ upstream of a repeat is the same solid in every cell.
   it quietly gave its From.
 - **A port type of its own for a number per copy**, which only a solid's number took. Built and
   struck by the owner: it broke the rule that a number goes wherever a number goes.
+- **The hashed rows beside the lists**: Repeat's Scatter, Spin, Size and Tint, Repeat Around's
+  stepped Rise, Turn and Grow and its Tint, and Scatter on Sphere's Spin, Size and Tint, each
+  from a hash of the cell and a Seed. Struck by the owner for one way to vary copies: a Random
+  or Range list into the Per copy rows does the same, at the price of a node and a cable, and on
+  a Forever Repeat a list cycles where the hash never repeated.
+- **Count either side**: a Counted Repeat's Count laid that many copies each side of the
+  middle, so the count was always odd and a list of sixteen could not be sixteen copies.
+- **A storage buffer for the lists**, one binding per module: every kind of program — an
+  Output's, a probe's, a pass's — would carry a new binding. A list rides in the uniform block
+  instead, at 4 KB a list, under the 64 KB a uniform binding allows.
 - **Holding each step to the cell's wall**, so a ray could not step into a taller neighbor. It
   held a ray running beside a wall to steps of a few hundredths until it ran out of them, and
   painted the sky with specks.

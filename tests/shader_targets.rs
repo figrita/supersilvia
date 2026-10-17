@@ -274,6 +274,39 @@ fn fields() -> Vec<Entry> {
         .expect("a field into a solid");
     push("maths and a field".to_string(), &g, out);
 
+    // Every repeat with lists in every per-copy row and in its count, counted and endless:
+    // the list uniforms and the near-neighbor loop through every backend.
+    for (repeat, count, extents) in [
+        ("repeatgrid", "countX", &["counted", "forever"][..]),
+        ("repeataround", "copies", &["y"][..]),
+        ("scattersphere", "copies", &[""][..]),
+    ] {
+        for extent in extents {
+            let (mut g, out, rep) = build(repeat, "vignette", "mask", &[]);
+            if repeat == "repeatgrid" {
+                g.get_mut(rep)
+                    .expect("just added")
+                    .options
+                    .insert("extent", (*extent).to_string());
+            }
+            let range = add(&mut g, "range");
+            for key in [
+                count,
+                "copyX",
+                "copyY",
+                "copyZ",
+                "copyTurn",
+                "copyScaleX",
+                "copyScaleY",
+                "copyScaleZ",
+            ] {
+                g.connect(PortRef::new(range, "list"), PortRef::new(rep, key))
+                    .expect("a list into a repeat's row");
+            }
+            push(format!("lists:{repeat}:{extent}"), &g, out);
+        }
+    }
+
     // Cast by every projection: a field onto a sphere's radius, and a picture straight into
     // an Output, where no solid asks.
     for projection in ["front", "top", "side", "around", "sphere", "box"] {

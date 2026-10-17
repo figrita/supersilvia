@@ -102,7 +102,7 @@ def repeat_forever(new):
         0,
         0,
         box,
-        controls={"spacingX": 2.6, "spacingZ": 2.6, "scatter": 0.2, "spin": 1.0, "size": 0.5, "tint": 0.85, "seed": 7.0},
+        controls={"spacingX": 2.6, "spacingZ": 2.6},
         options={"extent": "forever"},
     )
     floor = e.shape("ground", 0, 0, onto=grid, height=-0.6, color="#6a5f8a")
@@ -132,7 +132,7 @@ def repeat_around(new):
     )
     master = e.master(0, 0)
     cube = e.add("box", 0, 0, controls={"width": 0.5, "height": 0.5, "depth": 0.5, "rounding": 0.06, "color": "#5a8fe8"})
-    ring = e.mod("repeataround", 0, 0, cube, controls={"copies": 12.0, "radius": 1.5, "tint": 0.7, "seed": 3.0}, options={"axis": "z"})
+    ring = e.mod("repeataround", 0, 0, cube, controls={"copies": 12.0, "radius": 1.5}, options={"axis": "z"})
     left = e.place(0, 0, ring, x=-5.0, y=1.0)
 
     pill = e.add("sphere", 0, 0, controls={"radius": 0.32, "color": "#e8d35a"})
@@ -146,7 +146,7 @@ def repeat_around(new):
         0,
         0,
         slab,
-        controls={"copies": 16.0, "radius": 1.0, "rise": 0.18, "tint": 0.3, "seed": 5.0},
+        controls={"copies": 16.0, "radius": 1.0},
         options={"axis": "y"},
     )
     tower = e.shape("cylinder", 0, 0, onto=stairs, radius=0.14, height=3.6, y=1.4, color="#c9c4d6")
@@ -329,7 +329,7 @@ def into_video(new):
     )
     master = e.master(0, 0)
     ball = e.add("sphere", 0, 0, controls={"radius": 0.3, "color": "#5ae8c8"})
-    ring = e.mod("repeataround", 0, 0, ball, controls={"copies": 10.0, "radius": 2.1, "tint": 0.8, "seed": 2.0})
+    ring = e.mod("repeataround", 0, 0, ball, controls={"copies": 10.0, "radius": 2.1})
     both = e.shape("torus", 0, 0, onto=ring, ring=1.2, tube=0.32, blend=0.2, color="#e8925a")
     spin = e.place(0, 0, both, pitch=0.1)
     e.cable(master, "wrapped", spin, "yaw")

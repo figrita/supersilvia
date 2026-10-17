@@ -173,14 +173,19 @@ pub fn record_shown(node: &Node) -> bool {
 
 /// The headings that fold a run of a node's inputs, each in the input block over the rows it
 /// folds: a moving node's Timing heading over its time rows, and a shape's Transform heading
-/// over its turn and scale.
-pub const INPUT_HEADINGS: [Row; 2] = [Row::TimingHeading, Row::TransformHeading];
+/// over its turn and scale, and a repeat's Per copy heading over its per-copy rows.
+pub const INPUT_HEADINGS: [Row; 3] = [
+    Row::TimingHeading,
+    Row::TransformHeading,
+    Row::PerCopyHeading,
+];
 
 /// The option an input heading turns, or `None` for a row that is not one.
 pub fn input_heading_key(row: Row) -> Option<&'static str> {
     match row {
         Row::TimingHeading => Some(crate::nodes::timing::HEADING.key),
         Row::TransformHeading => Some(crate::nodes::solids::TRANSFORM.key),
+        Row::PerCopyHeading => Some(crate::nodes::percopy::HEADING.key),
         _ => None,
     }
 }
@@ -198,6 +203,13 @@ pub fn folded_by(node: &Node, key: &str) -> Option<Row> {
         && crate::nodes::solids::is_transform_row(key)
     {
         Some(Row::TransformHeading)
+    } else if node
+        .def
+        .row_headings
+        .contains(&crate::nodes::percopy::HEADING.key)
+        && crate::nodes::percopy::is_row(key)
+    {
+        Some(Row::PerCopyHeading)
     } else {
         None
     }
@@ -227,7 +239,9 @@ pub const HEADING_GAP: f32 = 2.0;
 /// Whether a heading row is open, or `None` for a row that is not a heading.
 fn heading_open(node: &Node, row: Row) -> Option<bool> {
     match row {
-        Row::TimingHeading | Row::TransformHeading => Some(input_heading_shown(node, row)),
+        Row::TimingHeading | Row::TransformHeading | Row::PerCopyHeading => {
+            Some(input_heading_shown(node, row))
+        }
         Row::RenderHeading => Some(render_shown(node)),
         Row::RecordHeading => Some(record_shown(node)),
         Row::SendHeading => Some(send_shown(node)),
@@ -398,6 +412,8 @@ pub enum Row {
     /// The bar a shape's turn and scale fold under, over the first of those rows: the same bar
     /// again, on every node that declares the Transform heading, open or closed.
     TransformHeading,
+    /// The bar a repeat's per-copy rows fold under, over the first of them.
+    PerCopyHeading,
     Output(usize),
     Option(usize),
     /// One value the node declares, drawn by its own `ValueKind` — a box of text on a
@@ -443,6 +459,7 @@ impl Row {
             Row::Output(i) => Some((i, false)),
             Row::TimingHeading
             | Row::TransformHeading
+            | Row::PerCopyHeading
             | Row::Option(_)
             | Row::Checks
             | Row::Value(_)
@@ -463,7 +480,7 @@ impl Row {
     pub fn section(self) -> u8 {
         match self {
             // An input heading is in the input block, over the inputs it folds.
-            Row::Input(_) | Row::TimingHeading | Row::TransformHeading => 0,
+            Row::Input(_) | Row::TimingHeading | Row::TransformHeading | Row::PerCopyHeading => 0,
             Row::Output(_) => 1,
             // The ticks are options, and they sit in the option block: one groove above the
             // whole of it, not a second seam inside it.
@@ -528,10 +545,12 @@ pub fn row_block(body: Rect, row: Row, top: f32, height: f32) -> Rect {
     match row {
         // An input heading stands among the inputs it folds, so it stops short of the far
         // edge where they do.
-        Row::Input(_) | Row::TimingHeading | Row::TransformHeading => Rect::from_min_max(
-            full.min,
-            Pos2::new(full.max.x - ROW_BLOCK_INSET, full.max.y),
-        ),
+        Row::Input(_) | Row::TimingHeading | Row::TransformHeading | Row::PerCopyHeading => {
+            Rect::from_min_max(
+                full.min,
+                Pos2::new(full.max.x - ROW_BLOCK_INSET, full.max.y),
+            )
+        }
         Row::Output(_) => Rect::from_min_max(
             Pos2::new(full.min.x + ROW_BLOCK_INSET, full.min.y),
             full.max,
@@ -618,7 +637,8 @@ pub fn row_height(node: &Node, row: Row) -> f32 {
         | Row::RecordHeading
         | Row::SendHeading
         | Row::TimingHeading
-        | Row::TransformHeading => HEADING_HEIGHT,
+        | Row::TransformHeading
+        | Row::PerCopyHeading => HEADING_HEIGHT,
         Row::Readout => READOUT_ROW_PITCH,
         // A value's height is the lines it declares: one line is an option row, and each
         // line after that adds a line of text rather than a whole row's padding. The inset

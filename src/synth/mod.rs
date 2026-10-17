@@ -1801,6 +1801,16 @@ impl Synth {
                         let count = self.uniforms.get(&at).copied().unwrap_or(0.0);
                         UniformValue::Vec2(crate::nodes::phasor::split(count))
                     }
+                    UniformProvider::NodeList { node, port } => {
+                        let at = PortRef::new(*node, port);
+                        UniformValue::List(self.lists.get(&at).map_or_else(Vec::new, |items| {
+                            items
+                                .iter()
+                                .take(crate::nodes::list::CAP)
+                                .map(|v| *v as f32)
+                                .collect()
+                        }))
+                    }
                     UniformProvider::Option { node, key } => {
                         let n = graph.get(*node)?;
                         let value = n.options.get(key).map_or("", |v| v.as_str());

@@ -131,6 +131,8 @@ pub enum UniformValue {
     /// A count as a Time reads it: its whole part and its fraction.
     Vec2([f32; 2]),
     Vec4([f32; 4]),
+    /// A number list: its items, at most [`crate::nodes::list::CAP`], in `f32`.
+    List(Vec<f32>),
     /// A texture published by a node: an Output's frame, or a CPU node's upload.
     NodeTexture(PortRef),
 }

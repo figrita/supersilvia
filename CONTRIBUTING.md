@@ -72,6 +72,7 @@ cargo run --release --example loop_gifs -- <project> [--only name]... [--out dir
 cargo run --release --example queue_contention   # the editor's latency beside a synthetic synth
 python3 scripts/demo-time.py            # the Time Gears demo project, into <documents>/supersilvia/Time Gears
 python3 scripts/demo-solids.py          # the Solids demo project, what solids do and where they stop, into <documents>/supersilvia/Solids
+python3 scripts/demo-lists.py           # the Lists demo project: repeats whose copies differ by a list, into <documents>/supersilvia/Lists
 python3 scripts/examples/make.py        # the Example Library: every scripts/examples/cat_*.py into assets/examples/, checked against the registry
 packaging/appimage/build.sh             # Linux: target/supersilvia-<version>-linux-x86_64.AppImage, and its symbols beside it
 packaging/appimage/symbolize.sh <log> <symbols>   # a panic in the AppImage's log, its frames named (packaging/README.md)

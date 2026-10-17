@@ -69,6 +69,7 @@ pub mod oscillator;
 pub mod output;
 pub mod palette;
 pub mod patterns;
+pub mod percopy;
 pub mod phasor;
 pub mod pixelsort;
 pub mod random;
@@ -2999,7 +3000,7 @@ mod tests {
     /// `Control::turn` declares is a number in turns, and the angles a whole turn on draws
     /// differently are not declared — the Wave's Phase, which its Noise hashes; a whirl,
     /// scaled by the distance out; a twist's Rate, scaled by the height; a Repeat Around's
-    /// Spread, clamped; a scatter's Spin, scaled by a random number a copy.
+    /// Spread, clamped.
     #[test]
     fn only_an_angle_the_body_turns_by_is_read_round_a_turn() {
         for def in REGISTRY {
@@ -3023,9 +3024,9 @@ mod tests {
             ("whirlandpinch", "whirl", false),
             ("twist", "rate", false),
             ("repeataround", "spread", false),
-            ("repeataround", "turn", true),
-            ("repeatgrid", "spin", false),
-            ("scattersphere", "spin", false),
+            ("repeataround", "copyTurn", true),
+            ("repeatgrid", "copyTurn", true),
+            ("scattersphere", "copyTurn", true),
         ] {
             let def = find(slug).unwrap_or_else(|| panic!("no {slug}"));
             let input = def

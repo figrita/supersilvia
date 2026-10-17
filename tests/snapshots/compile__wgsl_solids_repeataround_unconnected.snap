@@ -7,13 +7,16 @@ struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
     u_control_repeataround1_copies: f32,
-    u_control_repeataround1_grow: f32,
+    u_control_repeataround1_copyColor: vec4f,
+    u_control_repeataround1_copyScaleX: f32,
+    u_control_repeataround1_copyScaleY: f32,
+    u_control_repeataround1_copyScaleZ: f32,
+    u_control_repeataround1_copyTurn: f32,
+    u_control_repeataround1_copyX: f32,
+    u_control_repeataround1_copyY: f32,
+    u_control_repeataround1_copyZ: f32,
     u_control_repeataround1_radius: f32,
-    u_control_repeataround1_rise: f32,
-    u_control_repeataround1_seed: f32,
     u_control_repeataround1_spread: f32,
-    u_control_repeataround1_tint: f32,
-    u_control_repeataround1_turn: f32,
     u_control_solidrender3_background: vec4f,
     u_control_solidrender3_distance: f32,
     u_control_solidrender3_floorHeight: f32,
@@ -89,50 +92,66 @@ fn repeataround1_solid_d(p: vec3f) -> vec4f {
     let tau = 6.2831853;
     let n = max(round(u.u_control_repeataround1_copies), 1.0);
     let spread = clamp(u.u_control_repeataround1_spread, 0.0, 1.0);
-    let w = max(spread * tau / n, 1.0e-5);
+    let w0 = max(spread * tau / n, 1.0e-5);
     let l = p;
     let a = floor_mod(atan2(l.z, l.x), tau);
-    var i = round(a / w);
-    if (spread > 0.9999) {
-        i = floor_mod(i, n);
-    } else {
-        i = clamp(i, 0.0, n - 1.0);
-        if (abs(a - tau) < abs(a - i * w)) { i = 0.0; }
+    let k0 = round(a / w0);
+    let toward = select(-1.0, 1.0, a > k0 * w0);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 1; j++) {
+        var i = k0 + f32(j) * toward;
+        if (spread > 0.9999) {
+            i = floor_mod(i, n);
+        } else {
+            i = clamp(i, 0.0, n - 1.0);
+            if (j == 0 && abs(a - tau) < abs(a - i * w0)) { i = 0.0; }
+        }
+        let xz = sd_rot2(l.xz, -i * w0);
+        let q = vec3f(xz.x - u.u_control_repeataround1_radius, l.y, xz.y);
+        let sc = max(vec3f(u.u_control_repeataround1_copyScaleX, u.u_control_repeataround1_copyScaleY, u.u_control_repeataround1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_repeataround1_copyX, u.u_control_repeataround1_copyY, u.u_control_repeataround1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_repeataround1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
+        let w = m;
+        let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
+        let d = r.x * k;
+        if (d < best.x) { best = vec4f(d, r.yzw); }
     }
-    let xz = sd_rot2(l.xz, -i * w);
-    var m = vec3f(xz.x - u.u_control_repeataround1_radius, l.y - i * u.u_control_repeataround1_rise, xz.y);
-    let tw = sd_rot2(m.xz, i * u.u_control_repeataround1_turn * tau);
-    m = vec3f(tw.x, m.y, tw.y);
-    let g = max(1.0 + i * u.u_control_repeataround1_grow, 0.05);
-    m = m / g;
-    let q = m;
-    let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, r.yzw);
+    return best;
 }
 
 fn repeataround1_solid(p: vec3f) -> vec4f {
     let tau = 6.2831853;
     let n = max(round(u.u_control_repeataround1_copies), 1.0);
     let spread = clamp(u.u_control_repeataround1_spread, 0.0, 1.0);
-    let w = max(spread * tau / n, 1.0e-5);
+    let w0 = max(spread * tau / n, 1.0e-5);
     let l = p;
     let a = floor_mod(atan2(l.z, l.x), tau);
-    var i = round(a / w);
-    if (spread > 0.9999) {
-        i = floor_mod(i, n);
-    } else {
-        i = clamp(i, 0.0, n - 1.0);
-        if (abs(a - tau) < abs(a - i * w)) { i = 0.0; }
+    let k0 = round(a / w0);
+    let toward = select(-1.0, 1.0, a > k0 * w0);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = 0; j < 1; j++) {
+        var i = k0 + f32(j) * toward;
+        if (spread > 0.9999) {
+            i = floor_mod(i, n);
+        } else {
+            i = clamp(i, 0.0, n - 1.0);
+            if (j == 0 && abs(a - tau) < abs(a - i * w0)) { i = 0.0; }
+        }
+        let xz = sd_rot2(l.xz, -i * w0);
+        let q = vec3f(xz.x - u.u_control_repeataround1_radius, l.y, xz.y);
+        let sc = max(vec3f(u.u_control_repeataround1_copyScaleX, u.u_control_repeataround1_copyScaleY, u.u_control_repeataround1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_repeataround1_copyX, u.u_control_repeataround1_copyY, u.u_control_repeataround1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_repeataround1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
+        let w = m;
+        let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
+        let d = r.x * k;
+        if (d < best.x) { best = vec4f(d, r.yzw * u.u_control_repeataround1_copyColor.rgb); }
     }
-    let xz = sd_rot2(l.xz, -i * w);
-    var m = vec3f(xz.x - u.u_control_repeataround1_radius, l.y - i * u.u_control_repeataround1_rise, xz.y);
-    let tw = sd_rot2(m.xz, i * u.u_control_repeataround1_turn * tau);
-    m = vec3f(tw.x, m.y, tw.y);
-    let g = max(1.0 + i * u.u_control_repeataround1_grow, 0.05);
-    m = m / g;
-    let q = m;
-    let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, mix(r.yzw, sd_hue(sd_hash3(vec3f(i, 0.0, 0.0), u.u_control_repeataround1_seed).x), u.u_control_repeataround1_tint));
+    return best;
 }
 
 fn solidrender3_output(uv: vec2f) -> vec4f {

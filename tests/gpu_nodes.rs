@@ -58,6 +58,7 @@ fn resolve(
                     UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
                     _ => UniformValue::Float(published(PortRef::new(*node, port))),
                 },
+                UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),
                 UniformProvider::NodeCount { node, port } => {
                     UniformValue::Vec2(supersilvia::nodes::phasor::split(f64::from(published(
                         PortRef::new(*node, port),

@@ -653,6 +653,48 @@ impl<'a> CompileContext<'a> {
         reference
     }
 
+    /// The number list cabled into one of `id`'s inputs, as the stem of two functions in the
+    /// module: `{stem}_len()`, its length as an `f32`, and `{stem}_at(item, fallback)`, the item
+    /// at an `f32` index held to the list, or `fallback` where the list is empty. `None` where
+    /// no list is cabled in — a single number or a knob, which [`CompileContext::input`] reads.
+    ///
+    /// The list rides in the uniform block whole ([`UniformProvider::NodeList`]), so a length
+    /// change rebuilds nothing and an item is one indexed read.
+    pub fn list_input(&mut self, id: NodeId, key: &'static str) -> Option<String> {
+        let src = self.graph.source_of(PortRef::new(id, key))?;
+        let node = self.graph.get(src.node)?;
+        if !node.output(src.key).is_some_and(|p| p.ty.is_list()) {
+            return None;
+        }
+        let stem = format!("list_{}{}_{}", node.def.slug, src.node, src.key);
+        let name = format!("u_{stem}");
+        let reference = Self::uniform_ref(&name);
+        self.uniforms.insert(
+            name,
+            UniformProvider::NodeList {
+                node: src.node,
+                port: src.key,
+            },
+        );
+        if self.emitted.insert(stem.clone()) {
+            self.functions.push(format!(
+                "fn {stem}_len() -> f32 {{
+    return {reference}[0].x;
+}}
+
+fn {stem}_at(item: f32, fallback: f32) -> f32 {{
+    let n = u32({reference}[0].x);
+    if (n == 0u) {{
+        return fallback;
+    }}
+    let k = min(u32(max(item, 0.0)), n - 1u);
+    return {reference}[1u + k / 4u][k % 4u];
+}}"
+            ));
+        }
+        Some(stem)
+    }
+
     /// Register and name the uniform carrying a count one of `id`'s ports published, as a
     /// Time reads it: `vec2f(whole, fraction)`, the whole part wrapped at
     /// [`crate::nodes::phasor::WHOLE_WRAP`] and the `f32` of the fraction. A body that needs

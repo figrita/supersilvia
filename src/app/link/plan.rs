@@ -220,7 +220,8 @@ impl Reads {
                     frames.push(*node);
                 }
                 compile::UniformProvider::NodeUniform { node, .. }
-                | compile::UniformProvider::NodeCount { node, .. } => {
+                | compile::UniformProvider::NodeCount { node, .. }
+                | compile::UniformProvider::NodeList { node, .. } => {
                     uniforms.insert(*node);
                 }
                 _ => {}

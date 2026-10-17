@@ -27,7 +27,7 @@
       "slug": "mastergear",
       "pos": {
         "x": 1300.0,
-        "y": 962.0
+        "y": 1090.0
       },
       "controls": {
         "length": {
@@ -82,12 +82,6 @@
         },
         "radius": {
           "Float": 1.5
-        },
-        "tint": {
-          "Float": 0.7
-        },
-        "seed": {
-          "Float": 3.0
         }
       },
       "options": {
@@ -138,7 +132,7 @@
       "slug": "repeataround",
       "pos": {
         "x": 780.0,
-        "y": 388.0
+        "y": 432.0
       },
       "controls": {
         "copies": {
@@ -160,7 +154,7 @@
       "slug": "place",
       "pos": {
         "x": 1040.0,
-        "y": 388.0
+        "y": 432.0
       },
       "controls": {
         "y": {
@@ -208,7 +202,7 @@
       "slug": "repeataround",
       "pos": {
         "x": 780.0,
-        "y": 696.0
+        "y": 824.0
       },
       "controls": {
         "copies": {
@@ -216,15 +210,6 @@
         },
         "radius": {
           "Float": 1.0
-        },
-        "rise": {
-          "Float": 0.18
-        },
-        "tint": {
-          "Float": 0.3
-        },
-        "seed": {
-          "Float": 5.0
         }
       },
       "options": {
@@ -236,7 +221,7 @@
       "slug": "cylinder",
       "pos": {
         "x": 1040.0,
-        "y": 696.0
+        "y": 824.0
       },
       "controls": {
         "radius": {
@@ -264,7 +249,7 @@
       "slug": "place",
       "pos": {
         "x": 1300.0,
-        "y": 696.0
+        "y": 824.0
       },
       "controls": {
         "x": {

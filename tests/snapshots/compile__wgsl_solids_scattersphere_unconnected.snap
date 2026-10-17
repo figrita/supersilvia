@@ -7,11 +7,15 @@ struct Uniforms {
     u_resolution: vec2f,
     u_time: f32,
     u_control_scattersphere1_copies: f32,
+    u_control_scattersphere1_copyColor: vec4f,
+    u_control_scattersphere1_copyScaleX: f32,
+    u_control_scattersphere1_copyScaleY: f32,
+    u_control_scattersphere1_copyScaleZ: f32,
+    u_control_scattersphere1_copyTurn: f32,
+    u_control_scattersphere1_copyX: f32,
+    u_control_scattersphere1_copyY: f32,
+    u_control_scattersphere1_copyZ: f32,
     u_control_scattersphere1_radius: f32,
-    u_control_scattersphere1_seed: f32,
-    u_control_scattersphere1_size: f32,
-    u_control_scattersphere1_spin: f32,
-    u_control_scattersphere1_tint: f32,
     u_control_solidrender3_background: vec4f,
     u_control_solidrender3_distance: f32,
     u_control_solidrender3_floorHeight: f32,
@@ -129,14 +133,14 @@ fn scattersphere1_solid_d(p: vec3f) -> vec4f {
     let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
     let back = vec3f(b, sg + up.y * up.y * a, -up.y);
     let d = p - up * u.u_control_scattersphere1_radius;
-    var q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
-    let cell = vec3f(i, 0.0, 0.0);
-    let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, u.u_control_scattersphere1_seed).x - 0.5) * u.u_control_scattersphere1_spin * 6.2831853);
-    q = vec3f(xz.x, q.y, xz.y);
-    let g = 1.0 - clamp(u.u_control_scattersphere1_size, 0.0, 0.9) * sd_hash3(cell + 31.0, u.u_control_scattersphere1_seed).y;
-    q = q / g;
+    let q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
+        let sc = max(vec3f(u.u_control_scattersphere1_copyScaleX, u.u_control_scattersphere1_copyScaleY, u.u_control_scattersphere1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_scattersphere1_copyX, u.u_control_scattersphere1_copyY, u.u_control_scattersphere1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_scattersphere1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, r.yzw);
+    return vec4f(r.x * k, r.yzw);
 }
 
 fn scattersphere1_solid(p: vec3f) -> vec4f {
@@ -149,14 +153,14 @@ fn scattersphere1_solid(p: vec3f) -> vec4f {
     let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
     let back = vec3f(b, sg + up.y * up.y * a, -up.y);
     let d = p - up * u.u_control_scattersphere1_radius;
-    var q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
-    let cell = vec3f(i, 0.0, 0.0);
-    let xz = sd_rot2(q.xz, (sd_hash3(cell + 17.0, u.u_control_scattersphere1_seed).x - 0.5) * u.u_control_scattersphere1_spin * 6.2831853);
-    q = vec3f(xz.x, q.y, xz.y);
-    let g = 1.0 - clamp(u.u_control_scattersphere1_size, 0.0, 0.9) * sd_hash3(cell + 31.0, u.u_control_scattersphere1_seed).y;
-    q = q / g;
+    let q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
+        let sc = max(vec3f(u.u_control_scattersphere1_copyScaleX, u.u_control_scattersphere1_copyScaleY, u.u_control_scattersphere1_copyScaleZ), vec3f(1.0e-4));
+        var m = q - vec3f(u.u_control_scattersphere1_copyX, u.u_control_scattersphere1_copyY, u.u_control_scattersphere1_copyZ);
+        let mt = sd_rot2(m.xz, -(u.u_control_scattersphere1_copyTurn) * 6.2831853);
+        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x * g, mix(r.yzw, sd_hue(sd_hash3(cell + 47.0, u.u_control_scattersphere1_seed).z), u.u_control_scattersphere1_tint));
+    return vec4f(r.x * k, r.yzw * u.u_control_scattersphere1_copyColor.rgb);
 }
 
 fn solidrender3_output(uv: vec2f) -> vec4f {

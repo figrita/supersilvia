@@ -1936,17 +1936,39 @@ Repeat (`repeatgrid`), Repeat Around (`repeataround`) and Scatter on Sphere (`sc
 each fold the point into one cell, so the input is evaluated once however many copies show.
 Repeat's Forever costs what one copy does.
 
-**A copy must fit its cell.** The fold looks at the nearest cell alone. A copy wider than the
-spacing, or pushed out of its cell by Scatter or Grow, is sliced flat at the cell's edge.
-Nothing checks the neighbors; the slice is the signal to widen the spacing, and each node's
-tooltip says so. An endless repeat ends where the march gives up, 80 units out, and Render
-3D's Fog is what hides that edge.
+**A copy must fit its cell.** The fold looks at the nearest cell. A copy wider than the
+spacing, or moved out of its cell by its Offset, is sliced flat at the cell's edge; the slice
+is the signal to widen the spacing, and each node's tooltip says so. An endless repeat ends
+where the march gives up, 80 units out, and Render 3D's Fog is what hides that edge.
 
-**The repeats vary their copies themselves**, from the cell: Repeat's Scatter, Spin, Size and
-Tint, Repeat Around's steps of Rise, Turn and Grow and its Tint, and Scatter on Sphere's Spin,
-Size and Tint. Each random one is `sd_hash3` of the cell and the Seed, integer arithmetic, so a
-scatter is the same on every GPU and in every session. Nothing else differs per copy: whatever
-is upstream of a repeat is the same solid in every cell.
+**Count is how many copies.** A Counted Repeat lays Count copies on each axis, centered;
+Repeat Around and Scatter on Sphere lay Copies. A count row takes a list, and its length is the
+count, so one list of sixteen heights into Count X and Scale Y draws sixteen bars.
+
+**The repeats vary their copies themselves, by their Per copy rows** (`nodes::percopy`): Offset
+X, Y and Z, Turn about the copy's own up axis, Scale X, Y and Z, and a Color the copy's color is
+multiplied by, folded under a **Per copy** heading. Each row is a list port with a knob. A knob
+or a single number reaches every copy alike; a list gives each copy an item: copy i of m reads
+item `floor(i · n / m)` of a list of n on a counted repeat, a ring or a sphere, so a list
+stretches over the copies, and on a Forever Repeat item `(x + y + z) mod n` of the cell's
+coordinates, so the list cycles and each row starts one further along. A Range into Offset Y
+is a spiral stair on Repeat Around; Random into Turn scatters the copies' headings. Nothing
+else differs per copy: whatever is upstream of a repeat is the same solid in every cell.
+
+**Copies that differ are measured against their neighbor.** While every copy is the same shape
+no copy is nearer a point than the one in its own cell. A list into Offset, Turn or Scale makes
+a copy taller than the one beside it, nearer to a point in that cell than that cell's own copy,
+and a ray stepping by the shorter one's distance would run into it. So a repeat with such a
+list evaluates the nearest copy and the one on the near side of each axis it repeats along, and
+keeps the nearer: twice the work for a row or a ring, three times for a plane, four for a grid
+in three dimensions. Knobs and a Color list never pay for it. Scatter on Sphere's cells are not
+a grid and it measures the nearest alone, so copies it makes differ notch where a tall one
+stands beside a short one.
+
+**A list reaches a shader in the uniform block**, whole: `array<vec4f, 257>`, the length in
+the first element and 1,024 items packed four to an element after it
+(`UniformProvider::NodeList`), read through a `{list}_at(item, fallback)` the module carries.
+A length change rebuilds nothing.
 
 ### Texture
 

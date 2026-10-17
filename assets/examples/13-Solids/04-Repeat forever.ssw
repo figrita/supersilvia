@@ -82,21 +82,6 @@
         },
         "spacingZ": {
           "Float": 2.6
-        },
-        "scatter": {
-          "Float": 0.2
-        },
-        "spin": {
-          "Float": 1.0
-        },
-        "size": {
-          "Float": 0.5
-        },
-        "tint": {
-          "Float": 0.85
-        },
-        "seed": {
-          "Float": 7.0
         }
       },
       "options": {

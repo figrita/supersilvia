@@ -47,6 +47,7 @@ fn resolve(g: &Graph, shader: &Shader, published: f32) -> Vec<(Arc<str>, Uniform
                     UniformType::Vec4 => UniformValue::Vec4([0.0; 4]),
                     _ => UniformValue::Float(published),
                 },
+                UniformProvider::NodeList { .. } => UniformValue::List(Vec::new()),
                 UniformProvider::NodeCount { .. } => {
                     UniformValue::Vec2(supersilvia::nodes::phasor::split(f64::from(published)))
                 }

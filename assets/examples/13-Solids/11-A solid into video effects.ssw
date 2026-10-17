@@ -73,12 +73,6 @@
         },
         "radius": {
           "Float": 2.1
-        },
-        "tint": {
-          "Float": 0.8
-        },
-        "seed": {
-          "Float": 2.0
         }
       },
       "options": {}
