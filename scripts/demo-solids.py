@@ -48,6 +48,7 @@ app, with Video for solids open as this project opens it, they wear it.
 
 import json
 import math
+import os
 import shutil
 import subprocess
 import sys
