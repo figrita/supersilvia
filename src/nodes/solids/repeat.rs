@@ -3,20 +3,18 @@
 //! Repetition: a grid of copies and a ring of them. Each folds the point into one cell, so the
 //! input is evaluated once however many copies show — infinitely many cost what one does.
 //!
-//! **A copy has to fit its cell.** The fold looks at the nearest cell, so a copy wider than
-//! the spacing is sliced flat at the cell's edge. The slicing is the signal to widen the
-//! spacing.
-//!
 //! **Copies vary by the repeat's own rows** ([`crate::nodes::percopy`]): an offset, a turn, a
-//! scale on each axis and a color, each a knob or a list. While every copy is the same shape
-//! the nearest cell is the whole answer. Once a list moves, turns or sizes the copies, a copy
-//! taller than the one beside it is nearer to a point in that cell than that cell's own copy,
-//! and a ray stepping by the shorter one's distance runs into it — from either side of the
-//! short copy's cell, since a point high over a short copy is nearer a tall neighbor across
-//! the cell than the copy under it. So a repeat whose copies differ evaluates the nearest copy
-//! and the ones either side of it on each axis it repeats along, and keeps the nearer: three
-//! times the cost for a row or a ring, five for a plane, seven for a grid in three dimensions.
-//! A Color list alone never pays for it.
+//! scale on each axis and a color, each a knob or a list.
+//!
+//! **Every repeat measures its neighbors.** The fold puts a point in one cell, but the copy in
+//! the next cell can be nearer: a taller copy beside a short one — from either side of the
+//! short one's cell, since a point high over it is nearer a tall neighbor across the cell than
+//! the copy under it — or a copy bigger than its cell, as a whole row of bars is in a ring's
+//! wedge. A repeat cannot see how big its input is, so it never assumes it fits: it evaluates
+//! the nearest copy and the ones either side of it on each axis it repeats along and keeps the
+//! nearer, three times the cost for a row or a ring, five for a plane, seven for a grid in three
+//! dimensions, and a march's step is held to the outer walls of the cells measured. A copy
+//! reaching past its neighbor's cell is still cut there.
 //!
 //! **Count is how many copies**, centered on the axis, and a list cabled into it is a count of
 //! its length: a Repeat over a list of sixteen bands draws sixteen copies.
@@ -24,6 +22,29 @@
 use super::{MARCH_STATE, SDF, fill, num, out, solid};
 use crate::nodes::percopy::{self, Item};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
+
+/// The lines that skip a copy, before anything is asked of its input, where its own box — the
+/// input's reach `inreach`, worked out once a point, scaled and turned by the copy's own rows and
+/// moved by its offset — is further from its point `q` than the nearest copy so far, leaving the
+/// distance to that box as `gap`.
+pub(super) fn skip_copy(copy: &percopy::Copy) -> String {
+    format!(
+        "        var ch = inreach * abs({});
+        if (({}) != 0.0) {{ ch = vec3f(length(ch.xz), ch.y, length(ch.xz)); }}
+        let gap = sd_box_gap(q, {}, ch);
+        if (gap >= best.x) {{ continue; }}
+",
+        copy.scale, copy.turn, copy.offset
+    )
+}
+
+/// A copy's distance where its box is known: the input's as [`percopy::evaluate`] measures it —
+/// where that is the bound by the smallest scale, it shrinks with the squash, and a copy pressed
+/// flat would draw fat — and outside the copy's box no less than the distance to the box, which
+/// is a bound too and near the true one there. Inside the box the input's alone, so a point
+/// inside a copy keeps its distance below zero.
+pub(super) const DISTANCE_BOUNDED: &str =
+    "        let d = select(r.x * k, max(r.x * k, gap), gap > 0.0);\n";
 
 pub static GRID: NodeDef = NodeDef {
     slug: "repeatgrid",
@@ -63,10 +84,27 @@ pub static GRID: NodeDef = NodeDef {
         percopy::HEADING,
     ],
     row_headings: percopy::ROW_HEADINGS,
+    bounds: Some(|node, ctx| {
+        let b = ctx.solid_bounds(node, "input")?;
+        let (offset, scale, turned) = percopy::extremes(ctx, node);
+        let reach = format!("sd_copy_reach({b}, {offset}, {scale}, {turned})");
+        let spacing = "vec3f({spacingX}, {spacingY}, {spacingZ})";
+        let half = if ctx.option(node, "extent") == "counted" {
+            let (cx, cy, cz) = (
+                percopy::count_of(ctx, node, "countX"),
+                percopy::count_of(ctx, node, "countY"),
+                percopy::count_of(ctx, node, "countZ"),
+            );
+            format!(
+                "select({reach}, (max(round(vec3f({cx}, {cy}, {cz})), vec3f(1.0)) - 1.0) * 0.5 * {spacing} + {reach}, {spacing} > vec3f(1.0e-4))"
+            )
+        } else {
+            format!("select({reach}, vec3f(1.0e9), {spacing} > vec3f(1.0e-4))")
+        };
+        ctx.uniform_fill(node, &super::half(&half))
+    }),
     outputs: &[out(|node, ctx, _| {
         let counted = ctx.option(node, "extent") == "counted";
-        let inner = ctx.input(node, "input", "m");
-        let differ = percopy::moves_differ(ctx, node);
         let (cx, cy, cz) = (
             percopy::count_of(ctx, node, "countX"),
             percopy::count_of(ctx, node, "countY"),
@@ -83,7 +121,7 @@ pub static GRID: NodeDef = NodeDef {
             }
         };
         let copy = percopy::read(ctx, node, item);
-        let place = percopy::place(&copy);
+        let measure_copy = percopy::evaluate(ctx, node, &copy, "input", str::to_string);
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
         } else {
@@ -106,27 +144,92 @@ pub static GRID: NodeDef = NodeDef {
                 "",
             )
         };
-        let loops = if differ { 7 } else { 1 };
+        // One copy's evaluation at `cell`, kept if it is the nearest so far.
+        let eval = format!(
+            "        let q = p - (cell - mid) * step;
+{measure_copy}        let d = r.x * k;
+        if (d < best.x) {{ best = vec4f(d, {color}); }}
+"
+        );
         // Copies past the measured block are no nearer than its outer walls: a march's step
         // never crosses one, so a copy two cells off that stands taller than the three measured
         // is met at the wall and measured from the next cell. Only while a ray is marched
         // (`MARCH_STATE`): a soft shadow reads the distance as how near the copies come, and the
         // wall is no copy.
-        let beyond = if differ {
-            let (lo, hi) = if counted {
-                ("near >= vec3f(2.0)", "near <= n - 3.0")
-            } else {
-                ("vec3f(1.0) > vec3f(0.0)", "vec3f(1.0) > vec3f(0.0)")
-            };
-            format!(
-                "    let below = select(vec3f(1.0e9), p - (near - mid - 1.5) * step, on & ({lo}));
+        let (lo, hi) = if counted {
+            ("near >= vec3f(2.0)", "near <= n - 3.0")
+        } else {
+            ("vec3f(1.0) > vec3f(0.0)", "vec3f(1.0) > vec3f(0.0)")
+        };
+        let neighbors = format!(
+            "    for (var j = 0; j < 7; j++) {{
+        var cell = near;
+        if (j > 0) {{
+            let a = (j - 1) / 2;
+            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
+            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) {{ continue; }}
+            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
+{skip}        }}
+{eval}    }}
+    let below = select(vec3f(1.0e9), p - (near - mid - 1.5) * step, on & ({lo}));
     let above = select(vec3f(1.0e9), (near - mid + 1.5) * step - p, on & ({hi}));
     let wall = min(min(below.x, below.y), min(below.z, min(above.x, min(above.y, above.z))));
     if (sd_march) {{ best.x = min(best.x, wall); }}
 "
-            )
-        } else {
-            String::new()
+        );
+        let measure = match ctx.solid_bounds(node, "input") {
+            Some(bounds) => {
+                let (offset, scale, turned) = percopy::extremes(ctx, node);
+                let skip = skip.replace("            if", "                if");
+                let eval = eval
+                    .replacen(
+                        "        let q = p - (cell - mid) * step;\n",
+                        &format!(
+                            "        let q = p - (cell - mid) * step;\n{}",
+                            skip_copy(&copy)
+                        ),
+                        1,
+                    )
+                    .replacen("        let d = r.x * k;\n", DISTANCE_BOUNDED, 1);
+                // The cells a copy can reach from its own, at most three either side, with a
+                // tenth of a cell to spare, each copy skipped where its own box is further off than
+                // the nearest so far; then the march held by the boxes of the copies past them,
+                // which the spare tenth keeps from holding it to nothing.
+                let beyond = if counted {
+                    "                if (edge < 0.0 || edge > n[ax] - 1.0) { continue; }\n"
+                } else {
+                    ""
+                };
+                format!(
+                    "    let inreach = sd_bounds_reach({bounds});
+    let reach = sd_copy_reach({bounds}, {offset}, {scale}, {turned});
+    let kk = select(vec3f(0.0), min(max(ceil(reach / select(vec3f(1.0), s, on) - 0.4), vec3f(0.0)), vec3f(3.0)), on);
+    let ki = vec3i(kk);
+    for (var dz = -ki.z; dz <= ki.z; dz++) {{
+    for (var dy = -ki.y; dy <= ki.y; dy++) {{
+    for (var dx = -ki.x; dx <= ki.x; dx++) {{
+        let cell = near + vec3f(f32(dx), f32(dy), f32(dz));
+{skip}{eval}    }}
+    }}
+    }}
+    if (sd_march) {{
+        var wall = 1.0e9;
+        let lim = select(reach, vec3f(1.0e9), on);
+        for (var ax = 0; ax < 3; ax++) {{
+            if (!on[ax]) {{ continue; }}
+            for (var sd = -1; sd <= 1; sd += 2) {{
+                let edge = near[ax] + f32(sd) * (kk[ax] + 1.0);
+{beyond}                var g = max(abs(p - (near - mid) * step) - lim, vec3f(0.0));
+                g[ax] = max(f32(sd) * ((near[ax] - mid[ax]) * step[ax] - p[ax]) + (kk[ax] + 1.0) * step[ax] - reach[ax], 0.0);
+                wall = min(wall, length(g));
+            }}
+        }}
+        if (wall > 0.0) {{ best.x = min(best.x, wall); }}
+    }}
+"
+                )
+            }
+            None => neighbors,
         };
         let body = format!(
             "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
@@ -136,20 +239,7 @@ pub static GRID: NodeDef = NodeDef {
     let mid = {mid};
     let near = select(vec3f(0.0), {near}, on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
-    for (var j = 0; j < {loops}; j++) {{
-        var cell = near;
-        if (j > 0) {{
-            let a = (j - 1) / 2;
-            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
-            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) {{ continue; }}
-            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
-{skip}        }}
-        let q = p - (cell - mid) * step;
-{place}        let r = {inner};
-        let d = r.x * k;
-        if (d < best.x) {{ best = vec4f(d, {color}); }}
-    }}
-{beyond}    return best;"
+{measure}    return best;"
         );
         fill(node, ctx, &body)
     })],
@@ -192,15 +282,23 @@ pub static AROUND: NodeDef = NodeDef {
         percopy::HEADING,
     ],
     row_headings: percopy::ROW_HEADINGS,
+    bounds: Some(|node, ctx| {
+        let b = ctx.solid_bounds(node, "input")?;
+        let (offset, scale, turned) = percopy::extremes(ctx, node);
+        ctx.uniform_fill(
+            node,
+            &super::half(&format!(
+                "vec3f({{radius}} + length(sd_copy_reach({b}, {offset}, {scale}, {turned})))"
+            )),
+        )
+    }),
     outputs: &[out(|node, ctx, _| {
         // The fold runs about y; another axis is turned onto y and back.
         let (into, back) = match ctx.option(node, "axis") {
-            "x" => ("vec3f(-p.y, p.x, p.z)", "vec3f(m.y, -m.x, m.z)"),
-            "z" => ("vec3f(p.x, p.z, -p.y)", "vec3f(m.x, -m.z, m.y)"),
-            _ => ("p", "m"),
+            "x" => ("vec3f(-p.y, p.x, p.z)", "vec3f({v}.y, -{v}.x, {v}.z)"),
+            "z" => ("vec3f(p.x, p.z, -p.y)", "vec3f({v}.x, -{v}.z, {v}.y)"),
+            _ => ("p", "{v}"),
         };
-        let inner = ctx.input(node, "input", "w");
-        let differ = percopy::moves_differ(ctx, node);
         let copies = percopy::count_of(ctx, node, "copies");
         let copy = percopy::read(
             ctx,
@@ -210,38 +308,91 @@ pub static AROUND: NodeDef = NodeDef {
                 count: "n",
             },
         );
-        let place = percopy::place(&copy);
+        let measure_copy = percopy::evaluate(ctx, node, &copy, "input", |v| back.replace("{v}", v));
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
         } else {
             "r.yzw".to_string()
         };
-        let loops = if differ { 3 } else { 1 };
-        // The ring's measured wedges end at two half-planes through the axis, and a copy past
-        // them is no nearer than they are; near the axis, where every wedge meets, the walls
-        // would hold a step to nothing, and the copies stand a Radius off.
-        let beyond = if differ {
-            "    if (sd_march && n > 3.0 && length(l.xz) > 0.5 * {radius}) {
-        let lo_ok = spread > 0.9999 || k0 >= 2.0;
-        let hi_ok = spread > 0.9999 || k0 <= n - 3.0;
-        var wall = 1.0e9;
-        for (var e = 0; e < 2; e++) {
-            if ((e == 0 && !lo_ok) || (e == 1 && !hi_ok)) { continue; }
-            let th = (k0 + select(-1.5, 1.5, e == 1)) * w0;
-            let dir = vec2f(cos(th), sin(th));
-            let along = dot(l.xz, dir);
-            wall = min(wall, select(length(l.xz), abs(dot(l.xz, vec2f(-dir.y, dir.x))), along > 0.0));
-        }
-        best.x = min(best.x, wall);
-    }
+        // One copy's evaluation, copy `i`: placed in the ring's frame, x out from the axis, moved
+        // by its rows in that frame, and turned back onto the chosen axis for the input.
+        let eval = format!(
+            "        let xz = sd_rot2(l.xz, -i * w0);
+        let q = vec3f(xz.x - {{radius}}, l.y, xz.y);
+{measure_copy}        let d = r.x * k;
+        if (d < best.x) {{ best = vec4f(d, {color}); }}
 "
-            .to_string()
+        );
+        let bounded = ctx.solid_bounds(node, "input").map(|bounds| {
+            let (offset, scale, turned) = percopy::extremes(ctx, node);
+            (bounds, offset, scale, turned)
+        });
+        // The copies that can reach the point across the ring's plane, at most eight either
+        // side, each skipped where its own box is further off than the nearest so far; then
+        // the march held by the upright cylinders round the nearest copies past
+        // them on either side, since along a ring a copy further round is further off. Only
+        // the reach across the plane decides how far round a copy reaches: a copy lifted high
+        // is no wider for it.
+        let body = if let Some((bounds, offset, scale, turned)) = bounded {
+            let eval_bounded = eval
+                .replacen(
+                    "        let q = vec3f(xz.x - {radius}, l.y, xz.y);\n",
+                    &format!(
+                        "        let q = vec3f(xz.x - {{radius}}, l.y, xz.y);\n{}",
+                        skip_copy(&copy)
+                    ),
+                    1,
+                )
+                .replacen("        let d = r.x * k;\n", DISTANCE_BOUNDED, 1);
+            format!(
+                "    let tau = 6.2831853;
+    let n = max(round({copies}), 1.0);
+    let spread = clamp({{spread}}, 0.0, 1.0);
+    let w0 = max(spread * tau / n, 1.0e-5);
+    let l = {into};
+    let a = floor_mod(atan2(l.z, l.x), tau);
+    let middle = (n - 1.0) * w0 * 0.5;
+    let kc = round((middle + floor_mod(a - middle + 3.14159265, tau) - 3.14159265) / w0);
+    let rho = max({{radius}}, 1.0e-4);
+    let inreach = sd_bounds_reach({bounds});
+    let reach = sd_copy_reach({bounds}, {offset}, {scale}, {turned});
+    let rc = length(reach.xz);
+    var kr = 8.0;
+    if (rc < rho) {{ kr = min(max(ceil(asin(rc / rho) / w0 - 0.4), 0.0), 8.0); }}
+    if (spread > 0.9999) {{ kr = min(kr, floor(n * 0.5)); }}
+    let ki = i32(kr);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var j = -ki; j <= ki; j++) {{
+        var i = kc + f32(j);
+        if (spread > 0.9999) {{
+            i = floor_mod(i, n);
+        }} else if (i < 0.0 || i > n - 1.0) {{
+            continue;
+        }}
+{eval_bounded}    }}
+    if (sd_march) {{
+        var wall = 1.0e9;
+        for (var e = -1; e <= 1; e += 2) {{
+            var i = kc + f32(e) * (kr + 1.0);
+            if (spread > 0.9999) {{
+                if (2.0 * kr + 1.0 >= n) {{ continue; }}
+                i = floor_mod(i, n);
+            }} else if (i < 0.0 || i > n - 1.0) {{
+                continue;
+            }}
+            let ca = i * w0;
+            wall = min(wall, length(l.xz - vec2f(cos(ca), sin(ca)) * rho) - rc);
+        }}
+        if (wall > 0.0) {{ best.x = min(best.x, wall); }}
+    }}
+    return best;"
+            )
         } else {
-            String::new()
-        };
-        // The copy is placed in the ring's frame, x out from the axis; its rows then move it in
-        // that frame, and the result is turned back onto the chosen axis for the input.
-        let body = format!(
+            // A ring measures the nearest copy and its two neighbors, and its march is held to the two
+            // half-planes through the axis that bound them, since a copy past them is no nearer than
+            // they are. Near the axis, where every
+            // wedge meets, the walls would hold a step to nothing, and the copies stand a Radius off.
+            let body = format!(
             "    let tau = 6.2831853;
     let n = max(round({copies}), 1.0);
     let spread = clamp({{spread}}, 0.0, 1.0);
@@ -250,7 +401,7 @@ pub static AROUND: NodeDef = NodeDef {
     let a = floor_mod(atan2(l.z, l.x), tau);
     let k0 = round(a / w0);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
-    for (var j = 0; j < {loops}; j++) {{
+    for (var j = 0; j < 3; j++) {{
         var i = k0 + select(0.0, select(-1.0, 1.0, j == 1), j > 0);
         if (spread > 0.9999) {{
             i = floor_mod(i, n);
@@ -258,15 +409,24 @@ pub static AROUND: NodeDef = NodeDef {
             i = clamp(i, 0.0, n - 1.0);
             if (j == 0 && abs(a - tau) < abs(a - i * w0)) {{ i = 0.0; }}
         }}
-        let xz = sd_rot2(l.xz, -i * w0);
-        let q = vec3f(xz.x - {{radius}}, l.y, xz.y);
-{place}        let w = {back};
-        let r = {inner};
-        let d = r.x * k;
-        if (d < best.x) {{ best = vec4f(d, {color}); }}
+{eval}    }}
+    if (sd_march && length(l.xz) > 0.5 * {{radius}}) {{
+        let lo_ok = spread > 0.9999 || k0 >= 2.0;
+        let hi_ok = spread > 0.9999 || k0 <= n - 3.0;
+        var wall = 1.0e9;
+        for (var e = 0; e < 2; e++) {{
+            if ((e == 0 && !lo_ok) || (e == 1 && !hi_ok)) {{ continue; }}
+            let th = (k0 + select(-1.5, 1.5, e == 1)) * w0;
+            let dir = vec2f(cos(th), sin(th));
+            let along = dot(l.xz, dir);
+            wall = min(wall, select(length(l.xz), abs(dot(l.xz, vec2f(-dir.y, dir.x))), along > 0.0));
+        }}
+        best.x = min(best.x, wall);
     }}
-{beyond}    return best;"
+    return best;"
         );
+            body
+        };
         fill(node, ctx, &body)
     })],
     wgsl_utils: &[SDF, MARCH_STATE],

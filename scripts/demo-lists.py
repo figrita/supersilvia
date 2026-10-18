@@ -280,21 +280,44 @@ def spectrum_city(p):
     show(ws, C[2], 40, grid, master, controls={"distance": 10.0, "tilt": 0.14})
 
 
+def spectrum_spokes(p):
+    ws = p.workspace("Spectrum spokes", "The spectrum bars, six times round a ring")
+    ws.note(
+        40,
+        40,
+        "A row of sixteen spectrum bars inside a Repeat Around of six. A repeat measures the "
+        "copies either side of the nearest, so a row bigger than its slice of the ring draws "
+        "whole rather than cut at the slice's edge.\n\nTry: the row's Spacing X up to 0.6; "
+        "the ring's Copies to 3 or 12.",
+    )
+    master = ws.master(C[0], 700)
+    box = ws.shape("box", C[0], 40, width=0.3, height=2.0, depth=0.3, y=1.0, color="#ffffff")
+    level = levels(ws, 16)
+    row = ws.mod("repeatgrid", C[1], 40, box, controls={"spacingX": 0.42, "spacingY": 0.0, "spacingZ": 0.0}, options={"extent": "counted", "perCopy": "on"})
+    ws.cable(level, "output", row, "countX")
+    ws.cable(level, "output", row, "copyScaleY")
+    ws.cable(rainbow(ws, 16), "output", row, "copyColor")
+    ring = ws.mod("repeataround", C[2], 40, row, controls={"copies": 6.0, "radius": 4.0})
+    show(ws, C[3], 40, ring, master, controls={"distance": 14.0, "tilt": 0.2})
+
+
 def spectrum_planet(p):
     ws = p.workspace("Spectrum planet", "Spikes on a ball, each band of the sound a ring of them")
     ws.note(
         40,
         40,
-        "Two hundred spikes on a Scatter on Sphere and forty bands into Scale Y. A list "
+        "Two hundred spikes on a Scatter on Sphere and forty bands into Scale Y. A cone's Y of "
+        "0.5 stands it on the ball, so a band's Scale Y grows its spikes outward. A list "
         "stretches over the copies, counted from the top down, so each band is a ring of spikes: "
         "the lows at the top, the highs at the bottom.",
     )
     master = ws.master(C[0], 700)
-    cone = ws.shape("cone", C[0], 40, color="#e8c95a")
+    cone = ws.shape("cone", C[0], 40, bottom=0.12, height=1.0, y=0.5, color="#e8c95a")
     level = levels(ws, 40)
     ball = ws.mod("scattersphere", C[1], 40, cone, controls={"copies": 200.0, "radius": 1.3}, options={"perCopy": "on"})
     ws.cable(level, "output", ball, "copyScaleY")
-    show(ws, C[2], 40, ball, master, controls={"distance": 7.0})
+    core = ws.shape("sphere", C[2], 40, onto=ball, radius=1.3, color="#3a3550")
+    show(ws, C[3], 40, core, master, controls={"distance": 7.0})
 
 
 def stamp_points(p):
@@ -385,6 +408,7 @@ def main():
     p = Project(solids.load_registry(registry))
     for build in (
         spectrum_bars,
+        spectrum_spokes,
         spectrum_ring,
         spectrum_city,
         spectrum_planet,

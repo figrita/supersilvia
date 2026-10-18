@@ -43,6 +43,16 @@ pub static UNION: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         fold(node, ctx, "sd_union", &["a", "b", "c", "d"])
     })],
+    bounds: Some(|n, ctx| {
+        let mut b = ctx.solid_bounds(n, "a")?;
+        for key in ["b", "c", "d"] {
+            if ctx.connected(n, key) {
+                let next = ctx.solid_bounds(n, key)?;
+                b = format!("sd_bounds_union({b}, {next})");
+            }
+        }
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, {{smooth}})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -58,6 +68,7 @@ pub static SUBTRACT: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         fold(node, ctx, "sd_subtract", &["a", "b"])
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "a")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -73,6 +84,11 @@ pub static INTERSECT: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         fold(node, ctx, "sd_intersect", &["a", "b"])
     })],
+    bounds: Some(|n, ctx| {
+        let a = ctx.solid_bounds(n, "a")?;
+        let b = ctx.solid_bounds(n, "b")?;
+        Some(format!("sd_bounds_meet({a}, {b})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

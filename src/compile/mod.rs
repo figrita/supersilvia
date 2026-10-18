@@ -24,7 +24,7 @@ pub use uniform::{UniformProvider, UniformType};
 
 use crate::graph::{Graph, Node, NodeId, PortRef, PortType};
 use crate::nodes::Control;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 /// Something the compiler could not resolve.
 ///
@@ -234,6 +234,9 @@ pub struct CompileContext<'a> {
     /// Which of a solid's two functions is being emitted: the whole of it, distance and
     /// color, or the distance alone. See [`CompileContext::solid_input`].
     solid_color: bool,
+    /// Each solid node's bounds, once worked out: the call that gives them, or `None` where the
+    /// node cannot say. See [`CompileContext::solid_bounds`].
+    bounds: HashMap<NodeId, Option<String>>,
 }
 
 impl<'a> CompileContext<'a> {
@@ -260,6 +263,7 @@ impl<'a> CompileContext<'a> {
             thumbs: Vec::new(),
             returning: PortType::VaryingColor,
             solid_color: true,
+            bounds: HashMap::new(),
         }
     }
 
@@ -560,6 +564,93 @@ impl<'a> CompileContext<'a> {
         self.graph.source_of(PortRef::new(id, key)).is_some()
     }
 
+    /// `src` with every `{key}` hole naming one of `id`'s number inputs filled with its value
+    /// as one number a frame: its knob, or the number cabled in. `None` where a field is cabled
+    /// into a hole, since a field has no one value: what reads this — a solid's bounds — then
+    /// knows nothing.
+    pub fn uniform_fill(&mut self, id: NodeId, src: &str) -> Option<String> {
+        let def = self.graph.get(id)?.def;
+        let mut out = src.to_string();
+        for input in def.inputs {
+            let hole = ["{", input.key, "}"].concat();
+            if !out.contains(&hole) {
+                continue;
+            }
+            let field = self
+                .graph
+                .source_of(PortRef::new(id, input.key))
+                .and_then(|s| self.graph.get(s.node)?.output(s.key))
+                .is_some_and(|p| p.ty.is_varying() || p.ty.is_list());
+            if field {
+                return None;
+            }
+            let expr = self.input(id, input.key, "p");
+            out = out.replace(&hole, &expr);
+        }
+        Some(out)
+    }
+
+    /// The bounds of the solid cabled into one of `id`'s solid inputs, as a WGSL `SdBounds`
+    /// expression: a box that holds it, in the input's own space, worked out each frame from
+    /// the same uniforms its distance reads, so a knob turned or an oscillator cabled in keeps
+    /// it true. Empty where nothing is cabled in, and `None` where the solid cannot say — its
+    /// node declares no `NodeDef::bounds`, or a field reaches a number its size depends on.
+    /// Each node's are worked out once a module, in a function of their own.
+    pub fn solid_bounds(&mut self, id: NodeId, key: &'static str) -> Option<String> {
+        let Some(src) = self.graph.source_of(PortRef::new(id, key)) else {
+            return Some("SdBounds(vec3f(1.0e9), vec3f(-1.0e9))".to_string());
+        };
+        if let Some(known) = self.bounds.get(&src.node) {
+            return known.clone();
+        }
+        let node = self.graph.get(src.node)?;
+        let (slug, bounds) = (node.def.slug, node.def.bounds);
+        // Marked unknown first, so a loop in the graph cannot recurse for ever.
+        self.bounds.insert(src.node, None);
+        let answer = bounds.and_then(|f| f(src.node, self)).map(|expr| {
+            let name = format!("sdb_{slug}{}", src.node);
+            self.functions.push(format!(
+                "fn {name}() -> SdBounds {{\n    return {expr};\n}}"
+            ));
+            format!("{name}()")
+        });
+        self.bounds.insert(src.node, answer.clone());
+        answer
+    }
+
+    /// The function measuring the solid cabled into one of `id`'s solid inputs at a size
+    /// scaled on each axis, `name(ps, sa)` with `ps` the point in the scaled space: a shape
+    /// that declares `NodeDef::scaled` and lands on nothing, its body scaled where that is
+    /// exact and its ordinary distance bounded by the smallest scale elsewhere. `None` for any
+    /// other solid, which the caller measures by the bound itself.
+    pub fn solid_scaled(&mut self, id: NodeId, key: &'static str) -> Option<String> {
+        let src = self.graph.source_of(PortRef::new(id, key))?;
+        let scaled = self.graph.get(src.node)?.def.scaled?;
+        if self.connected(src.node, crate::nodes::solids::ONTO.key) {
+            return None;
+        }
+        let (func, _) = self.emit(src)?;
+        let name = format!("{func}_scaled");
+        if self.emitted.insert(name.clone()) {
+            let own = format!("{name}_own");
+            let written = (scaled.wgsl)(src.node, self);
+            let mut body = crate::nodes::solids::fill(src.node, self, &written);
+            if self.probe {
+                let base = self.tap_slot(src.node, TapKind::Evaluations) * TAP_WORDS;
+                body = format!("    atomicAdd(&tap[{base} + {EVAL_WORD}], 1u);\n{body}");
+            }
+            self.functions.push(format!(
+                "fn {own}(p: vec3f, q: vec3f, sc: vec3f) -> vec4f {{\n{body}\n}}"
+            ));
+            let wrap =
+                crate::nodes::solids::scaled_chain(src.node, self, &func, &own, scaled.exact);
+            self.functions.push(format!(
+                "fn {name}(ps: vec3f, sa: vec3f) -> vec4f {{\n{wrap}\n}}"
+            ));
+        }
+        Some(name)
+    }
+
     /// The current value of one of `id`'s select options.
     ///
     /// An `OptionKind::Code` option changes generated code, which is why `SetOption` rebuilds
@@ -658,6 +749,7 @@ impl<'a> CompileContext<'a> {
     /// at an `f32` index held to the list, or `fallback` where the list is empty. `None` where
     /// no list is cabled in — a single number or a knob, which [`CompileContext::input`] reads.
     ///
+    /// A number list also carries `{stem}_most()`, the largest of its items' magnitudes.
     /// A color list's `{stem}_at(item, fallback)` takes and gives a `vec4f`, premultiplied, one
     /// color an element, at most [`uniform::COLOR_LIST_CAP`] of them.
     ///
@@ -703,6 +795,10 @@ fn {stem}_at(item: f32, fallback: vec4f) -> vec4f {{
             self.functions.push(format!(
                 "fn {stem}_len() -> f32 {{
     return {reference}[0].x;
+}}
+
+fn {stem}_most() -> f32 {{
+    return {reference}[0].y;
 }}
 
 fn {stem}_at(item: f32, fallback: f32) -> f32 {{

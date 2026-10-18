@@ -154,6 +154,13 @@ pub static BOX_FRAME: NodeDef = NodeDef {
             "min(bx, min(by, bz))",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half("max(vec3f({width}, {height}, {depth}), vec3f(0.0)) * 0.5"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -188,6 +195,13 @@ pub static SUPERELLIPSOID: NodeDef = NodeDef {
             "sd_superellipsoid(q, max(vec3f({rx}, {ry}, {rz}), vec3f(1.0e-3)), clamp({exponent}, 0.5, 20.0))",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half("max(vec3f({rx}, {ry}, {rz}), vec3f(1.0e-3))"),
+        )
+    }),
     wgsl_utils: &[SDF, SUPERELLIPSOID_WGSL],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -223,6 +237,13 @@ pub static ELLIPSOID: NodeDef = NodeDef {
             "select(k0 * (k0 - 1.0) / k1, (k0 - 1.0) * min(r.x, min(r.y, r.z)), k0 < 1.0)",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half("max(vec3f({rx}, {ry}, {rz}), vec3f(1.0e-3))"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -256,6 +277,15 @@ pub static HELIX: NodeDef = NodeDef {
             "max(coil, abs(q.y) - {height} * 0.5)",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f(max({radius}, 0.0) + abs({tube}), {height} * 0.5, max({radius}, 0.0) + abs({tube}))",
+            ),
+        )
+    }),
     wgsl_utils: &[SDF, SPRING_HELIX],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -325,6 +355,9 @@ pub static DODECAHEDRON: NodeDef = NodeDef {
             "faces * 0.52573111 - {size} * 0.79465447",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(n, ctx, &crate::nodes::solids::half("vec3f({size})"))
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -357,6 +390,9 @@ pub static ICOSAHEDRON: NodeDef = NodeDef {
             "max(corner, side) - {size} * 0.79465447",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(n, ctx, &crate::nodes::solids::half("vec3f({size})"))
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,

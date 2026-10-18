@@ -49,6 +49,7 @@ pub static CHECKER: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -86,6 +87,7 @@ pub static PROXIMITY: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "a")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -142,6 +144,7 @@ pub static FACING: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF, FACING_NORMAL],
     ..NodeDef::EMPTY
 };
@@ -188,6 +191,7 @@ pub static CONTOURS: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "a")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

@@ -1968,6 +1968,21 @@ the other side alone. A solid reaches a picture through [Render 3D](rendering.md
 and nothing else. [solids-demo.html](../proposals/solids-demo.html) is the sketch in HTML and
 JS the library was ported from.
 
+### Bounds
+
+**A solid can say how big it is.** `NodeDef::bounds` gives a WGSL `SdBounds` — a box, `lo` and
+`hi`, holding the node's solid in its output's space — built from the node's numbers as one
+value a frame (`CompileContext::uniform_fill`) and its solid inputs' own bounds
+(`CompileContext::solid_bounds`). It is worked out in the shader, from the same uniforms the
+distance reads, so a knob turned or an oscillator cabled in keeps it true, and once a module in
+a function of its own, `sdb_{slug}{id}()`. A shape gives its own box about its center through
+`solids::shape_bounds`, which moves it to its X, Y and Z, turns and scales it under its
+Transform rows — a turned box held by the ball round its corners — grows it by Blend and lands
+it on Onto's by its Mode. A node with no `bounds`, or with a field cabled into a number its
+size depends on, cannot say, and what reads it assumes nothing. The shapes in Primitives,
+Union, Subtract, Intersect, Place, Paint, Round, Shell, Displace, Texture, the color fields and
+the repeats say.
+
 ### Two functions per solid
 
 A march asks a solid for its distance dozens to hundreds of times a pixel, and for its color
@@ -2062,9 +2077,9 @@ Repeat (`repeatgrid`), Repeat Around (`repeataround`) and Scatter on Sphere (`sc
 each fold the point into one cell, so the input is evaluated once however many copies show.
 Repeat's Forever costs what one copy does.
 
-**A copy must fit its cell.** The fold looks at the nearest cell. A copy wider than the
-spacing, or moved out of its cell by its Offset, is sliced flat at the cell's edge; the slice
-is the signal to widen the spacing, and each node's tooltip says so. An endless repeat ends
+**A copy should fit its neighbors' cells.** A repeat measures the copies either side of the
+nearest (below), so a copy may reach into the next cell; one reaching past that is sliced flat
+at the edge, and the slice is the signal to widen the spacing. An endless repeat ends
 where the march gives up, 80 units out, and Render 3D's Fog is what hides that edge.
 
 **Count is how many copies.** A Counted Repeat lays Count copies on each axis, centered;
@@ -2083,21 +2098,45 @@ else differs per copy: whatever is upstream of a repeat is the same solid in eve
 picture repeats — Tile, Repeater, Kaleidoscope, Scatter and Stamp — take the same rows in two
 dimensions, as [the library](#the-library)'s Transform paragraphs say.
 
-**Copies that differ are measured against their neighbor.** While every copy is the same shape
-no copy is nearer a point than the one in its own cell. A list into Offset, Turn or Scale makes
-a copy taller than the one beside it, nearer to a point in that cell than that cell's own copy
-— from either side of the cell, since a point high over a short copy is nearer a tall neighbor
-across the cell than the copy under it — and a ray stepping by the shorter one's distance would
-run into it. So a repeat with such a list evaluates the nearest copy and the ones either side
-of it on each axis it repeats along, and keeps the nearer: three times the work for a row or a
-ring, five for a plane, seven for a grid in three dimensions. **A copy further off is met at
-the measured block's edge**: while Render 3D marches a ray (`solids::MARCH_STATE`), a step is
-held to the outer walls of the cells measured, or a ring's two outer wedge planes away from its
-axis, so a tall copy two cells off is measured from the next cell rather than stepped into. A
-shadow, the occlusion and a normal read the copies' own distance, since the walls are no
-surface. Knobs and a Color list never pay for it. Scatter on Sphere's cells are not
-a grid and it measures the nearest alone, so copies it makes differ notch where a tall one
-stands beside a short one.
+**A repeat measures the copies that can reach the point.** The copy in another cell can be
+nearer a point than the copy in its own: a taller copy beside a short one — from either side of
+the cell, since a point high over a short copy is nearer a tall neighbor across the cell than
+the copy under it — or a copy bigger than its cell, as a row of bars is in a ring's wedge. So a
+repeat asks its input how big it is ([Bounds](#bounds)) and works out how far a copy can reach
+from its own cell: the input's box scaled by the largest Scale any copy has, swung round where
+any copy turns, and moved by the largest Offset — a list's largest item, which the CPU sends
+with it. It measures every cell that reach covers, with a tenth of a cell to spare and at most
+three either side on a grid, eight on a ring, where across a ring only the reach across its
+plane counts, since a copy lifted high is no wider for it. A copy that fits its cell costs
+what one copy did. Each candidate is skipped, before anything is asked of its input, where its
+own box — the input's moved, scaled and turned by that copy's own rows — is further off than
+the nearest so far. **Past the cells measured**, while Render 3D marches a ray
+(`solids::MARCH_STATE`), a step is held by the boxes of the copies there, so a march never steps
+into one; the spare tenth keeps that from holding a step to nothing. A shadow, the occlusion
+and a normal read the copies' own distance. **Where the input cannot say how big it is**, a
+repeat measures the nearest copy and the ones either side of it on each axis, three times the
+work for a row or a ring, five for a plane, seven for a grid in three dimensions, and holds a
+march to the outer walls of those cells. A copy reaching past what is measured is cut there.
+Scatter on Sphere does the same over its lattice: a copy's box, seen from the sphere's center,
+lies within an angle of the copy's own direction, so it measures the copies within that angle
+and one lattice spacing of the point's direction, found among the band of heights that covers,
+and holds a march's step to the spacing's angle, which every copy further round is past. The
+wider a copy against the spacing, the more copies a point measures. Where its input cannot say
+how big it is, it measures the nearest copy alone, and a copy wider than the spacing is sliced.
+
+**A copy is measured at its own size where its shape allows.** A scale that differs between
+axes stretches space, and a distance measured in stretched space is only a bound, the input's
+distance times the smallest scale. Near a copy pressed flat that says the surface is nearer
+than it is, so a march creeps up to the copy and stops wherever the bound runs under its
+threshold: anywhere in the copy's box, since outside it a copy is no nearer than the box
+(`sd_box_gap`). A quiet band's flattened sphere draws as a square. **A shape that can take a
+scale exactly declares `NodeDef::scaled`**: its body written once over a scale `sc`, which its
+ordinary function holds at one. `CompileContext::solid_scaled` wraps it so its center and its
+own Scale scale with the copy and a field is read at the unscaled point, and the repeats ask it
+at each copy's size (`percopy::evaluate`). Box does at any scale; Cylinder, Cone, Hex Prism and
+Pyramid while their two widths scale alike, since a round shape squeezed one way is no longer
+that shape. A shape turned under its Transform rows or landing on something takes the bound, as
+every other solid does.
 
 **A list reaches a shader in the uniform block**, whole: `array<vec4f, 257>`, the length in
 the first element and 1,024 items packed four to an element after it

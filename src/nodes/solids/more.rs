@@ -21,7 +21,7 @@
 
 pub mod fractals;
 
-use super::{SDF, color, fill, num, num_log, out, solid, tint};
+use super::{SDF, UNSCALED, color, fill, num, num_log, out, scaled_body, solid, tint};
 use crate::compile::CompileContext;
 use crate::graph::NodeId;
 use crate::nodes::{Category, Family, InputDef, NodeDef, OptionDef};
@@ -50,6 +50,19 @@ fn primitive(node: NodeId, ctx: &mut CompileContext, prelude: &str, dist: &str) 
     )
 }
 
+/// The cone at a size scaled by `sc`, exact while both widths scale alike.
+const CONE_BODY: &str = "    let h = {height} * 0.5 * sc.y;
+    let r1 = {bottom} * sc.x;
+    let r2 = {top} * sc.x;
+    let w = vec2f(length(q.xz), q.y);
+    let k1 = vec2f(r2, h);
+    let k2 = vec2f(r2 - r1, 2.0 * h);
+    let ca = vec2f(w.x - min(w.x, select(r2, r1, w.y < 0.0)), abs(w.y) - h);
+    let cb = w - k1 + k2 * clamp(dot(k1 - w, k2) / dot(k2, k2), 0.0, 1.0);
+    let sg = select(1.0, -1.0, cb.x < 0.0 && ca.y < 0.0);
+";
+const CONE_DIST: &str = "sg * sqrt(min(dot(ca, ca), dot(cb, cb)))";
+
 pub static CONE: NodeDef = NodeDef {
     slug: "cone",
     category: Category::Solid,
@@ -68,27 +81,36 @@ pub static CONE: NodeDef = NodeDef {
         color("color", "Color", "#e8b45aff"),
     ],
     outputs: &[out(|node, ctx, _| {
-        primitive(
-            node,
-            ctx,
-            "    let h = {height} * 0.5;
-    let r1 = {bottom};
-    let r2 = {top};
-    let w = vec2f(length(q.xz), q.y);
-    let k1 = vec2f(r2, h);
-    let k2 = vec2f(r2 - r1, 2.0 * h);
-    let ca = vec2f(w.x - min(w.x, select(r2, r1, w.y < 0.0)), abs(w.y) - h);
-    let cb = w - k1 + k2 * clamp(dot(k1 - w, k2) / dot(k2, k2), 0.0, 1.0);
-    let sg = select(1.0, -1.0, cb.x < 0.0 && ca.y < 0.0);
-",
-            "sg * sqrt(min(dot(ca, ca), dot(cb, cb)))",
-        )
+        primitive(node, ctx, &[UNSCALED, CONE_BODY].concat(), CONE_DIST)
     })],
+    scaled: Some(crate::nodes::ScaledDef {
+        exact: "sc.x == sc.z",
+        wgsl: |n, ctx| scaled_body(n, ctx, CONE_BODY, CONE_DIST),
+    }),
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f(max({bottom}, {top}), {height} * 0.5, max({bottom}, {top}))",
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
 };
+
+/// The hex prism at a size scaled by `sc`, exact while both widths scale alike.
+const HEX_PRISM_BODY: &str = "    let k = vec3f(-0.8660254, 0.5, 0.57735027);
+    let r = {radius} * sc.x;
+    let a = abs(q);
+    var f = a.xz;
+    f -= 2.0 * min(dot(k.xy, f), 0.0) * k.xy;
+    let e = vec2f(length(f - vec2f(clamp(f.x, -k.z * r, k.z * r), r)) * sign(f.y - r), a.y - {height} * 0.5 * sc.y);
+";
+const HEX_PRISM_DIST: &str = "min(max(e.x, e.y), 0.0) + length(max(e, vec2f(0.0)))";
 
 pub static HEX_PRISM: NodeDef = NodeDef {
     slug: "hexprism",
@@ -110,21 +132,50 @@ pub static HEX_PRISM: NodeDef = NodeDef {
         primitive(
             node,
             ctx,
-            "    let k = vec3f(-0.8660254, 0.5, 0.57735027);
-    let r = {radius};
-    let a = abs(q);
-    var f = a.xz;
-    f -= 2.0 * min(dot(k.xy, f), 0.0) * k.xy;
-    let e = vec2f(length(f - vec2f(clamp(f.x, -k.z * r, k.z * r), r)) * sign(f.y - r), a.y - {height} * 0.5);
-",
-            "min(max(e.x, e.y), 0.0) + length(max(e, vec2f(0.0)))",
+            &[UNSCALED, HEX_PRISM_BODY].concat(),
+            HEX_PRISM_DIST,
         )
     })],
+    scaled: Some(crate::nodes::ScaledDef {
+        exact: "sc.x == sc.z",
+        wgsl: |n, ctx| scaled_body(n, ctx, HEX_PRISM_BODY, HEX_PRISM_DIST),
+    }),
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f({radius} * 1.1547005, {height} * 0.5, {radius} * 1.1547005)",
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
 };
+
+/// The pyramid at a size scaled by `sc`, exact while both widths scale alike. IQ's pyramid, one
+/// wide, measures its four sides and the base is the square under them; the point is scaled
+/// into it and the distance back.
+const PYRAMID_BODY: &str = "    let sb = max({base} * sc.x, 1.0e-4);
+    let ht = {height} * sc.y;
+    let ph = ht / sb;
+    let m2 = ph * ph + 0.25;
+    let v = (q + vec3f(0.0, ht * 0.5, 0.0)) / sb;
+    var f = abs(v.xz);
+    if (f.y > f.x) { f = f.yx; }
+    f -= vec2f(0.5);
+    let w = vec3f(f.y, ph * v.y - 0.5 * f.x, ph * f.x + 0.5 * v.y);
+    let s = max(-w.x, 0.0);
+    let t = clamp((w.y - 0.5 * f.y) / (m2 + 0.25), 0.0, 1.0);
+    let da = m2 * (w.x + s) * (w.x + s) + w.y * w.y;
+    let db = m2 * (w.x + 0.5 * t) * (w.x + 0.5 * t) + (w.y - m2 * t) * (w.y - m2 * t);
+    let d2 = select(min(da, db), 0.0, min(w.y, -w.x * m2 - w.y * 0.5) > 0.0);
+    let under = max(abs(v.xz) - vec2f(0.5), vec2f(0.0));
+    let floor_d = sqrt(dot(under, under) + v.y * v.y);
+";
+const PYRAMID_DIST: &str = "min(sqrt((d2 + w.z * w.z) / m2), floor_d) * sign(max(w.z, -v.y)) * sb";
 
 pub static PYRAMID: NodeDef = NodeDef {
     slug: "pyramid",
@@ -142,30 +193,19 @@ pub static PYRAMID: NodeDef = NodeDef {
         color("color", "Color", "#e8d08aff"),
     ],
     outputs: &[out(|node, ctx, _| {
-        // IQ's pyramid, one wide, measures its four sides; the base is the square under them.
-        // The point is scaled into it and the distance back.
-        primitive(
-            node,
-            ctx,
-            "    let sb = max({base}, 1.0e-4);
-    let ph = {height} / sb;
-    let m2 = ph * ph + 0.25;
-    let v = (q + vec3f(0.0, {height} * 0.5, 0.0)) / sb;
-    var f = abs(v.xz);
-    if (f.y > f.x) { f = f.yx; }
-    f -= vec2f(0.5);
-    let w = vec3f(f.y, ph * v.y - 0.5 * f.x, ph * f.x + 0.5 * v.y);
-    let s = max(-w.x, 0.0);
-    let t = clamp((w.y - 0.5 * f.y) / (m2 + 0.25), 0.0, 1.0);
-    let da = m2 * (w.x + s) * (w.x + s) + w.y * w.y;
-    let db = m2 * (w.x + 0.5 * t) * (w.x + 0.5 * t) + (w.y - m2 * t) * (w.y - m2 * t);
-    let d2 = select(min(da, db), 0.0, min(w.y, -w.x * m2 - w.y * 0.5) > 0.0);
-    let under = max(abs(v.xz) - vec2f(0.5), vec2f(0.0));
-    let floor_d = sqrt(dot(under, under) + v.y * v.y);
-",
-            "min(sqrt((d2 + w.z * w.z) / m2), floor_d) * sign(max(w.z, -v.y)) * sb",
-        )
+        primitive(node, ctx, &[UNSCALED, PYRAMID_BODY].concat(), PYRAMID_DIST)
     })],
+    scaled: Some(crate::nodes::ScaledDef {
+        exact: "sc.x == sc.z",
+        wgsl: |n, ctx| scaled_body(n, ctx, PYRAMID_BODY, PYRAMID_DIST),
+    }),
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half("vec3f({base} * 0.5, {height} * 0.5, {base} * 0.5)"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -197,6 +237,15 @@ pub static LINK: NodeDef = NodeDef {
             "length(vec2f(length(w.xy) - {ring}, w.z)) - {tube}",
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f({ring} + {tube}, {length} * 0.5 + {ring} + {tube}, {tube})",
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,

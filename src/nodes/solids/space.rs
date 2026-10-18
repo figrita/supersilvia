@@ -40,6 +40,17 @@ pub static PLACE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(
+            n,
+            &format!(
+                "sd_bounds_move(sd_bounds_about({b}, vec3f(0.0), \
+                 any(vec3f({{yaw}}, {{pitch}}, {{roll}}) != vec3f(0.0)), max({{scale}}, 1.0e-4)), \
+                 vec3f({{x}}, {{y}}, {{z}}))"
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

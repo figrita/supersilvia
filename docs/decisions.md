@@ -6858,6 +6858,12 @@ a repeat is the same solid in every cell, or the same picture in every tile, cel
 - **A storage buffer for the lists**, one binding per module: every kind of program — an
   Output's, a probe's, a pass's — would carry a new binding. A list rides in the uniform block
   instead, at 4 KB a list, under the 64 KB a uniform binding allows.
+- **Measuring the neighbors only where a list moves or sizes the copies.** A row of bars
+  inside a ring is bigger than the ring's wedge with no list on the ring at all, and was cut at
+  the wedge's edge. A repeat cannot see its input's size without bounds, so with none it measures
+  its neighbors whatever feeds it.
+- **Measuring every copy of a repeat with few.** Exact without bounds, but twice the cost of the
+  neighbors on a ring of bars for no difference seen; bounds measure as many as a copy reaches.
 - **Holding each step to the cell's wall**, so a ray could not step into a taller neighbor. It
   held a ray running beside a wall to steps of a few hundredths until it ran out of them, and
   painted the sky with specks.

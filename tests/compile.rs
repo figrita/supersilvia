@@ -1669,3 +1669,50 @@ fn render_3d_gates_its_glow_on_the_uniform() {
         "and nowhere outside it"
     );
 }
+
+/// The module a Repeat of `shape` compiles to, the shape landing on a sphere where `onto`.
+fn repeated(shape: &str, onto: bool) -> String {
+    let mut g = Graph::new();
+    let s = add(&mut g, shape);
+    if onto {
+        let base = add(&mut g, "sphere");
+        g.connect(PortRef::new(base, "solid"), PortRef::new(s, "onto"))
+            .expect("a solid onto a shape");
+    }
+    let repeat = add(&mut g, "repeatgrid");
+    let render = add(&mut g, "solidrender");
+    let out = add(&mut g, "output");
+    g.connect(PortRef::new(s, "solid"), PortRef::new(repeat, "input"))
+        .expect("a shape into the repeat");
+    g.connect(PortRef::new(repeat, "solid"), PortRef::new(render, "solid"))
+        .expect("the repeat into the render");
+    g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+        .expect("a picture into the Output");
+    compile::wgsl::build(&g, out)
+        .expect("connected to the Output")
+        .source()
+}
+
+/// **A repeat measures a shape that can take a scale at each copy's size**, so a copy squashed
+/// flat keeps its own outline rather than the bound's, which fills the copy's box. Any other
+/// solid, and a shape landing on another, is measured by the bound.
+#[test]
+fn a_repeat_measures_a_shape_that_takes_a_scale_at_each_copys_size() {
+    for shape in ["box", "cylinder", "cone", "hexprism", "pyramid"] {
+        let src = repeated(shape, false);
+        assert!(
+            src.contains("_scaled(m, abs(sc))"),
+            "{shape} is asked at the copy's size"
+        );
+    }
+    for shape in ["sphere", "torus", "capsule"] {
+        assert!(
+            !repeated(shape, false).contains("_scaled("),
+            "{shape} has no scaled body"
+        );
+    }
+    assert!(
+        !repeated("cylinder", true).contains("_scaled("),
+        "a shape landing on another takes the bound"
+    );
+}

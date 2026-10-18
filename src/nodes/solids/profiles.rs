@@ -177,6 +177,15 @@ pub static EXTRUDE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f({scale} * 1.7777778, {scale}, max({depth}, 0.0) * 0.5)",
+            ),
+        )
+    }),
     wgsl_utils: &[super::SDF, FRAME],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
@@ -228,6 +237,15 @@ pub static REVOLVE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f(abs({offset}) + {scale} * 1.7777778, {scale}, abs({offset}) + {scale} * 1.7777778)",
+            ),
+        )
+    }),
     wgsl_utils: &[super::SDF, FRAME],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY

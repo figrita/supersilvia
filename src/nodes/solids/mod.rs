@@ -92,6 +92,54 @@ fn sd_hash3(cell: vec3f, seed: f32) -> vec3f {
     v.z += v.x * v.y;
     return vec3f(v) * (1.0 / 4294967295.0);
 }
+// A box holding a solid. An empty one has lo above hi.
+struct SdBounds {
+    lo: vec3f,
+    hi: vec3f,
+}
+fn sd_bounds_empty(b: SdBounds) -> bool {
+    return any(b.lo > b.hi);
+}
+fn sd_bounds_union(a: SdBounds, b: SdBounds) -> SdBounds {
+    return SdBounds(min(a.lo, b.lo), max(a.hi, b.hi));
+}
+fn sd_bounds_meet(a: SdBounds, b: SdBounds) -> SdBounds {
+    return SdBounds(max(a.lo, b.lo), min(a.hi, b.hi));
+}
+fn sd_bounds_grow(b: SdBounds, k: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    return SdBounds(b.lo - vec3f(max(k, 0.0)), b.hi + vec3f(max(k, 0.0)));
+}
+fn sd_bounds_move(b: SdBounds, t: vec3f) -> SdBounds {
+    return SdBounds(b.lo + t, b.hi + t);
+}
+// `b` scaled by `s` about `pivot`, and turned about it where `turned`: a turned box is held by
+// the ball round its corners.
+fn sd_bounds_about(b: SdBounds, pivot: vec3f, turned: bool, s: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    if (!turned) { return SdBounds(pivot + (b.lo - pivot) * s, pivot + (b.hi - pivot) * s); }
+    let r = length(max(abs(b.lo - pivot), abs(b.hi - pivot))) * s;
+    return SdBounds(pivot - vec3f(r), pivot + vec3f(r));
+}
+// How far a solid reaches from its own origin along each axis.
+fn sd_bounds_reach(b: SdBounds) -> vec3f {
+    if (sd_bounds_empty(b)) { return vec3f(0.0); }
+    return max(abs(b.lo), abs(b.hi));
+}
+// How far a repeat's copy reaches from its cell's center: its input's reach scaled by the most
+// any copy is scaled, swung round y where any copy turns, and moved by the most any is moved.
+fn sd_copy_reach(b: SdBounds, offset: vec3f, scale: vec3f, turned: bool) -> vec3f {
+    var r = sd_bounds_reach(b) * scale;
+    if (turned) {
+        let xz = length(r.xz);
+        r = vec3f(xz, r.y, xz);
+    }
+    return r + offset;
+}
+// The distance from `p` to the box `c` ± `h`, zero inside it.
+fn sd_box_gap(p: vec3f, c: vec3f, h: vec3f) -> f32 {
+    return length(max(abs(p - c) - h, vec3f(0.0)));
+}
 // A fully saturated hue, 0 to 1 round the wheel.
 fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
@@ -217,6 +265,79 @@ pub fn chain(node: NodeId, ctx: &mut CompileContext, own: &str) -> String {
     fill(node, ctx, &body)
 }
 
+/// A shape's function at a size scaled by `sa` on each axis about the origin, around `own`,
+/// its body at that size ([`crate::nodes::ScaledDef`]): the shape's center scaled with the
+/// rest, and its own Scale folded into `sa`. Where the shape is turned, or its body is not
+/// exact at that scale, it is `generic`, the shape's ordinary function, at the point divided
+/// by the scale, its distance multiplied back by the smallest, a bound. Called by the compiler
+/// for a shape with nothing on Onto (`CompileContext::solid_scaled`).
+pub fn scaled_chain(
+    node: NodeId,
+    ctx: &mut CompileContext,
+    generic: &str,
+    own: &str,
+    exact: &str,
+) -> String {
+    let Some(def) = ctx.node(node).map(|n| n.def) else {
+        return format!(
+            "    let r = {generic}(ps / sa);\n    return vec4f(r.x * min(sa.x, min(sa.y, sa.z)), r.yzw);"
+        );
+    };
+    let has = |key: &str| def.inputs.iter().any(|i| i.key == key);
+    let pivot = if has("x") && has("y") && has("z") {
+        "vec3f({x}, {y}, {z})"
+    } else {
+        "vec3f(0.0)"
+    };
+    let body = format!(
+        "    let p = ps / sa;
+    let pivot = {pivot};
+    let s = max({{tScale}}, 1.0e-4);
+    let sc = sa * s;
+    if (any(vec3f({{tYaw}}, {{tPitch}}, {{tRoll}}) != vec3f(0.0)) || !({exact})) {{
+        let r = {generic}(p);
+        return vec4f(r.x * min(sa.x, min(sa.y, sa.z)), r.yzw);
+    }}
+    return {own}(pivot + (p - pivot) / s, ps - pivot * sa, sc);"
+    );
+    fill(node, ctx, &body)
+}
+
+/// A shape's bounds: `own`, its box about its own center with `{key}` holes for its numbers,
+/// moved to its X, Y and Z where it has them, turned and scaled under its Transform rows, grown
+/// by Blend, and landed on Onto's by its Mode. `None` where a field reaches a number it depends
+/// on, or Onto cannot say.
+pub fn shape_bounds(node: NodeId, ctx: &mut CompileContext, own: &str) -> Option<String> {
+    let def = ctx.node(node)?.def;
+    let has = |key: &str| def.inputs.iter().any(|i| i.key == key);
+    let pivot = if has("x") && has("y") && has("z") {
+        "vec3f({x}, {y}, {z})"
+    } else {
+        "vec3f(0.0)"
+    };
+    let me = ctx.uniform_fill(
+        node,
+        &format!(
+            "sd_bounds_grow(sd_bounds_about(sd_bounds_move({own}, {pivot}), {pivot}, \
+             any(vec3f({{tYaw}}, {{tPitch}}, {{tRoll}}) != vec3f(0.0)), max({{tScale}}, 1.0e-4)), {{blend}})"
+        ),
+    )?;
+    if !ctx.connected(node, ONTO.key) {
+        return Some(me);
+    }
+    let onto = ctx.solid_bounds(node, ONTO.key)?;
+    Some(match ctx.option(node, MODE.key) {
+        "subtract" => onto,
+        "intersect" => format!("sd_bounds_meet({onto}, {me})"),
+        _ => format!("sd_bounds_union({onto}, {me})"),
+    })
+}
+
+/// A box `h` either side of the origin, `h` a WGSL `vec3f` with `{key}` holes.
+pub fn half(h: &str) -> String {
+    format!("SdBounds(-({h}), {h})")
+}
+
 /// A number input on a solid node: a control, a CPU node's number, or a field read at the
 /// point.
 pub(crate) const fn num(
@@ -335,6 +456,22 @@ pub(crate) fn fill(node: NodeId, ctx: &mut CompileContext, src: &str) -> String 
     }
     out
 }
+
+/// A shape's body at a scaled size, for [`crate::nodes::ScaledDef::wgsl`]: `prelude` over the
+/// point `q` and the scale `sc`, then the distance `dist` and the node's Color. The shape's
+/// ordinary body is the same two with `sc` held at one.
+pub(crate) fn scaled_body(
+    node: NodeId,
+    ctx: &mut CompileContext,
+    prelude: &str,
+    dist: &str,
+) -> String {
+    let c = tint(node, ctx, "color");
+    format!("{prelude}    return vec4f({dist}, {c});")
+}
+
+/// The line that holds a scaled body's `sc` at one, in the shape's ordinary body.
+pub(crate) const UNSCALED: &str = "    let sc = vec3f(1.0);\n";
 
 /// A color input's rgb, in the whole of a solid; zero in its distance alone, which never reads
 /// it.

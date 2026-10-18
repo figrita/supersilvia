@@ -11,8 +11,9 @@ pub enum UniformType {
     Int,
     Vec2,
     Vec4,
-    /// A number list: `array<vec4f, LIST_VEC4S>`, its length in the first element's `.x` and
-    /// its items packed four to an element from the second on.
+    /// A number list: `array<vec4f, LIST_VEC4S>`, its length in the first element's `.x`, the
+    /// largest of its items' magnitudes in `.y`, and its items packed four to an element from
+    /// the second on.
     List,
     Sampler2D,
 }

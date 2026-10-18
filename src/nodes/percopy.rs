@@ -89,17 +89,6 @@ pub const ROWS_3D: [InputDef; 8] = [
 /// A picture's repeat's rows, in the order the node draws them.
 pub const ROWS_2D: [InputDef; 6] = [OFFSET_X, OFFSET_Y, TURN, SCALE_X, SCALE_Y, COLOR];
 
-/// The rows that move, turn or size a copy.
-const MOVING: [&str; 7] = [
-    OFFSET_X.key,
-    OFFSET_Y.key,
-    OFFSET_Z.key,
-    TURN.key,
-    SCALE_X.key,
-    SCALE_Y.key,
-    SCALE_Z.key,
-];
-
 /// Whether an input folds under the Per copy heading: a row of either set.
 pub fn is_row(key: &str) -> bool {
     ROWS_3D.iter().chain(&ROWS_2D).any(|r| r.key == key)
@@ -149,10 +138,28 @@ pub struct Copy {
     pub color: String,
 }
 
-/// Whether any row that moves, turns or sizes a copy has a list cabled in, so copies differ
-/// in place or size and a repeat measures the near neighbor as well as the nearest.
-pub fn moves_differ(ctx: &mut CompileContext, node: NodeId) -> bool {
-    MOVING.iter().any(|key| ctx.list_input(node, key).is_some())
+/// The most any copy's rows move, size and turn it, for how far a copy can reach: the largest
+/// magnitude of each Offset and each Scale as `vec3f`s, and whether any copy is turned as a
+/// `bool`, in WGSL. A list gives its largest item, a knob or a number its own.
+pub fn extremes(ctx: &mut CompileContext, node: NodeId) -> (String, String, String) {
+    let mut most = |key: &'static str| match ctx.list_input(node, key) {
+        Some(stem) => format!("{stem}_most()"),
+        None => format!("abs({})", ctx.input(node, key, "p")),
+    };
+    let offset = format!(
+        "vec3f({}, {}, {})",
+        most(OFFSET_X.key),
+        most(OFFSET_Y.key),
+        most(OFFSET_Z.key)
+    );
+    let scale = format!(
+        "vec3f({}, {}, {})",
+        most(SCALE_X.key),
+        most(SCALE_Y.key),
+        most(SCALE_Z.key)
+    );
+    let turned = format!("{} > 0.0", most(TURN.key));
+    (offset, scale, turned)
 }
 
 /// One row's value for the copy `item` names, `fallback` where its list is empty.
@@ -207,20 +214,46 @@ pub fn read(ctx: &mut CompileContext, node: NodeId, item: Item<'_>) -> Copy {
     }
 }
 
-/// The statements that take a copy's own point `q` into its rows' frame — moved by the
-/// offset, turned about y, divided by the scale — as `m`, and the factor its distance is
-/// multiplied back by as `k`.
-pub fn place(copy: &Copy) -> String {
-    format!(
+/// The statements that measure one copy's input, the solid on `key`, from the copy's own point
+/// `q`: the point moved by the offset and turned about y as `m`, the copy's scale as `sc`, the
+/// input's distance and color as `r`, and the factor its distance is multiplied back by as `k`.
+/// A shape that can take a scale exactly (`NodeDef::scaled`) is measured at the copy's size,
+/// and `k` is one, so a copy squashed flat stays its own shape; any other input is measured at
+/// the point divided by the scale, and `k` is the smallest scale, a bound — near a copy
+/// squashed flat it says the surface is nearer than it is, so the march creeps up to the
+/// copy's whole box. `frame` writes a vector of the copy's frame in the input's.
+pub fn evaluate(
+    ctx: &mut CompileContext,
+    node: NodeId,
+    copy: &Copy,
+    key: &'static str,
+    frame: impl Fn(&str) -> String,
+) -> String {
+    let lead = format!(
         "        let sc = {scale};
         var m = q - {offset};
         let mt = sd_rot2(m.xz, -({turn}) * 6.2831853);
-        m = vec3f(mt.x, m.y, mt.y) / sc;
-        let k = min(sc.x, min(sc.y, sc.z));
 ",
         scale = copy.scale,
         offset = copy.offset,
         turn = copy.turn,
+    );
+    if let Some(scaled) = ctx.solid_scaled(node, key) {
+        return format!(
+            "{lead}        m = vec3f(mt.x, m.y, mt.y);
+        let k = 1.0;
+        let r = {scaled}({}, abs({}));
+",
+            frame("m"),
+            frame("sc")
+        );
+    }
+    let inner = ctx.input(node, key, &frame("m"));
+    format!(
+        "{lead}        m = vec3f(mt.x, m.y, mt.y) / sc;
+        let k = min(sc.x, min(sc.y, sc.z));
+        let r = {inner};
+"
     )
 }
 

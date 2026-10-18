@@ -390,12 +390,15 @@ fn body(node: NodeId, ctx: &mut CompileContext) -> String {
         String::new()
     };
     let col_kw = if bounce { "var" } else { "let" };
-    let lit = give("mix(vec4f(col, 1.0), bg, fog)");
+    // Fog shifts a hit's color toward the background's, and never its opacity: a solid is
+    // solid however far off, and a transparent background fades it toward black, the color a
+    // premultiplied transparent swatch keeps.
+    let lit = give("vec4f(mix(col, unpremultiply(bg).rgb, fog), 1.0)");
     let finish = match shading {
         "normals" => give("vec4f(n * 0.5 + 0.5, 1.0)"),
         "depth" => give(&format!("vec4f(vec3f(exp(-{seen} * 0.12)), 1.0)")),
         "flat" if bounce => format!("    var col = albedo;\n{reflection}{lit}"),
-        "flat" => give("mix(vec4f(albedo, 1.0), bg, fog)"),
+        "flat" => give("vec4f(mix(albedo, unpremultiply(bg).rgb, fog), 1.0)"),
         "toon" => format!(
             "{shadow}    let dif = max(dot(n, light), 0.0) * sh;
     let bands = max(round({{bands}}), 2.0);

@@ -88,6 +88,13 @@ pub static MENGER: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half("vec3f({size} * 0.5)"),
+        )
+    }),
     wgsl_utils: &[SDF],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
@@ -164,6 +171,15 @@ pub static MANDELBULB: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        crate::nodes::solids::shape_bounds(
+            n,
+            ctx,
+            &crate::nodes::solids::half(
+                "vec3f(pow(2.0, 1.0 / (clamp({power}, 2.0, 16.0) - 1.0)) * {size})",
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY

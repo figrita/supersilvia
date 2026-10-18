@@ -33,6 +33,7 @@ struct Uniforms {
     u_control_solidrender7_targetY: f32,
     u_control_solidrender7_targetZ: f32,
     u_control_solidrender7_tilt: f32,
+    u_control_sphere3_blend: f32,
     u_control_sphere3_color: vec4f,
     u_control_sphere3_radius: f32,
     u_control_sphere3_tPitch: f32,
@@ -98,6 +99,54 @@ fn sd_hash3(cell: vec3f, seed: f32) -> vec3f {
     v.z += v.x * v.y;
     return vec3f(v) * (1.0 / 4294967295.0);
 }
+// A box holding a solid. An empty one has lo above hi.
+struct SdBounds {
+    lo: vec3f,
+    hi: vec3f,
+}
+fn sd_bounds_empty(b: SdBounds) -> bool {
+    return any(b.lo > b.hi);
+}
+fn sd_bounds_union(a: SdBounds, b: SdBounds) -> SdBounds {
+    return SdBounds(min(a.lo, b.lo), max(a.hi, b.hi));
+}
+fn sd_bounds_meet(a: SdBounds, b: SdBounds) -> SdBounds {
+    return SdBounds(max(a.lo, b.lo), min(a.hi, b.hi));
+}
+fn sd_bounds_grow(b: SdBounds, k: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    return SdBounds(b.lo - vec3f(max(k, 0.0)), b.hi + vec3f(max(k, 0.0)));
+}
+fn sd_bounds_move(b: SdBounds, t: vec3f) -> SdBounds {
+    return SdBounds(b.lo + t, b.hi + t);
+}
+// `b` scaled by `s` about `pivot`, and turned about it where `turned`: a turned box is held by
+// the ball round its corners.
+fn sd_bounds_about(b: SdBounds, pivot: vec3f, turned: bool, s: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    if (!turned) { return SdBounds(pivot + (b.lo - pivot) * s, pivot + (b.hi - pivot) * s); }
+    let r = length(max(abs(b.lo - pivot), abs(b.hi - pivot))) * s;
+    return SdBounds(pivot - vec3f(r), pivot + vec3f(r));
+}
+// How far a solid reaches from its own origin along each axis.
+fn sd_bounds_reach(b: SdBounds) -> vec3f {
+    if (sd_bounds_empty(b)) { return vec3f(0.0); }
+    return max(abs(b.lo), abs(b.hi));
+}
+// How far a repeat's copy reaches from its cell's center: its input's reach scaled by the most
+// any copy is scaled, swung round y where any copy turns, and moved by the most any is moved.
+fn sd_copy_reach(b: SdBounds, offset: vec3f, scale: vec3f, turned: bool) -> vec3f {
+    var r = sd_bounds_reach(b) * scale;
+    if (turned) {
+        let xz = length(r.xz);
+        r = vec3f(xz, r.y, xz);
+    }
+    return r + offset;
+}
+// The distance from `p` to the box `c` ± `h`, zero inside it.
+fn sd_box_gap(p: vec3f, c: vec3f, h: vec3f) -> f32 {
+    return length(max(abs(p - c) - h, vec3f(0.0)));
+}
 // A fully saturated hue, 0 to 1 round the wheel.
 fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
@@ -123,6 +172,10 @@ fn sphere3_solid_d(p: vec3f) -> vec4f {
     let o = sphere3_solid_d_own(local);
     let me = vec4f(o.x * s, o.yzw);
     return me;
+}
+
+fn sdb_sphere3() -> SdBounds {
+    return sd_bounds_grow(sd_bounds_about(sd_bounds_move(SdBounds(-(vec3f(u.u_control_sphere3_radius)), vec3f(u.u_control_sphere3_radius)), vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z)), vec3f(u.u_control_sphere3_x, u.u_control_sphere3_y, u.u_control_sphere3_z), any(vec3f(u.u_control_sphere3_tYaw, u.u_control_sphere3_tPitch, u.u_control_sphere3_tRoll) != vec3f(0.0)), max(u.u_control_sphere3_tScale, 1.0e-4)), u.u_control_sphere3_blend);
 }
 
 fn vignette4_mask(uv: vec2f) -> f32 {
@@ -178,23 +231,43 @@ fn repeatgrid1_solid_d(p: vec3f) -> vec4f {
     let mid = vec3f(0.0);
     let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
-    for (var j = 0; j < 1; j++) {
-        var cell = near;
-        if (j > 0) {
-            let a = (j - 1) / 2;
-            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
-            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) { continue; }
-            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
-        }
+    let inreach = sd_bounds_reach(sdb_sphere3());
+    let reach = sd_copy_reach(sdb_sphere3(), vec3f(abs(u.u_control_repeatgrid1_copyX), abs(u.u_control_repeatgrid1_copyY), abs(u.u_control_repeatgrid1_copyZ)), vec3f(abs(u.u_control_repeatgrid1_copyScaleX), abs(u.u_control_repeatgrid1_copyScaleY), abs(u.u_control_repeatgrid1_copyScaleZ)), abs(u.u_control_repeatgrid1_copyTurn) > 0.0);
+    let kk = select(vec3f(0.0), min(max(ceil(reach / select(vec3f(1.0), s, on) - 0.4), vec3f(0.0)), vec3f(3.0)), on);
+    let ki = vec3i(kk);
+    for (var dz = -ki.z; dz <= ki.z; dz++) {
+    for (var dy = -ki.y; dy <= ki.y; dy++) {
+    for (var dx = -ki.x; dx <= ki.x; dx++) {
+        let cell = near + vec3f(f32(dx), f32(dy), f32(dz));
         let q = p - (cell - mid) * step;
+        var ch = inreach * abs(max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4)));
+        if ((u.u_control_repeatgrid1_copyTurn) != 0.0) { ch = vec3f(length(ch.xz), ch.y, length(ch.xz)); }
+        let gap = sd_box_gap(q, vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ), ch);
+        if (gap >= best.x) { continue; }
         let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
         var m = q - vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ);
         let mt = sd_rot2(m.xz, -(u.u_control_repeatgrid1_copyTurn) * 6.2831853);
         m = vec3f(mt.x, m.y, mt.y) / sc;
         let k = min(sc.x, min(sc.y, sc.z));
         let r = sphere3_solid_d(m);
-        let d = r.x * k;
+        let d = select(r.x * k, max(r.x * k, gap), gap > 0.0);
         if (d < best.x) { best = vec4f(d, r.yzw); }
+    }
+    }
+    }
+    if (sd_march) {
+        var wall = 1.0e9;
+        let lim = select(reach, vec3f(1.0e9), on);
+        for (var ax = 0; ax < 3; ax++) {
+            if (!on[ax]) { continue; }
+            for (var sd = -1; sd <= 1; sd += 2) {
+                let edge = near[ax] + f32(sd) * (kk[ax] + 1.0);
+                var g = max(abs(p - (near - mid) * step) - lim, vec3f(0.0));
+                g[ax] = max(f32(sd) * ((near[ax] - mid[ax]) * step[ax] - p[ax]) + (kk[ax] + 1.0) * step[ax] - reach[ax], 0.0);
+                wall = min(wall, length(g));
+            }
+        }
+        if (wall > 0.0) { best.x = min(best.x, wall); }
     }
     return best;
 }
@@ -221,23 +294,43 @@ fn repeatgrid1_solid(p: vec3f) -> vec4f {
     let mid = vec3f(0.0);
     let near = select(vec3f(0.0), round(p / select(vec3f(1.0), s, on)), on);
     var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
-    for (var j = 0; j < 1; j++) {
-        var cell = near;
-        if (j > 0) {
-            let a = (j - 1) / 2;
-            let axis = vec3f(f32(a == 0), f32(a == 1), f32(a == 2));
-            if (dot(axis, select(vec3f(0.0), vec3f(1.0), on)) == 0.0) { continue; }
-            cell += axis * select(-1.0, 1.0, (j - 1) % 2 == 0);
-        }
+    let inreach = sd_bounds_reach(sdb_sphere3());
+    let reach = sd_copy_reach(sdb_sphere3(), vec3f(abs(u.u_control_repeatgrid1_copyX), abs(u.u_control_repeatgrid1_copyY), abs(u.u_control_repeatgrid1_copyZ)), vec3f(abs(u.u_control_repeatgrid1_copyScaleX), abs(u.u_control_repeatgrid1_copyScaleY), abs(u.u_control_repeatgrid1_copyScaleZ)), abs(u.u_control_repeatgrid1_copyTurn) > 0.0);
+    let kk = select(vec3f(0.0), min(max(ceil(reach / select(vec3f(1.0), s, on) - 0.4), vec3f(0.0)), vec3f(3.0)), on);
+    let ki = vec3i(kk);
+    for (var dz = -ki.z; dz <= ki.z; dz++) {
+    for (var dy = -ki.y; dy <= ki.y; dy++) {
+    for (var dx = -ki.x; dx <= ki.x; dx++) {
+        let cell = near + vec3f(f32(dx), f32(dy), f32(dz));
         let q = p - (cell - mid) * step;
+        var ch = inreach * abs(max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4)));
+        if ((u.u_control_repeatgrid1_copyTurn) != 0.0) { ch = vec3f(length(ch.xz), ch.y, length(ch.xz)); }
+        let gap = sd_box_gap(q, vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ), ch);
+        if (gap >= best.x) { continue; }
         let sc = max(vec3f(u.u_control_repeatgrid1_copyScaleX, u.u_control_repeatgrid1_copyScaleY, u.u_control_repeatgrid1_copyScaleZ), vec3f(1.0e-4));
         var m = q - vec3f(u.u_control_repeatgrid1_copyX, u.u_control_repeatgrid1_copyY, u.u_control_repeatgrid1_copyZ);
         let mt = sd_rot2(m.xz, -(u.u_control_repeatgrid1_copyTurn) * 6.2831853);
         m = vec3f(mt.x, m.y, mt.y) / sc;
         let k = min(sc.x, min(sc.y, sc.z));
         let r = sphere3_solid(m);
-        let d = r.x * k;
+        let d = select(r.x * k, max(r.x * k, gap), gap > 0.0);
         if (d < best.x) { best = vec4f(d, r.yzw * u.u_control_repeatgrid1_copyColor.rgb); }
+    }
+    }
+    }
+    if (sd_march) {
+        var wall = 1.0e9;
+        let lim = select(reach, vec3f(1.0e9), on);
+        for (var ax = 0; ax < 3; ax++) {
+            if (!on[ax]) { continue; }
+            for (var sd = -1; sd <= 1; sd += 2) {
+                let edge = near[ax] + f32(sd) * (kk[ax] + 1.0);
+                var g = max(abs(p - (near - mid) * step) - lim, vec3f(0.0));
+                g[ax] = max(f32(sd) * ((near[ax] - mid[ax]) * step[ax] - p[ax]) + (kk[ax] + 1.0) * step[ax] - reach[ax], 0.0);
+                wall = min(wall, length(g));
+            }
+        }
+        if (wall > 0.0) { best.x = min(best.x, wall); }
     }
     return best;
 }
@@ -336,7 +429,7 @@ fn solidrender7_output(uv: vec2f) -> vec4f {
     let amb = (0.5 + 0.5 * n.y) * ao;
     let spe = pow(max(dot(n, normalize(light - rd)), 0.0), 40.0) * dif * 0.35;
     let col = pow(lin * (dif * 1.25 + amb * 0.30) + spe, vec3f(1.0 / 2.2));
-    var res = mix(vec4f(col, 1.0), bg, fog);
+    var res = vec4f(mix(col, unpremultiply(bg).rgb, fog), 1.0);
     res = vec4f(res.rgb + gl, res.a + gla * (1.0 - res.a));
     return res;
 }

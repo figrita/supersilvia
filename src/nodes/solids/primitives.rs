@@ -46,11 +46,20 @@ pub static SPHERE: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         primitive(node, ctx, "", "length(q) - {radius}")
     })],
+    bounds: Some(|n, ctx| super::shape_bounds(n, ctx, &super::half("vec3f({radius})"))),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
 };
+
+/// The box at a size scaled by `sc`: its sides scaled, and its Rounding by the smallest scale,
+/// so a squashed box keeps round edges rather than flattened ones.
+const BOX_BODY: &str = "    let half = vec3f({width}, {height}, {depth}) * 0.5 * sc;
+    let r = min({rounding} * min(sc.x, min(sc.y, sc.z)), min(half.x, min(half.y, half.z)));
+    let b = abs(q) - half + r;
+";
+const BOX_DIST: &str = "length(max(b, vec3f(0.0))) + min(max(b.x, max(b.y, b.z)), 0.0) - r";
 
 pub static BOX: NodeDef = NodeDef {
     slug: "box",
@@ -70,16 +79,19 @@ pub static BOX: NodeDef = NodeDef {
         color("color", "Color", "#5a8fe8ff"),
     ],
     outputs: &[out(|node, ctx, _| {
-        primitive(
-            node,
-            ctx,
-            "    let half = vec3f({width}, {height}, {depth}) * 0.5;
-    let r = min({rounding}, min(half.x, min(half.y, half.z)));
-    let b = abs(q) - half + r;
-",
-            "length(max(b, vec3f(0.0))) + min(max(b.x, max(b.y, b.z)), 0.0) - r",
-        )
+        primitive(node, ctx, &[super::UNSCALED, BOX_BODY].concat(), BOX_DIST)
     })],
+    scaled: Some(crate::nodes::ScaledDef {
+        exact: "true",
+        wgsl: |n, ctx| super::scaled_body(n, ctx, BOX_BODY, BOX_DIST),
+    }),
+    bounds: Some(|n, ctx| {
+        super::shape_bounds(
+            n,
+            ctx,
+            &super::half("vec3f({width}, {height}, {depth}) * 0.5"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -109,11 +121,23 @@ pub static TORUS: NodeDef = NodeDef {
             "length(vec2f(length(q.xz) - {ring}, q.y)) - {tube}",
         )
     })],
+    bounds: Some(|n, ctx| {
+        super::shape_bounds(
+            n,
+            ctx,
+            &super::half("vec3f({ring} + {tube}, {tube}, {ring} + {tube})"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
 };
+
+/// The cylinder at a size scaled by `sc`, exact while both widths scale alike.
+const CYLINDER_BODY: &str =
+    "    let e = abs(vec2f(length(q.xz), q.y)) - vec2f({radius} * sc.x, {height} * 0.5 * sc.y);\n";
+const CYLINDER_DIST: &str = "min(max(e.x, e.y), 0.0) + length(max(e, vec2f(0.0)))";
 
 pub static CYLINDER: NodeDef = NodeDef {
     slug: "cylinder",
@@ -134,10 +158,21 @@ pub static CYLINDER: NodeDef = NodeDef {
         primitive(
             node,
             ctx,
-            "    let e = abs(vec2f(length(q.xz), q.y)) - vec2f({radius}, {height} * 0.5);\n",
-            "min(max(e.x, e.y), 0.0) + length(max(e, vec2f(0.0)))",
+            &[super::UNSCALED, CYLINDER_BODY].concat(),
+            CYLINDER_DIST,
         )
     })],
+    scaled: Some(crate::nodes::ScaledDef {
+        exact: "sc.x == sc.z",
+        wgsl: |n, ctx| super::scaled_body(n, ctx, CYLINDER_BODY, CYLINDER_DIST),
+    }),
+    bounds: Some(|n, ctx| {
+        super::shape_bounds(
+            n,
+            ctx,
+            &super::half("vec3f({radius}, {height} * 0.5, {radius})"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -167,6 +202,13 @@ pub static CAPSULE: NodeDef = NodeDef {
             "length(c) - {radius}",
         )
     })],
+    bounds: Some(|n, ctx| {
+        super::shape_bounds(
+            n,
+            ctx,
+            &super::half("vec3f({radius}, {length} * 0.5 + {radius}, {radius})"),
+        )
+    }),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -195,6 +237,7 @@ pub static OCTAHEDRON: NodeDef = NodeDef {
             "(a.x + a.y + a.z - {size}) * 0.57735027",
         )
     })],
+    bounds: Some(|n, ctx| super::shape_bounds(n, ctx, &super::half("vec3f({size})"))),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,

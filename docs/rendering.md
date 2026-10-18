@@ -1159,7 +1159,10 @@ in-region options drawn in four folding [sections](ui.md#sections):
   bounce; and Reflectivity.
 
 **Step** scales each march step: under 1 is safer, and over 1 is faster and can overstep. The
-floor and the fog are the render's, not solids. Every option is a `Code` option, and at its
+floor and the fog are the render's, not solids. **Fog shifts a hit's color toward the
+Background's and never its opacity**: whatever a ray hits is opaque however far off, so a
+transparent Background leaves the solids whole over what is under the render, and fades them
+toward black, the color a transparent swatch keeps once premultiplied. Every option is a `Code` option, and at its
 default each emits nothing. **Glow is on while Glow Amount is above zero**, cabled or not, with
 no switch of its own. Glow Amount is a uniform, and a control value is never baked into the
 WGSL, so the glow is always emitted and asked at run time: each step accumulates only inside

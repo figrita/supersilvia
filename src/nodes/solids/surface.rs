@@ -34,6 +34,10 @@ pub static ROUND: NodeDef = NodeDef {
             &format!("    let r = {inner};\n    return vec4f(r.x - {{radius}}, r.yzw);"),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, {{radius}})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -59,6 +63,10 @@ pub static SHELL: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, {{thickness}} * 0.5)"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -85,6 +93,7 @@ pub static PAINT: NodeDef = NodeDef {
             &format!("    let r = {inner};\n    return vec4f(r.x, {{color}}.rgb);"),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -118,6 +127,10 @@ pub static DISPLACE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, abs({{amount}}))"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -208,6 +221,7 @@ pub static TEXTURE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF, BOX_TEX],
     ..NodeDef::EMPTY
 };

@@ -140,6 +140,25 @@ pub type GenFn = fn(node: NodeId, ctx: &mut CompileContext, func: &str) -> Strin
 /// [Dual outputs](../../docs/nodes.md#dual-outputs).
 pub type EvalFn = fn(node: NodeId, ctx: &TickContext<'_>) -> f64;
 
+/// A solid's bounds: a WGSL `SdBounds` expression for a box holding the node's solid, in its
+/// output's space, built from uniforms only (`CompileContext::uniform_fill`) and its inputs'
+/// own bounds (`CompileContext::solid_bounds`). `None` where it cannot say.
+pub type BoundsFn = fn(node: NodeId, ctx: &mut CompileContext) -> Option<String>;
+
+/// A shape's own body at a size scaled on each axis, so a repeat's squashed copy is measured
+/// exactly rather than by a bound (`CompileContext::solid_scaled`).
+#[derive(Clone, Copy)]
+pub struct ScaledDef {
+    /// Where the body is exact, as a WGSL condition on the scale `sc`: a round shape stays
+    /// round only while its two widths are scaled alike. Elsewhere the copy takes the shape's
+    /// ordinary distance.
+    pub exact: &'static str,
+    /// The body of `fn(p: vec3f, q: vec3f, sc: vec3f) -> vec4f`, with `{key}` holes for the
+    /// node's numbers: `q` the point from the scaled shape's center, `sc` the scale, and `p`
+    /// the point unscaled, where a field cabled into a number is read.
+    pub wgsl: fn(node: NodeId, ctx: &mut CompileContext) -> String,
+}
+
 /// [`EvalFn`] for a color: a `VaryingColor` output's WGSL body written in Rust, returning the
 /// straight color, which the synth premultiplies where it enters a shader as every color the
 /// CPU publishes is.
@@ -1149,6 +1168,13 @@ pub struct NodeDef {
     /// so a project made elsewhere opens whole. `syphon` is the one that answers false, on
     /// Linux.
     pub offered: fn() -> bool,
+    /// How big this node's solid is, for a repeat to know how far its copies reach. `None`, the
+    /// default, is a solid that cannot say, which a repeat reads as reaching its neighbors
+    /// and no further.
+    pub bounds: Option<BoundsFn>,
+    /// This shape's body at a scaled size, for a shape whose numbers can take one. `None`, the
+    /// default, and a repeat measures a scaled copy by a bound.
+    pub scaled: Option<ScaledDef>,
 }
 
 impl NodeDef {
@@ -1176,6 +1202,8 @@ impl NodeDef {
         measure_wgsl: None,
         row_headings: &[],
         offered: || true,
+        bounds: None,
+        scaled: None,
     };
 
     /// How many of this kind's options are ticks sharing one row of their own — silvia's

@@ -16,9 +16,14 @@
 //! mapping (*Spherical Fibonacci Mapping*, 2015, as in Inigo Quilez's shadertoy "inverse
 //! spherical fibonacci") turns a direction into the four lattice points round it, of which
 //! the nearest is the copy. Checked against the nearest of all of them, for every count from
-//! 1 to 500, it picks the same copy. As with Repeat, a copy has to fit its cell: nothing
-//! checks the neighbors, so a copy wider than the spacing is sliced, and copies a list makes
-//! taller than their neighbors notch where they stand beside a shorter one.
+//! 1 to 500, it picks the same copy. **Where its input can say how big it is**, it measures
+//! every copy that can reach the point instead, as Repeat does: a copy's box, seen from the
+//! sphere's center, lies within an angle of its own direction, so the copies within that angle
+//! and one lattice spacing of the point's direction are found among the band of heights that
+//! covers and measured, each skipped where its box is further off than the nearest so far, and
+//! a march's step is held to the spacing's angle, which every other copy is further round than.
+//! Where it cannot say, the nearest copy alone is measured, and a copy wider than the spacing
+//! is sliced.
 //!
 //! **Noise Displace divides by the noise's steepest slope.** The noise is gradient noise with
 //! unit gradients hashed from the lattice corners by `sd_hash3`, integer arithmetic, so it is
@@ -157,8 +162,7 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
     label: "Scatter on Sphere",
     tooltip: "Spreads Copies of a solid evenly over a sphere of Radius, each standing on it with \
               its top facing out. A list into Copies makes as many copies as it has items. Per \
-              copy moves, turns, sizes and colors each copy, from a knob or a list. A copy wider \
-              than the gap between copies is sliced.",
+              copy moves, turns, sizes and colors each copy, from a knob or a list.",
     inputs: &[
         solid("input", "Solid"),
         crate::nodes::percopy::count("copies", "Copies", 20.0, 500.0),
@@ -176,7 +180,6 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
     row_headings: crate::nodes::percopy::ROW_HEADINGS,
     outputs: &[out(|node, ctx, _| {
         use crate::nodes::percopy::{self, Item};
-        let inner = ctx.input(node, "input", "m");
         let copies = percopy::count_of(ctx, node, "copies");
         // Copies count from the top of the sphere down, so a list runs top to bottom.
         let copy = percopy::read(
@@ -187,32 +190,85 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
                 count: "n",
             },
         );
-        let place = percopy::place(&copy);
+        let measure_copy = percopy::evaluate(ctx, node, &copy, "input", str::to_string);
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
         } else {
             "r.yzw".to_string()
         };
+        // Copy `i`'s frame: x and z across the sphere, y out of it, and the point in it, `q`.
+        let frame = "        let up = sd_fibonacci_point(i, n);
+        let sg = select(-1.0, 1.0, up.z >= 0.0);
+        let a = -1.0 / (sg + up.z);
+        let b = up.x * up.y * a;
+        let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
+        let back = vec3f(b, sg + up.y * up.y * a, -up.y);
+        let dp = p - up * {radius};
+        let q = vec3f(dot(dp, side), dot(dp, up), -dot(dp, back));
+";
+        let Some(bounds) = ctx.solid_bounds(node, "input") else {
+            return fill(
+                node,
+                ctx,
+                &format!(
+                    "    let n = clamp(round({copies}), 1.0, 500.0);
+    let i = sd_fibonacci_nearest(p / max(length(p), 1.0e-6), n);
+{frame}{measure_copy}    return vec4f(r.x * k, {color});"
+                ),
+            );
+        };
+        // The copies that can reach the point: a copy's box, seen from the sphere's center,
+        // lies within `spread` of its own direction while its nearest side stays out past the
+        // center, so every copy within `spread` and a lattice spacing of the point's direction
+        // is measured, found among the band of heights that covers, and each skipped where its
+        // box is further off than the nearest so far. A copy further round is a spacing's angle
+        // off the point's direction at least, which a march holds its step to.
+        let (offset, scale, turned) = percopy::extremes(ctx, node);
+        let skip = super::repeat::skip_copy(&copy);
+        let distance = super::repeat::DISTANCE_BOUNDED;
         fill(
             node,
             ctx,
             &format!(
                 "    let n = clamp(round({copies}), 1.0, 500.0);
-    let i = sd_fibonacci_nearest(p / max(length(p), 1.0e-6), n);
-    let up = sd_fibonacci_point(i, n);
-    let sg = select(-1.0, 1.0, up.z >= 0.0);
-    let a = -1.0 / (sg + up.z);
-    let b = up.x * up.y * a;
-    let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
-    let back = vec3f(b, sg + up.y * up.y * a, -up.y);
-    let d = p - up * {{radius}};
-    let q = vec3f(dot(d, side), dot(d, up), -dot(d, back));
-{place}    let r = {inner};
-    return vec4f(r.x * k, {color});"
+    let lp = length(p);
+    let v = p / max(lp, 1.0e-6);
+    let bx = {bounds};
+    let inreach = sd_bounds_reach(bx);
+    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
+    let low = {{radius}} + min(bx.lo.y * ({scale}).y, 0.0) - ({offset}).y;
+    let margin = min(sqrt(12.566371 / n), 1.5707963);
+    var within = 3.1415927;
+    if (low > 0.0) {{ within = min(atan2(length(reach.xz), low) + margin, 3.1415927); }}
+    let cmin = cos(within);
+    let pv = acos(clamp(v.y, -1.0, 1.0));
+    let i0 = max(floor((1.0 - cos(max(pv - within, 0.0))) * n * 0.5 - 0.5), 0.0);
+    let i1 = min(ceil((1.0 - cos(min(pv + within, 3.1415927))) * n * 0.5 - 0.5), n - 1.0);
+    let sv = sqrt(max(1.0 - v.y * v.y, 0.0));
+    let av = atan2(v.z, v.x);
+    var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
+    for (var i = i0; i <= i1; i += 1.0) {{
+        let yi = 1.0 - (2.0 * i + 1.0) / n;
+        let ai = 6.2831853 * fract(i * 0.61803399);
+        if (yi * v.y + sqrt(max(1.0 - yi * yi, 0.0)) * sv * cos(ai - av) < cmin) {{ continue; }}
+{frame}{skip}{measure_copy}{distance}        if (d < best.x) {{ best = vec4f(d, {color}); }}
+    }}
+    if (sd_march && within < 3.1415927) {{ best.x = min(best.x, lp * sin(margin)); }}
+    return best;"
             ),
         )
     })],
-    wgsl_utils: &[SDF, FIBONACCI],
+    bounds: Some(|node, ctx| {
+        let b = ctx.solid_bounds(node, "input")?;
+        let (offset, scale, turned) = crate::nodes::percopy::extremes(ctx, node);
+        ctx.uniform_fill(
+            node,
+            &super::half(&format!(
+                "vec3f({{radius}} + length(sd_copy_reach({b}, {offset}, {scale}, {turned})))"
+            )),
+        )
+    }),
+    wgsl_utils: &[SDF, super::MARCH_STATE, FIBONACCI],
     ..NodeDef::EMPTY
 };
 

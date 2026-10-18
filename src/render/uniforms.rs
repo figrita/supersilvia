@@ -51,6 +51,8 @@ pub fn pack(
                 }
                 Some(UniformValue::List(items)) => {
                     put(field.offset, &(items.len() as f32).to_ne_bytes());
+                    let most = items.iter().fold(0.0_f32, |m, v| m.max(v.abs()));
+                    put(field.offset + 4, &most.to_ne_bytes());
                     for (k, v) in items.iter().enumerate() {
                         put(field.offset + 16 + 4 * k as u32, &v.to_ne_bytes());
                     }

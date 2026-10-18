@@ -307,6 +307,26 @@ fn fields() -> Vec<Entry> {
                     .expect("a list into a repeat's row");
             }
             push(format!("lists:{repeat}:{extent}"), &g, out);
+            // The same with a sphere whose size is known, so the repeat measures by its bounds,
+            // inside a ring, so one repeat's bounds reach another.
+            let sphere = g
+                .iter()
+                .find(|(_, n)| n.def.slug == "sphere")
+                .map(|(id, _)| id)
+                .expect("a sphere");
+            g.disconnect(PortRef::new(sphere, "radius"));
+            push(format!("bounded:{repeat}:{extent}"), &g, out);
+            let render = g
+                .iter()
+                .find(|(_, n)| n.def.slug == "solidrender")
+                .map(|(id, _)| id)
+                .expect("a render");
+            let ring = add(&mut g, "repeataround");
+            g.connect(PortRef::new(rep, "solid"), PortRef::new(ring, "input"))
+                .expect("solid into solid");
+            g.connect(PortRef::new(ring, "solid"), PortRef::new(render, "solid"))
+                .expect("solid into solid");
+            push(format!("nested:{repeat}:{extent}"), &g, out);
         }
     }
 
@@ -367,6 +387,25 @@ fn fields() -> Vec<Entry> {
             .expect("picture into picture");
         let named: Vec<String> = options.iter().map(|(_, v)| (*v).to_string()).collect();
         push(format!("lists:{slug}:{}", named.join(":")), &g, out);
+    }
+
+    // Every solid that can say how big it is, repeated, so its bounds are compiled and read.
+    for def in supersilvia::nodes::REGISTRY
+        .iter()
+        .filter(|d| d.bounds.is_some() && d.outputs.iter().any(|o| o.ty.is_solid()))
+    {
+        let mut g = Graph::new();
+        let shape = add(&mut g, def.slug);
+        let rep = add(&mut g, "repeatgrid");
+        g.connect(PortRef::new(shape, "solid"), PortRef::new(rep, "input"))
+            .expect("solid into solid");
+        let render = add(&mut g, "solidrender");
+        g.connect(PortRef::new(rep, "solid"), PortRef::new(render, "solid"))
+            .expect("solid into solid");
+        let out = add(&mut g, "output");
+        g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+            .expect("picture into picture");
+        push(format!("bounds:{}", def.slug), &g, out);
     }
 
     // Cast by every projection: a field onto a sphere's radius, and a picture straight into
