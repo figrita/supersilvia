@@ -1979,9 +1979,35 @@ a function of its own, `sdb_{slug}{id}()`. A shape gives its own box about its c
 `solids::shape_bounds`, which moves it to its X, Y and Z, turns and scales it under its
 Transform rows — a turned box held by the ball round its corners — grows it by Blend and lands
 it on Onto's by its Mode. A node with no `bounds`, or with a field cabled into a number its
-size depends on, cannot say, and what reads it assumes nothing. The shapes in Primitives,
-Union, Subtract, Intersect, Place, Paint, Round, Shell, Displace, Texture, the color fields and
-the repeats say.
+size depends on, cannot say, and what reads it assumes nothing.
+
+**Every solid that is finite whenever its inputs are says**, each from its own math:
+
+- **The shapes** through `shape_bounds`.
+- **Combine**: Union, Exclusive and Morph hold their inputs' boxes — a mix of two distances is
+  below zero only where one of them is — Union's grown by Smooth. Stairs Union's and Columns
+  Union's seams lie where `a + b` is under Radius, so both boxes grow by Radius. Subtract keeps
+  A's box, and Intersect the overlap of both.
+- **Space**: Place moves, turns and scales the box, Stretch scales it on each axis, and
+  Elongate pulls it apart by X, Y and Z. Mirror Space keeps each folded axis's far side and
+  reflects it for the near one, and Fold Plane adds the box round the box's reflection. Twist
+  and Bend turn a point about an axis through the origin, keeping its distance from that axis,
+  so the box keeps the input's extent along the axis and is the circle round the input's
+  furthest reach across it. Wrap maps depth `z` to the distance `R − z` from Y and keeps
+  height, so the ring lies within `R` less the box's nearest depth, however long the row along
+  X. Warp moves a point by at most Amount on each axis, and grows the box by that.
+- **Surface**: Round, Shell and Displace grow the box by how far they move the surface, Noise
+  Displace by twice Amount, since its noise never passes 1. Paint, Texture and the color
+  fields pass their input's through.
+- **Fold** lies in a ball round the origin: an iteration takes a point at distance `ρ` to at
+  least `k·ρ − |o|`, `o` being Offset scaled by `k − 1`, so a point whose final image is within
+  the input's reach `R` began within `R·k⁻ⁿ + |Offset|·(1 − k⁻ⁿ)`.
+- **The repeats** hold every copy's reach, and a Repeat going on Forever is a box without end
+  on each axis it repeats along.
+
+**Ground, Slab, Gyroid and Heightfield fill space without end** and cannot say, except where
+one is carved out of Onto or kept only where Onto is: then its solid lies within Onto's box,
+which it gives (`solids::endless_bounds`).
 
 ### Two functions per solid
 

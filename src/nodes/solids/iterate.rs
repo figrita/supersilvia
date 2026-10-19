@@ -9,7 +9,11 @@
 //! The input is evaluated once at the final point and its distance divided by the scale
 //! accumulated on the way, which makes the whole a bound: folds and turns never lengthen a
 //! step and the division undoes every scale. The iteration count is a Code option, so the loop
-//! unrolls to a fixed length and a cable cannot drive the cost up.
+//! unrolls to a fixed length and a cable cannot drive the cost up. **Its solid lies in a ball
+//! round the origin.** An iteration takes a point at distance `ρ` from the origin to one at
+//! least `k·ρ − |o|` away, `o` being Offset scaled by `k − 1`, so a point whose final image
+//! lies within the input's reach `R` began within `R·k⁻ⁿ + |Offset|·(1 − k⁻ⁿ)`: never further
+//! than the larger of `R` and the Offset point.
 //!
 //! **Scatter on Sphere finds the nearest copy without looking at the others.** The copies sit
 //! on a spherical Fibonacci lattice, and Keinert, Innmann, Sänger and Stamminger's inverse
@@ -30,7 +34,8 @@
 //! the same on every GPU. With a quintic fade its slope is never more than 2.7923 a lattice
 //! unit, reached at a cell's center whatever the gradients are; doubled to make Amount about
 //! the tallest bump, that is 5.6. The octaves' slopes add, each scaled by its frequency and
-//! weight, so the bound is exact for one octave and loose for many.
+//! weight, so the bound is exact for one octave and loose for many. The noise never passes 1
+//! either way, so the surface moves out by at most twice Amount, which its box grows by.
 
 use super::{SDF, fill, num, out, solid, turn};
 use crate::nodes::{Category, Family, NodeDef, OptionDef};
@@ -150,6 +155,21 @@ pub static FOLD: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|node, ctx| {
+        let b = ctx.solid_bounds(node, "input")?;
+        if !ctx.connected(node, "input") {
+            return Some(b);
+        }
+        let n = count(ctx.option(node, "iterations"), 12, 6);
+        let shrink = format!("pow(clamp({{scale}}, 1.0, 4.0), -{n}.0)");
+        ctx.uniform_fill(
+            node,
+            &super::half(&format!(
+                "vec3f(length(sd_bounds_reach({b})) * {shrink} + \
+                 length(vec3f({{offsetX}}, {{offsetY}}, {{offsetZ}})) * (1.0 - {shrink}))"
+            )),
+        )
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -430,6 +450,10 @@ pub static NOISE_DISPLACE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, 2.0 * abs({{amount}}))"))
+    }),
     wgsl_utils: &[SDF, NOISE],
     ..NodeDef::EMPTY
 };

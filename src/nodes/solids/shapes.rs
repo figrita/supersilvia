@@ -324,6 +324,7 @@ pub static SLAB: NodeDef = NodeDef {
             "select(max(h, -h - thick), h, thick <= 0.0)",
         )
     })],
+    bounds: Some(super::endless_bounds),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,

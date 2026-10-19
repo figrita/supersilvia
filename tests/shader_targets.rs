@@ -406,6 +406,35 @@ fn fields() -> Vec<Entry> {
         g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
             .expect("picture into picture");
         push(format!("bounds:{}", def.slug), &g, out);
+        // The same with a sphere in every solid input, by every choice of every option that
+        // changes the code, so a rule over its inputs' boxes is compiled whole: a shape lands
+        // on its Onto by each Mode, which an endless shape's rule reads.
+        for input in def.inputs.iter().filter(|i| i.ty.is_solid()) {
+            let sphere = add(&mut g, "sphere");
+            g.connect(
+                PortRef::new(sphere, "solid"),
+                PortRef::new(shape, input.key),
+            )
+            .expect("solid into solid");
+        }
+        push(format!("bounds:{}:fed", def.slug), &g, out);
+        for option in def.options.iter().filter(|o| o.rebuilds() && !o.is_asset()) {
+            for (value, _) in option.choices {
+                g.get_mut(shape)
+                    .expect("just added")
+                    .options
+                    .insert(option.key, (*value).to_string());
+                push(
+                    format!("bounds:{}:fed:{}={value}", def.slug, option.key),
+                    &g,
+                    out,
+                );
+            }
+            g.get_mut(shape)
+                .expect("just added")
+                .options
+                .insert(option.key, option.default.to_string());
+        }
     }
 
     // Cast by every projection: a field onto a sphere's radius, and a picture straight into

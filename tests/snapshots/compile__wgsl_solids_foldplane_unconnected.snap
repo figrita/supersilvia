@@ -128,6 +128,22 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
+// The box holding `b` reflected across Fold Plane's plane: Offset along the normal that Yaw
+// and Pitch aim.
+fn sd_bounds_reflect(b: SdBounds, yaw: f32, pitch: f32, offset: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    let n = vec3f(cos(pitch) * cos(yaw), sin(pitch), cos(pitch) * sin(yaw));
+    let c = (b.lo + b.hi) * 0.5;
+    let e = (b.hi - b.lo) * 0.5;
+    let rc = c - 2.0 * (dot(c, n) - offset) * n;
+    let h = vec3f(
+        dot(abs(vec3f(1.0, 0.0, 0.0) - 2.0 * n.x * n), e),
+        dot(abs(vec3f(0.0, 1.0, 0.0) - 2.0 * n.y * n), e),
+        dot(abs(vec3f(0.0, 0.0, 1.0) - 2.0 * n.z * n), e)
+    );
+    return SdBounds(rc - h, rc + h);
+}
+
 fn foldplane1_solid_d(p: vec3f) -> vec4f {
     let yaw = u.u_control_foldplane1_yaw * 6.2831853;
     let pitch = u.u_control_foldplane1_pitch * 6.2831853;
