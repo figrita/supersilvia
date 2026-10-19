@@ -12,14 +12,18 @@
 //! cut into cells, none narrower than a copy along any axis, each listing the copies whose box, grown by a margin of half a cell,
 //! touches it. A copy not listed in a point's cell is more than the margin from every point of
 //! the cell, so the copies listed decide the distance up to the margin: a march is held to it,
-//! and every other read takes the copies listed alone.
+//! and every other read takes the copies listed alone. **Empty space is crossed in one step**:
+//! every copy lies in the cells that list it, so a point in an empty cell whose surrounding
+//! rings of cells are empty is no nearer a copy than the edge of those rings, and a march steps
+//! there.
 //!
 //! **Five compute passes build every repeat's list and grid**, each a dispatch over all of a
 //! module's repeats at once, the repeat in the dispatch's `z`: place (each copy's instance and
 //! the biggest box among them, the grid's box and count from the first, the counts zeroed),
 //! grid (the cells sized by the biggest copy), count (each copy adds one to each cell it
 //! touches), scan (one workgroup a repeat turns counts into starts and checks the whole fits),
-//! fill (each copy writes its index into its cells). Atomics fill a cell in any order,
+//! fill (each copy writes its index into its cells), then ring, [`RINGS`] times (each empty
+//! cell counts the rings of empty cells round it, a ring more each time). Atomics fill a cell in any order,
 //! so a point's distance breaks a tie by the lower index: a render never flickers between two
 //! copies at the same distance.
 //!
@@ -44,11 +48,17 @@ const ENTRIES_PER_ITEM: u32 = 27;
 /// place pass finds it, for the grid pass to size the cells by.
 const EXTENT_WORDS: u32 = 3;
 
+/// How many rings of empty cells round an empty cell are counted, a pass each: a march
+/// crossing empty cells steps past as many rings as it is sure of, at most this many.
+pub const RINGS: u32 = 6;
+
 /// The threads in a workgroup of the place, count and fill passes.
 pub const WORKGROUP: u32 = 64;
 
 /// The compute entry points, in the order a draw dispatches them.
-pub const ENTRIES: [&str; 5] = ["cs_place", "cs_grid", "cs_count", "cs_scan", "cs_fill"];
+pub const ENTRIES: [&str; 6] = [
+    "cs_place", "cs_grid", "cs_count", "cs_scan", "cs_fill", "cs_ring",
+];
 
 /// Where one repeat's copies, grid, counts and lists sit in the module's buffers, and how many
 /// of each it may have.
@@ -68,9 +78,14 @@ pub struct Slot {
 }
 
 impl Slot {
-    /// The first of the three words after its counts that keep its biggest copy's size.
-    pub fn extent(&self) -> u32 {
+    /// Its first cell's empty rings, after its counts: see [`RINGS`].
+    pub fn rings(&self) -> u32 {
         self.count_base + self.cells
+    }
+
+    /// The first of the three words after its rings that keep its biggest copy's size.
+    pub fn extent(&self) -> u32 {
+        self.count_base + 2 * self.cells
     }
 
     /// A repeat of at most `items` copies in at most `cells` cells, after every slot in
@@ -84,7 +99,7 @@ impl Slot {
             cells,
             entries,
             item_base: last.map_or(0, |s| s.item_base + s.items),
-            count_base: last.map_or(0, |s| s.count_base + s.cells + EXTENT_WORDS),
+            count_base: last.map_or(0, |s| s.count_base + 2 * s.cells + EXTENT_WORDS),
             list_base: last.map_or(0, |s| s.list_base + s.cells + s.entries),
         }
     }
@@ -100,6 +115,8 @@ pub struct Instancing {
     /// and fill passes, and the place pass, dispatch over in `x`.
     pub items: u32,
     pub place: u32,
+    /// The most cells any one repeat holds: what the ring pass dispatches over.
+    pub cells: u32,
     /// The buffers' lengths: instances, counts (with each repeat's extent words), list words.
     pub instances: u32,
     pub counts: u32,
@@ -119,8 +136,9 @@ impl Instancing {
                 .map(|s| s.items.max(s.cells))
                 .max()
                 .unwrap_or(0),
+            cells: slots.iter().map(|s| s.cells).max().unwrap_or(0),
             instances: last.item_base + last.items,
-            counts: last.count_base + last.cells + EXTENT_WORDS,
+            counts: last.count_base + 2 * last.cells + EXTENT_WORDS,
             lists: last.list_base + last.cells + last.entries,
         }
     }
@@ -130,16 +148,19 @@ impl Instancing {
         self.repeats > 0
     }
 
-    /// Each dispatch's workgroups, in [`ENTRIES`] order.
-    pub fn dispatches(&self) -> [(u32, u32, u32); 5] {
+    /// Each dispatch in the order a draw makes them: the entry point's index in [`ENTRIES`]
+    /// and its workgroups. The ring pass runs [`RINGS`] times.
+    pub fn dispatches(&self) -> Vec<(usize, (u32, u32, u32))> {
         let over = |n: u32| n.div_ceil(WORKGROUP).max(1);
-        [
-            (over(self.place), 1, self.repeats),
-            (1, 1, self.repeats),
-            (over(self.items), 1, self.repeats),
-            (1, 1, self.repeats),
-            (over(self.items), 1, self.repeats),
-        ]
+        let mut out = vec![
+            (0, (over(self.place), 1, self.repeats)),
+            (1, (1, 1, self.repeats)),
+            (2, (over(self.items), 1, self.repeats)),
+            (3, (1, 1, self.repeats)),
+            (4, (over(self.items), 1, self.repeats)),
+        ];
+        out.extend((0..RINGS).map(|_| (5, (over(self.cells), 1, self.repeats))));
+        out
     }
 
     /// The bytes of each buffer, in binding order: one `SdInstance` is seven `vec4f`s, one
@@ -245,6 +266,51 @@ fn sd_grid_finish(gi: u32, ext: u32, cap: f32) {
     atomicStore(&sd_count[ext], 0u);
     atomicStore(&sd_count[ext + 1u], 0u);
     atomicStore(&sd_count[ext + 2u], 0u);
+}
+
+// One step of counting how far each cell is from a cell that lists a copy, in cells along the
+// furthest axis: 0 where it lists one, and otherwise one more than the least of its 26
+// neighbors, a neighbor past the grid's edge as far as can be, at most `RINGS`. Read while other
+// cells are being written, a neighbor's is its last or its new, each no more than the truth, so
+// the cell's is never more than the truth either. A cell `n` away has `n - 1` empty rings round
+// it.
+fn sd_grid_ring(gi: u32, count_base: u32, rings: u32, t: u32, most: u32) {
+    let g = sd_grid[gi];
+    if (t >= g.res.w) { return; }
+    if (atomicLoad(&sd_count[count_base + t]) > 0u) {
+        atomicStore(&sd_count[rings + t], 0u);
+        return;
+    }
+    let c = vec3i(vec3u(t % g.res.x, (t / g.res.x) % g.res.y, t / (g.res.x * g.res.y)));
+    let r = vec3i(g.res.xyz);
+    var least = most;
+    for (var dz = -1; dz <= 1; dz++) {
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                let n = c + vec3i(dx, dy, dz);
+                if (any(n < vec3i(0)) || any(n >= r) || all(vec3i(dx, dy, dz) == vec3i(0))) { continue; }
+                let k = u32(n.x) + g.res.x * (u32(n.y) + g.res.y * u32(n.z));
+                least = min(least, atomicLoad(&sd_count[rings + k]));
+            }
+        }
+    }
+    atomicStore(&sd_count[rings + t], min(least + 1u, most));
+}
+
+// How far `q`, in cell `c`, is from the nearest cell that may list a copy, `c` being `n` cells
+// from one: past the `n - 1` empty rings round it, along the axes the rings stop short of the
+// grid's edge on; far where they reach every edge, and nothing known where `n` is 0.
+fn sd_grid_clear(g: SdGrid, c: vec3u, n: u32, q: vec3f) -> f32 {
+    if (n == 0u) { return 0.0; }
+    let l = n - 1u;
+    let lo = g.lo.xyz + (vec3f(c) - f32(l)) * g.cs.xyz;
+    let hi = g.lo.xyz + (vec3f(c) + f32(l) + 1.0) * g.cs.xyz;
+    let low = vec3f(c) >= vec3f(f32(l) + 0.5);
+    let high = vec3f(c) + f32(l) + 1.0 <= vec3f(g.res.xyz) - 0.5;
+    let below = select(vec3f(1.0e9), q - lo, low);
+    let above = select(vec3f(1.0e9), hi - q, high);
+    let d = min(below, above);
+    return min(d.x, min(d.y, d.z));
 }
 
 // The point `p` of the repeat's space in a copy's frame, before its scale.
@@ -372,6 +438,7 @@ pub fn entries(slots: &[(Slot, String)]) -> String {
     let mut count = String::new();
     let mut scan = String::new();
     let mut fill = String::new();
+    let mut ring = String::new();
     for (s, name) in slots {
         let g = s.grid;
         writeln!(place, "        case {g}u: {{ {name}(t); }}").unwrap();
@@ -396,6 +463,13 @@ pub fn entries(slots: &[(Slot, String)]) -> String {
             cb = s.count_base,
             lb = s.list_base,
             e = s.entries
+        )
+        .unwrap();
+        writeln!(
+            ring,
+            "        case {g}u: {{ sd_grid_ring({g}u, {cb}u, {rb}u, t, {RINGS}u); }}",
+            cb = s.count_base,
+            rb = s.rings(),
         )
         .unwrap();
         writeln!(
@@ -449,6 +523,14 @@ fn cs_fill(@builtin(global_invocation_id) id: vec3u) {{
 {fill}        default: {{}}
     }}
 }}
+
+@compute @workgroup_size({WORKGROUP})
+fn cs_ring(@builtin(global_invocation_id) id: vec3u) {{
+    let t = id.x;
+    switch id.z {{
+{ring}        default: {{}}
+    }}
+}}
 "
     )
 }
@@ -470,7 +552,10 @@ pub fn place_head(s: &Slot, n: &str, bounds: &str) -> String {
             vec4u(0u),
         );
     }}
-    if (t < {cells}u) {{ atomicStore(&sd_count[{cb}u + t], 0u); }}
+    if (t < {cells}u) {{
+        atomicStore(&sd_count[{cb}u + t], 0u);
+        atomicStore(&sd_count[{cb}u + {cells}u + t], 0u);
+    }}
     if (f32(t) >= min(total, {items}.0)) {{ return; }}
 ",
         cells = s.cells,
@@ -491,9 +576,17 @@ pub fn lookup(s: &Slot, eval: &str, color: &str) -> String {
         let gap = sd_box_gap(p, (g.lo.xyz + g.hi.xyz) * 0.5, (g.hi.xyz - g.lo.xyz) * 0.5);
         var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
         var bi = 0xffffffffu;
-        if (sd_march) {{ best.x = max(gap, g.lo.w - gap); }}
         let cell = sd_grid_cell(g, p);
         let count = min(atomicLoad(&sd_count[{cb}u + cell]), {entries}u);
+        if (sd_march) {{
+            let q = clamp(p, g.lo.xyz, g.hi.xyz);
+            var inner = g.lo.w;
+            if (count == 0u) {{
+                let cc = vec3u(cell % g.res.x, (cell / g.res.x) % g.res.y, cell / (g.res.x * g.res.y));
+                inner = max(inner, sd_grid_clear(g, cc, atomicLoad(&sd_count[{rb}u + cell]), q));
+            }}
+            best.x = sqrt(gap * gap + inner * inner);
+        }}
         let start = sd_list[{lb}u + cell];
         for (var j = 0u; j < count; j++) {{
             if (start + j >= {entries}u) {{ break; }}
@@ -517,5 +610,6 @@ pub fn lookup(s: &Slot, eval: &str, color: &str) -> String {
         ib = s.item_base,
         cells = s.cells,
         entries = s.entries,
+        rb = s.rings(),
     )
 }

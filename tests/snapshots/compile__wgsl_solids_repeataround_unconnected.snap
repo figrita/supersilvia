@@ -228,6 +228,51 @@ fn sd_grid_finish(gi: u32, ext: u32, cap: f32) {
     atomicStore(&sd_count[ext + 2u], 0u);
 }
 
+// One step of counting how far each cell is from a cell that lists a copy, in cells along the
+// furthest axis: 0 where it lists one, and otherwise one more than the least of its 26
+// neighbors, a neighbor past the grid's edge as far as can be, at most `RINGS`. Read while other
+// cells are being written, a neighbor's is its last or its new, each no more than the truth, so
+// the cell's is never more than the truth either. A cell `n` away has `n - 1` empty rings round
+// it.
+fn sd_grid_ring(gi: u32, count_base: u32, rings: u32, t: u32, most: u32) {
+    let g = sd_grid[gi];
+    if (t >= g.res.w) { return; }
+    if (atomicLoad(&sd_count[count_base + t]) > 0u) {
+        atomicStore(&sd_count[rings + t], 0u);
+        return;
+    }
+    let c = vec3i(vec3u(t % g.res.x, (t / g.res.x) % g.res.y, t / (g.res.x * g.res.y)));
+    let r = vec3i(g.res.xyz);
+    var least = most;
+    for (var dz = -1; dz <= 1; dz++) {
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                let n = c + vec3i(dx, dy, dz);
+                if (any(n < vec3i(0)) || any(n >= r) || all(vec3i(dx, dy, dz) == vec3i(0))) { continue; }
+                let k = u32(n.x) + g.res.x * (u32(n.y) + g.res.y * u32(n.z));
+                least = min(least, atomicLoad(&sd_count[rings + k]));
+            }
+        }
+    }
+    atomicStore(&sd_count[rings + t], min(least + 1u, most));
+}
+
+// How far `q`, in cell `c`, is from the nearest cell that may list a copy, `c` being `n` cells
+// from one: past the `n - 1` empty rings round it, along the axes the rings stop short of the
+// grid's edge on; far where they reach every edge, and nothing known where `n` is 0.
+fn sd_grid_clear(g: SdGrid, c: vec3u, n: u32, q: vec3f) -> f32 {
+    if (n == 0u) { return 0.0; }
+    let l = n - 1u;
+    let lo = g.lo.xyz + (vec3f(c) - f32(l)) * g.cs.xyz;
+    let hi = g.lo.xyz + (vec3f(c) + f32(l) + 1.0) * g.cs.xyz;
+    let low = vec3f(c) >= vec3f(f32(l) + 0.5);
+    let high = vec3f(c) + f32(l) + 1.0 <= vec3f(g.res.xyz) - 0.5;
+    let below = select(vec3f(1.0e9), q - lo, low);
+    let above = select(vec3f(1.0e9), hi - q, high);
+    let d = min(below, above);
+    return min(d.x, min(d.y, d.z));
+}
+
 // The point `p` of the repeat's space in a copy's frame, before its scale.
 fn sd_instance_point(c: SdInstance, p: vec3f) -> vec3f {
     return vec3f(dot(c.r0.xyz, p) + c.r0.w, dot(c.r1.xyz, p) + c.r1.w, dot(c.r2.xyz, p) + c.r2.w);
@@ -362,7 +407,10 @@ fn repeataround1_place(t: u32) {
             vec4u(0u),
         );
     }
-    if (t < 512u) { atomicStore(&sd_count[0u + t], 0u); }
+    if (t < 512u) {
+        atomicStore(&sd_count[0u + t], 0u);
+        atomicStore(&sd_count[0u + 512u + t], 0u);
+    }
     if (f32(t) >= min(total, 64.0)) { return; }
     let i = f32(t);
     let at = vec3f(u.u_control_repeataround1_copyX, u.u_control_repeataround1_copyY, u.u_control_repeataround1_copyZ);
@@ -376,7 +424,7 @@ fn repeataround1_place(t: u32) {
         let m = sd_copy_frame(vec3f(xz.x - u.u_control_repeataround1_radius, l.y, xz.y), at, turn);
         f[e] = m;
     }
-    sd_place(0u + t, 512u, sd_instance(f[0], f[1], f[2], f[3], abs(sc), u.u_control_repeataround1_copyColor.rgb, bx));
+    sd_place(0u + t, 1024u, sd_instance(f[0], f[1], f[2], f[3], abs(sc), u.u_control_repeataround1_copyColor.rgb, bx));
 }
 
 fn repeataround1_solid_d(p: vec3f) -> vec4f {
@@ -385,9 +433,17 @@ fn repeataround1_solid_d(p: vec3f) -> vec4f {
         let gap = sd_box_gap(p, (g.lo.xyz + g.hi.xyz) * 0.5, (g.hi.xyz - g.lo.xyz) * 0.5);
         var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
         var bi = 0xffffffffu;
-        if (sd_march) { best.x = max(gap, g.lo.w - gap); }
         let cell = sd_grid_cell(g, p);
         let count = min(atomicLoad(&sd_count[0u + cell]), 1728u);
+        if (sd_march) {
+            let q = clamp(p, g.lo.xyz, g.hi.xyz);
+            var inner = g.lo.w;
+            if (count == 0u) {
+                let cc = vec3u(cell % g.res.x, (cell / g.res.x) % g.res.y, cell / (g.res.x * g.res.y));
+                inner = max(inner, sd_grid_clear(g, cc, atomicLoad(&sd_count[512u + cell]), q));
+            }
+            best.x = sqrt(gap * gap + inner * inner);
+        }
         let start = sd_list[0u + cell];
         for (var j = 0u; j < count; j++) {
             if (start + j >= 1728u) { break; }
@@ -470,9 +526,17 @@ fn repeataround1_solid(p: vec3f) -> vec4f {
         let gap = sd_box_gap(p, (g.lo.xyz + g.hi.xyz) * 0.5, (g.hi.xyz - g.lo.xyz) * 0.5);
         var best = vec4f(1.0e9, 0.0, 0.0, 0.0);
         var bi = 0xffffffffu;
-        if (sd_march) { best.x = max(gap, g.lo.w - gap); }
         let cell = sd_grid_cell(g, p);
         let count = min(atomicLoad(&sd_count[0u + cell]), 1728u);
+        if (sd_march) {
+            let q = clamp(p, g.lo.xyz, g.hi.xyz);
+            var inner = g.lo.w;
+            if (count == 0u) {
+                let cc = vec3u(cell % g.res.x, (cell / g.res.x) % g.res.y, cell / (g.res.x * g.res.y));
+                inner = max(inner, sd_grid_clear(g, cc, atomicLoad(&sd_count[512u + cell]), q));
+            }
+            best.x = sqrt(gap * gap + inner * inner);
+        }
         let start = sd_list[0u + cell];
         for (var j = 0u; j < count; j++) {
             if (start + j >= 1728u) { break; }
@@ -660,7 +724,7 @@ fn cs_place(@builtin(global_invocation_id) id: vec3u) {
 @compute @workgroup_size(1)
 fn cs_grid(@builtin(workgroup_id) wg: vec3u) {
     switch wg.z {
-        case 0u: { sd_grid_finish(0u, 512u, 512.0); }
+        case 0u: { sd_grid_finish(0u, 1024u, 512.0); }
         default: {}
     }
 }
@@ -687,6 +751,15 @@ fn cs_fill(@builtin(global_invocation_id) id: vec3u) {
     let t = id.x;
     switch id.z {
         case 0u: { if (t < u32(sd_grid[0u].hi.w) && t < 64u) { sd_grid_fill(0u, 0u, 0u, 512u, 1728u, 0u, t); } }
+        default: {}
+    }
+}
+
+@compute @workgroup_size(64)
+fn cs_ring(@builtin(global_invocation_id) id: vec3u) {
+    let t = id.x;
+    switch id.z {
+        case 0u: { sd_grid_ring(0u, 0u, 512u, t, 6u); }
         default: {}
     }
 }

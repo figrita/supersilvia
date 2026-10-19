@@ -48,7 +48,8 @@ pub struct Program {
 /// A module's listed copies: a compute pipeline per pass, in `instances::ENTRIES` order, their
 /// workgroups, and the buffers at `instances::INSTANCES` up.
 struct Instances {
-    passes: Vec<(wgpu::ComputePipeline, (u32, u32, u32))>,
+    pipelines: Vec<wgpu::ComputePipeline>,
+    passes: Vec<(usize, (u32, u32, u32))>,
     buffers: [wgpu::Buffer; 4],
 }
 
@@ -116,12 +117,12 @@ impl Program {
         let Some(instances) = &self.instances else {
             return;
         };
-        for (pipeline, (x, y, z)) in &instances.passes {
+        for (entry, (x, y, z)) in &instances.passes {
             let mut pass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("instances"),
                 timestamp_writes: None,
             });
-            pass.set_pipeline(pipeline);
+            pass.set_pipeline(&instances.pipelines[*entry]);
             pass.set_bind_group(0, group, &[offset]);
             pass.dispatch_workgroups(*x, *y, *z);
         }
@@ -154,21 +155,20 @@ fn instances(
         bind_group_layouts: &[Some(layout)],
         immediate_size: 0,
     });
-    let passes = ENTRIES
+    let pipelines = ENTRIES
         .iter()
-        .zip(instancing.dispatches())
-        .map(|(entry, groups)| {
-            let pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        .map(|entry| {
+            device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
                 label: Some(entry),
                 layout: Some(&pipeline_layout),
                 module,
                 entry_point: Some(entry),
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
                 cache: None,
-            });
-            (pipeline, groups)
+            })
         })
         .collect();
+    let passes = instancing.dispatches();
     let buffers = instancing.sizes().map(|size| {
         device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("instances"),
@@ -177,7 +177,11 @@ fn instances(
             mapped_at_creation: false,
         })
     });
-    Instances { passes, buffers }
+    Instances {
+        pipelines,
+        passes,
+        buffers,
+    }
 }
 
 /// How one binding is declared to the pipeline.
