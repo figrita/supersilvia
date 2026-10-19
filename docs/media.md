@@ -554,6 +554,39 @@ own through all of this — the directory, the client, the camera's slot and the
 — the right way up, opaque and with alpha; `tests/gpu_iosurface.rs` holds the copy, the flip
 and the pixel format of zero on a surface made by hand.
 
+### Spout
+
+On Windows the same source receives a **Spout** sender, through the same `Receiver`, `Inlet`
+and `Camera` slot; publishing is [rendering.md](rendering.md#spout)'s. A sender is chosen by its
+name, which is its label: Spout's list carries no app name. The list is read from Spout's shared
+memory, and a name whose map no longer opens — a sender that crashed — is not offered.
+
+**A receiver is a thread of its own** (`spout client`) that looks at its sender every 4
+milliseconds, or every 8 for a sender that does not count its frames: it opens the sender's map,
+reads it and closes it, since a receiver that held it would keep a sender that has gone alive
+for every Spout app. A new share handle is a new texture — a new sender of that name, a new
+size — opened anew on the process's Direct3D 11 device, and the size and format are the opened
+texture's, not the map's; a map that no longer opens is a sender that has gone, which the
+`Receiver` notices within a second, as it notices a Syphon server stop. A handle is read
+zero-extended, as Spout 2.007 reads it, and sign-extended where that fails.
+
+**Each frame is copied**, as a Syphon surface is, but on Direct3D 11 and before the renderer
+sees it: under the sender's access mutex, each frame its count says is new — every look, for a
+sender that does not count — is copied into one of up to three bridges of the receiver's own,
+Direct3D 12 textures on the renderer's device that Direct3D 11 also holds. The frame handed on
+is a `Pixels::D3d12` naming that bridge and the fence the copy signals, which the renderer's
+queue waits on before [the conversion pass](rendering.md#source-textures) draws it into the
+source's own texture; where the driver shares no fence, the receiver's thread waits for the copy
+itself. A bridge is copied into again only once every frame that carries it has been let go,
+which the renderer does once the GPU has finished reading it.
+
+**Flip and Transparent** read as on a Mac, but Spout's convention is **top row first**, so
+Flip reads the texture bottom row first (`D3d12Texture::bottom_first`), and Transparent keeps
+the texture's alpha, read as premultiplied, where the default writes it one (`Bgrx` or
+`Rgbx`). 8-bit BGRA and RGBA senders are received, sRGB ones as their bytes; any other format,
+a texture on another GPU, and a Spout 2.006 sender that shares memory rather than a texture are
+refused, and the line says which.
+
 ## NDI
 
 **NDI®** sends live video and sound between machines on the local network — Vizrt's, at

@@ -115,6 +115,8 @@ comment. These modules are allowed it, each where its parent module declares it:
 - `platform::windows::dirs` — the shell's Known Folders, and the strings it hands back
 - `platform::windows::fonts` — DirectWrite's system font collection, through COM
 - `platform::windows::d3d12` — GStreamer's Direct3D 12 library, declared by hand
+- `platform::windows::syphon` — Spout: its named shared memory, mutexes and semaphores, and the
+  Direct3D 11 and 12 calls that share its textures
 
 `tests/rules.rs` holds every `#[allow(unsafe_code)]` to this list. A new one fails the test
 until it is added there, here and in docs/invariants.md. Outside the crate,

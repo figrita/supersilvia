@@ -10,16 +10,18 @@
 //! `mfvideosrc`, the named audio inputs and the loopback are WASAPI's through `wasapi2src`,
 //! screen capture is `d3d11screencapturesrc` on the primary monitor, and the hardware codecs
 //! are NVENC, Quick Sync, AMF and Direct3D 12's through GStreamer, whose Direct3D 12 textures
-//! the renderer samples with no copy. Like Linux it has no native menu bar and no Syphon, and
-//! like a Mac it opens nothing ahead of the NDI® plugin. The GPU's per-process counters are not
-//! read: `gpu` says so.
+//! the renderer samples with no copy. Pictures cross to other apps on the machine over Spout,
+//! spoken natively by `syphon`, the service a Mac answers with Syphon. Like Linux it has no
+//! native menu bar, and like a Mac it opens nothing ahead of the NDI® plugin. The GPU's
+//! per-process counters are not read: `gpu` says so.
 //!
 //! **`unsafe` is allowed file by file**, where each is declared below: `clock`, whose
 //! `GetThreadTimes` is `unsafe` by its binding; `dirs`, whose `SHGetKnownFolderPath` hands back
 //! a string the caller frees; `check`, whose `RtlGetVersion` fills a structure it is handed;
-//! `fonts`, whose DirectWrite calls are COM methods, `unsafe` by their bindings; and `d3d12`,
-//! GStreamer's Direct3D 12 library, declared by hand and called in C. Every
-//! block carries a `// SAFETY:` line. The crate root denies it everywhere else.
+//! `fonts`, whose DirectWrite calls are COM methods, `unsafe` by their bindings; `d3d12`,
+//! GStreamer's Direct3D 12 library, declared by hand and called in C; and `syphon`, Spout's
+//! named shared memory, mutexes and semaphores, and the Direct3D 11 and 12 calls that share its
+//! textures. Every block carries a `// SAFETY:` line. The crate root denies it everywhere else.
 
 pub mod alert;
 pub mod audio;
@@ -41,6 +43,7 @@ pub mod midi;
 pub mod ndi;
 pub mod notices;
 pub mod screen;
+#[allow(unsafe_code)]
 pub mod syphon;
 pub mod video;
 

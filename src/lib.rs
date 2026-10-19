@@ -2,11 +2,14 @@
 
 //! supersilvia — modular video synthesizer for live performance.
 //!
-//! `render::picture`, `render::dmabuf`, on Linux `platform::linux::ndi`, and on macOS
-//! `platform::macos::audio`, `platform::macos::screen`, `platform::macos::pixels`,
-//! `platform::macos::gpu`, `platform::macos::menu` and `platform::macos::syphon`, are the only
-//! modules allowed `unsafe`, each where its parent declares it (`tests/rules.rs`), and every
-//! block there carries a `// SAFETY:` line. Everywhere else it is denied.
+//! `render::picture`, `render::dmabuf`, on Linux `platform::linux::filedrop` and
+//! `platform::linux::ndi`, on macOS `platform::macos::audio`, `platform::macos::screen`,
+//! `platform::macos::pixels`, `platform::macos::gpu`, `platform::macos::menu` and
+//! `platform::macos::syphon`, and on Windows `platform::windows::check`,
+//! `platform::windows::clock`, `platform::windows::d3d12`, `platform::windows::dirs`,
+//! `platform::windows::fonts` and `platform::windows::syphon`, are the only modules allowed
+//! `unsafe`, each where its parent declares it (`tests/rules.rs`), and every block there carries
+//! a `// SAFETY:` line. Everywhere else it is denied.
 
 #![deny(unsafe_code)]
 

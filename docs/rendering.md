@@ -645,18 +645,21 @@ source. The `unsafe` is the `IOSurfaceRef` rebuilt from its integer, the hal dev
 texture made from raw and its wrap.
 
 **Windows has neither; its frames are Direct3D 12 textures, and the same file imports them on
-Direct3D 12.** A `Pixels::D3d12` names each texture a decoder's or an upload's sample is in, the
-array slice the frame is in, and the fence its writes are signalled on.
+Direct3D 12.** A `Pixels::D3d12` names each texture a decoder's or an upload's sample is in —
+or the bridge a [Spout](#spout) receiver copied a frame into — the array slice the frame is in,
+and the fence its writes are signalled on.
 `Imports::import_d3d12` wraps each texture whole with `wgpu_hal::dx12::Device::texture_from_raw`
 and `create_texture_from_hal` and views its planes — NV12 as wgpu's `NV12`, viewed as `R8Unorm`
 and `RG8Unorm` at its chroma's half size, as a Mac's planes are, or NV12 in a texture per plane
-where the producer's device holds no NV12 texture, or RGBA or BGRA — each view at the frame's
+where the producer's device holds no NV12 texture, or RGBA or BGRA, whose fourth byte the
+pass writes one where the layout says it pads (`Rgbx`, `Bgrx`) — each view at the frame's
 array slice, since a decoder may hand out a slice of a texture array. **The renderer's queue
 waits on the producer's fence**: wgpu-hal's `add_wait_fence` stages a `Wait` ahead of the next
 submission on the one queue, so the conversion pass never samples a texture its producer's queue
 has not written, and nothing waits on the CPU. The pass always draws the frame into a texture of
-the source's own, and a transition after it hands each texture back in the common state
-GStreamer's queues expect of it. **The texture is the renderer's device's**: GStreamer is
+the source's own, bottom row first where the frame says it is laid out so
+(`D3d12Texture::bottom_first`, a Spout sender read flipped), and a transition after it hands
+each texture back in the common state GStreamer's queues expect of it. **The texture is the renderer's device's**: GStreamer is
 handed the renderer's adapter and Direct3D 12 hands a process one device per adapter, so its
 device is the renderer's; a texture of another device is opened on the renderer's through the NT
 handle it comes with, and one with none is refused before the driver is called. The checks
@@ -1901,6 +1904,52 @@ run loop: they cross Mach ports the framework services on queues of its own. **A
 frame handler asks for nothing**: the framework's `stop` holds the client's lock while it waits
 for the frame queue, and `newSurface` takes that lock, so the handler only wakes a thread of the
 client's own, which asks.
+
+### Spout
+
+On Windows the same service is **Spout**, spoken natively by `platform::windows::syphon` with
+no Spout library linked: every object is made as Spout 2.007 makes it, so OBS's Spout2 plugin,
+Resolume, TouchDesigner and Spout's own demo apps read what supersilvia sends and send what it
+reads. The publisher, the `Outlet` and the `Wanted` list are the ones above; what differs is
+under `platform::syphon`.
+
+**A sender is named objects in the session.** Its name, `supersilvia - <name>` in ASCII — any
+other character written `_` — and ` 2`, ` 3` after it where another sender has it, goes into
+Spout's list, the shared memory `SpoutSenderNames`; a 280-byte map of the same name carries its
+texture's legacy share handle, size and DXGI format 87, B8G8R8A8; and `<name>_SpoutAccessMutex`
+and `<name>_Count_Semaphore` are the lock and the frame count its receivers share. The map is
+made and written before the name is listed, and the sender is listed with its first published
+frame, since an entry names a texture. A renamed Output's sender is listed again under its new
+name, keeping its texture. Spout counts no receivers, so `Server::has_clients` is always true
+and a ticked Output is always drawn. A sender carries no app name: `Described::app` is empty
+and a label is the sender's name.
+
+**Two textures and one copy.** Spout shares a Direct3D 11 texture by legacy handle, which
+Direct3D 12 cannot open, and one texture cannot carry both kinds of handle. So the process has
+one Direct3D 11 device, made on the renderer's adapter by its LUID with BGRA support, and each
+sender a **bridge**: a BGRA texture made in Direct3D 12 on the renderer's own device, in a
+shared heap with simultaneous access, opened by that device through its NT handle.
+`dmabuf::surface_target` makes the bridge a texture to draw into, as it makes a Syphon surface
+one; `Outlet::draw` blits into it, and `Outlet::publish`, once the GPU has drawn the frame,
+copies the bridge into the Spout texture under the access mutex, flushes and counts the frame —
+what every Spout sender does. Simultaneous access is what lets the two APIs take turns on the
+bridge with no barrier: each submission leaves it in the common state.
+
+**The next draw waits for the copy on the GPU.** The copy signals a Direct3D 12 fence the
+Direct3D 11 device opened, and `dmabuf::d3d12_wait_here` stages a wait on it for the renderer's
+queue's next submission, so the next draw into the bridge cannot overtake the copy and no thread
+waits. Where the driver shares no fence (Direct3D 11.4's are missing), the publisher's thread
+waits for the copy on an event query instead. **Zero flash on a new size**: the new bridge and
+Spout texture are named in the map only after the first frame has been copied into them and
+that copy waited for, so a receiver never opens an empty texture.
+
+**Orientation**: the Spout texture holds the picture **top row first**, Direct3D's way and Spout's
+own senders'; Flip writes it bottom row first. Alpha is as on a Mac: opaque over black by
+default, and with Alpha the picture's own, premultiplied — which is what OBS's Spout source is
+told to read for transparency ("Premultiplied Alpha"); Spout itself sets no convention.
+`tests/syphon.rs` runs its loopback through Spout on Windows, and `examples/spout_peer.rs` is
+the peer CI runs against itself and against a peer built on the Spout SDK, in separate
+processes.
 
 ## NDI
 

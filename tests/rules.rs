@@ -82,13 +82,20 @@ fn the_pure_modules_reach_no_graphical_crate_through_the_crate() {
     // frame without a copy — Linux's a DMA-BUF, and in which formats, before a screen cast or a
     // clip asks its source for one, the Mac's an `IOSurface`, before a clip does, and Windows' a
     // Direct3D 12 texture, and on which device, before a clip asks for one and as each frame
-    // arrives. The question needs the device, which only the renderer holds. Named by both
-    // files, so a second edge between the same two modules is still caught.
-    const KNOWN: [(&str, &str); 4] = [
+    // arrives. Windows' Spout, which `video/` reaches the same way, makes its textures on that
+    // device and stages a wait on the renderer's queue. The question needs the device, which
+    // only the renderer holds. Named by both files, so a second edge between the same two
+    // modules is still caught.
+    const KNOWN: [(&str, &str); 6] = [
         ("src/platform/linux/video.rs", "src/render/dmabuf.rs"),
         ("src/platform/macos/video.rs", "src/render/dmabuf.rs"),
         ("src/platform/windows/video.rs", "src/render/dmabuf.rs"),
         ("src/platform/windows/d3d12.rs", "src/render/dmabuf.rs"),
+        ("src/platform/windows/syphon.rs", "src/render/dmabuf.rs"),
+        (
+            "src/platform/windows/syphon/d3d11.rs",
+            "src/render/dmabuf.rs",
+        ),
     ];
 
     let crate_ = Crate::read();
@@ -214,7 +221,7 @@ fn the_os_crates_are_named_only_in_their_backends() {
 /// is added to the list, and to CONTRIBUTING.md's and docs/invariants.md's.
 #[test]
 fn unsafe_is_allowed_only_where_the_rule_names() {
-    const ALLOWED: [&str; 16] = [
+    const ALLOWED: [&str; 17] = [
         "src/render/mod.rs: dmabuf",
         "src/render/picture/mod.rs: thread",
         "src/render/picture/mod.rs: wayland",
@@ -231,6 +238,7 @@ fn unsafe_is_allowed_only_where_the_rule_names() {
         "src/platform/windows/mod.rs: d3d12",
         "src/platform/windows/mod.rs: dirs",
         "src/platform/windows/mod.rs: fonts",
+        "src/platform/windows/mod.rs: syphon",
     ];
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut found = Vec::new();
