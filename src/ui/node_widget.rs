@@ -2062,6 +2062,7 @@ pub fn controls(
         return;
     }
     input_controls(ui, cx, fx, open);
+    axes_chips(ui, cx, open);
     // The headings a run of inputs folds under — a moving node's time rows, a shape's turn
     // and scale — the same bar again, with any option it carries on the bar's right end (the
     // time mode), open or closed.
@@ -2261,6 +2262,41 @@ fn input_controls(
                     );
                 }
             }
+        }
+    }
+}
+
+/// The axes chip on each input line that takes one (`nodes::solids::takes_axes`): left of the
+/// row's control where it has one, at the row's right end where it has none — a Bend's solid,
+/// an Extrude's picture. Opens the input's axes popover.
+fn axes_chips(ui: &mut Ui, cx: &NodeCtx<'_>, open: &mut Option<crate::ui::OpenControl>) {
+    let (node, id, theme, zoom) = (cx.node, cx.id, cx.theme(), cx.zoom());
+    for (index, port) in node.inputs.iter().enumerate() {
+        if !crate::nodes::solids::takes_axes(cx.frame.graph, id, port.key) {
+            continue;
+        }
+        let Some(band) = cx.block(canvas::Row::Input(index)) else {
+            continue;
+        };
+        let axes = node.axes_of(port.key);
+        let h = crate::ui::number::HEIGHT * zoom;
+        let w = crate::ui::axes::chip_width(ui.ctx(), axes, h, zoom);
+        let right = if node.controls.contains_key(port.key) {
+            control_slot(band, zoom).min.x - 3.0 * zoom
+        } else {
+            band.max.x - CONTROL_INSET * zoom
+        };
+        let rect = Rect::from_min_size(Pos2::new(right - w, band.center().y - h * 0.5), vec2(w, h));
+        let name = format!("{} axes", cx.control(port.key));
+        if crate::ui::axes::chip(ui, rect, &name, axes, theme, zoom).clicked() {
+            toggle(
+                open,
+                crate::ui::OpenControl::Axes {
+                    node: id,
+                    key: port.key,
+                    at: cx.world(rect.left_bottom()),
+                },
+            );
         }
     }
 }

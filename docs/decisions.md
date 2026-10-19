@@ -6822,8 +6822,13 @@ shows, and says what to do: widen the spacing.
 
 ### A solid's numbers take fields
 
-**Chosen.** A solid's numbers take fields, read at the point's front view, and Cast picks
-another projection ([nodes.md](nodes.md#numbers-on-a-solid)). Every texture read in the program
+**Chosen.** A solid's numbers take fields, read at the point's front view or along the axes
+the input's chip chooses, and Cast picks another projection
+([nodes.md](nodes.md#numbers-on-a-solid)). The chip is the owner's: a cube on the input's line
+with the plane's face lit and striped by the flips, opening the three planes as presets over a
+row of X, Y and Z and a minus for each of the picture's axes. Eight buttons inline on every such
+line was the first shape, and lost to the chip for the room it took; a Front, Top and Side
+select alone could not mirror an axis; cabling through Cast for every turn is a node per port. Every texture read in the program
 has an explicit level and no node takes a screen derivative, so a field evaluated inside a
 march is as defined as one evaluated per pixel.
 

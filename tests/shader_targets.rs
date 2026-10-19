@@ -260,6 +260,64 @@ fn fields() -> Vec<Entry> {
                 .expect("picture into picture");
             (g, out, rep)
         };
+    // Every one of the twenty-four arrangements of axes on every kind of input that takes
+    // them: a field on a sphere's Radius, Bend's and Twist's planes, Extrude's and
+    // Heightfield's pictures, all in one chain.
+    for across in 0..3u8 {
+        for up in (0..3u8).filter(|u| *u != across) {
+            for (fa, fb) in [(false, false), (true, false), (false, true), (true, true)] {
+                let axes = supersilvia::graph::Axes {
+                    across: supersilvia::graph::Axis::new(across, fa),
+                    up: supersilvia::graph::Axis::new(up, fb),
+                };
+                let mut g = Graph::new();
+                let mask = add(&mut g, "vignette");
+                let picture = add(&mut g, "star");
+                let sphere = add(&mut g, "sphere");
+                g.connect(PortRef::new(mask, "mask"), PortRef::new(sphere, "radius"))
+                    .expect("a field into a solid's number");
+                let bend = add(&mut g, "bend");
+                g.connect(PortRef::new(sphere, "solid"), PortRef::new(bend, "input"))
+                    .expect("solid into solid");
+                let twist = add(&mut g, "twist");
+                g.connect(PortRef::new(bend, "solid"), PortRef::new(twist, "input"))
+                    .expect("solid into solid");
+                let extrude = add(&mut g, "extrude");
+                g.connect(PortRef::new(twist, "solid"), PortRef::new(extrude, "onto"))
+                    .expect("solid onto a shape");
+                g.connect(
+                    PortRef::new(picture, "color"),
+                    PortRef::new(extrude, "profile"),
+                )
+                .expect("a picture into Extrude");
+                let ground = add(&mut g, "heightfield");
+                g.connect(PortRef::new(extrude, "solid"), PortRef::new(ground, "onto"))
+                    .expect("solid onto a shape");
+                g.connect(
+                    PortRef::new(picture, "color"),
+                    PortRef::new(ground, "picture"),
+                )
+                .expect("a picture into Heightfield");
+                for (node, key) in [
+                    (sphere, "radius"),
+                    (bend, "input"),
+                    (twist, "input"),
+                    (extrude, "profile"),
+                    (ground, "picture"),
+                ] {
+                    g.get_mut(node).expect("just added").axes.insert(key, axes);
+                }
+                let render = add(&mut g, "solidrender");
+                g.connect(PortRef::new(ground, "solid"), PortRef::new(render, "solid"))
+                    .expect("solid into solid");
+                let out = add(&mut g, "output");
+                g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+                    .expect("picture into picture");
+                push(format!("axes {axes}"), &g, out);
+            }
+        }
+    }
+
     // A field through maths onto a solid, and a field straight onto one, cast from the front.
     let (mut g, out, _) = build("repeatgrid", "vignette", "mask", &[]);
     let sphere = g

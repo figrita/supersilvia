@@ -128,20 +128,24 @@ fn sd_hue(h: f32) -> vec3f {
 
 fn bend1_solid_d(p: vec3f) -> vec4f {
     let k = u.u_control_bend1_curvature;
-    let c = cos(k * p.x);
-    let s = sin(k * p.x);
-    let q = vec3f(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+    let f = vec3f(p.x, p.y, p.z);
+    let c = cos(k * f.x);
+    let s = sin(k * f.x);
+    let g = vec3f(c * f.x - s * f.y, s * f.x + c * f.y, f.z);
+    let q = vec3f(g.x, g.y, g.z);
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x / (1.0 + abs(k) * length(p.xy)), r.yzw);
+    return vec4f(r.x / (1.0 + abs(k) * length(f.xy)), r.yzw);
 }
 
 fn bend1_solid(p: vec3f) -> vec4f {
     let k = u.u_control_bend1_curvature;
-    let c = cos(k * p.x);
-    let s = sin(k * p.x);
-    let q = vec3f(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+    let f = vec3f(p.x, p.y, p.z);
+    let c = cos(k * f.x);
+    let s = sin(k * f.x);
+    let g = vec3f(c * f.x - s * f.y, s * f.x + c * f.y, f.z);
+    let q = vec3f(g.x, g.y, g.z);
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x / (1.0 + abs(k) * length(p.xy)), r.yzw);
+    return vec4f(r.x / (1.0 + abs(k) * length(f.xy)), r.yzw);
 }
 
 fn solidrender3_output(uv: vec2f) -> vec4f {

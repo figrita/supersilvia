@@ -14,7 +14,43 @@
 //! and the circle round the input's furthest reach across it.
 
 use super::{SDF, fill, num, num_log, out, solid, turn};
+use crate::compile::CompileContext;
+use crate::graph::{Axes, NodeId};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
+
+/// The axes a node's `input` line was given: the plane a Bend curves in, a Twist turns in.
+fn frame_of(ctx: &CompileContext, node: NodeId, start: Axes) -> Axes {
+    ctx.node(node).map_or(start, |n| n.axes_of("input"))
+}
+
+/// The bounds of a solid turned about the third axis of `axes`, its input's `b`: every point
+/// keeps its distance from that axis, so the plane's two axes reach the input's reach across
+/// them both ways, and the third keeps the input's span.
+fn about_third(b: &str, axes: Axes) -> String {
+    let (a, u, t) = (axes.across.of, axes.up.of, axes.third());
+    let c = |i: u8| ['x', 'y', 'z'][usize::from(i)];
+    let m = format!(
+        "length(vec2f(sd_bounds_reach({b}).{}, sd_bounds_reach({b}).{}))",
+        c(a),
+        c(u)
+    );
+    let side = |lo: bool| {
+        let part = |i: u8| {
+            if i == t {
+                format!("{b}.{}.{}", if lo { "lo" } else { "hi" }, c(i))
+            } else if lo {
+                format!("-{m}")
+            } else {
+                m.clone()
+            }
+        };
+        format!("vec3f({}, {}, {})", part(0), part(1), part(2))
+    };
+    format!("SdBounds({}, {})", side(true), side(false))
+}
+
+/// Where a Twist starts: turning in the plane of X and Z, about Y.
+const TWIST_START: Axes = Axes::TOP;
 
 pub static PLACE: NodeDef = NodeDef {
     slug: "place",
@@ -158,33 +194,36 @@ pub static TWIST: NodeDef = NodeDef {
     family: Some(Family::Space),
     icon: "🌀",
     label: "Twist",
-    tooltip: "Turns a solid about its upright axis by Rate turns for every unit up. Far from the \
-              axis the march slows down to stay on the surface.",
+    tooltip: "Turns a solid about its upright axis by Rate turns for every unit up, or about \
+              the axis its Solid row's cube chooses. Far from the axis the march slows down to \
+              stay on the surface.",
     inputs: &[
         solid("input", "Solid"),
         num("rate", "Rate", 0.15, -2.0, 2.0, 0.001, TURNS),
     ],
     outputs: &[out(|node, ctx, _| {
+        let axes = frame_of(ctx, node, TWIST_START);
         let inner = ctx.input(node, "input", "q");
+        let into = axes.into_frame("p");
+        let back = axes.out_of_frame("g");
         fill(
             node,
             ctx,
             &format!(
                 "    let k = {{rate}} * 6.2831853;
-    let xz = sd_rot2(p.xz, k * p.y);
-    let q = vec3f(xz.x, p.y, xz.y);
+    let f = {into};
+    let g = vec3f(sd_rot2(f.xy, k * f.z), f.z);
+    let q = {back};
     let r = {inner};
-    return vec4f(r.x / sqrt(1.0 + k * k * dot(p.xz, p.xz)), r.yzw);"
+    return vec4f(r.x / sqrt(1.0 + k * k * dot(f.xy, f.xy)), r.yzw);"
             ),
         )
     })],
     bounds: Some(|n, ctx| {
         let b = ctx.solid_bounds(n, "input")?;
-        let m = format!("length(sd_bounds_reach({b}).xz)");
-        Some(format!(
-            "SdBounds(vec3f(-{m}, {b}.lo.y, -{m}), vec3f({m}, {b}.hi.y, {m}))"
-        ))
+        Some(about_third(&b, frame_of(ctx, n, TWIST_START)))
     }),
+    axes: &[("input", TWIST_START)],
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -195,33 +234,37 @@ pub static BEND: NodeDef = NodeDef {
     family: Some(Family::Space),
     icon: "⌒",
     label: "Bend",
-    tooltip: "Bends a solid along X into an arc. Curvature is one over the arc's radius.",
+    tooltip: "Bends a solid along X into an arc curving toward Y, or along and toward the axes \
+              its Solid row's cube chooses. Curvature is one over the arc's radius.",
     inputs: &[
         solid("input", "Solid"),
         num("curvature", "Curvature", 0.3, -3.0, 3.0, 0.001, "/⬓"),
     ],
     outputs: &[out(|node, ctx, _| {
+        let axes = frame_of(ctx, node, Axes::FRONT);
         let inner = ctx.input(node, "input", "q");
+        let into = axes.into_frame("p");
+        let back = axes.out_of_frame("g");
         fill(
             node,
             ctx,
             &format!(
                 "    let k = {{curvature}};
-    let c = cos(k * p.x);
-    let s = sin(k * p.x);
-    let q = vec3f(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+    let f = {into};
+    let c = cos(k * f.x);
+    let s = sin(k * f.x);
+    let g = vec3f(c * f.x - s * f.y, s * f.x + c * f.y, f.z);
+    let q = {back};
     let r = {inner};
-    return vec4f(r.x / (1.0 + abs(k) * length(p.xy)), r.yzw);"
+    return vec4f(r.x / (1.0 + abs(k) * length(f.xy)), r.yzw);"
             ),
         )
     })],
     bounds: Some(|n, ctx| {
         let b = ctx.solid_bounds(n, "input")?;
-        let m = format!("length(sd_bounds_reach({b}).xy)");
-        Some(format!(
-            "SdBounds(vec3f(-{m}, -{m}, {b}.lo.z), vec3f({m}, {m}, {b}.hi.z))"
-        ))
+        Some(about_third(&b, frame_of(ctx, n, Axes::FRONT)))
     }),
+    axes: &[("input", Axes::FRONT)],
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

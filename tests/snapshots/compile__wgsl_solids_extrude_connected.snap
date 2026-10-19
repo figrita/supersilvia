@@ -261,9 +261,10 @@ fn extrude1_solid_d_own(p: vec3f) -> vec4f {
     let t = clamp(extrude1_threshold_at(p), 0.0, 1.0);
     let half = max(extrude1_depth_at(p), 0.0) * 0.5;
     let r = clamp(extrude1_bevel_at(p), 0.0, min(half, 0.5 * (1.0 - t) * s / k));
-    let uv = p.xy / s;
+    let f = vec3f(p.x, p.y, p.z);
+    let uv = f.xy / s;
     let frame = sd_profile_frame(uv) * s;
-    let gap = abs(p.z) - half;
+    let gap = abs(f.z) - half;
     var d2 = frame;
     if (frame <= t * s / k && gap <= t * s / k) {
         let c = checkerboard4_output(sd_profile_clamp(uv));
@@ -378,9 +379,10 @@ fn extrude1_solid_own(p: vec3f) -> vec4f {
     let t = clamp(extrude1_threshold_at(p), 0.0, 1.0);
     let half = max(extrude1_depth_at(p), 0.0) * 0.5;
     let r = clamp(extrude1_bevel_at(p), 0.0, min(half, 0.5 * (1.0 - t) * s / k));
-    let uv = p.xy / s;
+    let f = vec3f(p.x, p.y, p.z);
+    let uv = f.xy / s;
     let frame = sd_profile_frame(uv) * s;
-    let gap = abs(p.z) - half;
+    let gap = abs(f.z) - half;
     var d2 = frame;
     if (frame <= t * s / k && gap <= t * s / k) {
         let c = checkerboard4_output(sd_profile_clamp(uv));

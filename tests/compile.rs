@@ -1776,3 +1776,74 @@ fn a_counted_repeat_of_a_sized_solid_lists_its_copies() {
         "an endless solid has no size to list"
     );
 }
+
+/// **A field on a solid's number is read along the axes its line was given**: the point's front
+/// view by default, and the two coordinates the axes name, negated where they run backwards,
+/// once they are set. Bend works in the frame its solid line was given.
+#[test]
+fn a_field_on_a_solid_is_read_along_its_axes() {
+    let build = |axes: Option<supersilvia::graph::Axes>| {
+        let mut g = Graph::new();
+        let mask = add(&mut g, FIELD.0);
+        let sphere = add(&mut g, "sphere");
+        g.connect(PortRef::new(mask, FIELD.1), PortRef::new(sphere, "radius"))
+            .expect("a field into a solid's number");
+        let bend = add(&mut g, "bend");
+        g.connect(PortRef::new(sphere, "solid"), PortRef::new(bend, "input"))
+            .expect("solid into solid");
+        if let Some(axes) = axes {
+            g.get_mut(sphere).unwrap().axes.insert("radius", axes);
+            g.get_mut(bend).unwrap().axes.insert("input", axes);
+        }
+        let render = add(&mut g, "solidrender");
+        g.connect(PortRef::new(bend, "solid"), PortRef::new(render, "solid"))
+            .expect("solid into solid");
+        let out = add(&mut g, "output");
+        g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+            .expect("picture into picture");
+        compile::wgsl::build(&g, out).expect("connected").body
+    };
+    let front = build(None);
+    assert!(front.contains("(q.xy)"), "Front reads the front view");
+    assert!(
+        front.contains("let f = vec3f(p.x, p.y, p.z);"),
+        "Bend's own plane by default"
+    );
+    let turned = build(supersilvia::graph::Axes::parse("-z,x"));
+    assert!(
+        turned.contains("vec2f(-q.z, q.x)"),
+        "the field across along −Z, up along X"
+    );
+    assert!(
+        turned.contains("let f = vec3f(-p.z, p.x, p.y);"),
+        "Bend along −Z, curving toward X, about Y"
+    );
+}
+
+/// **The chip goes where the axes are read**: a solid's number a field arrives at, and the
+/// inputs a node names. Not Texture's picture, which its own Projection lays on, nor a number
+/// with no field arriving.
+#[test]
+fn the_axes_chip_is_only_where_the_axes_are_read() {
+    use supersilvia::nodes::solids::takes_axes;
+    let mut g = Graph::new();
+    let mask = add(&mut g, FIELD.0);
+    let picture = add(&mut g, "checkerboard");
+    let sphere = add(&mut g, "sphere");
+    g.connect(PortRef::new(mask, FIELD.1), PortRef::new(sphere, "radius"))
+        .expect("a field into a solid's number");
+    let texture = add(&mut g, "surfacetexture");
+    g.connect(
+        PortRef::new(picture, "output"),
+        PortRef::new(texture, "picture"),
+    )
+    .expect("a picture into Texture");
+    let bend = add(&mut g, "bend");
+    assert!(takes_axes(&g, sphere, "radius"), "a field on a number");
+    assert!(!takes_axes(&g, sphere, "x"), "no field arriving");
+    assert!(
+        !takes_axes(&g, texture, "picture"),
+        "Texture lays its own on"
+    );
+    assert!(takes_axes(&g, bend, "input"), "Bend names its solid");
+}

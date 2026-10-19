@@ -28,8 +28,23 @@
 
 use super::{color, fill, num, num_log, out, tint};
 use crate::compile::CompileContext;
-use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
+use crate::graph::{Axes, Axis, NodeId};
+
+/// The point `p` in the frame `key`'s line was given: the picture's across and up, then the
+/// way through it.
+fn framed(ctx: &CompileContext, node: NodeId, key: &str) -> String {
+    ctx.node(node)
+        .map_or(Axes::FRONT, |n| n.axes_of(key))
+        .into_frame("p")
+}
+
+/// Where a Heightfield's picture starts: lying flat, across along X and its top away from the
+/// front, along −Z, so it stands up along Y.
+const LYING: Axes = Axes {
+    across: Axis::new(0, false),
+    up: Axis::new(2, true),
+};
 use crate::nodes::{Category, Control, Family, InputDef, NodeDef, OptionDef};
 
 /// The picture's frame, 16/9 wide each side of the center and one unit tall each side: the
@@ -159,6 +174,7 @@ pub static EXTRUDE: NodeDef = NodeDef {
         } else {
             picture
         };
+        let f = framed(ctx, node, "profile");
         fill(
             node,
             ctx,
@@ -168,9 +184,10 @@ pub static EXTRUDE: NodeDef = NodeDef {
     let t = clamp({{threshold}}, 0.0, 1.0);
     let half = max({{depth}}, 0.0) * 0.5;
     let r = clamp({{bevel}}, 0.0, min(half, 0.5 * (1.0 - t) * s / k));
-    let uv = p.xy / s;
+    let f = {f};
+    let uv = f.xy / s;
     let frame = sd_profile_frame(uv) * s;
-    let gap = abs(p.z) - half;
+    let gap = abs(f.z) - half;
     var d2 = frame;
 {block}    let w = vec2f(d2 + r, gap + r);
     return vec4f(min(max(w.x, w.y), 0.0) + length(max(w, vec2f(0.0))) - r, {c});"
@@ -182,10 +199,13 @@ pub static EXTRUDE: NodeDef = NodeDef {
             n,
             ctx,
             &crate::nodes::solids::half(
-                "vec3f({scale} * 1.7777778, {scale}, max({depth}, 0.0) * 0.5)",
+                &ctx.node(n)
+                    .map_or(Axes::FRONT, |node| node.axes_of("profile"))
+                    .sizes_out("vec3f({scale} * 1.7777778, {scale}, max({depth}, 0.0) * 0.5)"),
             ),
         )
     }),
+    axes: &[("profile", Axes::FRONT)],
     wgsl_utils: &[super::SDF, FRAME],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     ..NodeDef::EMPTY
@@ -281,8 +301,9 @@ pub static HEIGHTFIELD: NodeDef = NodeDef {
             "picture",
             "uv",
             "d <= abs(hgt)",
-            "        d = max((p.y - ground - hgt * v) / lip, p.y - top);\n",
+            "        d = max((f.z - ground - hgt * v) / lip, f.z - top);\n",
         );
+        let f = framed(ctx, node, "picture");
         fill(
             node,
             ctx,
@@ -293,14 +314,16 @@ pub static HEIGHTFIELD: NodeDef = NodeDef {
     let top = ground + max(hgt, 0.0);
     let g = hgt * max({{steepness}}, 0.0) / s;
     let lip = sqrt(1.0 + g * g);
-    let uv = vec2f(p.x, -p.z) / s;
-    var d = p.y - top;
+    let f = {f};
+    let uv = f.xy / s;
+    var d = f.z - top;
 {block}    return vec4f(d, {c});"
             ),
         )
     })],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
     bounds: Some(super::endless_bounds),
+    axes: &[("picture", LYING)],
     wgsl_utils: &[super::SDF],
     ..NodeDef::EMPTY
 };

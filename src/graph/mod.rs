@@ -26,11 +26,13 @@
 //!   lands on a dual input whose `PortDef::takes_list` says so, and a list and a field into
 //!   one node at once is refused at the second cable, since the node cannot be both.
 
+pub mod axes;
 pub mod node;
 mod order;
 pub mod port;
 pub mod workspace;
 
+pub use axes::{Axes, Axis, Plane};
 pub use node::{ControlRange, ControlValue, Node, PAINTING_FOLDER, Painting, Point, Value};
 pub use port::{ConnectError, Connection, Kind, PortDef, PortRef, PortType, Rate};
 pub use workspace::{LayoutMode, Workspace, WorkspaceId, WorkspaceKind};
@@ -304,6 +306,7 @@ impl Graph {
                 values: BTreeMap::new(),
                 options: BTreeMap::new(),
                 collapsed: false,
+                axes: BTreeMap::new(),
             },
         );
         id

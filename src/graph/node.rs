@@ -430,9 +430,22 @@ pub struct Node {
     /// Nothing about the graph changes — the ports still exist, the cables still land, and
     /// the shader is untouched. Only `canvas::rows` yields nothing.
     pub collapsed: bool,
+    /// Which of the solid's axes each input reads along, keyed by the input port, where not
+    /// what its kind starts it at ([`super::Axes`], `NodeDef::axes`). Document data that the shader reads:
+    /// it rides in the file and through undo, and a change rebuilds.
+    pub axes: BTreeMap<&'static str, super::Axes>,
 }
 
 impl Node {
+    /// The axes one input reads along ([`super::Axes`]): its own where it has been given
+    /// some, otherwise what its kind starts it at, otherwise Front.
+    pub fn axes_of(&self, key: &str) -> super::Axes {
+        self.axes
+            .iter()
+            .find(|(k, _)| **k == key)
+            .map_or_else(|| self.def.axes_start(key), |(_, a)| *a)
+    }
+
     pub fn input(&self, key: &str) -> Option<&PortDef> {
         self.inputs.iter().find(|p| p.key == key)
     }

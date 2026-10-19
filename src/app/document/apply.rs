@@ -301,6 +301,31 @@ impl Document {
                 }
                 // Position is not compile-relevant, so nothing is marked stale.
             }
+            Command::SetAxes { node, key, axes } => {
+                let n = self
+                    .graph_mut()
+                    .get_mut(node)
+                    .ok_or(CommandError::NoSuchNode(node))?;
+                // A key that is no input of this node, or two axes the same, would be a field
+                // read along nothing the file could say.
+                let Some(input) = n.def.input(key) else {
+                    return Err(CommandError::NoSuchKey(node, key));
+                };
+                if !axes.is_valid() {
+                    return Err(CommandError::NoSuchKey(node, key));
+                }
+                if n.axes_of(input.key) == axes {
+                    out.nothing = true;
+                    return Ok(out);
+                }
+                if axes == n.def.axes_start(input.key) {
+                    n.axes.remove(input.key);
+                } else {
+                    n.axes.insert(input.key, axes);
+                }
+                // The read is the field's code, so every Output the node reaches rebuilds.
+                self.mark(&mut out, node);
+            }
             Command::SetNodeSize {
                 node,
                 width,

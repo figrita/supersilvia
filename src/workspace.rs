@@ -79,6 +79,10 @@ pub struct SavedNode {
     /// declares.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
+    /// Which of the solid's axes each number input fed by a field reads it along, `x,-z`,
+    /// keyed by the input port. Left out where every one is Front, which is almost always.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub axes: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -254,6 +258,11 @@ impl WorkspaceFile {
                     .iter()
                     .map(|(k, v)| ((*k).to_string(), v.clone()))
                     .collect(),
+                axes: node
+                    .axes
+                    .iter()
+                    .map(|(k, a)| ((*k).to_string(), a.to_string()))
+                    .collect(),
             })
             .collect();
         saved.sort_by_key(|n| n.id);
@@ -342,6 +351,7 @@ impl WorkspaceFile {
                     values: BTreeMap::default(),
                     options: BTreeMap::default(),
                     collapsed: saved.collapsed,
+                    axes: BTreeMap::default(),
                 },
             );
 
@@ -359,6 +369,16 @@ impl WorkspaceFile {
                     }
                     Some(_) => warnings.push(LoadWarning::WrongValue { id, key }),
                     None => warnings.push(LoadWarning::UnknownOption { id, key }),
+                }
+            }
+            for (key, value) in saved.axes {
+                match (def.input(&key), crate::graph::Axes::parse(&value)) {
+                    (Some(input), Some(axes)) if axes != def.axes_start(input.key) => {
+                        node.axes.insert(input.key, axes);
+                    }
+                    (Some(_), Some(_)) => {}
+                    (Some(_), None) => warnings.push(LoadWarning::WrongValue { id, key }),
+                    (None, _) => warnings.push(LoadWarning::UnknownControl { id, key }),
                 }
             }
             // Ranges before controls, so a control is fitted to the range this node has

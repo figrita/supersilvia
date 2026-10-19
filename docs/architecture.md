@@ -41,7 +41,7 @@ Output holds a solid: one reaches a picture through **Render 3D** (`solidrender`
 marches a ray per pixel into it and whose output is an ordinary `VaryingColor`, so an Output
 shows it and every video node can take it from there. **Every number input on a solid node
 takes a field**, as a video node's does: a solid has a point where a field has a `uv`, so a
-field is read at the point's front view, `p.xy`, and Cast reads it by another projection. [nodes.md](nodes.md#solids) has the generator contract and the library, and
+field is read at the point's front view, `p.xy`, or along the axes its input's chip chooses, and Cast reads it by another projection. [nodes.md](nodes.md#solids) has the generator contract and the library, and
 [rendering.md](rendering.md#render-3d) what a render costs.
 
 A field is meaningful only inside a shader, where `uv` exists. A `UniformNumber` is exactly one

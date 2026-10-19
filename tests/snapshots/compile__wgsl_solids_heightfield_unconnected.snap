@@ -141,12 +141,13 @@ fn heightfield1_solid_d_own(p: vec3f) -> vec4f {
     let top = ground + max(hgt, 0.0);
     let g = hgt * max(u.u_control_heightfield1_steepness, 0.0) / s;
     let lip = sqrt(1.0 + g * g);
-    let uv = vec2f(p.x, -p.z) / s;
-    var d = p.y - top;
+    let f = vec3f(p.x, -p.z, p.y);
+    let uv = f.xy / s;
+    var d = f.z - top;
     if (d <= abs(hgt)) {
         let c = defaultUvMap(uv);
         let v = clamp(dot(c.rgb, vec3f(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
-        d = max((p.y - ground - hgt * v) / lip, p.y - top);
+        d = max((f.z - ground - hgt * v) / lip, f.z - top);
     }
     return vec4f(d, vec3f(0.0));
 }
@@ -167,12 +168,13 @@ fn heightfield1_solid_own(p: vec3f) -> vec4f {
     let top = ground + max(hgt, 0.0);
     let g = hgt * max(u.u_control_heightfield1_steepness, 0.0) / s;
     let lip = sqrt(1.0 + g * g);
-    let uv = vec2f(p.x, -p.z) / s;
-    var d = p.y - top;
+    let f = vec3f(p.x, -p.z, p.y);
+    let uv = f.xy / s;
+    var d = f.z - top;
     if (d <= abs(hgt)) {
         let c = defaultUvMap(uv);
         let v = clamp(dot(c.rgb, vec3f(0.2126, 0.7152, 0.0722)), 0.0, 1.0);
-        d = max((p.y - ground - hgt * v) / lip, p.y - top);
+        d = max((f.z - ground - hgt * v) / lip, f.z - top);
     }
     return vec4f(d, u.u_control_heightfield1_color.rgb);
 }

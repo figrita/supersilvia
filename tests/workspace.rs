@@ -787,3 +787,43 @@ fn a_sequencer_saved_with_cables_on_its_lanes_keeps_its_twelve_numbers() {
         "the rotation the lane was set to came back"
     );
 }
+
+/// An input's axes ride in the file, `x,-z` under its key, and come back; what its kind starts
+/// it at is not written at all, and a value the file cannot mean is a warning, not a guess.
+#[test]
+fn an_inputs_axes_stay_across_a_round_trip() {
+    use supersilvia::graph::Axes;
+    let mut g = Graph::new();
+    let bend = add(&mut g, "bend", Pos2::ZERO);
+    let ground = add(&mut g, "heightfield", Pos2::new(200.0, 0.0));
+    let turned = Axes::parse("-z,x").unwrap();
+    g.get_mut(bend).unwrap().axes.insert("input", turned);
+
+    let file = file_of(&g);
+    let saved = |id: NodeId| file.nodes.iter().find(|n| n.id == id).unwrap();
+    assert_eq!(
+        saved(bend).axes.get("input").map(String::as_str),
+        Some("-z,x")
+    );
+    assert!(saved(ground).axes.is_empty(), "the start is not written");
+
+    let (back, warnings) = round_trip(&g);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    assert_eq!(back.get(bend).unwrap().axes_of("input"), turned);
+    assert_eq!(
+        back.get(ground).unwrap().axes_of("picture"),
+        Axes::parse("x,-z").unwrap(),
+        "a Heightfield starts lying flat"
+    );
+
+    let mut file = file_of(&g);
+    for n in &mut file.nodes {
+        if n.id == bend {
+            n.axes.insert("input".to_string(), "x,x".to_string());
+        }
+    }
+    let json = serde_json::to_string(&file).unwrap();
+    let (back, warnings) = workspace::from_str(&json).unwrap();
+    assert_eq!(warnings.len(), 1, "{warnings:?}");
+    assert_eq!(back.get(bend).unwrap().axes_of("input"), Axes::FRONT);
+}

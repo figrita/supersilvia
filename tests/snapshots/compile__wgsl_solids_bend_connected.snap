@@ -171,11 +171,13 @@ fn bend1_curvature_at(q: vec3f) -> f32 {
 
 fn bend1_solid_d(p: vec3f) -> vec4f {
     let k = bend1_curvature_at(p);
-    let c = cos(k * p.x);
-    let s = sin(k * p.x);
-    let q = vec3f(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+    let f = vec3f(p.x, p.y, p.z);
+    let c = cos(k * f.x);
+    let s = sin(k * f.x);
+    let g = vec3f(c * f.x - s * f.y, s * f.x + c * f.y, f.z);
+    let q = vec3f(g.x, g.y, g.z);
     let r = sphere3_solid_d(q);
-    return vec4f(r.x / (1.0 + abs(k) * length(p.xy)), r.yzw);
+    return vec4f(r.x / (1.0 + abs(k) * length(f.xy)), r.yzw);
 }
 
 fn sphere3_solid_own(p: vec3f) -> vec4f {
@@ -194,11 +196,13 @@ fn sphere3_solid(p: vec3f) -> vec4f {
 
 fn bend1_solid(p: vec3f) -> vec4f {
     let k = bend1_curvature_at(p);
-    let c = cos(k * p.x);
-    let s = sin(k * p.x);
-    let q = vec3f(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
+    let f = vec3f(p.x, p.y, p.z);
+    let c = cos(k * f.x);
+    let s = sin(k * f.x);
+    let g = vec3f(c * f.x - s * f.y, s * f.x + c * f.y, f.z);
+    let q = vec3f(g.x, g.y, g.z);
     let r = sphere3_solid(q);
-    return vec4f(r.x / (1.0 + abs(k) * length(p.xy)), r.yzw);
+    return vec4f(r.x / (1.0 + abs(k) * length(f.xy)), r.yzw);
 }
 
 fn solidrender5_output(uv: vec2f) -> vec4f {

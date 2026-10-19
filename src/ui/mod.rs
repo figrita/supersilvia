@@ -3,6 +3,7 @@
 //! The canvas. Emits `Command`s and never mutates the graph itself.
 
 pub mod about;
+pub mod axes;
 pub mod banner;
 pub mod bridge;
 pub mod browse;
@@ -268,6 +269,12 @@ pub enum OpenControl {
     },
     /// The three numbers that belong to this instance of a control rather than to its kind.
     Range {
+        node: NodeId,
+        key: &'static str,
+        at: Pos2,
+    },
+    /// An input's axes popover, `ui::axes`.
+    Axes {
         node: NodeId,
         key: &'static str,
         at: Pos2,
@@ -2394,6 +2401,20 @@ fn popups(
                     }
                     fx.look_for_devices |= picked.look_again;
                     (false, picked.dismissed)
+                }
+                None => (true, false),
+            }
+        }
+        Some(OpenControl::Axes { node, key, at }) => {
+            let at = t.to_screen(origin, at);
+            match graph.get(node).filter(|n| n.input(key).is_some()) {
+                Some(n) => {
+                    let name = format!("{}{node}.{key} axes", n.def.slug);
+                    let popped = axes::popover(ui, at, &name, n.axes_of(key), theme);
+                    if let Some(axes) = popped.picked {
+                        fx.commands.push(Command::SetAxes { node, key, axes });
+                    }
+                    (false, popped.dismissed)
                 }
                 None => (true, false),
             }

@@ -2036,7 +2036,11 @@ moves by itself: a gear's Cycles into Displace's Phase moves the ripple, and an 
 a Sphere's Radius moves the ball.
 
 **A field is read at the point's front view**, `p.xy`, so a pattern goes straight through the
-solid from front to back, like a slide through a projector. `CompileContext::input_at_point`
+solid from front to back, like a slide through a projector — **or along the axes its line was
+given** (`graph::Axes`, `Node::axes`): the field's across along one of X, Y and Z, its up along
+another, either run backwards, the picture running unchanged through the third. The input's
+line carries a chip while a field arrives there ([ui.md](ui.md#the-axes-chip)), and a change
+rebuilds, since the two coordinates are written into the read. `CompileContext::input_at_point`
 reads it through a wrapper that records the point in `sd_at` round the call, and puts back
 whatever was there: a field can hold a render of its own, whose solids ask too. **Cast**
 (`cast`) reads that point and lays its field or picture on by another Projection — Front, Top,
@@ -2044,6 +2048,16 @@ Side, Around, Sphere, or Box, three of them blended by which way the point lies 
 center — by Texture's formulas, with Scale and Offset. In a picture no solid is asking, the
 point is the pixel on the picture's plane, and Front hands the input back unchanged. Cast reads
 its own input as a picture, so a Cast inside a Cast projects once.
+
+**The same chip chooses a plane where a node works in one** (`NodeDef::axes`, which names the
+input line and what it starts at): Bend's Solid line is the axis a solid is bent along and the
+one it curves toward, X toward Y to start; Twist's is the plane it turns in, X and Z about Y;
+Extrude's Profile and Heightfield's Picture are the plane the picture lies on, Front for
+Extrude and flat for Heightfield, across along X and its top away along −Z. Each works on the
+point taken into that frame (`Axes::into_frame`) and hands its input the point taken back out
+(`Axes::out_of_frame`); a frame only permutes and mirrors axes, so a distance stays a distance.
+Revolve's picture keeps its upright axis: one axis is all a lathe has, and the chip's two would
+offer nothing for the other.
 
 **Render 3D's numbers are `UniformNumber`s** (`solids::uniform`): its camera is one camera for
 the whole picture.

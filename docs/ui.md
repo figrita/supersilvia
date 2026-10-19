@@ -2699,6 +2699,24 @@ node and key on the canvas, an anchor in Preferences), not by one shared id: two
 swatches opened one after another must not inherit each other's typed text or hue. Both are
 dropped the moment the popup is dismissed, so the next open starts on its own color.
 
+## The axes chip
+
+**An input that reads a picture into space carries a chip on its line**: any number input of a
+solid while a field arrives at it, and the inputs a node names (`NodeDef::axes`) — Bend's and
+Twist's Solid, Extrude's Profile, Heightfield's Picture — always. `ui::axes::chip` sits left of
+the row's control, or at the row's end where it has none: a cube split like a Y into its three
+faces and the axes as text, `XY`, `X−Z`. The lit face is the plane: the left one Front (X and
+Y), the top one Top (X and Z), the right one Side (Z and Y). It is solid where neither axis
+runs backwards, striped across the across axis where that one does, along it where the up axis
+does, and diagonally where both do. The chip is named `{control} axes {XY}`.
+
+**Clicking it opens `ui::axes::popover`**, a popup as the color picker's: the three planes as
+presets, each with its own cube lit, and under them a row for each of the picture's axes,
+**Across** and **Up**, each X, Y and Z and a **−**. The axis the other row holds is refused,
+greyed and not pressable, so the two never name one axis; the minus runs that axis backwards.
+Each pick is a `Command::SetAxes`, one undo step, which rebuilds the Outputs the node reaches.
+What the node's kind starts the input at is stored as nothing, in the node and in the file.
+
 ## The press button
 
 An action input whose definition declares `Control::Press` draws the button **as the row

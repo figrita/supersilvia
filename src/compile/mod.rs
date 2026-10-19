@@ -598,7 +598,10 @@ impl<'a> CompileContext<'a> {
             if self.utils_seen.insert(POINT_STATE) {
                 self.utils.push(POINT_STATE);
             }
-            let read = self.input(id, key, "q.xy");
+            // The two of the point's coordinates the field is read at: its front view, or the
+            // axes this input was given (`Node::axes`).
+            let at = node.axes_of(key).read("q");
+            let read = self.input(id, key, &at);
             self.functions.push(format!(
                 "fn {name}(q: vec3f) -> {} {{
     let was = sd_at;

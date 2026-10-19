@@ -128,18 +128,20 @@ fn sd_hue(h: f32) -> vec3f {
 
 fn twist1_solid_d(p: vec3f) -> vec4f {
     let k = u.u_control_twist1_rate * 6.2831853;
-    let xz = sd_rot2(p.xz, k * p.y);
-    let q = vec3f(xz.x, p.y, xz.y);
+    let f = vec3f(p.x, p.z, p.y);
+    let g = vec3f(sd_rot2(f.xy, k * f.z), f.z);
+    let q = vec3f(g.x, g.z, g.y);
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x / sqrt(1.0 + k * k * dot(p.xz, p.xz)), r.yzw);
+    return vec4f(r.x / sqrt(1.0 + k * k * dot(f.xy, f.xy)), r.yzw);
 }
 
 fn twist1_solid(p: vec3f) -> vec4f {
     let k = u.u_control_twist1_rate * 6.2831853;
-    let xz = sd_rot2(p.xz, k * p.y);
-    let q = vec3f(xz.x, p.y, xz.y);
+    let f = vec3f(p.x, p.z, p.y);
+    let g = vec3f(sd_rot2(f.xy, k * f.z), f.z);
+    let q = vec3f(g.x, g.z, g.y);
     let r = vec4f(1.0e4, 0.5, 0.5, 0.5);
-    return vec4f(r.x / sqrt(1.0 + k * k * dot(p.xz, p.xz)), r.yzw);
+    return vec4f(r.x / sqrt(1.0 + k * k * dot(f.xy, f.xy)), r.yzw);
 }
 
 fn solidrender3_output(uv: vec2f) -> vec4f {

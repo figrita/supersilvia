@@ -1175,9 +1175,22 @@ pub struct NodeDef {
     /// This shape's body at a scaled size, for a shape whose numbers can take one. `None`, the
     /// default, and a repeat measures a scaled copy by a bound.
     pub scaled: Option<ScaledDef>,
+    /// The inputs whose line carries an axes chip whatever arrives — the plane a Bend curves
+    /// in, the one a picture is extruded from — and the axes each starts at. Any number input
+    /// of a solid that a field arrives at carries one as well, starting at Front, without being
+    /// named here (`nodes::solids::takes_axes`).
+    pub axes: &'static [(&'static str, crate::graph::Axes)],
 }
 
 impl NodeDef {
+    /// What one input's axes start at: what [`Self::axes`] names, or Front.
+    pub fn axes_start(&self, key: &str) -> crate::graph::Axes {
+        self.axes
+            .iter()
+            .find(|(k, _)| *k == key)
+            .map_or(crate::graph::Axes::FRONT, |(_, a)| *a)
+    }
+
     pub const EMPTY: Self = Self {
         slug: "",
         icon: "",
@@ -1204,6 +1217,7 @@ impl NodeDef {
         offered: || true,
         bounds: None,
         scaled: None,
+        axes: &[],
     };
 
     /// How many of this kind's options are ticks sharing one row of their own — silvia's

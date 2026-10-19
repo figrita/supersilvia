@@ -145,6 +145,37 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }";
 
+/// Whether one of a node's input lines carries the axes chip ([`crate::graph::Axes`]): an
+/// input its kind names in `NodeDef::axes` — Bend's and Twist's solid, Extrude's and
+/// Heightfield's picture — or a number input of a solid that a field arrives at, which reads
+/// the field at two of the point's coordinates. Not a field from a Cast, which reads the
+/// point itself by a projection of its own, and not a picture input, which its node reads by
+/// a projection of its own too (Texture's Projection) where it does not name it here.
+pub fn takes_axes(graph: &crate::graph::Graph, id: NodeId, key: &str) -> bool {
+    let Some(node) = graph.get(id) else {
+        return false;
+    };
+    if node.def.axes.iter().any(|(k, _)| *k == key) {
+        return true;
+    }
+    let is_solid = node.def.outputs.iter().any(|o| o.ty.is_solid());
+    let Some(input) = node.input(key) else {
+        return false;
+    };
+    if !is_solid || input.ty.kind() != crate::graph::Kind::Number {
+        return false;
+    }
+    graph
+        .source_of(crate::graph::PortRef::new(id, input.key))
+        .and_then(|src| graph.get(src.node).map(|n| (n, src.key)))
+        .is_some_and(|(from, out)| {
+            !std::ptr::eq(from.def, &raw const cast::CAST)
+                && from
+                    .output(out)
+                    .is_some_and(|p| p.ty.is_varying() && !p.ty.is_solid())
+        })
+}
+
 /// **The chain.** Every shape node — a primitive, a fractal, a profile — takes the solid built
 /// so far on its first row, [`ONTO`], and combines its own shape with it by [`MODE`] and
 /// [`BLEND`], so a scene is a row of shapes cabled one into the next rather than a tree of

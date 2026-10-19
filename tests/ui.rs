@@ -15602,3 +15602,53 @@ fn a_sweep_across_the_lists_bars_draws_them_as_one_step() {
             .contains_key("values")
     );
 }
+
+/// **An input's axes chip opens its popover, and what is picked there is one undoable edit**:
+/// Bend's Solid line, Front at first; Top from the presets; its Across run backwards; and undo
+/// puts each back.
+#[test]
+fn a_bends_axes_chip_picks_its_plane_and_undo_puts_it_back() {
+    use supersilvia::graph::Axes;
+    let mut h = harness();
+    h.step();
+    let workspace = h.state().graph().default_workspace();
+    h.state_mut()
+        .apply(Command::AddNode {
+            slug: "bend",
+            at: egui::Pos2::new(200.0, 200.0),
+            workspace,
+        })
+        .expect("a bend");
+    let bend = only_node(&h);
+    let id = h
+        .state()
+        .graph()
+        .iter()
+        .map(|(id, _)| id)
+        .next()
+        .expect("the bend");
+    assert_eq!(bend.axes_of("input"), Axes::FRONT);
+    h.run_steps(2);
+
+    h.get_by_label(&format!("bend{id}.input axes XY")).click();
+    h.run_steps(2);
+    h.get_by_label(&format!("bend{id}.input axes Top")).click();
+    h.run_steps(2);
+    let axes = |h: &Harness<'_, App>| h.state().graph().get(id).unwrap().axes_of("input");
+    assert_eq!(axes(&h), Axes::TOP);
+    assert!(
+        h.get_by_label(&format!("bend{id}.input axes Across Z"))
+            .accesskit_node()
+            .is_disabled(),
+        "the axis Up took is refused to Across"
+    );
+    h.get_by_label(&format!("bend{id}.input axes Across backwards"))
+        .click();
+    h.run_steps(2);
+    assert_eq!(axes(&h), Axes::parse("-x,z").unwrap());
+
+    h.state_mut().undo();
+    assert_eq!(axes(&h), Axes::TOP);
+    h.state_mut().undo();
+    assert_eq!(axes(&h), Axes::FRONT);
+}

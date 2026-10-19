@@ -263,6 +263,15 @@ pub enum Command {
         key: &'static str,
         value: crate::graph::Value,
     },
+    /// Which of the solid's axes one of a node's number inputs reads a field along
+    /// ([`crate::graph::Axes`]). What its kind starts it at is stored as nothing. It changes the code that reads the
+    /// field, so the Outputs the node reaches rebuild; document data, so it is undoable and
+    /// rides in the file.
+    SetAxes {
+        node: NodeId,
+        key: &'static str,
+        axes: crate::graph::Axes,
+    },
     /// Set one node's body width and its text box's height, or hand either back to what its
     /// kind asks for.
     ///
@@ -512,6 +521,7 @@ impl Command {
                 format!("Change {}", nodes(&[*id]))
             }
             Self::SetRange { node, key, .. } => format!("Change {} range", row(*node, key)),
+            Self::SetAxes { node, key, .. } => format!("Change {} axes", row(*node, key)),
             Self::ClearRange { node, key } => format!("Reset {} range", row(*node, key)),
             Self::SetValue { node, key, .. } => format!("Edit {}", row(*node, key)),
             Self::SetNodeSize { node: id, .. } => format!("Resize {}", nodes(&[*id])),
@@ -594,6 +604,7 @@ impl Command {
             | Self::SetOption { node, .. }
             | Self::SetSettings { node, .. }
             | Self::SetValue { node, .. }
+            | Self::SetAxes { node, .. }
             | Self::SetNodeSize { node, .. } => (vec![*node], None),
             Self::ShowOn { nodes, workspace }
             | Self::HideFrom { nodes, workspace }
