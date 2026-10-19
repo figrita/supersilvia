@@ -247,8 +247,8 @@ pub struct IoSurface {
     pub redrawn: Option<Redrawn>,
 }
 
-/// A frame in Direct3D 12 textures: a decoder's, or an upload's, made on the renderer's device
-/// or shared from another on its adapter. Integers and a layout, so `nodes/` names no graphics
+/// A frame in Direct3D 12 textures: a decoder's, an upload's or a Spout receiver's, made on the
+/// renderer's device or shared from another on its adapter. Integers and a layout, so `nodes/` names no graphics
 /// API.
 #[derive(Clone)]
 pub struct D3d12Texture {
@@ -258,9 +258,12 @@ pub struct D3d12Texture {
     /// texture of two planes, RGBA, BGRA — or one per plane, NV12's luma and chroma in textures
     /// of their own, where the producer's device holds no NV12 texture.
     pub textures: Vec<D3d12Plane>,
-    /// `Nv12`, `Rgba` or `Bgra`.
+    /// `Nv12`, `Rgba`, `Rgbx`, `Bgra` or `Bgrx`; an `x` byte reads as opaque.
     pub layout: Layout,
     pub yuv: Yuv,
+    /// Its first row is the picture's bottom, which the copy into the source's texture turns
+    /// the right way up: a Spout sender's read the other way up. False for a decoder's.
+    pub bottom_first: bool,
     /// Whatever owns the textures and the fences — the producer's buffer — held so they stay
     /// valid while a texture samples them. Opaque, so `render/` sees no media type.
     pub keep: Arc<dyn std::any::Any + Send + Sync>,
@@ -292,6 +295,7 @@ impl std::fmt::Debug for D3d12Texture {
         f.debug_struct("D3d12Texture")
             .field("textures", &self.textures)
             .field("layout", &self.layout)
+            .field("bottom_first", &self.bottom_first)
             .finish_non_exhaustive()
     }
 }
@@ -302,6 +306,7 @@ impl PartialEq for D3d12Texture {
             && self.textures == other.textures
             && self.layout == other.layout
             && self.yuv == other.yuv
+            && self.bottom_first == other.bottom_first
             && Arc::ptr_eq(&self.keep, &other.keep)
     }
 }

@@ -59,8 +59,9 @@
 //! memory mapped, so there is nothing to fall back to and no flag to raise.
 //!
 //! **A Direct3D 12 frame goes to [`Imports`] as well**, a view per plane of its textures, and
-//! is always drawn by the pass into the source's own texture, after which a transition hands
-//! each texture back in the common state its producer's queues expect. It is held and let go as a
+//! is always drawn by the pass into the source's own texture — bottom row first where it is
+//! laid out so, as a Spout sender's may be read, and opaque where its layout pads — after which
+//! a transition hands each texture back in the common state its producer's queues expect. It is held and let go as a
 //! DMA-BUF is, and one that does not import raises its `refused` flag as a DMA-BUF does.
 //!
 //! What the renderer calls, and when, is fixed in `mod.rs`: [`Sources::sync`] in the prelude
@@ -376,7 +377,7 @@ impl Sources {
                                 source,
                                 planes.into_iter().map(Plane::from).collect(),
                                 (frame.width, frame.height),
-                                &convert_block(t.layout, t.yuv, false, false),
+                                &convert_block(t.layout, t.yuv, t.bottom_first, false),
                             );
                             recording.encoder().transition_resources(
                                 std::iter::empty(),

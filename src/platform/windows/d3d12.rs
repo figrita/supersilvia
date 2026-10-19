@@ -228,6 +228,7 @@ fn texture(caps: &gst::CapsRef, buffer: &gst::BufferRef) -> Result<Option<Frame>
             textures,
             layout,
             yuv: crate::video::clip::yuv_of(&info),
+            bottom_first: false,
             keep: Arc::new(Held {
                 _buffer: buffer.to_owned(),
                 _fences: fences,

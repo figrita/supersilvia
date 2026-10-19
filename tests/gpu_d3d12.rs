@@ -230,6 +230,7 @@ fn on_this_device(
                 })
                 .collect(),
             layout,
+            bottom_first: false,
             yuv: Yuv::default(),
             keep: Arc::new((textures, fence.map(|(f, _)| f))),
             refused: None,

@@ -358,7 +358,7 @@ pub struct Renderer {
 impl Renderer {
     /// A renderer on `gpu`, which it keeps and draws through for its whole life.
     pub fn new(gpu: Gpu) -> Result<Self, String> {
-        dmabuf::serve(gpu.device());
+        dmabuf::serve(gpu.device(), gpu.queue());
         Ok(Self {
             shared: Shared::new(&gpu),
             outputs: HashMap::new(),

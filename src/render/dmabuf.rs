@@ -76,6 +76,15 @@
 //! a transition after the pass hands the texture back in the common state GStreamer's queues
 //! expect of it. The return rule is the one above: the frame holds the producer's buffer.
 //!
+//! **On Windows [`surface_target`] is a Spout sender's bridge**: a BGRA Direct3D 12 texture
+//! made on the renderer's own device, in a shared heap, with simultaneous access, which
+//! `platform::windows::syphon` copies into Spout's texture once a frame is drawn. It is wrapped
+//! with `texture_from_raw` as a decoder's texture is, to be drawn into. Simultaneous access is
+//! what makes wgpu's idea of its state harmless: every submission leaves it in the common
+//! state, from which any state is reached without a barrier. And since the copy out of it runs
+//! on Direct3D 11, [`d3d12_wait_here`] stages a wait on that copy's fence for the renderer's
+//! next submission, so the next draw into the bridge never overtakes it.
+//!
 //! **This is the wgpu renderer's one `unsafe`**: a `dup` of a borrowed fd, the hal import, the
 //! wrap, and two Vulkan queries through the instance's own function table; on macOS the
 //! `IOSurfaceRef` rebuilt from its integer, the hal device, the texture made from raw and its
@@ -121,33 +130,36 @@ struct Importable {
     max: (u32, u32),
 }
 
-/// The device the renderer draws on, for what asks whether a frame can be imported before it
-/// has a device of its own to ask: a video pipeline choosing its caps. Set by
-/// `Renderer::new`.
-static SERVED: Mutex<Option<wgpu::Device>> = Mutex::new(None);
+/// The device the renderer draws on and its queue, for what asks whether a frame can be
+/// imported before it has a device of its own to ask — a video pipeline choosing its caps — and
+/// for what makes textures on that device from outside `render/`: a Spout sender or receiver.
+/// Set by `Renderer::new`.
+static SERVED: Mutex<Option<(wgpu::Device, wgpu::Queue)>> = Mutex::new(None);
 
-/// Make `device` the one [`imports`] and [`importable_here`] ask.
-pub fn serve(device: &wgpu::Device) {
-    *SERVED.lock().unwrap_or_else(PoisonError::into_inner) = Some(device.clone());
+/// Make `device` and `queue` the ones [`imports`], [`importable_here`], [`d3d12_here`] and
+/// [`d3d12_wait_here`] ask.
+pub fn serve(device: &wgpu::Device, queue: &wgpu::Queue) {
+    *SERVED.lock().unwrap_or_else(PoisonError::into_inner) = Some((device.clone(), queue.clone()));
+}
+
+/// The served device, where there is one.
+fn served_device() -> Option<wgpu::Device> {
+    SERVED
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .as_ref()
+        .map(|(device, _)| device.clone())
 }
 
 /// Whether the renderer's device imports frames without a copy: false before there is a
 /// renderer.
 pub fn imports() -> bool {
-    SERVED
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .as_ref()
-        .is_some_and(supported)
+    served_device().as_ref().is_some_and(supported)
 }
 
 /// [`importable`] on the renderer's device: empty before there is a renderer.
 pub fn importable_here() -> Vec<(u32, u64)> {
-    let device = SERVED
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone();
-    device.as_ref().map(importable).unwrap_or_default()
+    served_device().as_ref().map(importable).unwrap_or_default()
 }
 
 /// Whether the device the renderer draws on imports frames without a copy: DMA-BUFs on a
@@ -169,11 +181,23 @@ pub struct D3d12Device {
 
 /// [`D3d12Device`] for the device the renderer draws on.
 pub fn d3d12_here() -> Option<D3d12Device> {
-    let device = SERVED
+    d3d12::device_of(&served_device()?)
+}
+
+/// Stage a wait for `fence`, an `ID3D12Fence` of the renderer's device as an integer, to
+/// reach `value`, ahead of the renderer's queue's next submission, from whichever thread
+/// makes it: what a Spout sender asks once Direct3D 11 has been handed its copy out of a
+/// bridge, so the next draw into the bridge waits for it on the GPU. False where there is no
+/// renderer on Direct3D 12, and nothing is staged.
+pub fn d3d12_wait_here(fence: usize, value: u64) -> bool {
+    let Some((_, queue)) = SERVED
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
-        .clone()?;
-    d3d12::device_of(&device)
+        .clone()
+    else {
+        return false;
+    };
+    d3d12::stage(&queue, fence, value)
 }
 
 /// One plane of an imported texture: the texture, the view a pass samples the plane through,
@@ -185,18 +209,31 @@ pub struct ImportedPlane {
     pub height: u32,
 }
 
-/// A texture drawn into `surface`, an 8-bit BGRA `IOSurface` of `width` by `height` another
-/// process reads — a Syphon server's shared surface — or why not. Sampled, drawn into and
+/// A texture drawn into `surface`, an 8-bit BGRA texture of `width` by `height` another
+/// process reads, or why not: on macOS an `IOSurfaceRef`, a Syphon server's shared surface; on
+/// Windows an `ID3D12Resource` of this device, a Spout sender's bridge. Sampled, drawn into and
 /// copied both ways, over the surface's own memory, with nothing cleared: the caller holds the
-/// surface for as long as the texture. Refused off macOS.
+/// surface for as long as the texture. Refused on Linux.
 pub fn surface_target(
     device: &wgpu::Device,
     surface: usize,
     width: u32,
     height: u32,
 ) -> Result<wgpu::Texture, String> {
-    metal::target(device, surface, width, height)
+    if d3d12::supported(device) {
+        d3d12::target(device, surface, width, height)
+    } else {
+        metal::target(device, surface, width, height)
+    }
 }
+
+/// What a texture drawn into a shared surface is made with: drawn into by a blit, sampled
+/// and copied either way by a test.
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+const TARGET_USAGE: wgpu::TextureUsages = wgpu::TextureUsages::RENDER_ATTACHMENT
+    .union(wgpu::TextureUsages::TEXTURE_BINDING)
+    .union(wgpu::TextureUsages::COPY_SRC)
+    .union(wgpu::TextureUsages::COPY_DST);
 
 /// Whether the device was opened with the DMA-BUF import. Where it was not, every DMA-BUF is
 /// refused and [`importable`] is empty.
@@ -801,6 +838,7 @@ mod vulkan {
 mod metal {
     //! The import of an `IOSurface`, a texture per plane, on wgpu-hal's Metal device.
 
+    use super::TARGET_USAGE;
     use crate::nodes::{IoSurface, Layout};
     use objc2_io_surface::IOSurfaceRef;
     use objc2_metal::{
@@ -880,13 +918,6 @@ mod metal {
         }
         None
     }
-
-    /// What a texture drawn into a shared surface is made with: drawn into by a blit, sampled
-    /// and copied either way by a test.
-    const TARGET_USAGE: wgpu::TextureUsages = wgpu::TextureUsages::RENDER_ATTACHMENT
-        .union(wgpu::TextureUsages::TEXTURE_BINDING)
-        .union(wgpu::TextureUsages::COPY_SRC)
-        .union(wgpu::TextureUsages::COPY_DST);
 
     /// A BGRA surface as a texture to draw into.
     pub(super) fn target(
@@ -1116,15 +1147,16 @@ mod metal {
 #[cfg(target_os = "windows")]
 mod d3d12 {
     //! The import of a frame's Direct3D 12 textures, a view per plane, on wgpu-hal's Direct3D
-    //! 12 device.
+    //! 12 device, and a Spout sender's bridge made a texture to draw into.
 
-    use super::{D3d12Device, ImportedPlane};
+    use super::{D3d12Device, ImportedPlane, TARGET_USAGE};
     use crate::nodes::{D3d12Plane, D3d12Texture, Layout};
     use std::ffi::c_void;
     use wgpu::hal::api::Dx12;
     use windows::Win32::Foundation::HANDLE;
     use windows::Win32::Graphics::Direct3D12::{
-        D3D12_RESOURCE_DIMENSION_TEXTURE2D, ID3D12Fence, ID3D12Resource,
+        D3D12_RESOURCE_DIMENSION_TEXTURE2D, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET, ID3D12Device,
+        ID3D12Fence, ID3D12Resource,
     };
     use windows::Win32::Graphics::Dxgi::Common::{
         DXGI_FORMAT, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_NV12, DXGI_FORMAT_R8_UNORM,
@@ -1157,7 +1189,8 @@ mod d3d12 {
     }
 
     /// What each of a frame's textures must be, as wgpu names its format and as DXGI does, for
-    /// a frame of `layout` in `count` textures: NV12 whole, NV12's planes in two, or RGB.
+    /// a frame of `layout` in `count` textures: NV12 whole, NV12's planes in two, or RGB, its
+    /// fourth byte alpha or padding.
     fn wanted(
         layout: Layout,
         count: usize,
@@ -1168,8 +1201,12 @@ mod d3d12 {
                 (wgpu::TextureFormat::R8Unorm, DXGI_FORMAT_R8_UNORM),
                 (wgpu::TextureFormat::Rg8Unorm, DXGI_FORMAT_R8G8_UNORM),
             ],
-            (Layout::Rgba, 1) => &[(wgpu::TextureFormat::Rgba8Unorm, DXGI_FORMAT_R8G8B8A8_UNORM)],
-            (Layout::Bgra, 1) => &[(wgpu::TextureFormat::Bgra8Unorm, DXGI_FORMAT_B8G8R8A8_UNORM)],
+            (Layout::Rgba | Layout::Rgbx, 1) => {
+                &[(wgpu::TextureFormat::Rgba8Unorm, DXGI_FORMAT_R8G8B8A8_UNORM)]
+            }
+            (Layout::Bgra | Layout::Bgrx, 1) => {
+                &[(wgpu::TextureFormat::Bgra8Unorm, DXGI_FORMAT_B8G8R8A8_UNORM)]
+            }
             _ => return None,
         })
     }
@@ -1358,6 +1395,124 @@ mod d3d12 {
         })
     }
 
+    /// A Spout sender's bridge as a texture to draw into: an `ID3D12Resource` of this device,
+    /// two-dimensional, BGRA, one level, one layer, one sample, `width` by `height`, made to be a
+    /// render target.
+    pub(super) fn target(
+        device: &wgpu::Device,
+        surface: usize,
+        width: u32,
+        height: u32,
+    ) -> Result<wgpu::Texture, String> {
+        if surface == 0 {
+            return Err("no Direct3D 12 texture".to_owned());
+        }
+        if width == 0 || height == 0 {
+            return Err(format!("a {width}×{height} texture has no pixels"));
+        }
+        let raw = surface as *mut c_void;
+        // SAFETY: a non-null `ID3D12Resource`, which the caller holds across this call and for
+        // as long as the texture made from it; the clone takes a reference of its own, which
+        // the wgpu texture releases.
+        let resource = unsafe { ID3D12Resource::from_raw_borrowed(&raw) }
+            .ok_or("no Direct3D 12 texture")?
+            .clone();
+        {
+            // SAFETY: the guard is only read through — the device's own handle — and dropped
+            // before the texture is handed to wgpu.
+            let hal = unsafe { device.as_hal::<Dx12>() }.ok_or("not a Direct3D 12 device")?;
+            let mut made_on: Option<ID3D12Device> = None;
+            // SAFETY: a plain query of a live resource, for the device that made it.
+            unsafe { resource.GetDevice(&raw mut made_on) }
+                .map_err(|e| format!("the texture's device: {e}"))?;
+            if made_on.is_none_or(|d| d.as_raw() != hal.raw_device().as_raw()) {
+                return Err("the texture is on another Direct3D 12 device".to_owned());
+            }
+        }
+        // SAFETY: a plain query of a live resource.
+        let desc = unsafe { resource.GetDesc() };
+        if desc.Dimension != D3D12_RESOURCE_DIMENSION_TEXTURE2D
+            || desc.Format != DXGI_FORMAT_B8G8R8A8_UNORM
+            || desc.MipLevels != 1
+            || desc.DepthOrArraySize != 1
+            || desc.SampleDesc.Count != 1
+            || (desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET).0 == 0
+        {
+            return Err(format!(
+                "a texture in DXGI format {} of {} levels and {} layers, flags {:#x}, is not a \
+                 BGRA target",
+                desc.Format.0, desc.MipLevels, desc.DepthOrArraySize, desc.Flags.0
+            ));
+        }
+        if (desc.Width, desc.Height) != (u64::from(width), height) {
+            return Err(format!(
+                "the texture is {}×{}, not {width}×{height}",
+                desc.Width, desc.Height
+            ));
+        }
+        let format = wgpu::TextureFormat::Bgra8Unorm;
+        let size = wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
+        // SAFETY: a two-dimensional texture of one level and one layer, in `format`, of `size`,
+        // as its own description says; dropping it releases the reference taken above, and the
+        // caller, not the texture, holds the bridge.
+        let hal_texture = unsafe {
+            wgpu::hal::dx12::Device::texture_from_raw(
+                resource,
+                format,
+                wgpu::TextureDimension::D2,
+                size,
+                1,
+                1,
+            )
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: Some("syphon"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format,
+            usage: TARGET_USAGE,
+            view_formats: &[],
+        };
+        // SAFETY: the texture is this device's own `ID3D12Device`'s, made on it with render
+        // target use and simultaneous access, respecting `desc`; wgpu clears no texture made
+        // from hal, every frame drawn into it covers it whole, and with simultaneous access a
+        // first barrier from `UNINITIALIZED`, the common state, is legal before any state.
+        Ok(unsafe {
+            device.create_texture_from_hal::<Dx12>(
+                hal_texture,
+                &desc,
+                wgpu::TextureUses::UNINITIALIZED,
+            )
+        })
+    }
+
+    /// Stage a wait for `fence`, an `ID3D12Fence` as an integer, to reach `value` ahead of
+    /// `queue`'s next submission. False off Direct3D 12.
+    pub(super) fn stage(queue: &wgpu::Queue, fence: usize, value: u64) -> bool {
+        if fence == 0 {
+            return false;
+        }
+        let raw = fence as *mut c_void;
+        // SAFETY: a non-null `ID3D12Fence` the caller holds across this call; the clone takes
+        // a reference of its own, which the queue releases once it has waited.
+        let Some(fence) = (unsafe { ID3D12Fence::from_raw_borrowed(&raw) }).cloned() else {
+            return false;
+        };
+        // SAFETY: the guard is used to stage one wait on the queue and dropped at once; nothing
+        // it names is destroyed here.
+        let Some(hal) = (unsafe { queue.as_hal::<Dx12>() }) else {
+            return false;
+        };
+        hal.add_wait_fence(fence, value);
+        true
+    }
+
     /// Stage a wait on `plane`'s fence for `queue`'s next submission, where it has one it has
     /// not passed yet.
     fn wait(queue: &wgpu::Queue, plane: &D3d12Plane) -> Result<(), String> {
@@ -1396,6 +1551,19 @@ mod d3d12 {
 
     pub(super) fn device_of(_device: &wgpu::Device) -> Option<D3d12Device> {
         None
+    }
+
+    pub(super) fn target(
+        _device: &wgpu::Device,
+        _surface: usize,
+        _width: u32,
+        _height: u32,
+    ) -> Result<wgpu::Texture, String> {
+        Err("a Direct3D 12 texture is Windows'".to_owned())
+    }
+
+    pub(super) fn stage(_queue: &wgpu::Queue, _fence: usize, _value: u64) -> bool {
+        false
     }
 
     pub(super) fn import(
