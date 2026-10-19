@@ -49,9 +49,15 @@ pub static DEF: NodeDef = NodeDef {
     category: Category::Output,
     icon: "📺",
     label: "Output",
-    tooltip: "Renders its input. Its frame port republishes the result as a texture. A Snap, \
-              a PNG sequence and a GIF keep the picture's own alpha, and a video drops it; \
-              Alpha under Send is what NDI and Syphon send, and shows once either is on.",
+    tooltip: if cfg!(target_os = "windows") {
+        "Renders its input. Its frame port republishes the result as a texture. A Snap, a PNG \
+         sequence and a GIF keep the picture's own alpha, and a video drops it; Alpha under \
+         Send is what NDI and Spout send, and shows once either is on."
+    } else {
+        "Renders its input. Its frame port republishes the result as a texture. A Snap, a PNG \
+         sequence and a GIF keep the picture's own alpha, and a video drops it; Alpha under \
+         Send is what NDI and Syphon send, and shows once either is on."
+    },
     inputs: &[
         InputDef {
             key: "input",
@@ -186,9 +192,10 @@ pub static DEF: NodeDef = NodeDef {
         },
         OptionDef::heading(OFFLINE, "Render", false, OptionKind::Presentation),
         OptionDef::heading(RECORD, "Record", false, OptionKind::Presentation),
-        // Sent over NDI to every machine on the network and, on a Mac, published over Syphon to
-        // every other app there, top row first rather than Syphon's bottom row first where Flip
-        // says; both ways with its own alpha rather than opaque over black where Alpha says.
+        // Sent over NDI to every machine on the network and, on a Mac or on Windows, published
+        // over Syphon or Spout to every other app there, the other way up from the convention's
+        // row order where Flip says; both ways with its own alpha rather than opaque over black
+        // where Alpha says.
         // Read by `App`, which hands the publisher what is on; no shader ever sees them. Drawn
         // under the Send heading as rows of their own (`SendRow`), not as selects.
         OptionDef::heading(SEND, "Send", false, OptionKind::Presentation),
@@ -210,13 +217,18 @@ pub static DEF: NodeDef = NodeDef {
         },
         OptionDef {
             key: SYPHON,
-            label: "Syphon",
+            label: crate::platform::syphon::NAME,
             ..SWITCH
         },
+        // Each choice names the row order that results: off is the convention's.
         OptionDef {
             key: SYPHON_FLIP,
             label: "Flip",
-            choices: &[(OFF, "Bottom first"), (ON, "Top first")],
+            choices: if crate::platform::syphon::BOTTOM_FIRST {
+                &[(OFF, "Bottom first"), (ON, "Top first")]
+            } else {
+                &[(OFF, "Top first"), (ON, "Bottom first")]
+            },
             ..SWITCH
         },
         OptionDef {
@@ -246,8 +258,8 @@ const SWITCH: OptionDef = OptionDef {
 /// The heading the send rows fold under. Open on a new Output, so the ways out are in view.
 pub const SEND: &str = "send";
 
-/// The options that send an Output out — over NDI, over Syphon, top row first where
-/// `syphonFlip` says — and the alpha both ways share. See [`sent_of`]. Drawn in the Send
+/// The options that send an Output out — over NDI, over Syphon or Spout, the other way up
+/// where `syphonFlip` says — and the alpha both ways share. See [`sent_of`]. Drawn in the Send
 /// section as [`SendRow`]s rather than in the option block.
 pub const NDI: &str = "ndi";
 pub const SYPHON: &str = "syphon";
@@ -266,9 +278,10 @@ pub const SEND_OPTIONS: [&str; 5] = [SEND_NAME, NDI, SYPHON, SYPHON_FLIP, TRANSP
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[allow(clippy::struct_excessive_bools)] // four switches, each on or off on its own
 pub struct Sent {
-    /// Published over Syphon. Never on a machine without Syphon, whatever the file says.
+    /// Published over Syphon or Spout. Never on a machine with neither, whatever the file says.
     pub syphon: bool,
-    /// Top row first, rather than Syphon's own bottom row first. Syphon's alone.
+    /// The other way up from the convention's row order
+    /// ([`BOTTOM_FIRST`](crate::platform::syphon::BOTTOM_FIRST)). Syphon's and Spout's alone.
     pub flip: bool,
     /// Sent over NDI.
     pub ndi: bool,
@@ -286,8 +299,8 @@ impl Sent {
 /// How this Output is sent out, by its options.
 ///
 /// The keys and how to read them belong to this module, as `resolution` does. A file from a
-/// Mac keeps its `syphon` and `syphonFlip` on a machine without Syphon, and they read as off
-/// there: nothing is published, and nothing about it is drawn.
+/// Mac or from Windows keeps its `syphon` and `syphonFlip` on a machine with neither Syphon nor
+/// Spout, and they read as off there: nothing is published, and nothing about it is drawn.
 pub fn sent_of(node: &crate::graph::Node) -> Sent {
     let on = |key: &str| node.options.get(key).is_some_and(|v| v == ON);
     let syphon = crate::platform::syphon::available();
@@ -305,9 +318,10 @@ pub fn default_name(id: crate::graph::NodeId) -> String {
     format!("supersilvia Output {}", id.0)
 }
 
-/// The one name an Output is sent under, over NDI and over Syphon alike: its own where it has
-/// one, [`default_name`] where it has none. NDI puts the machine's name beside it and Syphon
-/// the app's.
+/// The one name an Output is sent under, over NDI and over Syphon or Spout alike: its own
+/// where it has one, [`default_name`] where it has none. NDI puts the machine's name beside it,
+/// Syphon the app's, and Spout the app's ahead of it
+/// ([`PREFIX`](crate::platform::syphon::PREFIX)).
 pub fn send_name(id: crate::graph::NodeId, node: &crate::graph::Node) -> String {
     node.options
         .get(SEND_NAME)
@@ -434,7 +448,7 @@ impl Way {
     pub fn label(self) -> &'static str {
         match self {
             Self::Ndi => "NDI®",
-            Self::Syphon => "Syphon",
+            Self::Syphon => crate::platform::syphon::NAME,
         }
     }
 
@@ -446,8 +460,10 @@ impl Way {
                  source. ndi.video"
             ),
             Self::Syphon => format!(
-                "Published over Syphon as “{name}”, for another app on this Mac to take as a \
-                 source."
+                "Published over {} as “{}{name}”, for another app on this computer to take as \
+                 a source.",
+                crate::platform::syphon::NAME,
+                crate::platform::syphon::PREFIX
             ),
         }
     }
@@ -460,7 +476,7 @@ pub enum SendRow {
     Name,
     /// A way out: its name, one line saying what it is doing, and the button that changes it.
     Way(Way),
-    /// Syphon's Flip, under the Syphon row while it publishes.
+    /// Syphon's or Spout's Flip, under its row while it publishes.
     Flip,
     /// The alpha both ways share, once, after the ways, while either sends: what is sent
     /// and nothing else, since a Snap and a render's PNG or GIF keep the picture's own.
@@ -841,7 +857,7 @@ mod tests {
     }
 
     /// A new Output sends nothing and says so with its name and one row per way this machine
-    /// has: NDI everywhere, Syphon on a Mac alone.
+    /// has: NDI everywhere, Syphon on a Mac and Spout on Windows.
     #[test]
     fn a_new_output_has_a_row_per_way_this_machine_has() {
         let expected: Vec<SendRow> = if crate::platform::syphon::available() {
@@ -856,13 +872,16 @@ mod tests {
         assert_eq!(rows(&[]), expected);
     }
 
-    /// Alpha appears once either way is on, after the ways; Flip only under Syphon, while it
-    /// publishes.
+    /// Alpha appears once either way is on, after the ways; Flip only under Syphon or Spout,
+    /// while it publishes.
     #[test]
     fn alpha_and_flip_appear_with_what_they_shape() {
         let ndi = rows(&[(NDI, ON)]);
         assert_eq!(ndi.last(), Some(&SendRow::Alpha));
-        assert!(!ndi.contains(&SendRow::Flip), "Flip is Syphon's alone");
+        assert!(
+            !ndi.contains(&SendRow::Flip),
+            "Flip is Syphon's and Spout's alone"
+        );
 
         let syphon = rows(&[(SYPHON, ON)]);
         if crate::platform::syphon::available() {
@@ -880,13 +899,14 @@ mod tests {
             assert_eq!(
                 syphon,
                 [SendRow::Name, SendRow::Way(Way::Ndi)],
-                "a Mac's Syphon, opened here, draws nothing and shapes nothing"
+                "a Mac's Syphon or Windows' Spout, opened here, draws nothing and shapes nothing"
             );
         }
     }
 
-    /// A file from a Mac keeps its Syphon options on a machine without Syphon, and nothing is
-    /// published: the value is the file's, the answer is the machine's.
+    /// A file from a Mac or Windows keeps its Syphon options on a machine with neither Syphon
+    /// nor Spout, and nothing is published: the value is the file's, the answer is the
+    /// machine's.
     #[test]
     fn syphon_from_a_file_is_kept_and_read_as_this_machine_can() {
         let (g, id) = with(&[(SYPHON, ON), (SYPHON_FLIP, ON)]);
@@ -895,6 +915,25 @@ mod tests {
         let sent = sent_of(node);
         let here = crate::platform::syphon::available();
         assert_eq!((sent.syphon, sent.flip, sent.any()), (here, here, here));
+    }
+
+    /// Flip's choices name the row order that results: off is the convention's, bottom first
+    /// on a Mac and top first on Windows.
+    #[test]
+    fn flips_choices_name_the_row_order_that_results() {
+        let flip = DEF.option(SYPHON_FLIP).expect("declared");
+        let label = |value: &str| {
+            flip.choices
+                .iter()
+                .find(|(v, _)| *v == value)
+                .map(|(_, l)| *l)
+        };
+        let (convention, other) = if crate::platform::syphon::BOTTOM_FIRST {
+            ("Bottom first", "Top first")
+        } else {
+            ("Top first", "Bottom first")
+        };
+        assert_eq!((label(OFF), label(ON)), (Some(convention), Some(other)));
     }
 
     #[test]

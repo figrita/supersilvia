@@ -292,7 +292,8 @@ impl eframe::App for App {
         self.pictures.stop();
         // The file drops' thread borrows the same display, so it goes while that is alive.
         self.filedrop.stop();
-        // Then the publisher, which lets go of each Syphon server once its last frame is drawn.
+        // Then the publisher, which lets go of each Syphon or Spout server once its last frame
+        // is drawn.
         self.sending.publisher.stop();
         // Then the synth, whose renderer goes with its thread.
         self.link.host_mut().stop();
@@ -1093,7 +1094,10 @@ impl App {
                     Some(Why::Deck) => "it is on a mixer deck".to_string(),
                     Some(Why::Window) => "its picture has a window of its own".to_string(),
                     Some(Why::Sent) if crate::platform::syphon::available() => {
-                        "it is sent out over Syphon or NDI".to_string()
+                        format!(
+                            "it is sent out over {} or NDI",
+                            crate::platform::syphon::NAME
+                        )
                     }
                     Some(Why::Sent) => "it is sent out over NDI".to_string(),
                     Some(Why::Capture) => "the render is capturing it".to_string(),

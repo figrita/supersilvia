@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A picture another app publishes over Syphon, as a texture — each node a client of its own,
-//! so a patch can take several at once.
+//! A picture another app publishes over Syphon on a Mac or Spout on Windows, as a texture —
+//! each node a client of its own, so a patch can take several at once. It is labelled with the
+//! service's name on the machine ([`NAME`]); its slug is `syphon` on both, so a project opens
+//! on either.
 //!
-//! The rig's one Syphon source is the [Main Input panel's](../../../docs/media.md#the-main-input);
-//! this is the node beside it, as `screencapture` is beside the panel's screen. The server is
-//! chosen from a menu of what the Mac's Syphon directory lists now, by "App – Server", which
-//! is what a project saves; one that is not running is looked for again every second, so it is
-//! taken up when it starts ([`crate::video::syphon`]). **Flip** reads the surface top row first
-//! rather than Syphon's bottom row first, and **Transparent** keeps its alpha rather than
-//! reading it opaque. Linux has no Syphon: the library does not offer the node there, and one
-//! that arrives in a file from a Mac lists nothing and says so.
+//! The rig's one Syphon or Spout source is the
+//! [Main Input panel's](../../../docs/media.md#the-main-input); this is the node beside it, as
+//! `screencapture` is beside the panel's screen. The server is chosen from a menu of what the
+//! machine's directory lists now, by "App – Server" on a Mac and by the sender's name on
+//! Windows, which is what a project saves; one that is not running is looked for again every
+//! second, so it is taken up when it starts ([`crate::video::syphon`]). **Flip** reads the
+//! surface the other way up from the convention's row order
+//! ([`BOTTOM_FIRST`](crate::platform::syphon::BOTTOM_FIRST)), and **Transparent** keeps its
+//! alpha rather than reading it opaque. Linux has neither: the library does not offer the node
+//! there, and one that arrives in a file from a Mac or Windows lists nothing and says so.
 
 use crate::graph::NodeId;
 use crate::graph::PortType::VaryingColor;
@@ -18,7 +22,7 @@ use crate::nodes::{
     Category, CpuDef, CpuNode, Frame, NodeDef, OptionDef, OptionKind, OutputDef, OutputKind,
     TickContext,
 };
-use crate::platform::syphon::Look;
+use crate::platform::syphon::{Look, NAME};
 use crate::video::syphon::{NONE, Receiver, menu};
 use std::sync::Arc;
 
@@ -26,9 +30,14 @@ pub static DEF: NodeDef = NodeDef {
     slug: "syphon",
     category: Category::Source,
     icon: "📡",
-    label: "Syphon",
-    tooltip: "A picture another app on this Mac publishes over Syphon, as a texture. Choose the \
-              server by its app and its name; one that is not running is taken up when it starts.",
+    label: NAME,
+    tooltip: if cfg!(target_os = "windows") {
+        "A picture another app on this computer publishes over Spout, as a texture. Choose the \
+         server by its name; one that is not running is taken up when it starts."
+    } else {
+        "A picture another app on this Mac publishes over Syphon, as a texture. Choose the \
+         server by its app and its name; one that is not running is taken up when it starts."
+    },
     outputs: &[OutputDef {
         key: "frame",
         label: "Frame",
@@ -143,7 +152,7 @@ mod tests {
         let node = SyphonNode::new();
         let status = node.status().expect("a status line");
         assert!(
-            status == "no server chosen" || status.contains("Syphon"),
+            status == "no server chosen" || status.contains(NAME),
             "{status}"
         );
         assert!(node.error().is_none());

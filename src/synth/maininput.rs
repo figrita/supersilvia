@@ -683,14 +683,15 @@ impl Live {
         let what = match want {
             VideoSource::None => return "nothing open".to_string(),
             VideoSource::Screen => "screen".to_string(),
-            // A Mac's project opened where there is no Syphon: why, rather than the server.
+            // A Syphon or Spout source opened where there is neither: why, rather than the
+            // server.
             VideoSource::Syphon { .. } if !crate::platform::syphon::available() => {
                 return crate::platform::syphon::unavailable()
                     .unwrap_or_default()
                     .to_string();
             }
             VideoSource::Syphon { server, .. } if server.is_empty() => {
-                return "no Syphon server chosen".to_string();
+                return format!("no {} server chosen", crate::platform::syphon::NAME);
             }
             VideoSource::Syphon { server, .. } => server.clone(),
             VideoSource::Ndi { source, .. } if source.is_empty() => {

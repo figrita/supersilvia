@@ -35,7 +35,8 @@ pub enum Why {
     Deck,
     /// Its picture has a window of its own.
     Window,
-    /// It is sent out, over Syphon to another app on the Mac or over NDI to the network.
+    /// It is sent out, over Syphon or Spout to another app on the machine or over NDI to the
+    /// network.
     Sent,
     /// The offline render is capturing it.
     Capture,

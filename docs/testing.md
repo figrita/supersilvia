@@ -118,16 +118,17 @@ on a real change. Never write a Mac's pixels over the PNGs (`UPDATE_SNAPSHOTS=1`
 the Linux gate would then fail on every edge a Mac drew differently. A snapshot is accepted
 on Linux; a Mac only compares. **What the machine offers is pinned, so the PNGs hold
 no machine's answers**: the harness's app (`app` in `tests/ui.rs`) reads NDI® as not installed
-and Syphon as absent, whatever the machine has — `video::ndi::pretend_missing` and
+and Syphon or Spout as absent, whatever the machine has — `video::ndi::pretend_missing` and
 `platform::syphon::pretend_unavailable`, test hooks that hold for the calling thread alone,
 which is where kittest runs the editor and its inline synth. An Output's NDI row says *runtime
-not installed* and no Output, Main Mixer or Nodes menu carries Syphon, on a box with the NDI
-runtime and on a Mac alike, so a Mac draws the snapshots Linux wrote. The tests about sending
-out and about a Syphon source — `ndi_sends_an_output_by_its_row_and_the_mix_by_its_mark`,
+not installed* and no Output, Main Mixer or Nodes menu carries Syphon or Spout, on a box with
+the NDI runtime, on a Mac and on Windows alike, so a Mac draws the snapshots Linux wrote. The
+tests about sending out and about a Syphon source —
+`ndi_sends_an_output_by_its_row_and_the_mix_by_its_mark`,
 `syphon_publishes_an_output_by_its_row_and_the_mix_by_its_mark` and
-`a_macs_syphon_source_reads_as_macos_only_where_there_is_none` — take `machine_app`, which
-answers as the machine does, waiting for the NDI probe first, and take no snapshot: on a Mac
-they cover the Syphon row, the mark and the source list, and on a box with the runtime, NDI's
+`a_syphon_source_reads_as_macos_and_windows_only_where_there_is_neither` — take `machine_app`,
+which answers as the machine does, waiting for the NDI probe first, and take no snapshot: on a
+Mac they cover the Syphon row, the mark and the source list, on Windows Spout's, and on a box with the runtime, NDI's
 **Send** and **Stop**. The Preferences window names the file manager, Files or Finder, which
 nothing pins, so `the_preferences_window_says_where_things_are_kept_and_what_it_draws_on`
 takes its two snapshots on Linux alone and a Mac checks its labels.

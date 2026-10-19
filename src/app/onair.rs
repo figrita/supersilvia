@@ -3,9 +3,9 @@
 //! The on-air interlock: what Quit, Restart, Open and New stop, said before they stop it.
 //!
 //! **Unsaved edits are not the only thing a Quit loses.** A picture window on the projector,
-//! the mix going out over NDI or Syphon, and a render halfway through all end on Quit, and
-//! Open and New take the decks off the mix. So the one confirm stands in front of those too:
-//! with no unsaved edits it asks only whether to stop the show, and with them it says so
+//! the mix going out over NDI, Syphon or Spout, and a render halfway through all end on Quit,
+//! and Open and New take the decks off the mix. So the one confirm stands in front of those
+//! too: with no unsaved edits it asks only whether to stop the show, and with them it says so
 //! under the edits it names. Escape on a picture window is not guarded: it is the key for
 //! closing one.
 //!
@@ -23,7 +23,7 @@ pub struct OnAir {
     pub windows: usize,
     /// The mix is sent over NDI.
     pub ndi: bool,
-    /// The mix is published over Syphon.
+    /// The mix is published over Syphon or Spout.
     pub syphon: bool,
     /// A render is running: frames written, and how many there will be.
     pub render: Option<(u32, u32)>,
@@ -35,7 +35,7 @@ impl OnAir {
         !self.showing() && self.render.is_none()
     }
 
-    /// The show is going out: a picture window, NDI or Syphon.
+    /// The show is going out: a picture window, NDI, Syphon or Spout.
     fn showing(&self) -> bool {
         self.mix_window || self.windows > 0 || self.ndi || self.syphon
     }
@@ -51,10 +51,11 @@ impl OnAir {
             1 => lines.push("A picture is in a window of its own.".to_string()),
             n => lines.push(format!("{n} pictures are in windows of their own.")),
         }
+        let name = crate::platform::syphon::NAME;
         match (self.ndi, self.syphon) {
-            (true, true) => lines.push("The mix is sent over NDI and Syphon.".to_string()),
+            (true, true) => lines.push(format!("The mix is sent over NDI and {name}.")),
             (true, false) => lines.push("The mix is sent over NDI.".to_string()),
-            (false, true) => lines.push("The mix is published over Syphon.".to_string()),
+            (false, true) => lines.push(format!("The mix is published over {name}.")),
             (false, false) => {}
         }
         if let Some((written, frames)) = self.render {

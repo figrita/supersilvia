@@ -1,26 +1,27 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! A picture received over Syphon, from a server another app on the Mac publishes: the
-//! directory as a menu, and a [`Receiver`] that keeps a client connected to the server a menu
-//! names, for the Main Input and the Syphon node alike.
+//! A picture received over Syphon or Spout, from a server another app on the machine
+//! publishes: the directory as a menu, and a [`Receiver`] that keeps a client connected to the
+//! server a menu names, for the Main Input and the Syphon node alike.
 //!
-//! **A server is chosen by its label**, "App – Server", which is what a menu shows and what a
-//! project saves: the directory's own ID is new on every run of the other app, and its label
+//! **A server is chosen by its label**, "App – Server" on a Mac and a Spout sender's name on
+//! Windows, which is what a menu shows and what a project saves: the directory's own ID is new on every run of the other app, and its label
 //! is not. A receiver whose server is not there says so and looks again every second, so a
 //! server that starts later, or restarts, is taken up without a hand.
 //!
 //! **Frames need no pipeline.** The client ([`crate::platform::syphon::Inlet`]) writes each
 //! frame into the one-frame slot a [`Camera`] adopts, as a screen on a Mac does, and the
 //! renderer copies each frame's surface into a texture of its own, since the server draws into
-//! the same surface again ([`crate::nodes::Redrawn`]). A frame is laid out bottom row first by
-//! Syphon's convention and opaque over black unless the receiver's [`Look`] says otherwise.
+//! the same surface again ([`crate::nodes::Redrawn`]). A frame is laid out in the convention's
+//! row order ([`BOTTOM_FIRST`](crate::platform::syphon::BOTTOM_FIRST)) and opaque over black
+//! unless the receiver's [`Look`] says otherwise.
 //!
 //! **Nothing here waits.** The directory is read at most twice a second and the client is
 //! asked whether its server is there at most once a second; both are a lock taken for a copy.
 
 use super::{Camera, Source};
 use crate::nodes::{Choices, Frame};
-use crate::platform::syphon::{Inlet, Look, servers};
+use crate::platform::syphon::{Inlet, Look, NAME, servers};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
@@ -153,7 +154,7 @@ impl Receiver {
 
     fn connect(&mut self, now: Instant) {
         let Some(server) = servers().into_iter().find(|s| s.label() == self.server) else {
-            self.error = Some(format!("no Syphon server {} is running", self.server));
+            self.error = Some(format!("no {NAME} server {} is running", self.server));
             return;
         };
         let opened = Inlet::open(&server, self.look).and_then(|inlet| {

@@ -15,7 +15,8 @@
 //! alpha plane, its color the premultiplied picture's over black. [`Look::transparent`] sends
 //! BGRA with the picture's own alpha, **straight**: the NDI SDK defines its BGRA and RGBA as not
 //! premultiplied, so the picture is drawn unpremultiplied over nothing
-//! ([`Viewer::show_straight`]). [`Look::flip`] is Syphon's and means nothing here.
+//! ([`Viewer::show_straight`]). [`Look::flip`] is Syphon's and Spout's and means nothing
+//! here.
 
 use super::publish::Look;
 use super::readback::{Landed, Read, padded_row};

@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! Syphon on Linux: there is none. The directory is empty, a server or a client is refused, and
-//! nothing here can be made, so every method is unreachable. PipeWire's video sources are the
-//! Linux counterpart, and a proposal of their own (`proposals/syphon.md`).
+//! Syphon and Spout on Linux: there are none. The directory is empty, a server or a client is
+//! refused, and nothing here can be made, so every method is unreachable. PipeWire's video
+//! sources are the Linux counterpart, and a proposal of their own (`proposals/syphon.md`).
 
 use crate::platform::syphon::{Described, Look, Stream};
 use std::time::Duration;
 
 /// Why each ask is refused.
-const REFUSED: &str = crate::platform::syphon::MACOS_ONLY;
+const REFUSED: &str = crate::platform::syphon::ABSENT;
 
-/// Why there is no Syphon here.
+/// Why there is no Syphon or Spout here.
 // Always `Some` here; the Option is the signature every backend answers `platform::syphon` with.
 #[allow(clippy::unnecessary_wraps)]
 pub fn unavailable() -> Option<&'static str> {

@@ -1546,15 +1546,18 @@ up again and *Stop* ends the session, both of them `Action` inputs so a sequence
 either, and the status line says which of the three it is in. Nothing is resumed from a saved
 token; see [media.md](media.md#screen-capture-as-a-node).
 
-`syphon` is a picture another app on the Mac publishes over Syphon, one server a node, so a
-patch can take several — Resolume's composition in one corner, a VDMX layer in another. Its
-`Server` menu lists what the Mac's Syphon directory has now, by "App – Server", which is what
-the node saves; one that is not running is waited for and taken up when it starts, and the
-status line says which it is doing. **Flip** reads the surface top row first rather than
-Syphon's bottom row first, and **Transparent** keeps its alpha rather than reading it opaque.
-Each frame is copied into a texture of the node's own, since the server draws into its surface
-again. Linux has no Syphon: the library does not offer the node there (`NodeDef::offered`),
-and one in a Mac's project loads and says so. See [media.md](media.md#syphon).
+`syphon` is a picture another app on the machine publishes over Syphon on a Mac or Spout on
+Windows, one server a node, so a patch can take several — Resolume's composition in one
+corner, a VDMX layer in another. It is labelled *Syphon* or *Spout* as the machine names it
+(`platform::syphon::NAME`) and saved as `syphon` on both. Its `Server` menu lists what the
+machine's directory has now, by "App – Server" on a Mac and the sender's name on Windows, which
+is what the node saves; one that is not running is waited for and taken up when it starts, and
+the status line says which it is doing. **Flip** reads the surface the other way up from the
+convention's row order, Syphon's bottom row first and Spout's top row first, and
+**Transparent** keeps its alpha rather than reading it opaque. Each frame is copied into a
+texture of the node's own, since the server draws into its surface again. Linux has neither:
+the library does not offer the node there (`NodeDef::offered`), and one in a Mac's or
+Windows' project loads and says so. See [media.md](media.md#syphon).
 
 `ndi` is a picture another machine on the network sends over NDI®, one source a node, on Linux
 as on a Mac. Its `Source` menu lists what the network has now, by the name NDI gives it,

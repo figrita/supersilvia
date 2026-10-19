@@ -215,7 +215,11 @@ impl App {
             let video = match &input.video {
                 VideoSource::Camera { .. } => Some("camera"),
                 VideoSource::Screen => Some("screen"),
-                VideoSource::Syphon { .. } => Some("Syphon server"),
+                VideoSource::Syphon { .. } => Some(if cfg!(target_os = "windows") {
+                    "Spout server"
+                } else {
+                    "Syphon server"
+                }),
                 VideoSource::Ndi { .. } => Some("NDI source"),
                 VideoSource::None | VideoSource::File { .. } => None,
             };
