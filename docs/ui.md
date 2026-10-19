@@ -4321,7 +4321,8 @@ runtime that will not load, its path and the loader's reason — or what the way
 name it goes out under. What the sender says comes from the publisher's thread
 as a `render::publish::Failure`, read once a frame into the Output's `OutputReadout`.
 
-**Flip** sits under the Syphon row, its label in the status column, while Syphon publishes:
+**Flip** sits under the Syphon row while Syphon publishes, its label at the row's left edge as
+every Send row's is, so the choice beside it never cuts it short:
 *Bottom first* | *Top first* on a Mac and *Top first* | *Bottom first* under Spout on Windows,
 each naming the row order that results, off the convention's. **Alpha** comes once, after the rows, while either way sends:
 *Opaque* | *Transparent*, which both ways read. It governs what is sent and nothing else: a

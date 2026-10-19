@@ -2707,8 +2707,7 @@ const SEND_BUTTON: f32 = 44.0;
 const SEND_GAP: f32 = 2.0;
 
 /// Where a Send row's status starts, from the row's left edge: a space past the longest name
-/// of the ways this Output shows, so their lines start together. Flip's label starts here too,
-/// under the Syphon row it belongs to.
+/// of the ways this Output shows, so their lines start together.
 fn send_column(node: &Node, band: Rect, zoom: f32, advance: f32) -> f32 {
     let widest = canvas::send_rows(node)
         .filter_map(|row| match row {
@@ -2737,8 +2736,7 @@ fn send_section(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects) {
         match row {
             SendRow::Name => name_row(ui, cx, fx, band),
             SendRow::Way(way) => way_row(ui, cx, fx, band, way),
-            SendRow::Flip => choice_row(ui, cx, fx, band, row.key(), true),
-            SendRow::Alpha => choice_row(ui, cx, fx, band, row.key(), false),
+            SendRow::Flip | SendRow::Alpha => choice_row(ui, cx, fx, band, row.key()),
         }
     }
 }
@@ -2901,17 +2899,10 @@ fn way_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, way: nod
     }
 }
 
-/// A two-valued send option — Syphon's Flip, the shared alpha — as its label and a choice
-/// between its two values by their own names. `under` sets the label in the status column,
-/// under the way it belongs to.
-fn choice_row(
-    ui: &mut Ui,
-    cx: &NodeCtx<'_>,
-    fx: &mut Effects,
-    band: Rect,
-    key: &'static str,
-    under: bool,
-) {
+/// A two-valued send option — Syphon's or Spout's Flip, the shared alpha — as its label at the
+/// row's left edge, as every Send row's is, and a choice between its two values by their own
+/// names.
+fn choice_row(ui: &mut Ui, cx: &NodeCtx<'_>, fx: &mut Effects, band: Rect, key: &'static str) {
     use crate::ui::press;
     let (node, theme, zoom) = (cx.node, cx.theme(), cx.zoom());
     let Some(option) = node.def.option(key) else {
@@ -2924,13 +2915,8 @@ fn choice_row(
         crate::ui::theme::FONT_TINY,
         zoom,
     ));
-    let x = if under {
-        send_column(node, band, zoom, advance(ui.ctx(), &font))
-    } else {
-        band.min.x + 12.0 * zoom
-    };
     ui.painter().text(
-        Pos2::new(x, band.center().y),
+        Pos2::new(band.min.x + 12.0 * zoom, band.center().y),
         Align2::LEFT_CENTER,
         option.label,
         font,
