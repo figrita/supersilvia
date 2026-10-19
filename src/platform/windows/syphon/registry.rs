@@ -24,7 +24,7 @@
 use std::cell::Cell;
 use std::collections::BTreeSet;
 use std::ffi::{CString, c_void};
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use windows::Win32::Foundation::{
     CloseHandle, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, GetLastError, HANDLE,
     INVALID_HANDLE_VALUE, WAIT_ABANDONED, WAIT_OBJECT_0,
@@ -289,9 +289,21 @@ fn write_names(list: &Memory, capacity: usize, names: &BTreeSet<Vec<u8>>) {
     }
 }
 
-/// The list, made where no Spout app has made it yet.
-fn list() -> Result<Memory, String> {
-    Memory::create(LIST, (max_senders() * SLOT) as u32).map(|(list, _)| list)
+/// The list as this process holds it, from its first sender for the rest of its life.
+static LIST_MAP: Mutex<Option<Arc<Memory>>> = Mutex::new(None);
+
+/// The list, made where no Spout app has made it yet, and held open by this process from then
+/// on: a named map lives only while some process holds it, so a sender that let go of the list
+/// would take every name in it away with it once no other Spout app had it open. Spout's own
+/// senders hold it the same way.
+fn list() -> Result<Arc<Memory>, String> {
+    let mut held = LIST_MAP.lock().unwrap_or_else(PoisonError::into_inner);
+    if let Some(list) = held.as_ref() {
+        return Ok(Arc::clone(list));
+    }
+    let list = Arc::new(Memory::create(LIST, (max_senders() * SLOT) as u32)?.0);
+    *held = Some(Arc::clone(&list));
+    Ok(list)
 }
 
 /// Every name the list holds, in its order; empty where there is no list.

@@ -247,7 +247,7 @@ fn free_bridge(
     if bridges.len() >= BRIDGES {
         return None;
     }
-    match device.bridge(opened.width, opened.height, opened.format, false) {
+    match device.bridge(opened.width, opened.height, opened.format) {
         Ok(bridge) => {
             let held = Arc::new(Held {
                 device: Arc::clone(device),

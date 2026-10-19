@@ -250,7 +250,7 @@ impl Server {
             return Err(format!("a {width}×{height} Spout texture has no pixels"));
         }
         let device = d3d11::here()?;
-        let bridge = device.bridge(width, height, DXGI_FORMAT_B8G8R8A8_UNORM, true)?;
+        let bridge = device.bridge(width, height, DXGI_FORMAT_B8G8R8A8_UNORM)?;
         let spout = device.spout_texture(width, height)?;
         let held = Arc::new(Held {
             device,

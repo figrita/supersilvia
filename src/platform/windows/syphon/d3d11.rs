@@ -169,15 +169,9 @@ impl Device {
     }
 
     /// A bridge of `width` by `height` in `format`: made in Direct3D 12 on the renderer's
-    /// device, in a shared heap with simultaneous access — and drawn into, where `target` — and
-    /// opened here by its NT handle.
-    pub fn bridge(
-        &self,
-        width: u32,
-        height: u32,
-        format: DXGI_FORMAT,
-        target: bool,
-    ) -> Result<Bridge, String> {
+    /// device, in a shared heap with simultaneous access, a render target, and opened here by
+    /// its NT handle.
+    pub fn bridge(&self, width: u32, height: u32, format: DXGI_FORMAT) -> Result<Bridge, String> {
         let heap = D3D12_HEAP_PROPERTIES {
             Type: D3D12_HEAP_TYPE_DEFAULT,
             CPUPageProperty: D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
@@ -185,10 +179,10 @@ impl Device {
             CreationNodeMask: 0,
             VisibleNodeMask: 0,
         };
-        let mut flags = D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS;
-        if target {
-            flags |= D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
-        }
+        // A render target whether or not anything draws into it: Direct3D 11 refuses to open
+        // a Direct3D 12 texture that is not one ("The parameter is incorrect", on WARP).
+        let flags =
+            D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
         let desc = D3D12_RESOURCE_DESC {
             Dimension: D3D12_RESOURCE_DIMENSION_TEXTURE2D,
             Alignment: 0,
