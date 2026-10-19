@@ -263,6 +263,7 @@ pub static GROUND: NodeDef = NodeDef {
             &format!("    return vec4f(p.y - {{height}}, {c});"),
         )
     })],
+    bounds: Some(super::endless_bounds),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,

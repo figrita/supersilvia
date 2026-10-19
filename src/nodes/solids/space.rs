@@ -6,6 +6,12 @@
 //! amounts in different places divides the distance by the most it stretches, so it stays a
 //! bound: Stretch by its smallest factor's reciprocal, Twist and Bend by how far the point is
 //! from the axis they turn about.
+//!
+//! **Each says how big its solid is** from its input's box. Stretch scales the box. Mirror
+//! Space keeps the box's far side on each axis it folds and reflects it for the near side.
+//! Twist and Bend turn a point about an axis through the origin by an angle that depends on
+//! the point, which keeps its distance from that axis: the box is the input's along the axis
+//! and the circle round the input's furthest reach across it.
 
 use super::{SDF, fill, num, num_log, out, solid, turn};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
@@ -83,6 +89,16 @@ pub static STRETCH: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(
+            n,
+            &format!(
+                "SdBounds({b}.lo * max(vec3f({{sx}}, {{sy}}, {{sz}}), vec3f(1.0e-4)), \
+                 {b}.hi * max(vec3f({{sx}}, {{sy}}, {{sz}}), vec3f(1.0e-4)))"
+            ),
+        )
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -119,6 +135,19 @@ pub static MIRROR: NodeDef = NodeDef {
         let inner = ctx.input(node, "input", "q");
         format!("    let q = {fold};\n    return {inner};")
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        let across = match ctx.option(n, "axes") {
+            "y" => "false, true, false",
+            "z" => "false, false, true",
+            "xz" => "true, false, true",
+            "xyz" => "true, true, true",
+            _ => "true, false, false",
+        };
+        Some(format!(
+            "SdBounds(select({b}.lo, -{b}.hi, vec3<bool>({across})), {b}.hi)"
+        ))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -149,6 +178,13 @@ pub static TWIST: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        let m = format!("length(sd_bounds_reach({b}).xz)");
+        Some(format!(
+            "SdBounds(vec3f(-{m}, {b}.lo.y, -{m}), vec3f({m}, {b}.hi.y, {m}))"
+        ))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -179,6 +215,13 @@ pub static BEND: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        let m = format!("length(sd_bounds_reach({b}).xy)");
+        Some(format!(
+            "SdBounds(vec3f(-{m}, -{m}, {b}.lo.z), vec3f({m}, {m}, {b}.hi.z))"
+        ))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

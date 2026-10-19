@@ -333,6 +333,19 @@ pub fn shape_bounds(node: NodeId, ctx: &mut CompileContext, own: &str) -> Option
     })
 }
 
+/// An endless shape's bounds — Ground, Slab, Gyroid, Heightfield — which are Onto's where it
+/// is carved out of Onto or kept only where both are, and `None` otherwise, where the shape
+/// fills space without end.
+pub fn endless_bounds(node: NodeId, ctx: &mut CompileContext) -> Option<String> {
+    if !ctx.connected(node, ONTO.key) {
+        return None;
+    }
+    match ctx.option(node, MODE.key) {
+        "subtract" | "intersect" => ctx.solid_bounds(node, ONTO.key),
+        _ => None,
+    }
+}
+
 /// A box `h` either side of the origin, `h` a WGSL `vec3f` with `{key}` holes.
 pub fn half(h: &str) -> String {
     format!("SdBounds(-({h}), {h})")

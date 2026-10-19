@@ -26,6 +26,14 @@
 //! the input a ray in the axis's thin core steps a fiftieth of the radius, which is safe for
 //! anything not wrapped onto the axis. Across the seam behind the ring the input is cut unless
 //! it repeats every `2πR` along X.
+//!
+//! **Each says how big its solid is.** A seam's distance is below zero only inside an input or
+//! where `a + b` is under Radius, which is within Radius of both, so the two boxes are grown
+//! by Radius, as a smooth Union's are; Exclusive keeps parts of the two. Warp moves a point by
+//! at most Amount on each axis, so its input's box grows by Amount. Fold Plane draws its input
+//! and the input's reflection, held by the box round the reflected box. Wrap keeps height and
+//! maps depth `z` to the distance `R − z` from the Y axis, so the ring is held by the circle of
+//! radius `R` less the box's nearest depth, however long the row along X.
 
 use super::{SDF, fill, num, num_log, out, solid, turn};
 use crate::compile::CompileContext;
@@ -111,6 +119,14 @@ pub static STAIRS_UNION: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         seam(node, ctx, "{steps}", "sd_stairs_union(a.x, b.x, r, n)")
     })],
+    bounds: Some(|n, ctx| {
+        let a = ctx.solid_bounds(n, "a")?;
+        let b = ctx.solid_bounds(n, "b")?;
+        ctx.uniform_fill(
+            n,
+            &format!("sd_bounds_grow(sd_bounds_union({a}, {b}), {{radius}})"),
+        )
+    }),
     wgsl_utils: &[SDF, BLENDS],
     ..NodeDef::EMPTY
 };
@@ -132,6 +148,14 @@ pub static COLUMNS_UNION: NodeDef = NodeDef {
     outputs: &[out(|node, ctx, _| {
         seam(node, ctx, "{columns}", "sd_columns_union(a.x, b.x, r, n)")
     })],
+    bounds: Some(|n, ctx| {
+        let a = ctx.solid_bounds(n, "a")?;
+        let b = ctx.solid_bounds(n, "b")?;
+        ctx.uniform_fill(
+            n,
+            &format!("sd_bounds_grow(sd_bounds_union({a}, {b}), {{radius}})"),
+        )
+    }),
     wgsl_utils: &[SDF, BLENDS],
     ..NodeDef::EMPTY
 };
@@ -159,6 +183,11 @@ pub static XOR: NodeDef = NodeDef {
     return vec4f(max(min(a.x, b.x), -max(a.x, b.x)), {color});"
         )
     })],
+    bounds: Some(|n, ctx| {
+        let a = ctx.solid_bounds(n, "a")?;
+        let b = ctx.solid_bounds(n, "b")?;
+        Some(format!("sd_bounds_union({a}, {b})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -193,6 +222,10 @@ pub static WARP: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(n, &format!("sd_bounds_grow({b}, abs({{amount}}))"))
+    }),
     wgsl_utils: &[SDF, BLENDS],
     ..NodeDef::EMPTY
 };
@@ -226,9 +259,37 @@ pub static FOLD_PLANE: NodeDef = NodeDef {
             ),
         )
     })],
-    wgsl_utils: &[SDF],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        ctx.uniform_fill(
+            n,
+            &format!(
+                "sd_bounds_union({b}, sd_bounds_reflect({b}, {{yaw}} * 6.2831853, \
+                 {{pitch}} * 6.2831853, {{offset}}))"
+            ),
+        )
+    }),
+    wgsl_utils: &[SDF, REFLECT],
     ..NodeDef::EMPTY
 };
+
+/// The box a reflection holds a box in.
+const REFLECT: &str =
+    "// The box holding `b` reflected across Fold Plane's plane: Offset along the normal that Yaw
+// and Pitch aim.
+fn sd_bounds_reflect(b: SdBounds, yaw: f32, pitch: f32, offset: f32) -> SdBounds {
+    if (sd_bounds_empty(b)) { return b; }
+    let n = vec3f(cos(pitch) * cos(yaw), sin(pitch), cos(pitch) * sin(yaw));
+    let c = (b.lo + b.hi) * 0.5;
+    let e = (b.hi - b.lo) * 0.5;
+    let rc = c - 2.0 * (dot(c, n) - offset) * n;
+    let h = vec3f(
+        dot(abs(vec3f(1.0, 0.0, 0.0) - 2.0 * n.x * n), e),
+        dot(abs(vec3f(0.0, 1.0, 0.0) - 2.0 * n.y * n), e),
+        dot(abs(vec3f(0.0, 0.0, 1.0) - 2.0 * n.z * n), e)
+    );
+    return SdBounds(rc - h, rc + h);
+}";
 
 pub static WRAP: NodeDef = NodeDef {
     slug: "wrap",
@@ -262,6 +323,14 @@ pub static WRAP: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        let m = format!("max(max({{radius}}, 1.0e-3) - {b}.lo.z, 0.0)");
+        ctx.uniform_fill(
+            n,
+            &format!("SdBounds(vec3f(-{m}, {b}.lo.y, -{m}), vec3f({m}, {b}.hi.y, {m}))"),
+        )
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

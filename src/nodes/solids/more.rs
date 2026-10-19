@@ -8,13 +8,14 @@
 //! a trigonometric sum, not a shape with a nearest point anyone can solve for, so its value is
 //! divided by the steepest the sum ever gets — √3 a radian — and is a bound that is close to
 //! exact near the sheet. It fills all of space, so it is meant to be intersected with
-//! something finite.
+//! something finite, and says how big it is only then (`solids::endless_bounds`).
 //!
 //! Elongate is IQ's exact `opElongate` for a solid symmetric about its own center planes, the
 //! case it is defined for. It hands its input the point with the inserted slab taken out, sign
 //! kept, so an asymmetric solid stays itself on each side rather than being mirrored; the
 //! interior term is added only where the input's center is inside it, which is the only place
-//! it means something.
+//! it means something. Its box is its input's pulled apart by X, Y and Z. Morph's is both
+//! inputs': a mix of two distances is below zero only where one of them is.
 //!
 //! The two color fields change only color. A march reads their distance-only variant, which is
 //! their input passed through untouched.
@@ -278,6 +279,7 @@ pub static GYROID: NodeDef = NodeDef {
             "abs(g) / (s * 1.7320508) - {thickness} * 0.5",
         )
     })],
+    bounds: Some(super::endless_bounds),
     wgsl_utils: &[SDF],
     options: crate::nodes::solids::shape_options![],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
@@ -313,6 +315,11 @@ pub static ELONGATE: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let b = ctx.solid_bounds(n, "input")?;
+        let h = "max(vec3f({x}, {y}, {z}), vec3f(0.0)) * 0.5";
+        ctx.uniform_fill(n, &format!("SdBounds({b}.lo - {h}, {b}.hi + {h})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -339,6 +346,11 @@ pub static MORPH: NodeDef = NodeDef {
             &format!("    return mix({a}, {b}, clamp({{amount}}, 0.0, 1.0));"),
         )
     })],
+    bounds: Some(|n, ctx| {
+        let a = ctx.solid_bounds(n, "a")?;
+        let b = ctx.solid_bounds(n, "b")?;
+        Some(format!("sd_bounds_union({a}, {b})"))
+    }),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -386,6 +398,7 @@ pub static STRIPES: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
@@ -421,6 +434,7 @@ pub static HEIGHT_GRADIENT: NodeDef = NodeDef {
             ),
         )
     })],
+    bounds: Some(|n, ctx| ctx.solid_bounds(n, "input")),
     wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

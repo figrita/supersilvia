@@ -300,6 +300,7 @@ pub static HEIGHTFIELD: NodeDef = NodeDef {
         )
     })],
     row_headings: crate::nodes::solids::ROW_HEADINGS,
+    bounds: Some(super::endless_bounds),
     wgsl_utils: &[super::SDF],
     ..NodeDef::EMPTY
 };
