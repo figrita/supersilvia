@@ -1,6 +1,5 @@
 ---
 source: tests/compile.rs
-assertion_line: 835
 expression: wgsl
 ---
 
@@ -146,10 +145,6 @@ fn sd_box_gap(p: vec3f, c: vec3f, h: vec3f) -> f32 {
 fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
-
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
 
 // Point `i` of `n` on the unit sphere's Fibonacci lattice, the first nearest +y.
 fn sd_fibonacci_point(i: f32, n: f32) -> vec3f {

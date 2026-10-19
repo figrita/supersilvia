@@ -1716,3 +1716,63 @@ fn a_repeat_measures_a_shape_that_takes_a_scale_at_each_copys_size() {
         "a shape landing on another takes the bound"
     );
 }
+
+/// The module a Repeat of `shape` compiles to, Counted where `counted`, inside another Counted
+/// Repeat where `nested`.
+fn repeat_of(shape: &str, counted: bool, nested: bool) -> compile::Shader {
+    use supersilvia::graph::ControlValue;
+    let mut g = Graph::new();
+    let s = add(&mut g, shape);
+    let mut top = PortRef::new(s, "solid");
+    for _ in 0..=usize::from(nested) {
+        let repeat = add(&mut g, "repeatgrid");
+        if counted {
+            g.get_mut(repeat)
+                .unwrap()
+                .options
+                .insert("extent", "counted".to_string());
+        }
+        g.get_mut(repeat)
+            .unwrap()
+            .controls
+            .insert("countX", ControlValue::Float(4.0));
+        g.connect(top, PortRef::new(repeat, "input"))
+            .expect("a solid into the repeat");
+        top = PortRef::new(repeat, "solid");
+    }
+    let render = add(&mut g, "solidrender");
+    let out = add(&mut g, "output");
+    g.connect(top, PortRef::new(render, "solid"))
+        .expect("the repeat into the render");
+    g.connect(PortRef::new(render, "output"), PortRef::new(out, "input"))
+        .expect("a picture into the Output");
+    compile::wgsl::build(&g, out).expect("connected to the Output")
+}
+
+/// **A counted repeat lists its copies on the GPU**, where its input can say how big it is: the
+/// module carries the compute passes and one grid a repeat, a repeat inside another its own.
+/// A Forever Repeat, and one over a solid with no size, fold space as before.
+#[test]
+fn a_counted_repeat_of_a_sized_solid_lists_its_copies() {
+    let listed = repeat_of("box", true, false);
+    assert_eq!(listed.instancing.repeats, 1, "one grid");
+    for entry in compile::instances::ENTRIES {
+        assert!(
+            listed.body.contains(&format!("fn {entry}(")),
+            "the module has {entry}"
+        );
+    }
+    assert_eq!(
+        repeat_of("box", true, true).instancing.repeats,
+        2,
+        "a repeat inside another has a grid of its own"
+    );
+    assert!(
+        !repeat_of("box", false, false).instancing.any(),
+        "a Forever Repeat folds"
+    );
+    assert!(
+        !repeat_of("gyroid", true, false).instancing.any(),
+        "an endless solid has no size to list"
+    );
+}

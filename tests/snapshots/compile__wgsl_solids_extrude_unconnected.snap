@@ -135,10 +135,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 fn sd_profile_frame(uv: vec2f) -> f32 {
     let b = abs(uv) - vec2f(16.0 / 9.0, 1.0);
     return length(max(b, vec2f(0.0))) + min(max(b.x, b.y), 0.0);

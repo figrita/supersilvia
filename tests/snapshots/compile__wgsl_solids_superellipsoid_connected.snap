@@ -159,10 +159,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 // Each component of `v` raised to `n`, zero where it is zero or less.
 fn sd_superellipsoid_pow(v: vec3f, n: f32) -> vec3f {
     return select(pow(max(v, vec3f(1.0e-30)), vec3f(n)), vec3f(0.0), v <= vec3f(0.0));

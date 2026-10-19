@@ -155,6 +155,7 @@ pub fn module(floats: &[&str], textures: &[(&str, NodeId)], body: &str) -> Arc<S
         taps: Vec::new(),
         thumbs: Vec::new(),
         grid: 0,
+        instancing: supersilvia::compile::instances::Instancing::default(),
     })
 }
 

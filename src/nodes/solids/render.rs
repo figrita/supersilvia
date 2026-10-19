@@ -880,6 +880,6 @@ pub static RENDER: NodeDef = NodeDef {
         wgsl: |node, ctx, _| body(node, ctx),
         ..OutputDef::EMPTY
     }],
-    wgsl_utils: &[SDF, super::MARCH_STATE],
+    wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

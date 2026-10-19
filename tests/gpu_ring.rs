@@ -258,7 +258,11 @@ impl Reference {
                     Resource::Texture(name) => wgpu::BindingResource::TextureView(
                         &views.iter().find(|(n, _)| *n == &**name).unwrap().1,
                     ),
-                    Resource::Taps => unreachable!("no taps here"),
+                    Resource::Taps
+                    | Resource::Instances
+                    | Resource::Grids
+                    | Resource::Counts
+                    | Resource::Lists => unreachable!("no taps or listed copies here"),
                 },
             })
             .collect();

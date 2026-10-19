@@ -1,6 +1,5 @@
 ---
 source: tests/compile.rs
-assertion_line: 835
 expression: wgsl
 ---
 
@@ -135,10 +134,6 @@ fn sd_box_gap(p: vec3f, c: vec3f, h: vec3f) -> f32 {
 fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
-
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
 
 fn hexprism1_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_hexprism1_x, u.u_control_hexprism1_y, u.u_control_hexprism1_z);

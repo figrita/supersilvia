@@ -19,7 +19,10 @@
 //! **Count is how many copies**, centered on the axis, and a list cabled into it is a count of
 //! its length: a Repeat over a list of sixteen bands draws sixteen copies.
 
-use super::{MARCH_STATE, SDF, fill, num, out, solid};
+use super::{SDF, fill, num, out, solid};
+use crate::compile::CompileContext;
+use crate::compile::instances::{self, Slot};
+use crate::graph::NodeId;
 use crate::nodes::percopy::{self, Item};
 use crate::nodes::{Category, Family, NodeDef, OptionDef, TURNS};
 
@@ -45,6 +48,128 @@ pub(super) fn skip_copy(copy: &percopy::Copy) -> String {
 /// inside a copy keeps its distance below zero.
 pub(super) const DISTANCE_BOUNDED: &str =
     "        let d = select(r.x * k, max(r.x * k, gap), gap > 0.0);\n";
+
+/// The most copies a counted Repeat lists, and the most cells its grid has: past them a draw
+/// measures by folding.
+const GRID_ITEMS: u32 = 32768;
+const GRID_CELLS: u32 = 65536;
+
+/// The most a ring lists: Copies' own most, and cells for twice as many.
+const AROUND_ITEMS: u32 = 64;
+const AROUND_CELLS: u32 = 512;
+
+/// The statements that measure a point through a listed repeat's grid where this draw's lists
+/// hold every copy, returning; past them the folded measure runs.
+pub(super) fn listed(ctx: &mut CompileContext, node: NodeId, slot: &Slot) -> String {
+    let eval = percopy::evaluate_listed(ctx, node, "input");
+    let color = if ctx.solid_color() {
+        "r.yzw * c.color.xyz"
+    } else {
+        "r.yzw"
+    };
+    format!(
+        "    if (sd_grid[{}u].cs.w > 0.5) {{\n{}    }}\n",
+        slot.grid,
+        instances::lookup(slot, &eval, color)
+    )
+}
+
+/// A counted Repeat's copies listed ([`instances`]): copy `t` is cell `t` counted along x, then
+/// y, then z, as its rows' items are. `None` where the input cannot say how big it is, or a
+/// field reaches the spacing.
+fn grid_slot(
+    ctx: &mut CompileContext,
+    node: NodeId,
+    copy: &percopy::Copy,
+    counts: (&str, &str, &str),
+) -> Option<Slot> {
+    let own = (GRID.bounds?)(node, ctx)?;
+    let input = ctx.solid_bounds(node, "input")?;
+    let (offset, scale, turned) = percopy::extremes(ctx, node);
+    let (cx, cy, cz) = counts;
+    ctx.instance_slot(node, GRID_ITEMS, GRID_CELLS, |ctx, slot| {
+        let head = instances::place_head(slot, "n.x * n.y * n.z", &own, "2.0 * reach");
+        let body = format!(
+            "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
+    let on = s > vec3f(1.0e-4);
+    let step = select(vec3f(0.0), s, on);
+    let n = select(vec3f(1.0), max(round(vec3f({cx}, {cy}, {cz})), vec3f(1.0)), on);
+    let mid = (n - 1.0) * 0.5;
+    let bx = {input};
+    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
+{head}    let fi = f32(t);
+    let cell = vec3f(fi % n.x, floor(fi / n.x) % n.y, floor(fi / (n.x * n.y)));
+    let at = (cell - mid) * step + {off};
+    let turn = -({turn}) * 6.2831853;
+    sd_inst[{ib}u + t] = sd_instance(
+        sd_copy_frame(vec3f(0.0), at, turn),
+        sd_copy_frame(vec3f(1.0, 0.0, 0.0), at, turn),
+        sd_copy_frame(vec3f(0.0, 1.0, 0.0), at, turn),
+        sd_copy_frame(vec3f(0.0, 0.0, 1.0), at, turn),
+        {sc},
+        {color},
+        bx,
+    );",
+            off = copy.offset,
+            turn = copy.turn,
+            sc = copy.scale,
+            color = copy.color,
+            ib = slot.item_base,
+        );
+        Some(fill(node, ctx, &body))
+    })
+}
+
+/// Repeat Around's copies listed ([`instances`]): copy `t` is the copy `t` turns round, its
+/// frame the ring's turned onto the chosen axis, `into` and `back` the turn there and back as
+/// [`AROUND`] writes them. `None` where the input cannot say how big it is, or a field reaches
+/// the radius or the spread.
+fn around_slot(
+    ctx: &mut CompileContext,
+    node: NodeId,
+    copy: &percopy::Copy,
+    copies: &str,
+    (into, back): (&str, &str),
+) -> Option<Slot> {
+    if ctx.is_field(node, "spread") {
+        return None;
+    }
+    let own = (AROUND.bounds?)(node, ctx)?;
+    let input = ctx.solid_bounds(node, "input")?;
+    let (offset, scale, turned) = percopy::extremes(ctx, node);
+    let back_m = back.replace("{v}", "m");
+    let back_sc = back.replace("{v}", "sc");
+    ctx.instance_slot(node, AROUND_ITEMS, AROUND_CELLS, |ctx, slot| {
+        let head = instances::place_head(slot, "n", &own, "vec3f(2.0 * length(reach))");
+        let body = format!(
+            "    let tau = 6.2831853;
+    let n = max(round({copies}), 1.0);
+    let spread = clamp({{spread}}, 0.0, 1.0);
+    let w0 = max(spread * tau / n, 1.0e-5);
+    let bx = {input};
+    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
+{head}    let i = f32(t);
+    let at = {off};
+    let turn = -({turn}) * tau;
+    let sc = {sc};
+    var f: array<vec3f, 4>;
+    for (var e = 0; e < 4; e++) {{
+        let p = vec3f(f32(e == 1), f32(e == 2), f32(e == 3));
+        let l = {into};
+        let xz = sd_rot2(l.xz, -i * w0);
+        let m = sd_copy_frame(vec3f(xz.x - {{radius}}, l.y, xz.y), at, turn);
+        f[e] = {back_m};
+    }}
+    sd_inst[{ib}u + t] = sd_instance(f[0], f[1], f[2], f[3], abs({back_sc}), {color}, bx);",
+            off = copy.offset,
+            turn = copy.turn,
+            sc = copy.scale,
+            color = copy.color,
+            ib = slot.item_base,
+        );
+        Some(fill(node, ctx, &body))
+    })
+}
 
 pub static GRID: NodeDef = NodeDef {
     slug: "repeatgrid",
@@ -121,6 +246,13 @@ pub static GRID: NodeDef = NodeDef {
             }
         };
         let copy = percopy::read(ctx, node, item);
+        // The input's function first, so a repeat inside it takes its grid before this one.
+        let _ = ctx.input(node, "input", "p");
+        let slot = if counted {
+            grid_slot(ctx, node, &copy, (&cx, &cy, &cz))
+        } else {
+            None
+        };
         let measure_copy = percopy::evaluate(ctx, node, &copy, "input", str::to_string);
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
@@ -154,7 +286,7 @@ pub static GRID: NodeDef = NodeDef {
         // Copies past the measured block are no nearer than its outer walls: a march's step
         // never crosses one, so a copy two cells off that stands taller than the three measured
         // is met at the wall and measured from the next cell. Only while a ray is marched
-        // (`MARCH_STATE`): a soft shadow reads the distance as how near the copies come, and the
+        // (`sd_march`): a soft shadow reads the distance as how near the copies come, and the
         // wall is no copy.
         let (lo, hi) = if counted {
             ("near >= vec3f(2.0)", "near <= n - 3.0")
@@ -231,8 +363,11 @@ pub static GRID: NodeDef = NodeDef {
             }
             None => neighbors,
         };
+        let listing = slot
+            .map(|slot| listed(ctx, node, &slot))
+            .unwrap_or_default();
         let body = format!(
-            "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
+            "{listing}    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
     let on = s > vec3f(1.0e-4);
     let step = select(vec3f(0.0), s, on);
     let n = {n};
@@ -243,7 +378,7 @@ pub static GRID: NodeDef = NodeDef {
         );
         fill(node, ctx, &body)
     })],
-    wgsl_utils: &[SDF, MARCH_STATE],
+    wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };
 
@@ -308,6 +443,8 @@ pub static AROUND: NodeDef = NodeDef {
                 count: "n",
             },
         );
+        let _ = ctx.input(node, "input", "w");
+        let slot = around_slot(ctx, node, &copy, &copies, (into, back));
         let measure_copy = percopy::evaluate(ctx, node, &copy, "input", |v| back.replace("{v}", v));
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
@@ -427,8 +564,11 @@ pub static AROUND: NodeDef = NodeDef {
         );
             body
         };
-        fill(node, ctx, &body)
+        let listing = slot
+            .map(|slot| listed(ctx, node, &slot))
+            .unwrap_or_default();
+        fill(node, ctx, &format!("{listing}{body}"))
     })],
-    wgsl_utils: &[SDF, MARCH_STATE],
+    wgsl_utils: &[SDF],
     ..NodeDef::EMPTY
 };

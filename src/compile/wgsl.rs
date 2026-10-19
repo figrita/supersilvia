@@ -93,6 +93,13 @@ pub enum Resource {
     Sampler(Sampler),
     /// The texture a `NodeTexture` uniform of this name provides.
     Texture(Arc<str>),
+    /// A repeat's listed copies, its grids, their cells' counts and their lists: buffers the
+    /// program owns, written by its compute passes and read by its picture
+    /// ([`super::instances`]).
+    Instances,
+    Grids,
+    Counts,
+    Lists,
 }
 
 /// Every binding of a shader, in group 0, in binding order.
@@ -116,6 +123,15 @@ pub fn bindings(shader: &Shader) -> Vec<(u32, Resource)> {
             .zip(TEXTURES..)
             .map(|(name, b)| (b, Resource::Texture(name))),
     );
+    if shader.instancing.any() {
+        use super::instances::{COUNTS, GRIDS, INSTANCES, LISTS};
+        out.extend([
+            (INSTANCES, Resource::Instances),
+            (GRIDS, Resource::Grids),
+            (COUNTS, Resource::Counts),
+            (LISTS, Resource::Lists),
+        ]);
+    }
     out
 }
 
@@ -306,9 +322,11 @@ fn {name}(uv: vec2f) -> vec4f {{
     let up = cross(right, fwd);
     let rd = normalize(fwd * 1.8 + right * uv.x + up * uv.y);
     var t = 0.0;
+    sd_march = true;
     for (var i = 0; i < 48; i++) {{
         let d = {dist}(eye + rd * t).x;
         if (d < 0.002 * t) {{
+            sd_march = false;
             let p = eye + rd * t;
             let e = vec2f(0.002, -0.002);
             let n = normalize(e.xyy * {dist}(p + e.xyy).x + e.yyx * {dist}(p + e.yyx).x
@@ -319,6 +337,7 @@ fn {name}(uv: vec2f) -> vec4f {{
         t += d;
         if (t > 20.0) {{ break; }}
     }}
+    sd_march = false;
     return vec4f(0.0);
 }}
 "
@@ -373,7 +392,13 @@ fn head(ctx: &CompileContext) -> String {
     if !ctx.utils.is_empty() {
         write!(body, "\n{}\n", ctx.utils.join("\n\n")).unwrap();
     }
+    if !ctx.instanced.is_empty() {
+        write!(body, "\n{}\n", super::instances::WGSL).unwrap();
+    }
     write!(body, "\n{}\n", ctx.functions.join("\n\n")).unwrap();
+    if !ctx.instanced.is_empty() {
+        body.push_str(&super::instances::entries(&ctx.instanced));
+    }
     body
 }
 

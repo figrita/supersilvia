@@ -154,6 +154,55 @@ pub static FOLD: NodeDef = NodeDef {
     ..NodeDef::EMPTY
 };
 
+/// The most copies Scatter on Sphere lists, Copies' own most, and the most cells.
+const SCATTER_ITEMS: u32 = 500;
+const SCATTER_CELLS: u32 = 4096;
+
+/// Scatter on Sphere's copies listed (`compile::instances`): copy `t` stands on lattice point
+/// `t`, its frame across the sphere and out of it. `None` where the input cannot say how big it
+/// is, or a field reaches the radius.
+fn scatter_slot(
+    ctx: &mut crate::compile::CompileContext,
+    node: crate::graph::NodeId,
+    copy: &crate::nodes::percopy::Copy,
+    copies: &str,
+) -> Option<crate::compile::instances::Slot> {
+    use crate::compile::instances;
+    let own = (SCATTER_SPHERE.bounds?)(node, ctx)?;
+    let input = ctx.solid_bounds(node, "input")?;
+    let (offset, scale, turned) = crate::nodes::percopy::extremes(ctx, node);
+    ctx.instance_slot(node, SCATTER_ITEMS, SCATTER_CELLS, |ctx, slot| {
+        let head = instances::place_head(slot, "n", &own, "vec3f(2.0 * length(reach))");
+        let body = format!(
+            "    let n = clamp(round({copies}), 1.0, 500.0);
+    let bx = {input};
+    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
+{head}    let i = f32(t);
+    let up = sd_fibonacci_point(i, n);
+    let sg = select(-1.0, 1.0, up.z >= 0.0);
+    let a = -1.0 / (sg + up.z);
+    let b = up.x * up.y * a;
+    let side = vec3f(1.0 + sg * up.x * up.x * a, sg * b, -sg * up.x);
+    let back = vec3f(b, sg + up.y * up.y * a, -up.y);
+    let at = {off};
+    let turn = -({turn}) * 6.2831853;
+    var f: array<vec3f, 4>;
+    for (var e = 0; e < 4; e++) {{
+        let p = vec3f(f32(e == 1), f32(e == 2), f32(e == 3));
+        let dp = p - up * {{radius}};
+        f[e] = sd_copy_frame(vec3f(dot(dp, side), dot(dp, up), -dot(dp, back)), at, turn);
+    }}
+    sd_inst[{ib}u + t] = sd_instance(f[0], f[1], f[2], f[3], {sc}, {color}, bx);",
+            off = copy.offset,
+            turn = copy.turn,
+            sc = copy.scale,
+            color = copy.color,
+            ib = slot.item_base,
+        );
+        Some(fill(node, ctx, &body))
+    })
+}
+
 pub static SCATTER_SPHERE: NodeDef = NodeDef {
     slug: "scattersphere",
     category: Category::Solid,
@@ -190,6 +239,8 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
                 count: "n",
             },
         );
+        let _ = ctx.input(node, "input", "m");
+        let slot = scatter_slot(ctx, node, &copy, &copies);
         let measure_copy = percopy::evaluate(ctx, node, &copy, "input", str::to_string);
         let color = if ctx.solid_color() {
             format!("r.yzw * {}", copy.color)
@@ -226,11 +277,14 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
         let (offset, scale, turned) = percopy::extremes(ctx, node);
         let skip = super::repeat::skip_copy(&copy);
         let distance = super::repeat::DISTANCE_BOUNDED;
+        let listing = slot
+            .map(|slot| super::repeat::listed(ctx, node, &slot))
+            .unwrap_or_default();
         fill(
             node,
             ctx,
             &format!(
-                "    let n = clamp(round({copies}), 1.0, 500.0);
+                "{listing}    let n = clamp(round({copies}), 1.0, 500.0);
     let lp = length(p);
     let v = p / max(lp, 1.0e-6);
     let bx = {bounds};
@@ -268,7 +322,7 @@ pub static SCATTER_SPHERE: NodeDef = NodeDef {
             )),
         )
     }),
-    wgsl_utils: &[SDF, super::MARCH_STATE, FIBONACCI],
+    wgsl_utils: &[SDF, FIBONACCI],
     ..NodeDef::EMPTY
 };
 

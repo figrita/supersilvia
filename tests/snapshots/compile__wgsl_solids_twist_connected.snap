@@ -136,10 +136,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 // The point a solid is reading a field at; w is 0 in a picture.
 var<private> sd_at: vec4f;
 

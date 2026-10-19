@@ -128,10 +128,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 fn proximity1_solid_d(p: vec3f) -> vec4f {
     return vec4f(1.0e4, 0.5, 0.5, 0.5);
 }

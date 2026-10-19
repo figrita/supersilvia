@@ -17,6 +17,7 @@
 //! every measured node's measurement, and every varying output's thumbnail, each pulling its
 //! own chain in. An Output's module measures nothing.
 
+pub mod instances;
 pub mod uniform;
 pub mod wgsl;
 
@@ -86,6 +87,8 @@ pub struct Shader {
     /// The side of the square from the target's corner a pass's measurements run in: the
     /// largest tap's grid, one for a `sample`, zero with none.
     pub grid: u32,
+    /// What its repeats' listed copies need on the GPU: see [`instances`].
+    pub instancing: instances::Instancing,
 }
 
 /// How far away "nothing" is in a solid's distance: an unconnected solid input, and the floor
@@ -237,6 +240,11 @@ pub struct CompileContext<'a> {
     /// Each solid node's bounds, once worked out: the call that gives them, or `None` where the
     /// node cannot say. See [`CompileContext::solid_bounds`].
     bounds: HashMap<NodeId, Option<String>>,
+    /// The repeats whose copies are listed on the GPU, each with its place function, in the
+    /// order their grids are numbered; and each repeat asked, with its slot or `None` where it
+    /// cannot list them. See [`CompileContext::instance_slot`].
+    instanced: Vec<(instances::Slot, String)>,
+    instance_slots: HashMap<NodeId, Option<instances::Slot>>,
 }
 
 impl<'a> CompileContext<'a> {
@@ -264,7 +272,57 @@ impl<'a> CompileContext<'a> {
             returning: PortType::VaryingColor,
             solid_color: true,
             bounds: HashMap::new(),
+            instanced: Vec::new(),
+            instance_slots: HashMap::new(),
         }
+    }
+
+    /// A slot for `id`'s copies, listed on the GPU each draw before the picture: at most
+    /// `items` copies in at most `cells` cells. `place` writes the body of the function that
+    /// lists copy `t`, `fn {slug}{id}_place(t: u32)`, given the slot, or says `None` where the
+    /// node cannot list them. Asked once a module: every later call names the same slot. See
+    /// [`instances`].
+    pub fn instance_slot(
+        &mut self,
+        id: NodeId,
+        items: u32,
+        cells: u32,
+        place: impl FnOnce(&mut Self, &instances::Slot) -> Option<String>,
+    ) -> Option<instances::Slot> {
+        if let Some(known) = self.instance_slots.get(&id) {
+            return *known;
+        }
+        // Marked unable first, so a loop in the graph cannot recurse for ever.
+        self.instance_slots.insert(id, None);
+        let slugged = self
+            .graph
+            .get(id)
+            .map(|n| format!("{}{id}_place", n.def.slug))?;
+        let slots: Vec<instances::Slot> = self.instanced.iter().map(|(s, _)| *s).collect();
+        let slot = instances::Slot::after(&slots, items, cells);
+        let body = place(self, &slot)?;
+        self.functions
+            .push(format!("fn {slugged}(t: u32) {{\n{body}\n}}"));
+        // A place function that asked for another repeat's slot took the number this one was
+        // given, so it is numbered again after them.
+        let slots: Vec<instances::Slot> = self.instanced.iter().map(|(s, _)| *s).collect();
+        let slot = if slots.len() as u32 == slot.grid {
+            slot
+        } else {
+            return None;
+        };
+        self.instanced.push((slot, slugged));
+        self.instance_slots.insert(id, Some(slot));
+        Some(slot)
+    }
+
+    /// Whether one of `id`'s number inputs is a field, read at the point rather than once a
+    /// frame.
+    pub fn is_field(&self, id: NodeId, key: &'static str) -> bool {
+        self.graph
+            .source_of(PortRef::new(id, key))
+            .and_then(|s| self.graph.get(s.node)?.output(s.key))
+            .is_some_and(|p| p.ty.is_varying())
     }
 
     /// Claim a slot in this shader's tap buffer for `id`, and return its index.
@@ -965,6 +1023,9 @@ fn build_with(graph: &Graph, output: NodeId, probe: bool) -> Option<Shader> {
         diagnostics: ctx.diagnostics,
         thumbs: Vec::new(),
         grid: 0,
+        instancing: instances::Instancing::of(
+            &ctx.instanced.iter().map(|(s, _)| *s).collect::<Vec<_>>(),
+        ),
         taps: ctx.taps,
         uniforms: ctx
             .uniforms
@@ -1047,6 +1108,9 @@ fn build_items(graph: &Graph, items: &[Item]) -> Option<Shader> {
         diagnostics: ctx.diagnostics,
         thumbs: ctx.thumbs.iter().map(|(p, t, _)| (*p, *t)).collect(),
         grid: ctx.grid,
+        instancing: instances::Instancing::of(
+            &ctx.instanced.iter().map(|(s, _)| *s).collect::<Vec<_>>(),
+        ),
         taps: ctx.taps,
         uniforms: ctx
             .uniforms

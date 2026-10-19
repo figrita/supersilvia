@@ -136,10 +136,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 fn ellipsoid1_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_ellipsoid1_x, u.u_control_ellipsoid1_y, u.u_control_ellipsoid1_z);
     let r = max(vec3f(u.u_control_ellipsoid1_rx, u.u_control_ellipsoid1_ry, u.u_control_ellipsoid1_rz), vec3f(1.0e-3));

@@ -257,6 +257,17 @@ pub fn evaluate(
     )
 }
 
+/// The statements that measure a listed copy's input, the solid on `key`, from `w`, the point
+/// in the copy's frame on the input's axes, and `sc`, the copy's scale on them: `r` and `k` as
+/// [`evaluate`] writes them, a shape that takes a scale asked at the copy's size.
+pub fn evaluate_listed(ctx: &mut CompileContext, node: NodeId, key: &'static str) -> String {
+    if let Some(scaled) = ctx.solid_scaled(node, key) {
+        return format!("            let r = {scaled}(w, sc);\n            let k = 1.0;\n");
+    }
+    let inner = ctx.input(node, key, "(w / sc)");
+    format!("            let r = {inner};\n            let k = min(sc.x, min(sc.y, sc.z));\n")
+}
+
 /// One copy's rows in two dimensions as WGSL expressions: `offset` and `scale` a `vec2f`,
 /// `turn` an `f32` in turns, `color` the premultiplied `vec4f` the copy's picture is
 /// multiplied by.

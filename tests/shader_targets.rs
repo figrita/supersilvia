@@ -586,6 +586,11 @@ fn check(entry: &Entry) -> Result<String, String> {
     check_bindings(&module, &entry.shader)?;
     has_entry(&module, wgsl::VERTEX_ENTRY, naga::ShaderStage::Vertex)?;
     has_entry(&module, wgsl::FRAGMENT_ENTRY, naga::ShaderStage::Fragment)?;
+    if entry.shader.instancing.any() {
+        for name in supersilvia::compile::instances::ENTRIES {
+            has_entry(&module, name, naga::ShaderStage::Compute)?;
+        }
+    }
     Ok(msl)
 }
 
@@ -626,6 +631,10 @@ fn check_bindings(module: &naga::Module, shader: &Shader) -> Result<(), String> 
                 wgsl::Resource::Taps => "tap".to_string(),
                 wgsl::Resource::Sampler(s) => s.name().to_string(),
                 wgsl::Resource::Texture(t) => t.to_string(),
+                wgsl::Resource::Instances => "sd_inst".to_string(),
+                wgsl::Resource::Grids => "sd_grid".to_string(),
+                wgsl::Resource::Counts => "sd_count".to_string(),
+                wgsl::Resource::Lists => "sd_list".to_string(),
             };
             (b, name)
         })

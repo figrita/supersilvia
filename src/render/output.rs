@@ -360,6 +360,9 @@ impl OutputRenderer {
                         sampled,
                         shared.black(),
                     )),
+                    Resource::Instances | Resource::Grids | Resource::Counts | Resource::Lists => {
+                        program.instance_buffer(resource).as_entire_binding()
+                    }
                 },
             })
             .collect();
@@ -369,6 +372,8 @@ impl OutputRenderer {
             entries: &entries,
         });
 
+        // A repeat's copies listed before the picture that reads them.
+        program.build_instances(encoder, &group, block.offset);
         {
             let target = &ring.slot(slot).view;
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

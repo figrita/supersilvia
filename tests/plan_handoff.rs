@@ -22,6 +22,7 @@ fn module(body: String) -> Arc<Shader> {
         taps: Vec::new(),
         thumbs: Vec::new(),
         grid: 0,
+        instancing: supersilvia::compile::instances::Instancing::default(),
     })
 }
 

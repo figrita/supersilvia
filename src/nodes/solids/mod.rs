@@ -145,14 +145,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }";
 
-/// Whether Render 3D is marching a ray toward a surface: its main march and its reflection's.
-/// A repeat whose copies differ holds a step to its measured block only then (`repeat`), so a
-/// shadow, the occlusion and a normal read the distance the copies give, which is right at a
-/// surface, while a march can never step past a copy it did not measure.
-pub const MARCH_STATE: &str = "// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-";
-
 /// **The chain.** Every shape node — a primitive, a fractal, a profile — takes the solid built
 /// so far on its first row, [`ONTO`], and combines its own shape with it by [`MODE`] and
 /// [`BLEND`], so a scene is a row of shapes cabled one into the next rather than a tree of

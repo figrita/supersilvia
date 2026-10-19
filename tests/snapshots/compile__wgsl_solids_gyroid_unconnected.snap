@@ -135,10 +135,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 fn gyroid1_solid_d_own(p: vec3f) -> vec4f {
     let q = p - vec3f(u.u_control_gyroid1_x, u.u_control_gyroid1_y, u.u_control_gyroid1_z);
     let s = 6.2831853 / max(u.u_control_gyroid1_scale, 1.0e-3);

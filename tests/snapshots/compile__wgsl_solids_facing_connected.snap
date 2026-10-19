@@ -139,10 +139,6 @@ fn sd_hue(h: f32) -> vec3f {
     return clamp(abs(fract(h + vec3f(0.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0) - 1.0, vec3f(0.0), vec3f(1.0));
 }
 
-// Whether a ray is being marched toward a surface.
-var<private> sd_march: bool;
-
-
 fn sd_facing_normal(a: f32, b: f32, c: f32, d: f32) -> vec3f {
     let e = vec2f(1.0, -1.0);
     let g = e.xyy * a + e.yyx * b + e.yxy * c + e.xxx * d;

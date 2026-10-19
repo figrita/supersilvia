@@ -82,3 +82,8 @@ fn unpremultiply(c: vec4f) -> vec4f {
     return select(vec4f(0.0), vec4f(c.rgb / c.a, c.a), c.a > 0.0);
 }
 fn premultiply(c: vec4f) -> vec4f { return vec4f(c.rgb * c.a, c.a); }
+
+// Whether a ray is being marched toward a surface: Render 3D's main march, its reflection's,
+// and a solid port's thumbnail. A repeat holds a step to the copies it measured only then, so a
+// shadow, the occlusion and a normal read the copies' own distance.
+var<private> sd_march: bool;
