@@ -56,4 +56,10 @@ vkd3d makes a device per call and shares no texture by handle, so GStreamer's te
 another device's there and a clip's frames reach the renderer as bytes; the import itself is
 proven under Wine by `tests/gpu_d3d12.rs` on textures of the renderer's own device.
 
+**Spout.** [`spout-interop/`](spout-interop/) holds the Spout SDK's peer and the scripts that
+build supersilvia's into the folder and run the two against each other on Windows, which
+`.github/workflows/spout.yml` does on GitHub's machines: [its README](spout-interop/README.md).
+Anything else cross-compiled for Windows builds as `build.sh` does by sourcing `env.sh`, which
+installs GStreamer's release the first time and sets the environment cargo xwin reads it in.
+
 **The installer** — MSI, NSIS, or the zip as it is — is not made yet.

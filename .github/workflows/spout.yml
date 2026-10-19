@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Spout on Windows, between processes, on GitHub's machines. The Windows folder is
+# cross-compiled on Ubuntu by packaging/windows/build.sh, as for a release but with the
+# `release` profile, and supersilvia's Spout peer and tests/syphon.rs are built into it by
+# packaging/windows/spout-interop/build-peers.sh. On Windows Server 2025, which has no GPU and
+# draws Direct3D 11 and 12 on WARP, the Spout SDK's own peer is built from the SDK's source at a
+# pinned release, and packaging/windows/spout-interop/interop.sh runs tests/syphon.rs, then
+# supersilvia to supersilvia, the SDK to the SDK, supersilvia to the SDK and the SDK to
+# supersilvia, each a sender and a receiver in two processes, the last two with Spout's frame
+# counting off and on. packaging/windows/spout-interop/README.md has what each case proves.
+#
+# It runs on a push to `spout` or a `spout-*` branch, and by hand from the Actions tab.
+
+name: Spout
+
+on:
+  push:
+    branches: ["spout", "spout-*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spout-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: never
+  SUPERSILVIA_PROFILE: release
+
+jobs:
+  build:
+    name: Windows folder with the Spout peer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+      - name: Tools
+        # wine32 as well: GStreamer's installer is Inno Setup, whose setup program is 32-bit.
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang-18 clang-tools-18 lld-18 llvm-18 \
+            wine wine64 wine32:i386 xvfb zip
+          echo /usr/lib/llvm-18/bin >>"$GITHUB_PATH"
+          rustup target add x86_64-pc-windows-msvc
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-xwin
+      - name: GStreamer's installer and the MSVC CRT
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/supersilvia-windows/gstreamer-1.0-msvc-*.exe
+            ~/.cache/supersilvia-windows/xwin
+          key: windows-${{ hashFiles('packaging/windows/build.sh', 'packaging/windows/env.sh') }}
+      - name: Build
+        # Wine installs GStreamer, and Wine wants a display even for a silent installer.
+        run: xvfb-run -a packaging/windows/build.sh
+      - name: The Spout peer and tests/syphon.rs
+        run: packaging/windows/spout-interop/build-peers.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spout-windows
+          path: dist/windows/supersilvia
+          if-no-files-found: error
+          retention-days: 14
+
+  interop:
+    name: Spout between processes on Windows
+    needs: build
+    runs-on: windows-2025
+    timeout-minutes: 30
+    env:
+      # The runner's only adapters are Microsoft's Basic Render Driver.
+      SUPERSILVIA_SOFTWARE_GPU: "1"
+      SUPERSILVIA_ADAPTER: Basic Render
+    steps:
+      - name: Line endings as committed
+        # Git for Windows checks text out with CRLF, which bash refuses in a script.
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: packaging/windows/spout-interop
+      - name: The Spout SDK, 2.007.018
+        uses: actions/checkout@v4
+        with:
+          repository: leadedge/Spout2
+          # The tag 2.007.018.
+          ref: 6b68a5b4fdeca6130b851e5f9366467a844860e5
+          path: spout2
+          filter: blob:none
+          sparse-checkout: |
+            SPOUTSDK/SpoutGL
+            SPOUTSDK/SpoutDirectX/SpoutDX
+      - uses: actions/download-artifact@v4
+        with:
+          name: spout-windows
+          path: supersilvia
+      - name: Adapters
+        shell: pwsh
+        run: |
+          Get-CimInstance Win32_VideoController |
+            Format-List Name, AdapterCompatibility, DriverVersion, PNPDeviceID, Status
+      - name: The Spout SDK's peer
+        shell: pwsh
+        run: |
+          cmake -S packaging/windows/spout-interop -B build/spout-interop -A x64 "-DSPOUT2_DIR=$PWD/spout2"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cmake --build build/spout-interop --config Release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Spout between processes
+        shell: bash
+        env:
+          SPOUT_LOGS: spout-logs
+        run: bash packaging/windows/spout-interop/interop.sh supersilvia/bin build/spout-interop/Release/spout_peer_sdk.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spout-logs
+          path: spout-logs
+          if-no-files-found: ignore
+          retention-days: 14
