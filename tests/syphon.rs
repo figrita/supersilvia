@@ -15,20 +15,30 @@
 //! transparent, with its top row first and its own alpha. Received, it is copied into a texture
 //! of ours top row first, opaque or with its alpha. Linux has no Syphon: the directory is empty
 //! and a server is refused.
+//!
+//! **On Windows the same service is Spout**, and the same loopback runs through it: a sender
+//! listed once its first frame is published, a receiver of our own reading the bytes back,
+//! the publisher's thread, and the receiving half through to the renderer's copy. Spout's
+//! convention is the other way up, so by default the picture reaches the receiver **top row
+//! first** and flipped bottom row first. Spout's list is shared memory, so nothing needs the
+//! main thread there; the harness is off for the Mac's sake alone. CI runs it on a runner with
+//! no GPU, on WARP (`SUPERSILVIA_SOFTWARE_GPU=1`, `SUPERSILVIA_ADAPTER="Basic Render"`).
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 #[path = "common/gpu.rs"]
 mod gpu;
 
 fn main() {
     #[cfg(target_os = "macos")]
     mac::loopback();
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    spout::loopback();
+    #[cfg(target_os = "linux")]
     refused();
 }
 
 /// Linux answers as a machine without Syphon.
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
 fn refused() {
     use supersilvia::platform::syphon::{Server, servers};
     assert!(servers().is_empty(), "no server is ever listed");
@@ -366,5 +376,376 @@ mod mac {
         }
         drop(outlet);
         println!("syphon: a server is received by its label, copied into a texture of ours");
+    }
+}
+
+#[cfg(target_os = "windows")]
+mod spout {
+    use super::gpu;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+    use std::sync::mpsc;
+    use std::time::{Duration, Instant};
+    use supersilvia::compile::wgsl::Sampler;
+    use supersilvia::graph::NodeId;
+    use supersilvia::platform::syphon::{Client, Described, Surface, servers};
+    use supersilvia::render::picture::Shown;
+    use supersilvia::render::publish::{Look, Publisher, Via, Wanted};
+    use supersilvia::render::syphon::Outlet;
+    use supersilvia::render::{
+        FrameJob, Gpu, Live, Picture, Published, Renderer, SourceJob, Texture, Viewer,
+    };
+
+    /// The picture's size: wide enough that each quadrant is several pixels.
+    const W: u32 = 8;
+    const H: u32 = 4;
+
+    /// Each quadrant as RGBA, premultiplied: red over green on the left of the top, blue and
+    /// half-covered white along the bottom.
+    const TOP_LEFT: [u8; 4] = [255, 0, 0, 255];
+    const TOP_RIGHT: [u8; 4] = [0, 255, 0, 255];
+    const BOTTOM_LEFT: [u8; 4] = [0, 0, 255, 255];
+    const BOTTOM_RIGHT: [u8; 4] = [128, 128, 128, 128];
+
+    /// DXGI's B8G8R8A8_UNORM, the format a sender's texture is in.
+    const BGRA: u32 = 87;
+
+    /// How long anything here waits before the check fails: WARP is slow.
+    const PATIENCE: Duration = Duration::from_secs(30);
+
+    /// The quadrant pattern at `w` by `h`, uploaded top row first, as a CPU node's frame is,
+    /// drawn on tick `tick`.
+    fn pattern(gpu: &Gpu, (w, h): (u32, u32), tick: u64) -> Picture {
+        let mut bytes = Vec::with_capacity((w * h * 4) as usize);
+        for y in 0..h {
+            for x in 0..w {
+                bytes.extend_from_slice(&match (y < h / 2, x < w / 2) {
+                    (true, true) => TOP_LEFT,
+                    (true, false) => TOP_RIGHT,
+                    (false, true) => BOTTOM_LEFT,
+                    (false, false) => BOTTOM_RIGHT,
+                });
+            }
+        }
+        let texture = wgpu::util::DeviceExt::create_texture_with_data(
+            gpu.device(),
+            gpu.queue(),
+            &wgpu::TextureDescriptor {
+                label: Some("pattern"),
+                size: wgpu::Extent3d {
+                    width: w,
+                    height: h,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: wgpu::TextureFormat::Rgba8Unorm,
+                usage: wgpu::TextureUsages::TEXTURE_BINDING,
+                view_formats: &[],
+            },
+            wgpu::util::TextureDataOrder::LayerMajor,
+            &bytes,
+        );
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        Picture {
+            texture: Texture::new(texture, view),
+            width: w,
+            height: h,
+            flip: true,
+            sampler: Sampler::MirrorNearest,
+            drawn_tick: Some(tick),
+        }
+    }
+
+    /// Call `done` every few milliseconds until it answers, or fail saying `what`.
+    fn until<T>(what: &str, mut done: impl FnMut() -> Option<T>) -> T {
+        let start = Instant::now();
+        loop {
+            if let Some(v) = done() {
+                return v;
+            }
+            assert!(
+                start.elapsed() < PATIENCE,
+                "{what} took more than {PATIENCE:?}"
+            );
+            std::thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    /// BGRA, as the texture holds it.
+    fn bgra([r, g, b, a]: [u8; 4]) -> [u8; 4] {
+        [b, g, r, a]
+    }
+
+    /// Opaque over black: what the half-covered quadrant is once its alpha is one.
+    fn opaque(rgba: [u8; 4]) -> [u8; 4] {
+        [rgba[0], rgba[1], rgba[2], 255]
+    }
+
+    /// The pixel at column `x` of row `row` of rows `width` pixels wide.
+    fn at(bytes: &[u8], width: u32, row: u32, x: u32) -> [u8; 4] {
+        let i = ((row * width + x) * 4) as usize;
+        bytes[i..i + 4].try_into().unwrap()
+    }
+
+    /// Whether `surface` holds the pattern at its own size top row first, opaque.
+    fn holds_the_pattern_top_first(surface: &Surface) -> bool {
+        let (w, h) = surface.size();
+        let bytes = surface.read().expect("the frame reads");
+        let seen = |row: u32, x: u32| at(&bytes, w, row, x);
+        seen(0, 0) == bgra(TOP_LEFT)
+            && seen(0, w - 1) == bgra(TOP_RIGHT)
+            && seen(h - 1, 0) == bgra(BOTTOM_LEFT)
+            && seen(h - 1, w - 1) == bgra(opaque(BOTTOM_RIGHT))
+    }
+
+    /// Draw `picture` into `outlet` as `look` says, wait for the GPU, and publish.
+    fn send(gpu: &Gpu, viewer: &Viewer, outlet: &mut Outlet, picture: &Picture, look: Look) {
+        let ticket = outlet.draw(gpu, viewer, picture, look).expect("drawn");
+        gpu.wait(&ticket, PATIENCE)
+            .expect("the GPU finishes the blit");
+        outlet.publish();
+    }
+
+    /// The listed sender named `name`.
+    fn listed(name: &str) -> Described {
+        until("the list naming the sender", || {
+            servers().into_iter().find(|s| s.name == name)
+        })
+    }
+
+    pub fn loopback() {
+        let gpu = gpu::gpu();
+        // The renderer serves its device, which Spout's textures are made on.
+        let renderer = Renderer::new(gpu.clone()).expect("renderer");
+        let here = supersilvia::render::dmabuf::d3d12_here().expect("Direct3D 12");
+        println!("spout: rendering on the adapter {:016x}", here.luid);
+        let viewer = Viewer::new(&gpu, wgpu::TextureFormat::Bgra8Unorm).expect("the blit");
+        let picture = pattern(&gpu, (W, H), 1);
+        let mut outlet = Outlet::new("loopback").expect("a sender is made");
+        assert!(
+            servers().iter().all(|s| s.name != "supersilvia - loopback"),
+            "a sender is listed only once it has a frame"
+        );
+        send(&gpu, &viewer, &mut outlet, &picture, Look::default());
+        let me = outlet.server().described();
+        let found = listed(&me.name);
+        assert_eq!(found.name, "supersilvia - loopback");
+        assert!(found.app.is_empty(), "a Spout sender has no app: {found:?}");
+        assert_eq!(found.label(), found.name);
+        println!("spout: the list names {:?}", found.label());
+
+        let (tx, frames) = mpsc::channel::<Surface>();
+        let client = Client::new(&found, move |surface| {
+            let _ = tx.send(surface);
+        })
+        .expect("a receiver connects");
+
+        for (look, top_first, alpha) in [
+            (Look::default(), true, false),
+            (
+                Look {
+                    flip: true,
+                    transparent: true,
+                },
+                false,
+                true,
+            ),
+        ] {
+            send(&gpu, &viewer, &mut outlet, &picture, look);
+            // A frame copied before this look's first publish may still be on its way.
+            std::thread::sleep(Duration::from_millis(100));
+            while frames.try_recv().is_ok() {}
+            let surface = until("a frame reaching the receiver", || {
+                send(&gpu, &viewer, &mut outlet, &picture, look);
+                frames.recv_timeout(Duration::from_millis(50)).ok()
+            });
+            assert!(client.is_valid());
+            assert_eq!(client.problem(), None);
+            assert_eq!(surface.size(), (W, H));
+            assert_eq!(surface.pixel_format(), BGRA, "the sender's texture is BGRA");
+            let bytes = surface.read().expect("the frame reads");
+            let (first, last) = if top_first {
+                ([TOP_LEFT, TOP_RIGHT], [BOTTOM_LEFT, BOTTOM_RIGHT])
+            } else {
+                ([BOTTOM_LEFT, BOTTOM_RIGHT], [TOP_LEFT, TOP_RIGHT])
+            };
+            let seen = |row: u32, x: u32| at(&bytes, W, row, x);
+            let want = |rgba: [u8; 4]| bgra(if alpha { rgba } else { opaque(rgba) });
+            for (row, pair) in [(0, first), (H - 1, last)] {
+                assert_eq!(seen(row, 0), want(pair[0]), "{look:?}: row {row}, left");
+                assert_eq!(
+                    seen(row, W - 1),
+                    want(pair[1]),
+                    "{look:?}: row {row}, right"
+                );
+            }
+            println!(
+                "spout: {look:?} reaches the receiver {} row first, {}",
+                if top_first { "top" } else { "bottom" },
+                if alpha {
+                    "with the picture's own alpha"
+                } else {
+                    "opaque over black"
+                }
+            );
+        }
+
+        outlet.server().rename("loopback renamed");
+        let renamed = listed("supersilvia - loopback renamed");
+        assert!(
+            servers().iter().all(|s| s.name != found.name),
+            "the old name is gone"
+        );
+        until("the receiver hearing its sender's name go", || {
+            (!client.is_valid()).then_some(())
+        });
+        println!(
+            "spout: a rename lists {:?} and retires the old name",
+            renamed.name
+        );
+        drop(client);
+        drop(outlet);
+        until("the list dropping the sender", || {
+            servers()
+                .iter()
+                .all(|s| s.name != renamed.name)
+                .then_some(())
+        });
+        println!("spout: the sender leaves the list when it drops");
+        publisher(&gpu);
+        receiver(&gpu, renderer);
+    }
+
+    /// Set `picture` as Output 7's frame in `live`, as the synth publishes one.
+    fn publish(live: &Live, picture: Picture) {
+        let tick = picture.drawn_tick.unwrap_or(0);
+        live.set(Arc::new(Published {
+            tick,
+            outputs: HashMap::from([(NodeId(7), picture)]),
+            ..Published::default()
+        }));
+    }
+
+    /// The publisher's thread, as the app runs it: an Output's frame read from `Live`, drawn
+    /// with no receiver asking, a new size reaching the receiver already drawn, and the sender
+    /// retired once nothing wants it.
+    fn publisher(gpu: &Gpu) {
+        let live: Arc<Live> = Arc::default();
+        let mut tick = 1;
+        publish(&live, pattern(gpu, (W, H), tick));
+        let mut publisher = Publisher::new(Some(gpu), Arc::clone(&live));
+        publisher.want(vec![Wanted {
+            picture: Shown::Node {
+                node: NodeId(7),
+                port: None,
+            },
+            via: Via::Syphon,
+            name: "Output 7".to_string(),
+            look: Look::default(),
+        }]);
+        let found = listed("supersilvia - Output 7");
+        println!("spout: the publisher sends {:?}", found.label());
+        let (tx, frames) = mpsc::channel::<Surface>();
+        let client = Client::new(&found, move |surface| {
+            let _ = tx.send(surface);
+        })
+        .expect("a receiver connects");
+
+        let mut next = |size: (u32, u32)| {
+            until("a frame of the new size reaching the receiver", || {
+                tick += 1;
+                publish(&live, pattern(gpu, size, tick));
+                frames
+                    .recv_timeout(Duration::from_millis(20))
+                    .ok()
+                    .filter(|s| s.size() == size)
+            })
+        };
+        let first = next((W, H));
+        assert!(
+            holds_the_pattern_top_first(&first),
+            "the Output's frame, top row first"
+        );
+        let bigger = next((W * 2, H * 3));
+        assert!(
+            holds_the_pattern_top_first(&bigger),
+            "a new size reaches the receiver already drawn: zero flash"
+        );
+        println!("spout: the publisher draws each new frame, and a new size arrives drawn");
+
+        publisher.want(Vec::new());
+        until("the list dropping an unwanted sender", || {
+            servers().iter().all(|s| s.name != found.name).then_some(())
+        });
+        drop(client);
+        publisher.stop();
+        println!("spout: a sender no longer wanted retires");
+    }
+
+    /// The receiving half as the Main Input and the node run it: a sender found by its label,
+    /// frames landing in a camera's slot, and the renderer's copy of each — top row first and
+    /// opaque by default, and with its alpha where asked.
+    fn receiver(gpu: &Gpu, mut renderer: Renderer) {
+        use supersilvia::graph::PortRef;
+        use supersilvia::platform::syphon::Look as Reading;
+        use supersilvia::video::syphon::{Receiver, labels, menu};
+
+        let viewer = Viewer::new(gpu, wgpu::TextureFormat::Bgra8Unorm).expect("the blit");
+        let picture = pattern(gpu, (W, H), 1);
+        let mut outlet = Outlet::new("received").expect("a sender is made");
+        send(gpu, &viewer, &mut outlet, &picture, Look::default());
+        let label = outlet.server().described().label();
+        until("the listing naming the sender", || {
+            labels().contains(&label).then_some(())
+        });
+        assert!(
+            menu().iter().any(|&(value, _)| value == label),
+            "the node's menu offers it"
+        );
+        for (reading, bottom_right) in [
+            (Reading::default(), opaque(BOTTOM_RIGHT)),
+            (
+                Reading {
+                    flip: false,
+                    transparent: true,
+                },
+                BOTTOM_RIGHT,
+            ),
+        ] {
+            let mut receiver = Receiver::new(&label, reading);
+            let sent = Look {
+                flip: false,
+                transparent: reading.transparent,
+            };
+            let mut matched = 0;
+            let mut last = Vec::new();
+            until("two frames in a row reaching the renderer", || {
+                send(gpu, &viewer, &mut outlet, &picture, sent);
+                let frame = receiver.latest()?;
+                let node = NodeId(9);
+                renderer.draw(&FrameJob {
+                    sources: vec![SourceJob::new(PortRef::new(node, "frame"), frame)],
+                    ..FrameJob::default()
+                });
+                gpu::drain(gpu);
+                last = gpu::bytes_of(gpu, &renderer.texture_of(node).expect("copied"));
+                let rgba = |row: u32, x: u32| at(&last, W, row, x);
+                let right = rgba(0, 0) == TOP_LEFT
+                    && rgba(0, W - 1) == TOP_RIGHT
+                    && rgba(H - 1, 0) == BOTTOM_LEFT
+                    && rgba(H - 1, W - 1) == bottom_right;
+                matched = if right { matched + 1 } else { 0 };
+                (matched >= 2).then_some(())
+            });
+            assert!(receiver.connected() && receiver.error().is_none());
+            println!(
+                "spout: {reading:?} received the right way up, the half-covered corner {:?}",
+                at(&last, W, H - 1, W - 1)
+            );
+        }
+        drop(outlet);
+        println!("spout: a sender is received by its label, copied into a texture of ours");
     }
 }
