@@ -109,7 +109,7 @@ jobs:
           path: |
             ~/.cache/supersilvia-windows/gstreamer-1.0-msvc-*.exe
             ~/.cache/supersilvia-windows/xwin
-          key: windows-${{ hashFiles('packaging/windows/build.sh') }}
+          key: windows-${{ hashFiles('packaging/windows/build.sh', 'packaging/windows/env.sh') }}
       - name: Build
         # Wine installs GStreamer, and Wine wants a display even for a silent installer.
         run: xvfb-run -a packaging/windows/build.sh
