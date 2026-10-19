@@ -63,10 +63,11 @@ pub enum VideoSource {
     /// back into it after a successful pick is a *change*, so the next frame tore the session
     /// down and put the picker up again, for ever.
     Screen,
-    /// A picture another app on the Mac publishes over Syphon, by the server's label, "App –
-    /// Server", read top row first where `flip` says and with its alpha where `transparent`
-    /// does. A server is not a device: it is reconnected on Open, and taken up whenever it
-    /// runs.
+    /// A picture another app on the machine publishes over Syphon on a Mac or Spout on
+    /// Windows, by the server's label — "App – Server" on a Mac, the sender's name on Windows —
+    /// read the other way up from the convention's row order where `flip` says and with its
+    /// alpha where `transparent` does. A server is not a device: it is reconnected on Open, and
+    /// taken up whenever it runs.
     Syphon {
         server: String,
         #[serde(default)]

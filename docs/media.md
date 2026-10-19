@@ -520,8 +520,15 @@ the rig, and a **`syphon` node** per server a patch wants, as `screencapture` is
 panel's screen. Publishing is [rendering.md](rendering.md#syphon)'s; this is receiving.
 `proposals/syphon.md` is the argument.
 
-**A server is chosen by its label**, "App – Server", from the Mac's Syphon directory as it
-stands: the node's `Server` menu and the panel's server menu both list what is running now,
+**On Windows the same thing is Spout**, a Spout sender in Syphon's place and a Spout receiver
+in its client's, behind the same `platform::syphon` service, the same panel choice, node and
+ticks. What a person reads is `platform::syphon::NAME` — *Syphon* on a Mac, *Spout* on Windows
+— and everything saved is the same on both, the node's slug `syphon`, the Main Input's kind
+`syphon`, so a project opens on either. A Spout sender's name is the whole machine's, with no
+app beside it, so its label is that name.
+
+**A server is chosen by its label**, "App – Server" on a Mac and the sender's name on Windows,
+from the machine's directory as it stands: the node's `Server` menu and the panel's server menu both list what is running now,
 read at most twice a second (`video::syphon::labels`, and `menu` for the node's `found`). The
 label is what a project saves, because the directory's own ID is new on every run of the other
 app. **A server that is not running is waited for**: a `video::syphon::Receiver` looks for its
@@ -538,18 +545,20 @@ draws it through [the conversion pass](rendering.md#source-textures) into the so
 texture — one GPU copy a frame, on the synth's prelude, never waiting. A surface whose pixel
 format is zero, as frameworks built before October 2025 leave it, is read as BGRA.
 
-**Two ticks**, on the node and beside the panel's server menu: **Flip** reads the surface top
-row first, where Syphon's convention — and the default — is bottom row first; **Transparent**
+**Two ticks**, on the node and beside the panel's server menu: **Flip** reads the surface the
+other way up from the convention's row order, `platform::syphon::BOTTOM_FIRST`, which is the
+default: Syphon's is bottom row first and Spout's top row first; **Transparent**
 keeps the surface's alpha, where the default reads it opaque, the fourth byte written one by
 the copy. The alpha kept is sampled as it lies, premultiplied: Syphon documents no convention,
 and the Mac's servers draw premultiplied, as Core Animation and Metal do. A server that publishes the other way up, or with alpha a patch wants, ticks its way
 out.
 
-**Linux has no Syphon, and shows none of it** (`platform::syphon::available`): the Main
+**Linux has neither, and shows none of it** (`platform::syphon::available`): the Main
 Input's list does not offer it, the Nodes menu and the browser do not offer the node, and an
-Output has no Syphon row ([ui.md](ui.md#syphon)). A Mac's project still opens whole: a panel
-that chose a server reads *Syphon (macOS only)*, its line says *Syphon is macOS's*, and a
-`syphon` node lists nothing and says the same. `tests/syphon.rs` receives a server of the process's
+Output has no Syphon row ([ui.md](ui.md#syphon)). A Mac's or Windows' project still opens
+whole: a panel that chose a server reads *Syphon or Spout (macOS and Windows only)*, its line
+says *Syphon is macOS's and Spout Windows'*, and a `syphon` node lists nothing and says the
+same. `tests/syphon.rs` receives a server of the process's
 own through all of this — the directory, the client, the camera's slot and the renderer's copy
 — the right way up, opaque and with alpha; `tests/gpu_iosurface.rs` holds the copy, the flip
 and the pixel format of zero on a surface made by hand.
@@ -590,7 +599,7 @@ refused, and the line says which.
 ## NDI
 
 **NDI®** sends live video and sound between machines on the local network — Vizrt's, at
-[ndi.video](https://ndi.video) — where Syphon links apps on one Mac. `proposals/ndi.md` is the
+[ndi.video](https://ndi.video) — where Syphon and Spout link apps on one machine. `proposals/ndi.md` is the
 argument and the decisions.
 
 **The plugin is compiled in; the runtime is the user's.** GStreamer's NDI plugin,

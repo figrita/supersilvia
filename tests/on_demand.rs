@@ -215,10 +215,10 @@ fn set(app: &mut App, node: NodeId, key: &'static str, value: &str) {
     .unwrap();
 }
 
-/// An Output published over Syphon is on air in another app: it draws with nothing on screen
-/// showing it, closed tab and all, and the publisher is asked for it under its name and looks.
-/// On a machine without Syphon the option a Mac's project carries publishes nothing and wakes
-/// nothing.
+/// An Output published over Syphon or Spout is on air in another app: it draws with nothing on
+/// screen showing it, closed tab and all, and the publisher is asked for it under its name and
+/// looks. On a machine with neither, the option a Mac's or Windows' project carries publishes
+/// nothing and wakes nothing.
 #[test]
 fn an_output_published_over_syphon_draws_on_a_tab_nobody_looks_at() {
     let (mut app, _, second) = two_tabs();
@@ -229,7 +229,10 @@ fn an_output_published_over_syphon_draws_on_a_tab_nobody_looks_at() {
     set(&mut app, there, "syphon", "on");
     set(&mut app, there, "transparent", "on");
     if !supersilvia::platform::syphon::available() {
-        assert!(!drawn(&mut app, there), "a Mac's Syphon wakes nothing here");
+        assert!(
+            !drawn(&mut app, there),
+            "a Mac's Syphon or Windows' Spout wakes nothing here"
+        );
         assert!(app.sent_wanted().is_empty(), "and publishes nothing");
         return;
     }

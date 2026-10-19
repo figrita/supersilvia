@@ -140,7 +140,7 @@ Output with a shader as drawing, with the reason, or **idle** (`synth::Mode`, `s
 
 - **Roots.** On the workspace being looked at; on a mixer deck, which is whatever the mix
   shows, on the preview, the background or a window; in a picture window of its own;
-  **sent out** — [published over Syphon](#syphon) for another app, or [sent over NDI](#ndi)
+  **sent out** — [published over Syphon or Spout](#syphon) for another app, or [sent over NDI](#ndi)
   for another machine — with nothing on screen showing it (`Why::Sent`); being captured by
   [the render](#the-render-job). A deck and a sent Output are **on air**: each wakes itself and
   everything upstream of it whatever its tabs are doing (`live_nodes`), so a closed tab never
@@ -1844,9 +1844,16 @@ as `Mix` ([ui.md](ui.md#syphon)); the app name other apps list beside it is the 
 `supersilvia`, which the framework fills in and a server cannot set. A renamed Output's server
 is renamed in place (`setName:`).
 
+**On Windows the same rows publish over Spout.** `platform::syphon` is one service under two
+names, `platform::syphon::NAME`, and its Windows backend is a Spout sender in the server's
+place, drawn into by the same `render::syphon::Outlet` on the same thread. A sender's name is
+the whole machine's, so it is `supersilvia - <name>`, the mix `supersilvia - Mix`. Spout counts
+no clients, so a ticked Output is always drawn. The rest of this section is the Mac's, apart
+from the row order, below.
+
 **Our own drawing into the framework's surface.** A server is Syphon's base class,
 `SyphonServerBase`, bound in `platform::macos::syphon` and reached through the
-`platform::syphon` service, which Linux answers as a machine without Syphon. Its one shared
+`platform::syphon` service, which Linux answers as a machine with neither Syphon nor Spout. Its one shared
 surface — 8-bit BGRA, made again only when the size changes — is made a texture on the one
 device by `dmabuf::surface_target`, the way a clip's `IOSurface` is imported, but drawn into:
 render-target usage, shared storage, nothing cleared. `render::syphon::Outlet::draw` clears it,
@@ -1896,6 +1903,14 @@ draws the surface over something gets the picture's edges right. The blit writes
 default flips once more by drawing the picture as though its rows were the other way up. The
 framework's own Metal server keeps the same choice with its `flipped:` argument, `NO` copying a
 Metal texture's top row to row 0.
+
+**The row order is the convention's**, `platform::syphon::BOTTOM_FIRST`: true on a Mac, where
+Syphon's clients read a surface as OpenGL lays it out, and false on Windows, where Direct3D and
+so Spout put the top row first. The outlet writes the bottom row first where `BOTTOM_FIRST !=
+Look::flip`, handing the blit the picture's `flip` inverted there: on a Mac the default above,
+and on Windows the top row first by default and the bottom row first under **Flip**. The
+Output's Flip choices name the order that results, *Bottom first* | *Top first* on a Mac and
+*Top first* | *Bottom first* on Windows.
 
 **Discovery needs the main thread's run loop**: the framework's directory is made when it
 loads, on the main thread, and hears announcements as distributed notifications there. eframe's
@@ -1988,7 +2003,7 @@ frames as not premultiplied. The transparent picture is drawn by the viewer's se
 `Viewer::show_straight`, which divides by alpha after the sampler and writes rather than
 blends, so a pixel the picture does not cover stays transparent black. `tests/ndi.rs` sends a
 premultiplied half-transparent red through the publisher and receives full red at half alpha.
-**Flip is Syphon's alone.**
+**Flip is Syphon's and Spout's alone.**
 
 **The rate, and the time.** An NDI stream declares a frame rate and each frame a timecode. The
 caps declare the rate the synth ticks at — the display's, or the preference's — rounded to a

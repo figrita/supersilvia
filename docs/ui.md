@@ -440,7 +440,7 @@ unsaved edits put up a small window — Save, Discard, Cancel — and the window
 button does the same, held with `ViewportCommand::CancelClose` until it is answered.
 
 **The same question stands in front of a show going out**, edits or none: a picture window
-open, the mix sent over NDI or published over Syphon, or a render running. With no unsaved
+open, the mix sent over NDI or published over Syphon or Spout, or a render running. With no unsaved
 edits it says only what is going out and asks — *The mix is on a screen. Stop the show?*, *A
 render is running (frame 120 / 300). Quit and cancel it?* — over **Quit anyway**,
 **Restart anyway**, **Open anyway** or **New anyway**, named for what it goes on to, and **Cancel**. With unsaved edits
@@ -3741,7 +3741,7 @@ an `s-number`'s height. **Blackout** takes the mix to black until it is pressed 
 **Freeze** shows the mix's last frame again and again until it is pressed again, while the
 decks go on underneath. Both held is black, and letting Blackout go shows the frozen frame.
 Each holds **wherever the mix is shown** — this panel's preview, the mix behind the canvas, a
-picture window of the mix, NDI and Syphon — because the audience sees the show through any of
+picture window of the mix, NDI and Syphon or Spout — because the audience sees the show through any of
 them ([rendering.md](rendering.md#the-mixer)). A held press is lit: the accent fills it and a
 `●` stands before its name, the glyph and the accent the palette says state with, at a fixed
 width so lighting moves nothing. Each is a named `Response`, *Blackout* and *Freeze*, selected
@@ -3755,7 +3755,7 @@ panel's own text size and chevron, the Crossfade `ComboBox`'s rather than a node
 `mixer::CLOSED_ZOOM`, the ratio between them, is the one place the picker is asked for a size
 off a node's canvas. Then *Project to background*,
 **Window** — *Pop out* and *Fullscreen*, the two marks every picture carries, worded here since
-the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac — each lit while what it
+the panel has the room — and **Send** — *NDI®*, and *Syphon* on a Mac or *Spout* on Windows — each lit while what it
 asks for holds, and the mix itself, the picture those rows project, with no rule over it. The status line is not here: it is in the Status box, and it still
 describes the selected Output.
 
@@ -3773,7 +3773,7 @@ The left panel is silvia's Main Input, drawn by `ui/maininput.rs` over
 [the Main Input](media.md#the-main-input): one **video source** and one **audio source** for
 the whole rig, read by any number of `maininput` nodes.
 
-**Video** is *None*, *Camera*, *Screen or window*, *Syphon* on a Mac, *NDI®* or *Video file*, with a 16:9 picture
+**Video** is *None*, *Camera*, *Screen or window*, *Syphon* on a Mac or *Spout* on Windows, *NDI®* or *Video file*, with a 16:9 picture
 under it — a slot the panel reserves and `App` fills, exactly as a deck's is, reading *No video
 source* while the source is *None* — and, while there is a source, a line saying what is
 actually happening: `camera, 640x480`, `preparing clip… 40%`, `waiting for the
@@ -3784,10 +3784,11 @@ instead, and so does a camera that stops for ten seconds after its first frame
 nothing new and are not stopped. A camera gets a device list with a **Test pattern** on the end, which is
 GStreamer's color bars and the one source that is always there, so a black picture means the
 patch rather than the hardware. *Syphon* gets a menu of the servers running on the Mac by
-"App – Server", the first one chosen when the source is, and **Flip** and **Transparent**
-ticks under it ([media.md](media.md#syphon)); its line names the server, or says none is
-running. On a machine without Syphon the list does not offer it, and a project that chose it
-on a Mac reads *Syphon (macOS only)* with nothing under it. *NDI* gets a menu of the sources on
+"App – Server" — *Spout* on Windows, of the senders by name — the first one chosen when the
+source is, and **Flip** and **Transparent** ticks under it ([media.md](media.md#syphon)); its
+line names the server, or says none is running. On a machine with neither the list does not
+offer it, and a project that chose it on a Mac or on Windows reads *Syphon or Spout (macOS and
+Windows only)* with nothing under it. *NDI* gets a menu of the sources on
 the network by the name NDI gives each,
 `MACHINE (Stream)` — nothing is chosen with the source, since the network is listed only from
 then on — and a **Transparent** tick ([media.md](media.md#ndi)); where the NDI runtime is
@@ -3836,7 +3837,7 @@ answered on a thread of its own ([media.md](media.md#the-main-input)), and refre
 *Look for devices again* throws them away. It is at the foot of every menu that lists the
 machine's devices: the panel's audio menu, its camera menu, and the Camera node's Device
 select, whose `OptionDef::devices` says so and whose list sends the same request back as
-`Effects::look_for_devices`. The NDI and Syphon menus have none: their sources are listed
+`Effects::look_for_devices`. The NDI and Syphon or Spout menus have none: their sources are listed
 continuously, and nothing asked again would come sooner. The Syphon servers are handed in too, from a listing read at
 most twice a second, and the NDI sources, from the provider's listing, while the source is *NDI*.
 
@@ -4274,7 +4275,8 @@ board.
 
 **Under its Send heading, an Output has its name, then one row per way it can leave**:
 **NDI®**, to other machines on the network, and **Syphon**, to other apps on the same Mac — on
-a Mac alone; a machine without Syphon draws no Syphon row at all.
+a Mac alone, and **Spout** in its place on Windows; a machine with neither draws no such row
+at all.
 
 **The Name row** is the whole name the Output goes out under, every way: a label and a
 one-line field from the status column to the row's end, holding `supersilvia Output <id>`
@@ -4320,7 +4322,8 @@ name it goes out under. What the sender says comes from the publisher's thread
 as a `render::publish::Failure`, read once a frame into the Output's `OutputReadout`.
 
 **Flip** sits under the Syphon row, its label in the status column, while Syphon publishes:
-*Bottom first* | *Top first*. **Alpha** comes once, after the rows, while either way sends:
+*Bottom first* | *Top first* on a Mac and *Top first* | *Bottom first* under Spout on Windows,
+each naming the row order that results, off the convention's. **Alpha** comes once, after the rows, while either way sends:
 *Opaque* | *Transparent*, which both ways read. It governs what is sent and nothing else: a
 Snap, a PNG sequence and a GIF always keep the picture's own alpha, and a video drops it
 ([rendering.md](rendering.md#the-capture)), so it waits for a way to be on. Each is
@@ -4335,38 +4338,45 @@ row's height. The heading is closed on a new Output, as Render's is; its option 
 
 A sent Output is on air — drawn, and everything upstream of it ticking, with nothing on screen
 showing it and its tab closed — and the Status box says why: *it is sent out over Syphon or
-NDI*, or *over NDI* on a machine without Syphon. A Mac's project opened on Linux keeps its
+NDI* (*Spout or NDI* on Windows), or *over NDI* on a machine with neither. A Mac's or Windows'
+project opened on Linux keeps its
 `syphon` and `syphonFlip` values, reads them as off (`nodes::output::sent_of`), and publishes
 nothing.
 
 ## Syphon
 
 On a Mac, a picture can be handed to another app through Syphon
-([rendering.md](rendering.md#syphon)). Two places publish one.
+([rendering.md](rendering.md#syphon)), and on Windows through Spout, which stands in Syphon's
+place everywhere below under its own name, `platform::syphon::NAME`; the saved keys are
+`syphon`'s on both. Two places publish one.
 
 **An Output's Syphon row** ([above](#sending-an-output-out)) publishes the Output with its
 name as the server's name — `supersilvia Output <id>` until it has one of its own — and Syphon
 puts the app's name beside it, which the framework takes from the process and does not let a
 server set, so another app lists it as "supersilvia – supersilvia Output 3" or
-"supersilvia – warpzone". A rename renames the running server in place. Flip writes it top row first rather than Syphon's own
-bottom row first, for an app that reads it upside down; Alpha carries the picture's own alpha
+"supersilvia – warpzone". A Spout sender's name is the whole machine's, so it goes out as
+`supersilvia - <name>`. A rename renames the running server in place. Flip writes it the
+other way up from the convention's row order — Syphon's bottom row first, Spout's top row
+first — for an app that reads it upside down; Alpha carries the picture's own alpha
 rather than opaque over black, over Syphon and [over NDI](#ndi) alike.
 
 **The mix's mark.** The Main Mixer panel's **Window** row carries a third mark after the
 pop-out and fullscreen pair, drawn by the same `node_widget::picture_mark` — a dot with two arcs
-spreading from it — and named *publish the mix over Syphon*. Clicking it publishes the mix as
-`Mix`, and it is lit while it does; clicking it again stops. It is session state, as the mixer
-is: **not saved**, so every run starts with the mix unpublished. The mix is published with the
-defaults, bottom row first and opaque.
+spreading from it — and named *publish the mix over Syphon* (*over Spout* on Windows). Clicking
+it publishes the mix as `Mix` (`supersilvia - Mix` over Spout), and it is lit while it does;
+clicking it again stops. It is session state, as the mixer is: **not saved**, so every run
+starts with the mix unpublished. The mix is published with the defaults, the convention's row
+order and opaque.
 
 **Receiving** is the Main Input's *Syphon* source and the **Syphon** node, each with a menu of
 the servers running and the same two ticks, Flip and Transparent, read the other way round:
 how the surface another app publishes is laid out. See [media.md](media.md#syphon).
 
-**A machine without Syphon shows none of it**: no Syphon row on an Output, no mark on the
+**A machine with neither shows none of it**: no Syphon row on an Output, no mark on the
 Main Mixer, no *Syphon* in the Main Input's list and no `syphon` node in the Nodes menu or the
 browser (`NodeDef::offered`). Each asks `platform::syphon::available`. A `syphon` node that
-arrives in a Mac's project still loads and says there is no Syphon here.
+arrives in a Mac's or Windows' project still loads and says *Syphon is macOS's and Spout
+Windows'*.
 
 ## NDI
 
@@ -4379,8 +4389,8 @@ places send one.
 `MACHINE (supersilvia Output 3)` or `MACHINE (warpzone)`. A sender's name is fixed when it is
 announced, so a rename on air announces a new sender and drops the old one, which leaves the
 network. It goes with the
-alpha its Alpha says — the one Syphon reads too; Flip is Syphon's alone, since NDI has one
-orientation. Where the NDI runtime is missing the row says *runtime not installed*, its hover
+alpha its Alpha says — the one Syphon reads too; Flip is Syphon's and Spout's alone, since
+NDI has one orientation. Where the NDI runtime is missing the row says *runtime not installed*, its hover
 says *The NDI® runtime is not installed — get the NDI 6 Runtime at ndi.link/NDIRedistV6Apple*
 (on Linux, *… get it at ndi.video*) with where it looked, and **Get it** opens that page. Where
 a runtime is there and will not load the row says *runtime won't load*, and its hover names the

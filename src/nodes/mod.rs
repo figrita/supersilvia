@@ -1166,7 +1166,7 @@ pub struct NodeDef {
     /// Whether the library offers this kind on this machine: the Nodes menu and the browser
     /// list only what answers true. A kind the machine cannot offer still loads from a file,
     /// so a project made elsewhere opens whole. `syphon` is the one that answers false, on
-    /// Linux.
+    /// Linux, which has neither Syphon nor Spout.
     pub offered: fn() -> bool,
     /// How big this node's solid is, for a repeat to know how far its copies reach. `None`, the
     /// default, is a solid that cannot say, which a repeat reads as reaching its neighbors

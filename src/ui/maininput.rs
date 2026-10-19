@@ -75,10 +75,12 @@ pub struct MainInputView<'a> {
     /// Every capture device, as `(path, name)`. Handed in already gathered: **this panel must
     /// never enumerate devices while drawing**, which is once a frame.
     pub cameras: &'a [(String, String)],
-    /// Every Syphon server on the Mac by its label, as the directory's listing last read them.
+    /// Every Syphon or Spout server on the machine by its label, as the directory's listing
+    /// last read them.
     pub syphon: Vec<String>,
-    /// Whether this machine has Syphon. Where it has not, the list does not offer it, and a
-    /// project that chose it on a Mac reads as [`SYPHON_ELSEWHERE`] with nothing under it.
+    /// Whether this machine has Syphon or Spout. Where it has neither, the list does not offer
+    /// it, and a project that chose it on a Mac or on Windows reads as [`SYPHON_ELSEWHERE`]
+    /// with nothing under it.
     pub syphon_here: bool,
     /// Every NDI source on the network by its name, as the provider last listed them — listed
     /// only while an NDI source is chosen.
@@ -115,15 +117,16 @@ const SCOPE_HEIGHT: f32 = 120.0;
 /// What the panel is called, in its header and up its spine.
 pub const TITLE: &str = "Main Input";
 
-/// What the select reads on a machine without Syphon, for a project that chose it on a Mac.
-const SYPHON_ELSEWHERE: &str = "Syphon (macOS only)";
+/// What the select reads on a machine with neither Syphon nor Spout, for a project that chose
+/// one on a Mac or on Windows.
+const SYPHON_ELSEWHERE: &str = "Syphon or Spout (macOS and Windows only)";
 
 /// The video sources, in the order the panel lists them.
 const VIDEO_CHOICES: [(&str, &str); 6] = [
     ("none", "None"),
     ("camera", "Camera"),
     ("screen", "Screen or window"),
-    ("syphon", "Syphon"),
+    ("syphon", crate::platform::syphon::NAME),
     ("ndi", "NDI®"),
     ("file", "Video file"),
 ];
@@ -356,7 +359,8 @@ fn video_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
             source,
             transparent,
         } => ndi_source(ui, view, source, *transparent, out),
-        // A Mac's Syphon source where there is none: the select says so, and nothing is under it.
+        // A Syphon or Spout source where there is neither: the select says so, and nothing is
+        // under it.
         VideoSource::Syphon { .. } | VideoSource::None => {}
     }
     let current_file = match &view.input.video {
@@ -374,7 +378,7 @@ fn video_source(ui: &mut Ui, view: &MainInputView<'_>, theme: &Theme, out: &mut 
     );
 }
 
-/// A Syphon source's server, by the label the directory lists it under, and its two looks.
+/// A Syphon or Spout source's server, by the label the directory lists it under, and its two looks.
 /// A server that is not running stays chosen, and is taken up when it starts.
 fn syphon_source(
     ui: &mut Ui,
@@ -397,7 +401,10 @@ fn syphon_source(
                 ui.selectable_value(&mut pick, label.clone(), label.as_str());
             }
             if view.syphon.is_empty() {
-                ui.label("No Syphon server is running");
+                ui.label(format!(
+                    "No {} server is running",
+                    crate::platform::syphon::NAME
+                ));
             }
         })
         .response
@@ -406,7 +413,11 @@ fn syphon_source(
     ui.horizontal(|ui| {
         ui.checkbox(&mut flipped, "Flip")
             .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
-            .on_hover_text("Top row first, for a server that publishes the other way up.");
+            .on_hover_text(if crate::platform::syphon::BOTTOM_FIRST {
+                "Top row first, for a server that publishes the other way up."
+            } else {
+                "Bottom row first, for a server that publishes the other way up."
+            });
         ui.checkbox(&mut see_through, "Transparent")
             .on_hover_cursor(eframe::egui::CursorIcon::PointingHand)
             .on_hover_text("The server's own alpha, rather than opaque.");

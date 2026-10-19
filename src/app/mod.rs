@@ -101,7 +101,8 @@ pub(super) enum Pending {
 /// Where the first node from the toolbar lands, in canvas world units.
 pub(super) const FIRST_DROP: egui::Pos2 = egui::Pos2::new(48.0, 48.0);
 
-/// The name the mix is published over Syphon under; Syphon puts the app's name beside it.
+/// The name the mix is published over Syphon or Spout under; Syphon puts the app's name beside
+/// it, and Spout the app's ahead of it ([`crate::platform::syphon::PREFIX`]).
 const MIX_SERVER: &str = "Mix";
 /// The name the mix is sent over NDI under; NDI puts only the machine's name beside it. No
 /// Output may take it.

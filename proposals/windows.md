@@ -147,9 +147,8 @@ Each is its own proposal when it comes; this is the list, so none is forgotten.
 - **The GPU's busy share** in the Status box, which reads "— %" today: PDH's *GPU Engine*
   counters, filtered to this process's 3D engine, which is what the Linux half reads from
   DRM.
-- **Spout**, which is Windows' Syphon. Spout 2 shares Direct3D 11 textures by legacy handles,
-  which Direct3D 12 cannot open, so it needs a Direct3D 11-on-12 bridge on the renderer's
-  device. The largest item here.
+- **Spout**, Windows' Syphon: the same `platform::syphon` service, rows and node under its
+  own name ([media.md](../docs/media.md#syphon), [rendering.md](../docs/rendering.md#syphon)).
 - **Hardware MJPEG** for webcams, if the release has a Direct3D 12 or Media Foundation
   decoder for it, preferred as Linux prefers VA-API's.
 - **Several apps on one MIDI device** through Windows MIDI Services, where WinMM gives a

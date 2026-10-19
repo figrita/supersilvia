@@ -138,8 +138,8 @@ fn renderer() -> egui_kittest::LazyRenderer {
 /// offers**, so a snapshot is the same on every machine: NDI reads as not installed and
 /// Syphon as absent (`video::ndi::pretend_missing`, `platform::syphon::pretend_unavailable`),
 /// on the test's own thread, which the editor and its inline synth both run on. An Output's
-/// NDI row says *runtime not installed*, and there is no Syphon row, mark or node, on a box
-/// with the runtime and on a Mac alike. The tests about sending take [`machine_app`].
+/// NDI row says *runtime not installed*, and there is no Syphon or Spout row, mark or node, on a
+/// box with the runtime, on a Mac and on Windows alike. The tests about sending take [`machine_app`].
 fn app(cc: &mut eframe::CreationContext<'_>) -> App {
     supersilvia::video::ndi::pretend_missing(true);
     supersilvia::platform::syphon::pretend_unavailable(true);
@@ -148,7 +148,7 @@ fn app(cc: &mut eframe::CreationContext<'_>) -> App {
 
 /// The app under test as this machine answers: NDI as its runtime probe found it, waited for
 /// so the first frame is drawn from the answer rather than from whichever side of the probe it
-/// lands, and Syphon where this is a Mac. For the tests about sending out and choosing a
+/// lands, and Syphon where this is a Mac and Spout where it is Windows. For the tests about sending out and choosing a
 /// source, which take no snapshot, since what they draw is this machine's.
 fn machine_app(cc: &mut eframe::CreationContext<'_>) -> App {
     supersilvia::video::ndi::pretend_missing(false);
@@ -10015,13 +10015,17 @@ fn the_mix_pops_out_from_the_main_mixer_panel() {
     assert_eq!(h.state().popped_out().len(), 1);
 }
 
-/// **Syphon from the editor.** On a Mac, an Output's Syphon row's button asks the publisher for
-/// it under its name, with the shared Alpha as its look, and the Main Mixer's Syphon mark
-/// beside the pop-out pair asks for the mix and is a toggle. On a machine without Syphon
-/// neither the row nor the mark is there. What is asserted is what the publisher is asked,
+/// **Syphon from the editor**, Spout on Windows. On a Mac or Windows, an Output's Syphon row's
+/// button asks the publisher for it under its name, with the shared Alpha as its look, and the
+/// Main Mixer's Syphon mark beside the pop-out pair asks for the mix and is a toggle. On a
+/// machine with neither the row nor the mark is there. What is asserted is what the publisher is asked,
 /// which is the half a harness has.
 #[test]
 fn syphon_publishes_an_output_by_its_row_and_the_mix_by_its_mark() {
+    let mark = format!(
+        "publish the mix over {}",
+        supersilvia::platform::syphon::NAME
+    );
     let mut h = tall_machine_harness();
     add_node(&mut h, ADD_OUTPUT);
     let out = h.state().graph().iter().map(|(id, _)| id).next().unwrap();
@@ -10032,7 +10036,7 @@ fn syphon_publishes_an_output_by_its_row_and_the_mix_by_its_mark() {
             "a machine without Syphon draws no Syphon row"
         );
         assert!(
-            h.query_by_label("publish the mix over Syphon").is_none(),
+            h.query_by_label(&mark).is_none(),
             "nor the mix's Syphon mark"
         );
         return;
@@ -10057,7 +10061,7 @@ fn syphon_publishes_an_output_by_its_row_and_the_mix_by_its_mark() {
         "the row says it is on air, and as what"
     );
 
-    h.get_by_label("publish the mix over Syphon").click();
+    h.get_by_label(&mark).click();
     h.run_steps(2);
     let names: Vec<String> = h
         .state_mut()
@@ -10070,7 +10074,7 @@ fn syphon_publishes_an_output_by_its_row_and_the_mix_by_its_mark() {
         [format!("supersilvia Output {}", out.0), "Mix".to_string()]
     );
 
-    h.get_by_label("publish the mix over Syphon").click();
+    h.get_by_label(&mark).click();
     h.run_steps(2);
     assert_eq!(h.state_mut().sent_wanted().len(), 1, "the mark is a toggle");
 }
@@ -12693,12 +12697,12 @@ fn an_outputs_bang_names_the_live_source_and_goes_there() {
     );
 }
 
-/// A Mac's project whose Main Input is a Syphon server, opened where there is no Syphon: the
-/// select says so, the list does not offer Syphon, and the choice is kept for the Mac. On this
-/// machine's own answers, so a Mac holds the other half: Syphon offered, and not called
-/// macOS only.
+/// A project whose Main Input is a Syphon or Spout server, opened where there is neither: the
+/// select says so, the list does not offer it, and the choice is kept for the machine that
+/// made it. On this machine's own answers, so a Mac or Windows holds the other half: Syphon or
+/// Spout offered by its name, and not called macOS and Windows only.
 #[test]
-fn a_macs_syphon_source_reads_as_macos_only_where_there_is_none() {
+fn a_syphon_source_reads_as_macos_and_windows_only_where_there_is_neither() {
     use supersilvia::maininput::VideoSource;
     use supersilvia::ui::maininput::MainInputAction;
     let mut h = Harness::builder()
@@ -12728,9 +12732,10 @@ fn a_macs_syphon_source_reads_as_macos_only_where_there_is_none() {
     h.run_steps(3);
     let here = supersilvia::platform::syphon::available();
     assert_eq!(
-        h.query_by_value("Syphon (macOS only)").is_some(),
+        h.query_by_value("Syphon or Spout (macOS and Windows only)")
+            .is_some(),
         !here,
-        "the select says where Syphon is"
+        "the select says where Syphon and Spout are"
     );
 
     h.get_all_by_role(egui::accesskit::Role::ComboBox)
@@ -12741,9 +12746,10 @@ fn a_macs_syphon_source_reads_as_macos_only_where_there_is_none() {
     h.step();
     assert!(h.query_by_label("NDI®").is_some(), "the list is up");
     assert_eq!(
-        h.query_by_label("Syphon").is_some(),
+        h.query_by_label(supersilvia::platform::syphon::NAME)
+            .is_some(),
         here,
-        "and offers Syphon only where there is one"
+        "and offers it only where there is one"
     );
     assert_eq!(
         h.state().project().main_input().video,

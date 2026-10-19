@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-//! The publisher: a thread of its own that hands pictures to other apps — over Syphon, to apps
-//! on this Mac ([`super::syphon`]), and over NDI®, to machines on the network ([`super::ndi`]).
+//! The publisher: a thread of its own that hands pictures to other apps — over Syphon or
+//! Spout, to apps on this machine ([`super::syphon`]), and over NDI®, to machines on the
+//! network ([`super::ndi`]).
 //!
 //! **The publisher is a thread of its own, named `publisher`**, shaped like a macOS picture
 //! window's ([`Publisher`]). It reads the newest `Published` the synth set in [`Live`], draws
@@ -34,8 +35,9 @@ use std::time::{Duration, Instant};
 /// How a picture is written for another app.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Look {
-    /// Top row first, rather than Syphon's bottom row first. Syphon's alone: NDI has one
-    /// orientation, top row first.
+    /// The other way up from the convention's row order
+    /// ([`BOTTOM_FIRST`](crate::platform::syphon::BOTTOM_FIRST)). Syphon's and Spout's alone:
+    /// NDI has one orientation, top row first.
     pub flip: bool,
     /// The picture's own alpha, rather than opaque over black.
     pub transparent: bool,
@@ -44,7 +46,7 @@ pub struct Look {
 /// Which way a picture leaves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Via {
-    /// A Syphon server, for apps on this Mac.
+    /// A Syphon server on a Mac or a Spout sender on Windows, for apps on this machine.
     Syphon,
     /// An NDI sender, for machines on the network, declaring `rate` frames a second.
     Ndi { rate: u32 },

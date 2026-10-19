@@ -45,7 +45,8 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.4.
 - **No internet.** supersilvia never connects to the internet: no update checks, no
   analytics, no accounts. It uses the local network only for NDI, and only when you send,
   receive or list NDI sources.
-- **Syphon** to receive from and send to other apps on the same Mac.
+- **Syphon** on macOS and **Spout** on Windows, to receive from and send to other apps on the
+  same computer.
 - **A two-deck mixer** with an A/B crossfade, Blackout and Freeze.
 - **Picture windows.** Any picture can pop out into its own window or go fullscreen on a
   projector.
@@ -62,7 +63,7 @@ supersilvia is pre-release software. The current version is 0.9.0-alpha.4.
 | --- | --- | --- |
 | Linux, x86_64 | `supersilvia-<version>-linux-x86_64.AppImage` | Main platform. Needs a Vulkan GPU driver. Pop-out and fullscreen windows need a Wayland session. |
 | macOS on Apple Silicon | `supersilvia-<version>-macos-arm64.dmg` | Runs on Metal. Needs macOS 14.2 or later. Signed and notarized. Intel Macs are not supported. |
-| Windows, 64-bit | `supersilvia-<version>-windows-x86_64.zip` | Runs on Direct3D 12. Needs Microsoft's Visual C++ Redistributable (x64). Newer and less tested than Linux and macOS. Screen capture offers the main monitor only, and there is no Syphon. |
+| Windows, 64-bit | `supersilvia-<version>-windows-x86_64.zip` | Runs on Direct3D 12. Needs Microsoft's Visual C++ Redistributable (x64). Newer and less tested than Linux and macOS. Screen capture offers the main monitor only. Spout stands where Syphon does on a Mac. |
 
 [packaging/linux/TESTERS.md](packaging/linux/TESTERS.md) and
 [packaging/macos/TESTERS.md](packaging/macos/TESTERS.md) walk through installing a download.

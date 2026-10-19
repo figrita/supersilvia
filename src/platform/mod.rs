@@ -25,7 +25,8 @@
 //! through GStreamer's official MSVC release: Media Foundation's cameras, WASAPI's inputs and
 //! loopbacks, the primary monitor through Direct3D 11, each GPU vendor's hardware codecs, the
 //! shell's dialogs, Known Folders and Explorer, WinMM through `midir` and DirectWrite's fonts,
-//! with no menu bar, Syphon or zero-copy path, as on Linux, and no GPU counter read.
+//! with Spout where a Mac has Syphon, no menu bar or zero-copy path, as on Linux, and no GPU
+//! counter read.
 //!
 //! The picture windows and the GPU device are not here. They are `render/`'s and
 //! `render/`'s, with Wayland beneath the windows on Linux and winit's on the other two.
@@ -109,20 +110,28 @@ pub mod screen {
     }
 }
 
-/// Syphon: pictures handed between apps on one Mac, on the GPU.
+/// Syphon on a Mac and Spout on Windows: pictures handed between apps on one machine, on the
+/// GPU. One service under two names, so a project opens on either: the identifiers stay
+/// `syphon`, and what a person reads is [`NAME`](syphon::NAME).
 ///
 /// A [`Server`] publishes one picture under a name: `Server::surface` is its shared surface at
 /// a size, which the renderer draws into, and `Server::publish` tells its clients a frame is
 /// there. `servers` is every server the machine's directory knows of, which on a Mac is kept
 /// by the main thread's run loop and on a test's by `pump`. A [`Client`] is handed one server's
-/// [`Surface`] on each of its frames. Linux and Windows have no Syphon: the list is empty and a
-/// server or a client is refused, `unavailable` says why, and
-/// [`available`](syphon::available) is false, so nothing that offers Syphon is drawn there. An [`Inlet`](syphon::Inlet) is a client
-/// whose frames land in the slots a [`crate::video::Camera`] reads, through its
-/// [`Stream`](syphon::Stream), as a screen's do. See `proposals/syphon.md`.
+/// [`Surface`] on each of its frames. Linux has neither: the list is empty and a server or a
+/// client is refused, `unavailable` says why, and [`available`](syphon::available) is false, so
+/// nothing that offers it is drawn there. An [`Inlet`](syphon::Inlet) is a client whose frames
+/// land in the slots a [`crate::video::Camera`] reads, through its [`Stream`](syphon::Stream),
+/// as a screen's do. See `proposals/syphon.md`.
+///
+/// **Orientation is each convention's own**: Syphon's surfaces hold the bottom row first, as
+/// OpenGL lays a texture out, and Spout's the top row first, as Direct3D does —
+/// [`BOTTOM_FIRST`](syphon::BOTTOM_FIRST). A Flip, off by default, turns the picture the
+/// other way up from that.
 ///
 /// [`pretend_unavailable`](syphon::pretend_unavailable) is the UI tests' hook: a thread that
-/// sets it is told what Linux tells every thread, so a Mac draws the Linux snapshots.
+/// sets it is told what Linux tells every thread, so a Mac or a Windows machine draws the
+/// Linux snapshots.
 pub mod syphon {
     #[cfg(target_os = "linux")]
     pub use crate::platform::linux::syphon::{Client, Inlet, Server, Surface, pump, servers};
@@ -142,31 +151,53 @@ pub mod syphon {
     use std::cell::Cell;
     use std::sync::Arc;
 
-    /// What a machine without Syphon says: Linux's and Windows' answer, and a pretending
-    /// thread's.
-    pub(crate) const MACOS_ONLY: &str = "Syphon is macOS's";
+    /// What the service is called where a person reads it: Syphon on a Mac, Spout on Windows,
+    /// and Syphon on Linux, which has neither and says so in [`ABSENT`].
+    pub const NAME: &str = if cfg!(target_os = "windows") {
+        "Spout"
+    } else {
+        "Syphon"
+    };
+
+    /// What a server's name is published under ahead of the name it is given: nothing on a
+    /// Mac, where Syphon puts the app's name beside it, and the app's own on Windows, where a
+    /// Spout sender's name is the whole machine's.
+    pub const PREFIX: &str = if cfg!(target_os = "windows") {
+        "supersilvia - "
+    } else {
+        ""
+    };
+
+    /// Whether a shared surface holds the picture's bottom row first, as Syphon's do on a Mac,
+    /// rather than its top row first, as Spout's do on Windows. False on Linux, which shares
+    /// none.
+    pub const BOTTOM_FIRST: bool = cfg!(target_os = "macos");
+
+    /// What a machine with neither says: Linux's answer, and a pretending thread's on any
+    /// machine.
+    pub(crate) const ABSENT: &str = "Syphon is macOS's and Spout Windows'";
 
     std::thread_local! {
         static PRETEND: Cell<bool> = const { Cell::new(false) };
     }
 
-    /// Why there is no Syphon here, or `None` where there is.
+    /// Why there is no Syphon or Spout here, or `None` where there is.
     pub fn unavailable() -> Option<&'static str> {
         if PRETEND.with(Cell::get) {
-            return Some(MACOS_ONLY);
+            return Some(ABSENT);
         }
         here::unavailable()
     }
 
-    /// Whether this machine has Syphon at all: everything that offers it — a menu entry, a row,
-    /// a mark — is drawn only where this is true.
+    /// Whether this machine has Syphon or Spout at all: everything that offers it — a menu
+    /// entry, a row, a mark — is drawn only where this is true.
     pub fn available() -> bool {
         unavailable().is_none()
     }
 
-    /// **Test hook.** On the calling thread alone, Syphon reads as absent while `on`, as it
+    /// **Test hook.** On the calling thread alone, the service reads as absent while `on`, as it
     /// does on Linux: [`unavailable`] says Linux's words and [`available`] is false, so nothing
-    /// that offers Syphon is drawn. What `tests/ui.rs`' harness sets, whose editor and inline
+    /// that offers it is drawn. What `tests/ui.rs`' harness sets, whose editor and inline
     /// synth run on the test's own thread.
     #[doc(hidden)]
     pub fn pretend_unavailable(on: bool) {
@@ -195,8 +226,8 @@ pub mod syphon {
         }
     }
 
-    /// How a received surface is read: Syphon's bottom row first unless `flip`, and opaque
-    /// unless `transparent`.
+    /// How a received surface is read: in the convention's row order ([`BOTTOM_FIRST`]) unless
+    /// `flip`, and opaque unless `transparent`.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
     pub struct Look {
         pub flip: bool,
@@ -248,7 +279,7 @@ pub mod syphon {
         fn a_pretending_thread_has_no_syphon() {
             let here = here::unavailable();
             pretend_unavailable(true);
-            assert_eq!(unavailable(), Some(MACOS_ONLY));
+            assert_eq!(unavailable(), Some(ABSENT));
             assert!(!available());
             pretend_unavailable(false);
             assert_eq!(unavailable(), here);

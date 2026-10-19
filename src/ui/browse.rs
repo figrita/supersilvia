@@ -610,7 +610,9 @@ mod tests {
     /// Linux.
     #[test]
     fn what_the_machine_cannot_offer_is_not_listed() {
-        let listed = matches("syphon").iter().any(|d| d.slug == "syphon");
+        let listed = matches(crate::platform::syphon::NAME)
+            .iter()
+            .any(|d| d.slug == "syphon");
         assert_eq!(listed, crate::platform::syphon::available());
         assert_eq!(
             matches("").iter().any(|d| d.slug == "syphon"),

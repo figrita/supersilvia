@@ -43,7 +43,7 @@ pub enum MixerAction {
     PopOut(crate::ui::PopOutRequest),
     /// Paint the mix behind the canvas, or stop.
     SetBackground(bool),
-    /// Publish the mix over Syphon, or stop.
+    /// Publish the mix over Syphon or Spout, or stop.
     Syphon(bool),
     /// Send the mix over NDI, or stop.
     Ndi(bool),
@@ -101,8 +101,8 @@ pub struct MixerView<'a> {
     pub no_windows: Option<&'a str>,
     /// Whether the mix is painted behind the canvas.
     pub background: bool,
-    /// Whether the mix is published over Syphon; `None` on a machine without Syphon, where the
-    /// mark is not drawn.
+    /// Whether the mix is published over Syphon or Spout; `None` on a machine with neither,
+    /// where the mark is not drawn.
     pub syphon: Option<bool>,
     /// Whether the mix is sent over NDI, or why NDI cannot be used here: the runtime is missing.
     pub ndi: Result<bool, &'a str>,
@@ -312,7 +312,8 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
     });
     ui.add_space(ROW_GAP);
     // The mix sent to other apps and other machines rather than to a window, lit while it is.
-    // NDI is everywhere; Syphon only on a Mac, where it takes the first half.
+    // NDI is everywhere; Syphon only on a Mac and Spout only on Windows, where it takes the
+    // first half.
     panel::row(ui, "Send", theme, |ui| {
         let [left, right] = halves(ui);
         let ndi_at = if let Some(on) = view.syphon {
@@ -320,15 +321,17 @@ pub fn show(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, lock_cursor: bool)
                 ui,
                 left,
                 ui.id().with("mix-syphon"),
-                "publish the mix over Syphon",
-                "Syphon",
+                &format!("publish the mix over {}", crate::platform::syphon::NAME),
+                crate::platform::syphon::NAME,
                 crate::ui::node_widget::syphon_mark,
                 on,
                 theme,
             )
-            .on_hover_text(
-                "The mix published over Syphon as “Mix”, for another app on this Mac to take as a source. Not saved.",
-            );
+            .on_hover_text(format!(
+                "The mix published over {} as “{}Mix”, for another app on this computer to take as a source. Not saved.",
+                crate::platform::syphon::NAME,
+                crate::platform::syphon::PREFIX
+            ));
             if w.clicked() {
                 out.actions.push(MixerAction::Syphon(!on));
             }
@@ -569,8 +572,9 @@ fn holds(ui: &mut Ui, view: &MixerView<'_>, theme: &Theme, actions: &mut Vec<Mix
             crate::midi::Target::Blackout,
             format!(
                 "Blackout: the mix black wherever it is shown — this panel, the canvas, a \
-                 picture window, NDI and Syphon — until pressed again. Not saved. {alt} + click \
-                 binds a MIDI note."
+                 picture window, NDI and {} — until pressed again. Not saved. {alt} + click \
+                 binds a MIDI note.",
+                crate::platform::syphon::NAME
             ),
         ),
         (

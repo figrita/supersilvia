@@ -62,7 +62,7 @@ cargo test --test shader_targets -- --nocapture   # the WGSL gate, and how many 
 cargo test --test gpu_ring              # the renderer's ring: zero flash, feedback, throttle, churn
 cargo test --test gpu_app               # the whole App on the GPU: Snap, the render job, a live recording, a loop closing to the byte
 cargo test --test ndi                   # NDI®: a picture sent and received in one process; skips without the NDI runtime
-cargo test --test syphon                # macOS: a picture published over Syphon and received by its own client
+cargo test --test syphon                # macOS and Windows: a picture published over Syphon or Spout and received back
 cargo xwin test --target x86_64-pc-windows-msvc --no-run --test gpu_d3d12   # Windows: the Direct3D 12 import, run under Wine or on Windows
 cargo build --profile dist              # the shipping binary: lto, one codegen unit, function names kept
 cargo run --release --example graph_bench   # what the graph costs per frame, by graph size

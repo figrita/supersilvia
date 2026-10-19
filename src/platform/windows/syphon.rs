@@ -44,7 +44,7 @@ mod registry;
 
 use crate::nodes::{D3d12Plane, D3d12Texture, Frame, Layout, Pixels, Yuv};
 use crate::platform::screen::Slot;
-use crate::platform::syphon::{Described, Look, Stream};
+use crate::platform::syphon::{BOTTOM_FIRST, Described, Look, PREFIX, Stream};
 use d3d11::{Bridge, Device, Done, Fence};
 use registry::{Access, Entry, Info};
 use std::sync::atomic::Ordering;
@@ -54,9 +54,6 @@ use windows::Win32::Graphics::Direct3D11::{ID3D11Query, ID3D11Texture2D};
 use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM,
 };
-
-/// What every sender's name begins with.
-const PREFIX: &str = "supersilvia - ";
 
 /// Why there is no Spout here: never, on Windows.
 pub fn unavailable() -> Option<&'static str> {
@@ -475,8 +472,8 @@ fn frame_of(surface: Surface, look: Look) -> Frame {
             textures: vec![plane],
             layout,
             yuv: Yuv::default(),
-            // Spout's texture is top row first; `flip` reads it the other way up.
-            bottom_first: look.flip,
+            // Spout's texture is top row first, the convention; `flip` reads it the other way up.
+            bottom_first: BOTTOM_FIRST != look.flip,
             keep: Arc::new(surface),
             refused: None,
         }),
