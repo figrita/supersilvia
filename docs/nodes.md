@@ -2100,13 +2100,12 @@ whatever is cabled into it, a whole chain at once. See
 ### Repetition
 
 Repeat (`repeatgrid`), Repeat Around (`repeataround`) and Scatter on Sphere (`scattersphere`)
-each fold the point into one cell, so the input is evaluated once however many copies show.
-Repeat's Forever costs what one copy does.
-
-**A copy should fit its neighbors' cells.** A repeat measures the copies either side of the
-nearest (below), so a copy may reach into the next cell; one reaching past that is sliced flat
-at the edge, and the slice is the signal to widen the spacing. An endless repeat ends
-where the march gives up, 80 units out, and Render 3D's Fog is what hides that edge.
+make copies of their input. **A counted one lists its copies** on the GPU each draw and finds
+the ones near a point through a grid (below), so composes whatever the copies are: a copy
+bigger than its spacing, turned across its neighbors, or a repeat inside a repeat draws whole.
+**Repeat's Forever folds space** into one cell instead, so the input is evaluated once however
+many copies show and an endless repeat costs what one copy does; it ends where the march gives
+up, 80 units out, and Render 3D's Fog is what hides that edge.
 
 **Count is how many copies.** A Counted Repeat lays Count copies on each axis, centered;
 Repeat Around and Scatter on Sphere lay Copies. A count row takes a list, and its length is the
@@ -2124,7 +2123,27 @@ else differs per copy: whatever is upstream of a repeat is the same solid in eve
 picture repeats — Tile, Repeater, Kaleidoscope, Scatter and Stamp — take the same rows in two
 dimensions, as [the library](#the-library)'s Transform paragraphs say.
 
-**A repeat measures the copies that can reach the point.** The copy in another cell can be
+**A counted repeat lists its copies** (`compile::instances`). Before the picture, compute
+passes over the Output's own uniform block write each copy as an instance — a rigid map from
+the repeat's space into the copy's frame, its cell or its place round the ring or on the sphere
+and its own Offset and Turn folded in, its Scale on the input's axes, its Color, and its box,
+the input's [bounds](#bounds) carried out through the map — and a grid over the repeat's own
+box, each cell listing the copies whose box, grown by a margin of half the narrowest cell,
+touches it. No cell is narrower than a copy along any axis, so a copy is listed in at most
+three cells along each. A point's distance asks the copies its cell lists, each skipped where
+its box is further off than the nearest so far, a tie going to the lower index since the lists
+fill in any order and a render must not flicker. A copy not listed is further than the margin
+from the whole cell, so while Render 3D marches a ray (`sd_march`) a step is held to the
+margin, a true bound; a shadow, the occlusion and a normal read the copies listed, exact within
+it. The cost is the copies a cell lists: a copy much bigger than the gap between copies — two
+hundred fat cones round a ball — is listed in many cells and costs accordingly. Every Output,
+probe and workspace pass whose module holds a listing repeat runs the passes, and its program
+owns the buffers, sized when the module is compiled: 32,768 copies for a Repeat, 64 round a
+ring, 500 on a sphere. **A repeat folds instead** where its input cannot say how big it is, or
+a field reaches its Spacing, Radius or Spread; and for a draw whose copies outgrow the buffers,
+which the passes find and mark.
+
+**A folding repeat measures the copies that can reach the point.** The copy in another cell can be
 nearer a point than the copy in its own: a taller copy beside a short one — from either side of
 the cell, since a point high over a short copy is nearer a tall neighbor across the cell than
 the copy under it — or a copy bigger than its cell, as a row of bars is in a ring's wedge. So a
@@ -2137,7 +2156,7 @@ plane counts, since a copy lifted high is no wider for it. A copy that fits its 
 what one copy did. Each candidate is skipped, before anything is asked of its input, where its
 own box — the input's moved, scaled and turned by that copy's own rows — is further off than
 the nearest so far. **Past the cells measured**, while Render 3D marches a ray
-(`solids::MARCH_STATE`), a step is held by the boxes of the copies there, so a march never steps
+(`sd_march`), a step is held by the boxes of the copies there, so a march never steps
 into one; the spare tenth keeps that from holding a step to nothing. A shadow, the occlusion
 and a normal read the copies' own distance. **Where the input cannot say how big it is**, a
 repeat measures the nearest copy and the ones either side of it on each axis, three times the

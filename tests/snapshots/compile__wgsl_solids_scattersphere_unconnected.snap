@@ -234,6 +234,35 @@ fn sd_copy_frame(x: vec3f, at: vec3f, turn: f32) -> vec3f {
     return vec3f(mt.x, m.y, mt.y);
 }
 
+// Copy `c` written at `at`, its box's size kept where it is the biggest yet: in the three words
+// from `ext`, as the bits of a positive float, which order as the floats do.
+fn sd_place(at: u32, ext: u32, c: SdInstance) {
+    sd_inst[at] = c;
+    if (all(c.lo.xyz <= c.hi.xyz)) {
+        let e = c.hi.xyz - c.lo.xyz;
+        atomicMax(&sd_count[ext], bitcast<u32>(e.x));
+        atomicMax(&sd_count[ext + 1u], bitcast<u32>(e.y));
+        atomicMax(&sd_count[ext + 2u], bitcast<u32>(e.z));
+    }
+}
+
+// A repeat's grid cut from the box and count the place pass wrote, by the biggest copy it
+// found, and that copy's size forgotten for the next draw.
+fn sd_grid_finish(gi: u32, ext: u32, cap: f32) {
+    let h = sd_grid[gi];
+    let size = vec3f(
+        bitcast<f32>(atomicLoad(&sd_count[ext])),
+        bitcast<f32>(atomicLoad(&sd_count[ext + 1u])),
+        bitcast<f32>(atomicLoad(&sd_count[ext + 2u])),
+    );
+    var g = sd_grid_make(SdBounds(h.lo.xyz, h.hi.xyz), h.hi.w, size, cap);
+    g.cs.w = min(g.cs.w, h.cs.w);
+    sd_grid[gi] = g;
+    atomicStore(&sd_count[ext], 0u);
+    atomicStore(&sd_count[ext + 1u], 0u);
+    atomicStore(&sd_count[ext + 2u], 0u);
+}
+
 // The point `p` of the repeat's space in a copy's frame, before its scale.
 fn sd_instance_point(c: SdInstance, p: vec3f) -> vec3f {
     return vec3f(dot(c.r0.xyz, p) + c.r0.w, dot(c.r1.xyz, p) + c.r1.w, dot(c.r2.xyz, p) + c.r2.w);
@@ -354,12 +383,16 @@ fn sd_grid_scan(gi: u32, count_base: u32, list_base: u32, entries: u32, lid: u32
 fn scattersphere1_place(t: u32) {
     let n = clamp(round(u.u_control_scattersphere1_copies), 1.0, 500.0);
     let bx = SdBounds(vec3f(1.0e9), vec3f(-1.0e9));
-    let reach = sd_copy_reach(bx, vec3f(abs(u.u_control_scattersphere1_copyX), abs(u.u_control_scattersphere1_copyY), abs(u.u_control_scattersphere1_copyZ)), vec3f(abs(u.u_control_scattersphere1_copyScaleX), abs(u.u_control_scattersphere1_copyScaleY), abs(u.u_control_scattersphere1_copyScaleZ)), abs(u.u_control_scattersphere1_copyTurn) > 0.0);
     let total = max(n, 0.0);
     if (t == 0u) {
-        var g = sd_grid_make(SdBounds(-(vec3f(u.u_control_scattersphere1_radius + length(sd_copy_reach(SdBounds(vec3f(1.0e9), vec3f(-1.0e9)), vec3f(abs(u.u_control_scattersphere1_copyX), abs(u.u_control_scattersphere1_copyY), abs(u.u_control_scattersphere1_copyZ)), vec3f(abs(u.u_control_scattersphere1_copyScaleX), abs(u.u_control_scattersphere1_copyScaleY), abs(u.u_control_scattersphere1_copyScaleZ)), abs(u.u_control_scattersphere1_copyTurn) > 0.0)))), vec3f(u.u_control_scattersphere1_radius + length(sd_copy_reach(SdBounds(vec3f(1.0e9), vec3f(-1.0e9)), vec3f(abs(u.u_control_scattersphere1_copyX), abs(u.u_control_scattersphere1_copyY), abs(u.u_control_scattersphere1_copyZ)), vec3f(abs(u.u_control_scattersphere1_copyScaleX), abs(u.u_control_scattersphere1_copyScaleY), abs(u.u_control_scattersphere1_copyScaleZ)), abs(u.u_control_scattersphere1_copyTurn) > 0.0)))), total, vec3f(2.0 * length(reach)), 4096.0);
-        if (total > 500.0) { g.cs.w = 0.0; }
-        sd_grid[0u] = g;
+        var b = SdBounds(-(vec3f(u.u_control_scattersphere1_radius + length(sd_copy_reach(SdBounds(vec3f(1.0e9), vec3f(-1.0e9)), vec3f(abs(u.u_control_scattersphere1_copyX), abs(u.u_control_scattersphere1_copyY), abs(u.u_control_scattersphere1_copyZ)), vec3f(abs(u.u_control_scattersphere1_copyScaleX), abs(u.u_control_scattersphere1_copyScaleY), abs(u.u_control_scattersphere1_copyScaleZ)), abs(u.u_control_scattersphere1_copyTurn) > 0.0)))), vec3f(u.u_control_scattersphere1_radius + length(sd_copy_reach(SdBounds(vec3f(1.0e9), vec3f(-1.0e9)), vec3f(abs(u.u_control_scattersphere1_copyX), abs(u.u_control_scattersphere1_copyY), abs(u.u_control_scattersphere1_copyZ)), vec3f(abs(u.u_control_scattersphere1_copyScaleX), abs(u.u_control_scattersphere1_copyScaleY), abs(u.u_control_scattersphere1_copyScaleZ)), abs(u.u_control_scattersphere1_copyTurn) > 0.0))));
+        if (sd_bounds_empty(b)) { b = SdBounds(vec3f(0.0), vec3f(0.0)); }
+        sd_grid[0u] = SdGrid(
+            vec4f(b.lo, 0.0),
+            vec4f(b.hi, total),
+            vec4f(0.0, 0.0, 0.0, select(1.0, 0.0, total > 500.0)),
+            vec4u(0u),
+        );
     }
     if (t < 4096u) { atomicStore(&sd_count[0u + t], 0u); }
     if (f32(t) >= min(total, 500.0)) { return; }
@@ -378,7 +411,7 @@ fn scattersphere1_place(t: u32) {
         let dp = p - up * u.u_control_scattersphere1_radius;
         f[e] = sd_copy_frame(vec3f(dot(dp, side), dot(dp, up), -dot(dp, back)), at, turn);
     }
-    sd_inst[0u + t] = sd_instance(f[0], f[1], f[2], f[3], max(vec3f(u.u_control_scattersphere1_copyScaleX, u.u_control_scattersphere1_copyScaleY, u.u_control_scattersphere1_copyScaleZ), vec3f(1.0e-4)), u.u_control_scattersphere1_copyColor.rgb, bx);
+    sd_place(0u + t, 4096u, sd_instance(f[0], f[1], f[2], f[3], max(vec3f(u.u_control_scattersphere1_copyScaleX, u.u_control_scattersphere1_copyScaleY, u.u_control_scattersphere1_copyScaleZ), vec3f(1.0e-4)), u.u_control_scattersphere1_copyColor.rgb, bx));
 }
 
 fn scattersphere1_solid_d(p: vec3f) -> vec4f {
@@ -633,6 +666,14 @@ fn cs_place(@builtin(global_invocation_id) id: vec3u) {
     let t = id.x;
     switch id.z {
         case 0u: { scattersphere1_place(t); }
+        default: {}
+    }
+}
+
+@compute @workgroup_size(1)
+fn cs_grid(@builtin(workgroup_id) wg: vec3u) {
+    switch wg.z {
+        case 0u: { sd_grid_finish(0u, 4096u, 4096.0); }
         default: {}
     }
 }

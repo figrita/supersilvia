@@ -85,10 +85,9 @@ fn grid_slot(
 ) -> Option<Slot> {
     let own = (GRID.bounds?)(node, ctx)?;
     let input = ctx.solid_bounds(node, "input")?;
-    let (offset, scale, turned) = percopy::extremes(ctx, node);
     let (cx, cy, cz) = counts;
     ctx.instance_slot(node, GRID_ITEMS, GRID_CELLS, |ctx, slot| {
-        let head = instances::place_head(slot, "n.x * n.y * n.z", &own, "2.0 * reach");
+        let head = instances::place_head(slot, "n.x * n.y * n.z", &own);
         let body = format!(
             "    let s = vec3f({{spacingX}}, {{spacingY}}, {{spacingZ}});
     let on = s > vec3f(1.0e-4);
@@ -96,12 +95,11 @@ fn grid_slot(
     let n = select(vec3f(1.0), max(round(vec3f({cx}, {cy}, {cz})), vec3f(1.0)), on);
     let mid = (n - 1.0) * 0.5;
     let bx = {input};
-    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
 {head}    let fi = f32(t);
     let cell = vec3f(fi % n.x, floor(fi / n.x) % n.y, floor(fi / (n.x * n.y)));
     let at = (cell - mid) * step + {off};
     let turn = -({turn}) * 6.2831853;
-    sd_inst[{ib}u + t] = sd_instance(
+    sd_place({ib}u + t, {ext}u, sd_instance(
         sd_copy_frame(vec3f(0.0), at, turn),
         sd_copy_frame(vec3f(1.0, 0.0, 0.0), at, turn),
         sd_copy_frame(vec3f(0.0, 1.0, 0.0), at, turn),
@@ -109,12 +107,13 @@ fn grid_slot(
         {sc},
         {color},
         bx,
-    );",
+    ));",
             off = copy.offset,
             turn = copy.turn,
             sc = copy.scale,
             color = copy.color,
             ib = slot.item_base,
+            ext = slot.extent(),
         );
         Some(fill(node, ctx, &body))
     })
@@ -136,18 +135,16 @@ fn around_slot(
     }
     let own = (AROUND.bounds?)(node, ctx)?;
     let input = ctx.solid_bounds(node, "input")?;
-    let (offset, scale, turned) = percopy::extremes(ctx, node);
     let back_m = back.replace("{v}", "m");
     let back_sc = back.replace("{v}", "sc");
     ctx.instance_slot(node, AROUND_ITEMS, AROUND_CELLS, |ctx, slot| {
-        let head = instances::place_head(slot, "n", &own, "vec3f(2.0 * length(reach))");
+        let head = instances::place_head(slot, "n", &own);
         let body = format!(
             "    let tau = 6.2831853;
     let n = max(round({copies}), 1.0);
     let spread = clamp({{spread}}, 0.0, 1.0);
     let w0 = max(spread * tau / n, 1.0e-5);
     let bx = {input};
-    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
 {head}    let i = f32(t);
     let at = {off};
     let turn = -({turn}) * tau;
@@ -160,12 +157,13 @@ fn around_slot(
         let m = sd_copy_frame(vec3f(xz.x - {{radius}}, l.y, xz.y), at, turn);
         f[e] = {back_m};
     }}
-    sd_inst[{ib}u + t] = sd_instance(f[0], f[1], f[2], f[3], abs({back_sc}), {color}, bx);",
+    sd_place({ib}u + t, {ext}u, sd_instance(f[0], f[1], f[2], f[3], abs({back_sc}), {color}, bx));",
             off = copy.offset,
             turn = copy.turn,
             sc = copy.scale,
             color = copy.color,
             ib = slot.item_base,
+            ext = slot.extent(),
         );
         Some(fill(node, ctx, &body))
     })

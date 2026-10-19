@@ -190,13 +190,11 @@ fn scatter_slot(
     use crate::compile::instances;
     let own = (SCATTER_SPHERE.bounds?)(node, ctx)?;
     let input = ctx.solid_bounds(node, "input")?;
-    let (offset, scale, turned) = crate::nodes::percopy::extremes(ctx, node);
     ctx.instance_slot(node, SCATTER_ITEMS, SCATTER_CELLS, |ctx, slot| {
-        let head = instances::place_head(slot, "n", &own, "vec3f(2.0 * length(reach))");
+        let head = instances::place_head(slot, "n", &own);
         let body = format!(
             "    let n = clamp(round({copies}), 1.0, 500.0);
     let bx = {input};
-    let reach = sd_copy_reach(bx, {offset}, {scale}, {turned});
 {head}    let i = f32(t);
     let up = sd_fibonacci_point(i, n);
     let sg = select(-1.0, 1.0, up.z >= 0.0);
@@ -212,12 +210,13 @@ fn scatter_slot(
         let dp = p - up * {{radius}};
         f[e] = sd_copy_frame(vec3f(dot(dp, side), dot(dp, up), -dot(dp, back)), at, turn);
     }}
-    sd_inst[{ib}u + t] = sd_instance(f[0], f[1], f[2], f[3], {sc}, {color}, bx);",
+    sd_place({ib}u + t, {ext}u, sd_instance(f[0], f[1], f[2], f[3], {sc}, {color}, bx));",
             off = copy.offset,
             turn = copy.turn,
             sc = copy.scale,
             color = copy.color,
             ib = slot.item_base,
+            ext = slot.extent(),
         );
         Some(fill(node, ctx, &body))
     })

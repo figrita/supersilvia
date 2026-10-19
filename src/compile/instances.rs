@@ -14,11 +14,12 @@
 //! the cell, so the copies listed decide the distance up to the margin: a march is held to it,
 //! and every other read takes the copies listed alone.
 //!
-//! **Four compute passes build every repeat's list and grid**, each a dispatch over all of a
-//! module's repeats at once, the repeat in the dispatch's `z`: place (each copy's instance,
-//! the grid's header from the first, the counts zeroed), count (each copy adds one to each cell
-//! it touches), scan (one workgroup a repeat turns counts into starts and checks the whole
-//! fits), fill (each copy writes its index into its cells). Atomics fill a cell in any order,
+//! **Five compute passes build every repeat's list and grid**, each a dispatch over all of a
+//! module's repeats at once, the repeat in the dispatch's `z`: place (each copy's instance and
+//! the biggest box among them, the grid's box and count from the first, the counts zeroed),
+//! grid (the cells sized by the biggest copy), count (each copy adds one to each cell it
+//! touches), scan (one workgroup a repeat turns counts into starts and checks the whole fits),
+//! fill (each copy writes its index into its cells). Atomics fill a cell in any order,
 //! so a point's distance breaks a tie by the lower index: a render never flickers between two
 //! copies at the same distance.
 //!
@@ -39,11 +40,15 @@ pub const LISTS: u32 = 103;
 /// grown by half a cell, touches at most three cells along each axis.
 const ENTRIES_PER_ITEM: u32 = 27;
 
+/// The words after a repeat's counts that hold the biggest copy's box along each axis, as the
+/// place pass finds it, for the grid pass to size the cells by.
+const EXTENT_WORDS: u32 = 3;
+
 /// The threads in a workgroup of the place, count and fill passes.
 pub const WORKGROUP: u32 = 64;
 
 /// The compute entry points, in the order a draw dispatches them.
-pub const ENTRIES: [&str; 4] = ["cs_place", "cs_count", "cs_scan", "cs_fill"];
+pub const ENTRIES: [&str; 5] = ["cs_place", "cs_grid", "cs_count", "cs_scan", "cs_fill"];
 
 /// Where one repeat's copies, grid, counts and lists sit in the module's buffers, and how many
 /// of each it may have.
@@ -63,6 +68,11 @@ pub struct Slot {
 }
 
 impl Slot {
+    /// The first of the three words after its counts that keep its biggest copy's size.
+    pub fn extent(&self) -> u32 {
+        self.count_base + self.cells
+    }
+
     /// A repeat of at most `items` copies in at most `cells` cells, after every slot in
     /// `before`.
     pub fn after(before: &[Slot], items: u32, cells: u32) -> Self {
@@ -74,7 +84,7 @@ impl Slot {
             cells,
             entries,
             item_base: last.map_or(0, |s| s.item_base + s.items),
-            count_base: last.map_or(0, |s| s.count_base + s.cells),
+            count_base: last.map_or(0, |s| s.count_base + s.cells + EXTENT_WORDS),
             list_base: last.map_or(0, |s| s.list_base + s.cells + s.entries),
         }
     }
@@ -90,7 +100,7 @@ pub struct Instancing {
     /// and fill passes, and the place pass, dispatch over in `x`.
     pub items: u32,
     pub place: u32,
-    /// The buffers' lengths: instances, counts, list words.
+    /// The buffers' lengths: instances, counts (with each repeat's extent words), list words.
     pub instances: u32,
     pub counts: u32,
     pub lists: u32,
@@ -110,7 +120,7 @@ impl Instancing {
                 .max()
                 .unwrap_or(0),
             instances: last.item_base + last.items,
-            counts: last.count_base + last.cells,
+            counts: last.count_base + last.cells + EXTENT_WORDS,
             lists: last.list_base + last.cells + last.entries,
         }
     }
@@ -121,10 +131,11 @@ impl Instancing {
     }
 
     /// Each dispatch's workgroups, in [`ENTRIES`] order.
-    pub fn dispatches(&self) -> [(u32, u32, u32); 4] {
+    pub fn dispatches(&self) -> [(u32, u32, u32); 5] {
         let over = |n: u32| n.div_ceil(WORKGROUP).max(1);
         [
             (over(self.place), 1, self.repeats),
+            (1, 1, self.repeats),
             (over(self.items), 1, self.repeats),
             (1, 1, self.repeats),
             (over(self.items), 1, self.repeats),
@@ -205,6 +216,35 @@ fn sd_copy_frame(x: vec3f, at: vec3f, turn: f32) -> vec3f {
     let m = x - at;
     let mt = sd_rot2(m.xz, turn);
     return vec3f(mt.x, m.y, mt.y);
+}
+
+// Copy `c` written at `at`, its box's size kept where it is the biggest yet: in the three words
+// from `ext`, as the bits of a positive float, which order as the floats do.
+fn sd_place(at: u32, ext: u32, c: SdInstance) {
+    sd_inst[at] = c;
+    if (all(c.lo.xyz <= c.hi.xyz)) {
+        let e = c.hi.xyz - c.lo.xyz;
+        atomicMax(&sd_count[ext], bitcast<u32>(e.x));
+        atomicMax(&sd_count[ext + 1u], bitcast<u32>(e.y));
+        atomicMax(&sd_count[ext + 2u], bitcast<u32>(e.z));
+    }
+}
+
+// A repeat's grid cut from the box and count the place pass wrote, by the biggest copy it
+// found, and that copy's size forgotten for the next draw.
+fn sd_grid_finish(gi: u32, ext: u32, cap: f32) {
+    let h = sd_grid[gi];
+    let size = vec3f(
+        bitcast<f32>(atomicLoad(&sd_count[ext])),
+        bitcast<f32>(atomicLoad(&sd_count[ext + 1u])),
+        bitcast<f32>(atomicLoad(&sd_count[ext + 2u])),
+    );
+    var g = sd_grid_make(SdBounds(h.lo.xyz, h.hi.xyz), h.hi.w, size, cap);
+    g.cs.w = min(g.cs.w, h.cs.w);
+    sd_grid[gi] = g;
+    atomicStore(&sd_count[ext], 0u);
+    atomicStore(&sd_count[ext + 1u], 0u);
+    atomicStore(&sd_count[ext + 2u], 0u);
 }
 
 // The point `p` of the repeat's space in a copy's frame, before its scale.
@@ -328,12 +368,20 @@ fn sd_grid_scan(gi: u32, count_base: u32, list_base: u32, entries: u32, lid: u32
 /// repeat's own `place` function by name, and the shared helpers for the rest.
 pub fn entries(slots: &[(Slot, String)]) -> String {
     let mut place = String::new();
+    let mut grid = String::new();
     let mut count = String::new();
     let mut scan = String::new();
     let mut fill = String::new();
     for (s, name) in slots {
         let g = s.grid;
         writeln!(place, "        case {g}u: {{ {name}(t); }}").unwrap();
+        writeln!(
+            grid,
+            "        case {g}u: {{ sd_grid_finish({g}u, {ext}u, {cells}.0); }}",
+            ext = s.extent(),
+            cells = s.cells
+        )
+        .unwrap();
         writeln!(
             count,
             "        case {g}u: {{ if (t < u32(sd_grid[{g}u].hi.w) && t < {items}u) {{ sd_grid_count({g}u, {cb}u, {ib}u, t); }} }}",
@@ -372,6 +420,13 @@ fn cs_place(@builtin(global_invocation_id) id: vec3u) {{
     }}
 }}
 
+@compute @workgroup_size(1)
+fn cs_grid(@builtin(workgroup_id) wg: vec3u) {{
+    switch wg.z {{
+{grid}        default: {{}}
+    }}
+}}
+
 @compute @workgroup_size({WORKGROUP})
 fn cs_count(@builtin(global_invocation_id) id: vec3u) {{
     let t = id.x;
@@ -398,17 +453,22 @@ fn cs_fill(@builtin(global_invocation_id) id: vec3u) {{
     )
 }
 
-/// The statements that start a repeat's `place` function for copy `t`: the grid's header
-/// from the first thread — `n` copies of which the capacity holds `items`, inside `bounds`, none
-/// bigger than the `vec3f` `size` — and every count zeroed. The caller writes copy `t`'s instance after,
-/// for `t` below `min(n, items)`.
-pub fn place_head(s: &Slot, n: &str, bounds: &str, size: &str) -> String {
+/// The statements that start a repeat's `place` function for copy `t`: from the first
+/// thread the grid's box, `bounds`, and its copies, `n`, of which the capacity holds `items`,
+/// for the grid pass to cut into cells; every count zeroed. The caller writes copy `t` after,
+/// for `t` below `min(n, items)`, with `sd_place` at [`Slot::item_base`] and [`Slot::extent`].
+pub fn place_head(s: &Slot, n: &str, bounds: &str) -> String {
     format!(
         "    let total = max({n}, 0.0);
     if (t == 0u) {{
-        var g = sd_grid_make({bounds}, total, {size}, {cells}.0);
-        if (total > {items}.0) {{ g.cs.w = 0.0; }}
-        sd_grid[{grid}u] = g;
+        var b = {bounds};
+        if (sd_bounds_empty(b)) {{ b = SdBounds(vec3f(0.0), vec3f(0.0)); }}
+        sd_grid[{grid}u] = SdGrid(
+            vec4f(b.lo, 0.0),
+            vec4f(b.hi, total),
+            vec4f(0.0, 0.0, 0.0, select(1.0, 0.0, total > {items}.0)),
+            vec4u(0u),
+        );
     }}
     if (t < {cells}u) {{ atomicStore(&sd_count[{cb}u + t], 0u); }}
     if (f32(t) >= min(total, {items}.0)) {{ return; }}

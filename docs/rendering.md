@@ -73,6 +73,13 @@ black into a target of its own.
 3. Submit the encoder as a submission of its own. The target keeps that submission's
    **serial** ([one device](#one-device)).
 
+**A module whose repeats list their copies runs compute passes first**, in the same encoder:
+four dispatches over the module's own bind group, the draw's uniform block among it, that
+write every listing repeat's copies and grid into buffers the program owns, which the pass
+after reads ([nodes.md](nodes.md#repetition), `compile/instances.rs`). Each is a compute pass
+of its own, so each reads what the one before wrote. A probe and a workspace pass whose
+modules hold such a repeat run them too, over their own buffers.
+
 There is no temp target and no copy of the frame. A copy per Output per tick is 7.4 MB read
 and 7.4 MB written at 720p — about 620 MB a tick over a demo of 42 Outputs, on an iGPU that
 shares its memory with everything else — and drawing into a target the viewers are not shown
