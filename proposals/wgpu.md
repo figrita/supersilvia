@@ -75,7 +75,7 @@ the wait — on the one device, whenever the synth is running. The editor's surf
 and on a resize and every picture window's raced it, and about four launches in ten crashed on
 the Mac. The build takes wgpu-core from `vendor/wgpu-core`, 30.0.1 with upstream's fix
 (gfx-rs/wgpu#10296) in its one match arm, until a release carries it
-([decisions.md](../docs/decisions.md#wgpu-core-carries-one-patch-so-a-surface-configures-beside-the-synth),
+([decisions.md](../docs/decisions.md#wgpu-core-carries-two-patches-so-a-surface-configures-beside-the-synth),
 [vendor/README.md](../vendor/README.md)); `tests/gpu_surface.rs` holds it.
 
 ### 1.2 Every fence becomes one counter of finished submissions

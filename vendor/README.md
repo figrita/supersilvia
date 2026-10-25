@@ -3,11 +3,15 @@
 ## wgpu-core
 
 `wgpu-core/` is [wgpu-core 30.0.1](https://crates.io/crates/wgpu-core/30.0.1) exactly as
-published on crates.io, `.cargo_vcs_info.json` and `Cargo.toml.orig` included, with **one
-change**: in `src/device/resource.rs`, `Surface::configure` accepts
-`PollStatus::WaitSucceeded` from its wait for the device to go idle as it accepts
-`PollStatus::QueueEmpty`, where 30.0.1 refuses the configuration with `GpuWaitTimeout`. A
-comment beginning `supersilvia:` marks the arm. `Cargo.toml`'s `[patch.crates-io]` points the
+published on crates.io, `.cargo_vcs_info.json` and `Cargo.toml.orig` included, with **two
+changes**, each marked by a comment beginning `supersilvia:`:
+
+1. In `src/device/resource.rs`, `Surface::configure` accepts `PollStatus::WaitSucceeded` from
+   its wait for the device to go idle as it accepts `PollStatus::QueueEmpty`, where 30.0.1
+   refuses the configuration with `GpuWaitTimeout`.
+2. The same configure holds `Device::command_indices` across the backend's configure, and
+   `Surface`'s `Drop` in `src/instance.rs` holds it across the unconfigure, the presentation
+   taken first. `Cargo.toml`'s `[patch.crates-io]` points the
 build at this copy; it is not a workspace member, so `cargo fmt` and clippy do not read it.
 
 **Why.** `WaitSucceeded` means another thread submitted during the wait, and on supersilvia's
@@ -15,16 +19,24 @@ one device the synth thread submits all the time. So every surface configure rac
 editor's at launch and on a resize, each picture window's — and wgpu's default error handler
 panics on the refusal: about four launches in ten crashed on the Mac. Accepting it is safe
 because a surface is used by one thread only and nothing another thread submits references
-its textures. `tests/gpu_surface.rs` fails without the change. The decision and what lost are
-in [docs/decisions.md](../docs/decisions.md#wgpu-core-carries-one-patch-so-a-surface-configures-beside-the-synth).
+its textures. `tests/gpu_surface.rs` fails without the change.
+
+**Why the lock.** On Vulkan both configure and unconfigure wait for the device to go idle,
+which uses every queue, and Vulkan has a queue used by one thread at a time. 30.0.1 makes that
+wait without the lock its own submits and presents hold, so a picture window's resize ran beside
+the synth's submits: Khronos's validation layer reports `UNASSIGNED-Threading-MultipleThreads-Write`
+without the lock and nothing with it, and NVIDIA's driver lost the device with an Xid 13. The
+decision and what lost are
+in [docs/decisions.md](../docs/decisions.md#wgpu-core-carries-two-patches-so-a-surface-configures-beside-the-synth).
 
 **Delete it** on the first wgpu-core release that contains
-[gfx-rs/wgpu#10296](https://github.com/gfx-rs/wgpu/pull/10296), the same fix upstream: remove
+[gfx-rs/wgpu#10296](https://github.com/gfx-rs/wgpu/pull/10296), the same fix upstream for the
+first change, and holds the queue's lock across a surface's configure and unconfigure: remove
 the `[patch.crates-io]` table and this directory, move the lock to that release
 (`cargo update -p wgpu-core` if it is a 30.0.x), and check that `tests/gpu_surface.rs` still
 passes.
 
-**Never edit it otherwise.** To see the one change:
+**Never edit it otherwise.** To see the two changes:
 `diff -r ~/.cargo/registry/src/*/wgpu-core-30.0.1 vendor/wgpu-core`, which also lists
 `.cargo-ok`, the marker cargo leaves in its own extracted copy.
 

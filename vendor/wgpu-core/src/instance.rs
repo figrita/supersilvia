@@ -719,7 +719,12 @@ impl Surface {
 
 impl Drop for Surface {
     fn drop(&mut self) {
-        if let Some(present) = self.presentation.lock().take() {
+        // supersilvia: the presentation is taken before the queue's lock, the order `present`
+        // takes them in, and the lock is held across the unconfigure, which on Vulkan waits for
+        // the device to go idle as a configure does. See ../../README.md.
+        let present = self.presentation.lock().take();
+        if let Some(present) = present {
+            let _command_indices = present.device.command_indices.write();
             for (&backend, surface) in &self.surface_per_backend {
                 if backend == present.device.backend() {
                     unsafe { surface.unconfigure(present.device.raw()) };

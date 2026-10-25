@@ -797,10 +797,10 @@ about whether the GPU is over budget — which is why nothing is [shed or
 dropped](#a-bounded-ring-and-two-gpu-ticks-in-flight) on one, and the only things that wait are
 the draw, for the tick two before it, and each submission, for room in the throttle.
 
-### wgpu-core carries one patch, so a surface configures beside the synth
+### wgpu-core carries two patches, so a surface configures beside the synth
 
-**Chosen.** `vendor/wgpu-core` is wgpu-core 30.0.1 as published with one match arm changed,
-and `Cargo.toml`'s `[patch.crates-io]` builds against it. In 30.0.1 `Surface::configure` waits
+**Chosen.** `vendor/wgpu-core` is wgpu-core 30.0.1 as published with two changes, and
+`Cargo.toml`'s `[patch.crates-io]` builds against it. The first is a match arm. In 30.0.1 `Surface::configure` waits
 for the device to go idle and, when the wait ends with more work queued — another thread
 submitted during it — refuses the configuration with `GpuWaitTimeout`, an uncaptured error
 that wgpu's default handler turns into a panic. On the one device the synth submits all the
@@ -812,7 +812,19 @@ and nothing another thread submits references its textures, so what the wait is 
 finished. It is upstream's own fix, gfx-rs/wgpu#10296, merged and not yet released.
 `tests/gpu_surface.rs` holds it on a Mac, where it fails every configure without the patch.
 [vendor/README.md](../vendor/README.md) says when the copy goes: on the first wgpu-core release
-that contains #10296.
+that contains #10296 and a fix for the second.
+
+The second is a lock. On Vulkan a configure that replaces a swapchain, and the unconfigure a
+dropped surface runs, wait for the device to go idle, and that wait uses every queue; Vulkan
+has a queue used by one thread at a time, and 30.0.1 makes the wait without the lock its
+submits and presents hold. So a picture window's resize ran beside the synth's submits and the
+editor's presents: Khronos's validation layer reported `UNASSIGNED-Threading-MultipleThreads-Write`
+on the queue from the synth, pictures and editor threads within fifty resizes, and an RTX 3090
+on NVIDIA's 615 driver lost the device with an Xid 13 while picture windows were being moved.
+The patch takes that lock across the configure and across the unconfigure, the presentation
+taken first, the order `present` takes them in. Under it the same fifty resizes and ten
+pop-outs opened and closed report nothing. The synth's submissions wait for each configure's
+device-idle wait, which is the cost of a queue Vulkan lets one thread use at a time.
 
 **Rejected: an app-side lock**, every configure taken under the lock `Gpu::submit` holds. The
 editor's surface is configured by egui_wgpu inside eframe, where the app cannot take a lock, so

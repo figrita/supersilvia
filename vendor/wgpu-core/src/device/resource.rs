@@ -5380,7 +5380,17 @@ impl Device {
                 // https://github.com/gfx-rs/wgpu/issues/4105
 
                 let surface_raw = surface.raw(self.backend()).unwrap();
-                match unsafe { surface_raw.configure(self.raw(), &hal_config) } {
+                // supersilvia: the queue's lock is held across the configure, as `present` holds
+                // it across a present. On Vulkan a configure replacing a swapchain waits for the
+                // device to go idle, which uses every queue, and Vulkan has a queue used by one
+                // thread at a time: unlocked, the synth's submits ran inside a picture window's
+                // resize, a validation layer's THREADING ERROR and an Xid 13 on NVIDIA. See
+                // ../../../README.md.
+                let configured = {
+                    let _command_indices = self.command_indices.write();
+                    unsafe { surface_raw.configure(self.raw(), &hal_config) }
+                };
+                match configured {
                     Ok(()) => (),
                     Err(error) => {
                         break 'error match error {

@@ -1541,7 +1541,7 @@ are `Send + Sync`, and wgpu serializes what needs it. **A surface configures whi
 submits**, which wgpu-core 30.0.1 refused, with a panic from the default error handler: the
 build takes wgpu-core from `vendor/wgpu-core`, which accepts it, since a surface is used by one
 thread and nothing the synth submits touches its textures
-([decisions.md](decisions.md#wgpu-core-carries-one-patch-so-a-surface-configures-beside-the-synth);
+([decisions.md](decisions.md#wgpu-core-carries-two-patches-so-a-surface-configures-beside-the-synth);
 `tests/gpu_surface.rs`). The picture host is handed a clone too. `Synth::render` draws once per tick, on the synth's own
 schedule, whatever the frame thread is doing. `Gpu::for_synth` is the one door a synth on a
 device of its own would change.
