@@ -4,7 +4,7 @@ and NDI, a picture with its alpha, and a Snap."""
 
 from kit_perform import DUSK, EMBER, options
 
-ORDER = 15
+ORDER = 16
 CATEGORY = "Sending and recording"
 
 

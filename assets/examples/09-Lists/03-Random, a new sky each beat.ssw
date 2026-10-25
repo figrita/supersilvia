@@ -1,0 +1,525 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Random, a new sky each beat",
+  "kind": "video",
+  "blurb": "Random lists place, size and turn forty stars, rerolled once a second",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Random is Count numbers between Min and Max, each chosen by the Seed and its own place in the list, so the same seed always gives the same sky. Four of them place, size and turn the stars of a Stamp on Points; the beat count steps every Seed once a second, each from its own start, and the sky is drawn again. Try a bigger Count on the X and Y Randoms \u2014 the stars already there stay put."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 994.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 1344.0
+      },
+      "controls": {
+        "p": {
+          "Float": 4.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 1778.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "modulo",
+      "pos": {
+        "x": 520.0,
+        "y": 1890.0
+      },
+      "controls": {
+        "b": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            0.5607843,
+            0.827451,
+            1.0,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "star",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.4
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "stamp",
+      "pos": {
+        "x": 1112.0,
+        "y": 40.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.16
+        }
+      },
+      "options": {
+        "layout": "points",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "count": {
+          "Float": 40.0
+        },
+        "min": {
+          "Float": -1.65
+        },
+        "max": {
+          "Float": 1.65
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 2024.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 460.0
+      },
+      "controls": {
+        "count": {
+          "Float": 40.0
+        },
+        "min": {
+          "Float": -0.88
+        },
+        "max": {
+          "Float": 0.88
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 2158.0
+      },
+      "controls": {
+        "b": {
+          "Float": 31.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 638.0
+      },
+      "controls": {
+        "count": {
+          "Float": 40.0
+        },
+        "min": {
+          "Float": 0.0
+        },
+        "max": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 2292.0
+      },
+      "controls": {
+        "b": {
+          "Float": 62.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 816.0
+      },
+      "controls": {
+        "count": {
+          "Float": 40.0
+        },
+        "min": {
+          "Float": 0.25
+        },
+        "max": {
+          "Float": 1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "slug": "add",
+      "pos": {
+        "x": 520.0,
+        "y": 2426.0
+      },
+      "controls": {
+        "b": {
+          "Float": 93.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "slug": "output",
+      "pos": {
+        "x": 1408.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyX"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyY"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyTurn"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyScaleX"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 17,
+        "key": "input"
+      }
+    }
+  ]
+}

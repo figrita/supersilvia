@@ -1,0 +1,246 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A list you draw",
+  "kind": "video",
+  "blurb": "A List node's bars, one bar of a Stamp each",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A list is many numbers on one cable, the double diamond. The List node's are drawn by hand: drag up and down across its bars. Its List goes into the Stamp's Count, so there is a copy for each bar, and into Scale Y under Per copy, so copy i is as tall as bar i. The Oscillator swings the List's Max, and every bar follows. Redraw the bars, set Count to 24, or cable the List into Turn as well."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 580.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "list",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 12.0
+        },
+        "min": {
+          "Float": 0.3
+        },
+        "max": {
+          "Float": 3.2
+        }
+      },
+      "options": {},
+      "values": {
+        "values": {
+          "Numbers": [
+            0.35,
+            0.6,
+            0.85,
+            1.0,
+            0.8,
+            0.5,
+            0.3,
+            0.45,
+            0.75,
+            0.95,
+            0.65,
+            0.4
+          ]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 930.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.9
+        },
+        "offset": {
+          "Float": 2.6
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 5,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 338.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            1.0,
+            0.2392157,
+            0.4980392,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "stamp",
+      "pos": {
+        "x": 900.0,
+        "y": 338.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.5
+        },
+        "spacing": {
+          "Float": 0.24
+        },
+        "copyScaleX": {
+          "Float": 0.36
+        }
+      },
+      "options": {
+        "layout": "line",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 7,
+      "slug": "output",
+      "pos": {
+        "x": 1196.0,
+        "y": 338.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 3,
+        "key": "max"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "list"
+      },
+      "to": {
+        "node": 6,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "list"
+      },
+      "to": {
+        "node": 6,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "input"
+      }
+    }
+  ]
+}

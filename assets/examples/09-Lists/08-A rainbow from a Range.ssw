@@ -1,0 +1,314 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A rainbow from a Range",
+  "kind": "video",
+  "blurb": "A Range into an HSLA's Hue colors each wedge of a kaleidoscope",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "HSLA fed a list gives a color list, one color an item. A Range of twelve from 0 to 1 is twelve hues round the wheel; the Add moves them on by the Master Gear and the Modulo brings each back under 1, so the colors run round once a loop. The color list goes into the Kaleidoscope's Color under Per copy, and the Range into Segments makes as many wedges as colors, over stripes turning half a turn a loop. Try the Range's Count, or the HSLA's Saturation and Lightness."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 438.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 12.0
+        },
+        "from": {
+          "Float": 0.0
+        },
+        "to": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "ends": "from"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "add",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "modulo",
+      "pos": {
+        "x": 1040.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "hsla",
+      "pos": {
+        "x": 1300.0,
+        "y": 40.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.85
+        },
+        "l": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "stripes",
+      "pos": {
+        "x": 520.0,
+        "y": 216.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 5.0
+        },
+        "color1": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "color2": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "smoothing": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "rotate",
+      "pos": {
+        "x": 780.0,
+        "y": 216.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 788.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "kaleidoscope",
+      "pos": {
+        "x": 1560.0,
+        "y": 216.0
+      },
+      "controls": {
+        "zoom": {
+          "Float": 1.2
+        }
+      },
+      "options": {
+        "perCopy": "on"
+      },
+      "width": 240.0
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 1880.0,
+        "y": 216.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "list"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 4,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 9,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "list"
+      },
+      "to": {
+        "node": 10,
+        "key": "segments"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "copyColor"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}

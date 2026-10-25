@@ -1,0 +1,495 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Reduce a list to one number",
+  "kind": "video",
+  "blurb": "A ball that always sits on the tallest bar, found by two Reduces",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Reduce makes one number from a whole list: its Sum, its Mean, its lowest, its highest, or Argmax, the place of the highest. The bars are a Random list eased by a Lag. One Reduce on Argmax says which bar is tallest, and the maths turns that place into the ball's X; another on Max says how tall, half of which is the top of the bar, for the ball's Y. Try the second Reduce on Mean, and the ball floats over the tallest bar at the bars' average height."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 460.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 810.0
+      },
+      "controls": {
+        "p": {
+          "Float": 4.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 1244.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "modulo",
+      "pos": {
+        "x": 520.0,
+        "y": 1356.0
+      },
+      "controls": {
+        "b": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 12.0
+        },
+        "min": {
+          "Float": 0.2
+        },
+        "max": {
+          "Float": 3.0
+        },
+        "seed": {
+          "Float": 7.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "lag",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "rise": {
+          "Float": 0.12
+        },
+        "fall": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            0.3568627,
+            0.1647059,
+            0.5254902,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            1.0,
+            0.4784314,
+            0.7137255,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "stamp",
+      "pos": {
+        "x": 1040.0,
+        "y": 218.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.5
+        },
+        "spacing": {
+          "Float": 0.26
+        },
+        "copyScaleX": {
+          "Float": 0.4
+        }
+      },
+      "options": {
+        "layout": "line",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "reduce",
+      "pos": {
+        "x": 520.0,
+        "y": 1490.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "argmax"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "add",
+      "pos": {
+        "x": 780.0,
+        "y": 196.0
+      },
+      "controls": {
+        "b": {
+          "Float": -5.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "multiply",
+      "pos": {
+        "x": 1040.0,
+        "y": 652.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.26
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "slug": "reduce",
+      "pos": {
+        "x": 520.0,
+        "y": 1622.0
+      },
+      "controls": {},
+      "options": {
+        "mode": "max"
+      }
+    },
+    {
+      "id": 14,
+      "slug": "multiply",
+      "pos": {
+        "x": 780.0,
+        "y": 330.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "slug": "add",
+      "pos": {
+        "x": 1040.0,
+        "y": 786.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.09
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "slug": "circle",
+      "pos": {
+        "x": 1336.0,
+        "y": 218.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.08
+        },
+        "softness": {
+          "Float": 0.01
+        },
+        "foreground": {
+          "Color": [
+            1.0,
+            0.8196078,
+            0.4,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "slug": "output",
+      "pos": {
+        "x": 1596.0,
+        "y": 218.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 7,
+        "key": "list"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "list"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "value"
+      },
+      "to": {
+        "node": 11,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "list"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "value"
+      },
+      "to": {
+        "node": 14,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 14,
+        "key": "output"
+      },
+      "to": {
+        "node": 15,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "background"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "centerX"
+      }
+    },
+    {
+      "from": {
+        "node": 15,
+        "key": "output"
+      },
+      "to": {
+        "node": 16,
+        "key": "centerY"
+      }
+    },
+    {
+      "from": {
+        "node": 16,
+        "key": "color"
+      },
+      "to": {
+        "node": 17,
+        "key": "input"
+      }
+    }
+  ]
+}

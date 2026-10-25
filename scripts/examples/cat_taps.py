@@ -5,7 +5,7 @@ into motion."""
 
 from timekit import DUSK, EMBER, INK, SPECTRUM
 
-ORDER = 9
+ORDER = 10
 CATEGORY = "Taps"
 
 # A tap measures the square from -1 to 1 each way, so a square Output shows all it reads.

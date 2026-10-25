@@ -1,0 +1,297 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Lag eases every item",
+  "kind": "video",
+  "blurb": "Bars that leap to new random heights each beat and drift back down",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Lag eases each item of a list toward where it is going: Rise is how slowly an item climbs and Fall how slowly it sinks, in seconds. A Random list of sixteen heights is rerolled once a second, and through the Lag the bars leap up at once and settle slowly, the way a meter's do. Take the Lag out and cable the Random straight into the Stamp to see them jump, or set Rise and Fall the same."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 460.0
+      },
+      "controls": {
+        "length": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "ratiogear",
+      "pos": {
+        "x": 520.0,
+        "y": 810.0
+      },
+      "controls": {
+        "p": {
+          "Float": 4.0
+        },
+        "q": {
+          "Float": 1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "floor",
+      "pos": {
+        "x": 520.0,
+        "y": 1244.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "modulo",
+      "pos": {
+        "x": 520.0,
+        "y": 1356.0
+      },
+      "controls": {
+        "b": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 16.0
+        },
+        "min": {
+          "Float": 0.15
+        },
+        "max": {
+          "Float": 3.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "lag",
+      "pos": {
+        "x": 780.0,
+        "y": 40.0
+      },
+      "controls": {
+        "rise": {
+          "Float": 0.04
+        },
+        "fall": {
+          "Float": 0.35
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 218.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            0.1647059,
+            0.4235294,
+            1.0,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            0.4352941,
+            0.9490196,
+            0.8235294,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "stamp",
+      "pos": {
+        "x": 1040.0,
+        "y": 218.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.5
+        },
+        "spacing": {
+          "Float": 0.2
+        },
+        "copyScaleX": {
+          "Float": 0.34
+        }
+      },
+      "options": {
+        "layout": "line",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 10,
+      "slug": "output",
+      "pos": {
+        "x": 1336.0,
+        "y": 218.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 4.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 3,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 4,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "seed"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 7,
+        "key": "list"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    }
+  ]
+}

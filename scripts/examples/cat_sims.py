@@ -5,7 +5,7 @@ a loop; each keeps going for as long as it is left to."""
 
 from ast_common import SUNSET
 
-ORDER = 11
+ORDER = 12
 CATEGORY = "Simulations"
 
 

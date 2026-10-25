@@ -1,0 +1,406 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A spectrum ring",
+  "kind": "video",
+  "blurb": "The sound in thirty-six bands, a rainbow bar each round a ring",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "First choose a sound in the Main Input panel on the left, under Audio: a microphone, a Sound file, or System audio (what you hear). The Main Input's Spectrum is a list of 128 levels from low to high. Bands gathers it into thirty-six, Lag lets each fall slowly, and Multiply and Add make a band a bar's Scale Y, so even silence leaves a ring of short dashes. A Range of turns stands each bar out from the middle, and a Range into an HSLA's Hue colors them red round to violet. Try Bands' Count, Low and High, or Lag's Fall at 1."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 1940.0,
+        "y": 1086.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "maininput",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {
+        "uniforms": "off",
+        "events": "off"
+      }
+    },
+    {
+      "id": 4,
+      "slug": "bands",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 36.0
+        },
+        "low": {
+          "Float": 50.0
+        },
+        "high": {
+          "Float": 14000.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "lag",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "rise": {
+          "Float": 0.02
+        },
+        "fall": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "add",
+      "pos": {
+        "x": 1680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.3
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 300.0
+      },
+      "controls": {
+        "count": {
+          "Float": 36.0
+        },
+        "from": {
+          "Float": -0.25
+        },
+        "to": {
+          "Float": 0.75
+        }
+      },
+      "options": {
+        "ends": "from"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 476.0
+      },
+      "controls": {
+        "count": {
+          "Float": 36.0
+        },
+        "from": {
+          "Float": 0.0
+        },
+        "to": {
+          "Float": 0.82
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "hsla",
+      "pos": {
+        "x": 900.0,
+        "y": 476.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.9
+        },
+        "l": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "lineargradient",
+      "pos": {
+        "x": 520.0,
+        "y": 652.0
+      },
+      "controls": {
+        "startColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "endColor": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "angle": {
+          "Float": 0.25
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "stamp",
+      "pos": {
+        "x": 1940.0,
+        "y": 652.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.34
+        },
+        "radius": {
+          "Float": 0.58
+        },
+        "copyScaleX": {
+          "Float": 0.16
+        }
+      },
+      "options": {
+        "layout": "ring",
+        "perCopy": "on",
+        "overlap": "on"
+      }
+    },
+    {
+      "id": 13,
+      "slug": "rotate",
+      "pos": {
+        "x": 2236.0,
+        "y": 652.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 14,
+      "slug": "output",
+      "pos": {
+        "x": 2496.0,
+        "y": 652.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "spectrum"
+      },
+      "to": {
+        "node": 4,
+        "key": "spectrum"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "bands"
+      },
+      "to": {
+        "node": 5,
+        "key": "list"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "list"
+      },
+      "to": {
+        "node": 10,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "list"
+      },
+      "to": {
+        "node": 12,
+        "key": "copyTurn"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "copyColor"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 13,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 12,
+        "key": "output"
+      },
+      "to": {
+        "node": 13,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 13,
+        "key": "output"
+      },
+      "to": {
+        "node": 14,
+        "key": "input"
+      }
+    }
+  ]
+}

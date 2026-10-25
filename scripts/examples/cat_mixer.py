@@ -4,7 +4,7 @@ controls a hand plays live, MIDI, Blackout and Freeze, and a set kept on one tem
 
 from kit_perform import DUSK, EMBER, OCEAN, ranged
 
-ORDER = 14
+ORDER = 15
 CATEGORY = "Mixer and performance"
 
 

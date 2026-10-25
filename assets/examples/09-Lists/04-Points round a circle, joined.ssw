@@ -1,0 +1,392 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Points round a circle, joined",
+  "kind": "video",
+  "blurb": "Two rings of Circle Points, joined end to end, turning opposite ways",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "Circle Points gives Count points round a circle as an X list, a Y list and the Angle of each. Join puts list B after list A, so three Joins make one ring of eight inside one of sixteen, and a Stamp on Points draws a triangle at each, turned by its Angle. The Master Gear turns the inner ring's Start forward and the outer's back. Try each Circle Points' Count and Spread, or its Radius."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 726.0
+      },
+      "controls": {
+        "length": {
+          "Float": 6.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "circlepoints",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "count": {
+          "Float": 8.0
+        },
+        "radius": {
+          "Float": 0.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "circlepoints",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "count": {
+          "Float": 16.0
+        },
+        "radius": {
+          "Float": 0.86
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "multiply",
+      "pos": {
+        "x": 520.0,
+        "y": 1076.0
+      },
+      "controls": {
+        "b": {
+          "Float": -0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 484.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.945098,
+            0.7215686,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            1.0,
+            0.3686275,
+            0.4941176,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.8
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "polygon",
+      "pos": {
+        "x": 816.0,
+        "y": 484.0
+      },
+      "controls": {
+        "sides": {
+          "Float": 3.0
+        },
+        "radius": {
+          "Float": 0.85
+        },
+        "softness": {
+          "Float": 0.02
+        },
+        "rotation": {
+          "Float": 0.0
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "stamp",
+      "pos": {
+        "x": 1076.0,
+        "y": 484.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.34
+        }
+      },
+      "options": {
+        "layout": "points",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "join",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "join",
+      "pos": {
+        "x": 816.0,
+        "y": 174.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "join",
+      "pos": {
+        "x": 816.0,
+        "y": 308.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 1372.0,
+        "y": 484.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 6.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 3,
+        "key": "start"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 5,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "start"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 9,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "x"
+      },
+      "to": {
+        "node": 9,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyX"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 10,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "y"
+      },
+      "to": {
+        "node": 10,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyY"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "angle"
+      },
+      "to": {
+        "node": 11,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "angle"
+      },
+      "to": {
+        "node": 11,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyTurn"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    }
+  ]
+}

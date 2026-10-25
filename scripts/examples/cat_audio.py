@@ -5,7 +5,7 @@ since a band at zero is the low end of a range rather than nothing."""
 
 from ast_common import CHOOSE_AUDIO, scaled
 
-ORDER = 10
+ORDER = 11
 CATEGORY = "Audio-reactive"
 
 

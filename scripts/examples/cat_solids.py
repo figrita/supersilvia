@@ -5,7 +5,7 @@ needs inside itself — the picture a solid wears is made beside it, not on anot
 
 from lib import HEAVY
 
-ORDER = 13
+ORDER = 14
 CATEGORY = "Solids"
 KIND = "solids"
 
@@ -85,15 +85,16 @@ def turning(new):
 
 
 def repeat_forever(new):
-    e = new("Repeat forever", "A grid of copies to the horizon, each scattered, spun, sized and tinted")
+    e = new("Repeat forever", "A grid of copies to the horizon, each turned, stretched and tinted by a list")
     e.note(
         40,
         40,
         "One rounded box, repeated on a grid that goes on forever: the Repeat folds every point "
-        "into one cell, so endless copies cost what one does. Each copy is moved, turned, shrunk "
-        "and tinted by its cell and the Seed, and the Ground after the Repeat is not repeated, "
-        "since a modifier changes only what is cabled into it. Try the Repeat's Seed, Scatter, "
-        "Spin, Size and Tint, or Render 3D's Lens Type on Fisheye.",
+        "into one cell, so endless copies cost what one does. Three Random lists on its Per copy "
+        "rows turn, stretch and tint each copy; a Forever repeat runs through a list cell by "
+        "cell, each row shifted by one, so lists of different lengths never line up the same "
+        "way twice. The Ground after the Repeat is not repeated, since a modifier changes only "
+        "what is cabled into it. Try another Seed on a list, or Render 3D's Lens Type on Fisheye.",
     )
     master = e.master(0, 0, length=8.0)
     box = e.add("box", 0, 0, controls={"width": 1.1, "height": 1.1, "depth": 1.1, "rounding": 0.18, "color": "#e8e2d6"})
@@ -103,8 +104,16 @@ def repeat_forever(new):
         0,
         box,
         controls={"spacingX": 2.6, "spacingZ": 2.6},
-        options={"extent": "forever"},
+        options={"extent": "forever", "perCopy": "on"},
     )
+    turns = e.add("randomlist", 0, 0, controls={"count": 7.0, "min": 0.0, "max": 0.25, "seed": 3.0})
+    e.cable(turns, "list", grid, "copyTurn")
+    heights = e.add("randomlist", 0, 0, controls={"count": 5.0, "min": 0.5, "max": 1.8, "seed": 11.0})
+    e.cable(heights, "list", grid, "copyScaleY")
+    hues = e.add("randomlist", 0, 0, controls={"count": 6.0, "min": 0.0, "max": 1.0, "seed": 5.0})
+    tints = e.add("hsla", 0, 0, controls={"s": 0.55, "l": 0.7})
+    e.cable(hues, "list", tints, "h")
+    e.cable(tints, "output", grid, "copyColor")
     floor = e.shape("ground", 0, 0, onto=grid, height=-0.6, color="#6a5f8a")
     e.show(
         0,

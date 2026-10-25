@@ -1,0 +1,332 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A Range, evenly spaced",
+  "kind": "video",
+  "blurb": "Two Ranges turn and grow sixteen stars round a ring",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A Range is Count numbers evenly spaced From one To the other. The first goes from 0 to 1 turn with Ends on From Only, so the last turn is left out and copy i of the ring is turned i sixteenths; the second grows the stars from small to big round the ring, its To swung by the Oscillator. The Rotate turns the whole ring once a loop. Try the turns Range To 3, or its Ends on Both and watch the first and last star meet."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 634.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            1.0,
+            0.9647059,
+            0.8392157,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            1.0,
+            0.5411765,
+            0.2392157,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.7
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "star",
+      "pos": {
+        "x": 900.0,
+        "y": 40.0
+      },
+      "controls": {
+        "points": {
+          "Float": 5.0
+        },
+        "innerRadius": {
+          "Float": 0.42
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 282.0
+      },
+      "controls": {
+        "count": {
+          "Float": 16.0
+        },
+        "from": {
+          "Float": 0.0
+        },
+        "to": {
+          "Float": 1.0
+        }
+      },
+      "options": {
+        "ends": "from"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 458.0
+      },
+      "controls": {
+        "count": {
+          "Float": 16.0
+        },
+        "from": {
+          "Float": 0.35
+        },
+        "to": {
+          "Float": 1.4
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 984.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.35
+        },
+        "offset": {
+          "Float": 1.25
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 8,
+      "slug": "stamp",
+      "pos": {
+        "x": 1196.0,
+        "y": 40.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.3
+        },
+        "radius": {
+          "Float": 0.68
+        }
+      },
+      "options": {
+        "layout": "ring",
+        "perCopy": "on",
+        "overlap": "on"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "rotate",
+      "pos": {
+        "x": 1492.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "output",
+      "pos": {
+        "x": 1752.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 7,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 6,
+        "key": "to"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "color"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyTurn"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyScaleX"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 9,
+        "key": "angle"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    }
+  ]
+}

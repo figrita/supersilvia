@@ -4,7 +4,7 @@ note that says what a patch is for."""
 
 from ast_common import SUNSET, notes_under
 
-ORDER = 12
+ORDER = 13
 CATEGORY = "Text and drawing"
 
 

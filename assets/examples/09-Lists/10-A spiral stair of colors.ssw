@@ -1,0 +1,372 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "A spiral stair of colors",
+  "kind": "solids",
+  "blurb": "Repeat Around lifting and coloring each step from two lists",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A solid repeat takes lists on its Per copy rows the way a picture repeat does. Twenty-eight slabs go round a Repeat Around: a Range into Offset Y lifts each step above the last, and a Range into an HSLA's Hue paints them red round to violet. The post is chained on after the Repeat, so there is one post, not twenty-eight. The Oscillator swings the height Range's To, so the stair stretches and settles. Try a Range from 0 to 0.5 into Turn, which twists each step about its own center, or one into Scale X."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 740.0
+      },
+      "controls": {
+        "length": {
+          "Float": 8.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "box",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "x": {
+          "Float": 0.0
+        },
+        "width": {
+          "Float": 1.25
+        },
+        "height": {
+          "Float": 0.12
+        },
+        "depth": {
+          "Float": 0.34
+        },
+        "rounding": {
+          "Float": 0.04
+        },
+        "color": {
+          "Color": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 388.0
+      },
+      "controls": {
+        "count": {
+          "Float": 28.0
+        },
+        "from": {
+          "Float": 0.0
+        },
+        "to": {
+          "Float": 4.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "oscillator",
+      "pos": {
+        "x": 520.0,
+        "y": 1090.0
+      },
+      "controls": {
+        "amplitude": {
+          "Float": 0.5
+        },
+        "offset": {
+          "Float": 4.0
+        }
+      },
+      "options": {
+        "clockMode": "loop"
+      }
+    },
+    {
+      "id": 6,
+      "slug": "range",
+      "pos": {
+        "x": 520.0,
+        "y": 564.0
+      },
+      "controls": {
+        "count": {
+          "Float": 28.0
+        },
+        "from": {
+          "Float": 0.0
+        },
+        "to": {
+          "Float": 0.82
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "hsla",
+      "pos": {
+        "x": 900.0,
+        "y": 564.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.8
+        },
+        "l": {
+          "Float": 0.6
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "repeataround",
+      "pos": {
+        "x": 1160.0,
+        "y": 40.0
+      },
+      "controls": {
+        "copies": {
+          "Float": 28.0
+        },
+        "radius": {
+          "Float": 0.95
+        }
+      },
+      "options": {
+        "axis": "y",
+        "perCopy": "on"
+      }
+    },
+    {
+      "id": 9,
+      "slug": "cylinder",
+      "pos": {
+        "x": 1420.0,
+        "y": 40.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.16
+        },
+        "height": {
+          "Float": 5.2
+        },
+        "y": {
+          "Float": 2.0
+        },
+        "color": {
+          "Color": [
+            0.9098039,
+            0.8862745,
+            0.8392157,
+            1.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "place",
+      "pos": {
+        "x": 1680.0,
+        "y": 40.0
+      },
+      "controls": {
+        "y": {
+          "Float": -0.94
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "slug": "solidrender",
+      "pos": {
+        "x": 1940.0,
+        "y": 40.0
+      },
+      "controls": {
+        "distance": {
+          "Float": 6.6
+        },
+        "tilt": {
+          "Float": 0.06
+        },
+        "targetY": {
+          "Float": 1.0
+        },
+        "fog": {
+          "Float": 0.02
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "slug": "output",
+      "pos": {
+        "x": 2260.0,
+        "y": 40.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 8.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 2,
+        "key": "cycles"
+      },
+      "to": {
+        "node": 5,
+        "key": "clock"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "to"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 7,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "solid"
+      },
+      "to": {
+        "node": 8,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 8,
+        "key": "copyColor"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "solid"
+      },
+      "to": {
+        "node": 9,
+        "key": "onto"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "solid"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "solid"
+      },
+      "to": {
+        "node": 11,
+        "key": "solid"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 11,
+        "key": "orbit"
+      }
+    },
+    {
+      "from": {
+        "node": 11,
+        "key": "output"
+      },
+      "to": {
+        "node": 12,
+        "key": "input"
+      }
+    }
+  ]
+}

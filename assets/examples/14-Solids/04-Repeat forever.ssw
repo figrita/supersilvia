@@ -3,7 +3,7 @@
   "version": 1,
   "name": "Repeat forever",
   "kind": "solids",
-  "blurb": "A grid of copies to the horizon, each scattered, spun, sized and tinted",
+  "blurb": "A grid of copies to the horizon, each turned, stretched and tinted by a list",
   "layout": "linear",
   "nodes": [
     {
@@ -17,7 +17,7 @@
       "options": {},
       "values": {
         "text": {
-          "Text": "One rounded box, repeated on a grid that goes on forever: the Repeat folds every point into one cell, so endless copies cost what one does. Each copy is moved, turned, shrunk and tinted by its cell and the Seed, and the Ground after the Repeat is not repeated, since a modifier changes only what is cabled into it. Try the Repeat's Seed, Scatter, Spin, Size and Tint, or Render 3D's Lens Type on Fisheye."
+          "Text": "One rounded box, repeated on a grid that goes on forever: the Repeat folds every point into one cell, so endless copies cost what one does. Three Random lists on its Per copy rows turn, stretch and tint each copy; a Forever repeat runs through a list cell by cell, each row shifted by one, so lists of different lengths never line up the same way twice. The Ground after the Repeat is not repeated, since a modifier changes only what is cabled into it. Try another Seed on a list, or Render 3D's Lens Type on Fisheye."
         }
       },
       "width": 380.0
@@ -26,7 +26,7 @@
       "id": 2,
       "slug": "mastergear",
       "pos": {
-        "x": 1040.0,
+        "x": 1300.0,
         "y": 256.0
       },
       "controls": {
@@ -73,7 +73,7 @@
       "id": 4,
       "slug": "repeatgrid",
       "pos": {
-        "x": 780.0,
+        "x": 1040.0,
         "y": 40.0
       },
       "controls": {
@@ -85,14 +85,101 @@
         }
       },
       "options": {
-        "extent": "forever"
+        "extent": "forever",
+        "perCopy": "on"
       }
     },
     {
       "id": 5,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 388.0
+      },
+      "controls": {
+        "count": {
+          "Float": 7.0
+        },
+        "min": {
+          "Float": 0.0
+        },
+        "max": {
+          "Float": 0.25
+        },
+        "seed": {
+          "Float": 3.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 566.0
+      },
+      "controls": {
+        "count": {
+          "Float": 5.0
+        },
+        "min": {
+          "Float": 0.5
+        },
+        "max": {
+          "Float": 1.8
+        },
+        "seed": {
+          "Float": 11.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "randomlist",
+      "pos": {
+        "x": 520.0,
+        "y": 744.0
+      },
+      "controls": {
+        "count": {
+          "Float": 6.0
+        },
+        "min": {
+          "Float": 0.0
+        },
+        "max": {
+          "Float": 1.0
+        },
+        "seed": {
+          "Float": 5.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "hsla",
+      "pos": {
+        "x": 780.0,
+        "y": 744.0
+      },
+      "controls": {
+        "s": {
+          "Float": 0.55
+        },
+        "l": {
+          "Float": 0.7
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
       "slug": "ground",
       "pos": {
-        "x": 1040.0,
+        "x": 1300.0,
         "y": 40.0
       },
       "controls": {
@@ -111,10 +198,10 @@
       "options": {}
     },
     {
-      "id": 6,
+      "id": 10,
       "slug": "solidrender",
       "pos": {
-        "x": 1300.0,
+        "x": 1560.0,
         "y": 40.0
       },
       "controls": {
@@ -150,10 +237,10 @@
       }
     },
     {
-      "id": 7,
+      "id": 11,
       "slug": "output",
       "pos": {
-        "x": 1620.0,
+        "x": 1880.0,
         "y": 40.0
       },
       "controls": {
@@ -186,21 +273,61 @@
     },
     {
       "from": {
+        "node": 5,
+        "key": "list"
+      },
+      "to": {
+        "node": 4,
+        "key": "copyTurn"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "list"
+      },
+      "to": {
+        "node": 4,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "list"
+      },
+      "to": {
+        "node": 8,
+        "key": "h"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 4,
+        "key": "copyColor"
+      }
+    },
+    {
+      "from": {
         "node": 4,
         "key": "solid"
       },
       "to": {
-        "node": 5,
+        "node": 9,
         "key": "onto"
       }
     },
     {
       "from": {
-        "node": 5,
+        "node": 9,
         "key": "solid"
       },
       "to": {
-        "node": 6,
+        "node": 10,
         "key": "solid"
       }
     },
@@ -210,17 +337,17 @@
         "key": "wrapped"
       },
       "to": {
-        "node": 6,
+        "node": 10,
         "key": "orbit"
       }
     },
     {
       "from": {
-        "node": 6,
+        "node": 10,
         "key": "output"
       },
       "to": {
-        "node": 7,
+        "node": 11,
         "key": "input"
       }
     }

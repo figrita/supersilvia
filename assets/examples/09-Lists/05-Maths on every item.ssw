@@ -1,0 +1,366 @@
+{
+  "format": "supersilvia-workspace",
+  "version": 1,
+  "name": "Maths on every item",
+  "kind": "video",
+  "blurb": "A grid of dots rippling out from the middle, worked out a dot at a time",
+  "layout": "linear",
+  "nodes": [
+    {
+      "id": 1,
+      "slug": "note",
+      "pos": {
+        "x": 40.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {},
+      "values": {
+        "text": {
+          "Text": "A list into a maths node runs the maths once per item and gives a list back. Grid Points lays out 16 \u00d7 9 dots; Pythagorean takes each dot's X and Y and gives its distance from the middle, and the Sine of that distance, its Phase walked back by the Master Gear, is a wave rolling outward. Add 0.55 and every dot has a size, small in the troughs and big on the crests. Try the Sine's Frequency, or Grid Points' Columns and Rows."
+        }
+      },
+      "width": 380.0
+    },
+    {
+      "id": 2,
+      "slug": "mastergear",
+      "pos": {
+        "x": 520.0,
+        "y": 504.0
+      },
+      "controls": {
+        "length": {
+          "Float": 3.0
+        }
+      },
+      "options": {
+        "display": "rosette"
+      }
+    },
+    {
+      "id": 3,
+      "slug": "gridpoints",
+      "pos": {
+        "x": 520.0,
+        "y": 40.0
+      },
+      "controls": {
+        "columns": {
+          "Float": 16.0
+        },
+        "rows": {
+          "Float": 9.0
+        },
+        "width": {
+          "Float": 3.4
+        },
+        "height": {
+          "Float": 1.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "slug": "pythagorean",
+      "pos": {
+        "x": 816.0,
+        "y": 40.0
+      },
+      "controls": {},
+      "options": {}
+    },
+    {
+      "id": 5,
+      "slug": "sine",
+      "pos": {
+        "x": 1076.0,
+        "y": 40.0
+      },
+      "controls": {
+        "frequency": {
+          "Float": 0.9
+        },
+        "amplitude": {
+          "Float": 0.5
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "slug": "multiply",
+      "pos": {
+        "x": 816.0,
+        "y": 484.0
+      },
+      "controls": {
+        "b": {
+          "Float": -1.0
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 7,
+      "slug": "add",
+      "pos": {
+        "x": 1336.0,
+        "y": 40.0
+      },
+      "controls": {
+        "b": {
+          "Float": 0.55
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "slug": "radialgradient",
+      "pos": {
+        "x": 520.0,
+        "y": 262.0
+      },
+      "controls": {
+        "centerColor": {
+          "Color": [
+            0.7215686,
+            1.0,
+            0.945098,
+            1.0
+          ]
+        },
+        "edgeColor": {
+          "Color": [
+            0.1647059,
+            0.4235294,
+            1.0,
+            1.0
+          ]
+        },
+        "radius": {
+          "Float": 0.9
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "slug": "circle",
+      "pos": {
+        "x": 816.0,
+        "y": 262.0
+      },
+      "controls": {
+        "radius": {
+          "Float": 0.9
+        },
+        "softness": {
+          "Float": 0.06
+        },
+        "background": {
+          "Color": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "slug": "stamp",
+      "pos": {
+        "x": 1596.0,
+        "y": 262.0
+      },
+      "controls": {
+        "bgColor": {
+          "Color": [
+            0.0431373,
+            0.0313725,
+            0.1254902,
+            1.0
+          ]
+        },
+        "size": {
+          "Float": 0.21
+        }
+      },
+      "options": {
+        "layout": "points",
+        "perCopy": "on",
+        "overlap": "off"
+      }
+    },
+    {
+      "id": 11,
+      "slug": "output",
+      "pos": {
+        "x": 1892.0,
+        "y": 262.0
+      },
+      "controls": {
+        "fps": {
+          "Float": 25.0
+        },
+        "duration": {
+          "Float": 3.0
+        },
+        "warmup": {
+          "Float": 0.0
+        }
+      },
+      "options": {
+        "resolution": "1280x720",
+        "writer": "gif"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 4,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 4,
+        "key": "b"
+      }
+    },
+    {
+      "from": {
+        "node": 4,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 2,
+        "key": "wrapped"
+      },
+      "to": {
+        "node": 6,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 6,
+        "key": "output"
+      },
+      "to": {
+        "node": 5,
+        "key": "phase"
+      }
+    },
+    {
+      "from": {
+        "node": 5,
+        "key": "output"
+      },
+      "to": {
+        "node": 7,
+        "key": "a"
+      }
+    },
+    {
+      "from": {
+        "node": 8,
+        "key": "output"
+      },
+      "to": {
+        "node": 9,
+        "key": "foreground"
+      }
+    },
+    {
+      "from": {
+        "node": 9,
+        "key": "color"
+      },
+      "to": {
+        "node": 10,
+        "key": "input"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 10,
+        "key": "count"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "x"
+      },
+      "to": {
+        "node": 10,
+        "key": "copyX"
+      }
+    },
+    {
+      "from": {
+        "node": 3,
+        "key": "y"
+      },
+      "to": {
+        "node": 10,
+        "key": "copyY"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "copyScaleX"
+      }
+    },
+    {
+      "from": {
+        "node": 7,
+        "key": "output"
+      },
+      "to": {
+        "node": 10,
+        "key": "copyScaleY"
+      }
+    },
+    {
+      "from": {
+        "node": 10,
+        "key": "output"
+      },
+      "to": {
+        "node": 11,
+        "key": "input"
+      }
+    }
+  ]
+}
